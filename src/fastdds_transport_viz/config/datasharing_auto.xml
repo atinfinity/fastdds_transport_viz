@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!-- Enables Fast DDS data-sharing (zero-copy) delivery for every ROS 2 endpoint
+     whose type is bounded. rmw_fastrtps announces data-sharing OFF by default;
+     use with:
+       export FASTRTPS_DEFAULT_PROFILES_FILE=$(ros2 pkg prefix fastdds_transport_viz)/share/fastdds_transport_viz/config/datasharing_auto.xml
+       export RMW_FASTRTPS_USE_QOS_FROM_XML=1
+     ON (instead of AUTO) would make writer creation fail for unbounded types such as /rosout. -->
+<dds xmlns="http://www.eprosima.com/XMLSchemas/fastRTPS_Profiles">
+  <profiles>
+    <data_writer profile_name="ds_writer" is_default_profile="true">
+      <qos><data_sharing><kind>AUTO</kind></data_sharing></qos>
+      <historyMemoryPolicy>PREALLOCATED_WITH_REALLOC</historyMemoryPolicy>
+    </data_writer>
+    <data_reader profile_name="ds_reader" is_default_profile="true">
+      <qos><data_sharing><kind>AUTO</kind></data_sharing></qos>
+      <historyMemoryPolicy>PREALLOCATED_WITH_REALLOC</historyMemoryPolicy>
+    </data_reader>
+  </profiles>
+</dds>
