@@ -371,15 +371,49 @@
   function isSelected(kind, id) { return state.selection && state.selection.kind === kind && state.selection.id === id; }
   function select(sel) { state.selection = sel; render(); }
 
-  function setDocument(doc, sourceName) {
+  function setDocument(doc, sourceName, keepSelection) {
     if (!doc || doc.schema_version !== 1 || !Array.isArray(doc.topics)) {
       alert(`Not a transport_viz --json document (schema_version 1): ${sourceName}`);
       return;
     }
     state.doc = doc;
-    state.selection = null;
+    if (!keepSelection) state.selection = null;   // live updates keep the selection; render() drops it if gone
     render();
     document.title = `transport_viz viewer – ${sourceName}`;
+  }
+
+  // ---------------------------------------------------------------- live mode (serve.py / transport_viz_web)
+
+  const live = { es: null, paused: false, pending: null, updates: 0 };
+
+  function liveStatus(cls, text) {
+    const el = d3.select('#live').attr('hidden', null).attr('class', `live ${cls}`);
+    el.select('#live-text').text(text);
+  }
+
+  function connectLive() {
+    live.es = new EventSource('events');
+    liveStatus('connecting', 'live: connecting…');
+    live.es.addEventListener('document', (e) => {
+      let doc;
+      try { doc = JSON.parse(e.data); } catch (err) { console.error('live: bad document', err); return; }
+      live.updates++;
+      if (live.paused) { live.pending = doc; liveStatus('paused', `live: paused (${live.updates} updates, newest ${doc.observed_at})`); return; }
+      setDocument(doc, 'live', true);
+      liveStatus('', `live: updated ${doc.observed_at} (#${live.updates})`);
+    });
+    live.es.addEventListener('status', (e) => {
+      const st = JSON.parse(e.data);
+      liveStatus('ended', `live: ${st.message || st.state}`);
+      live.es.close();
+    });
+    live.es.onerror = () => { if (live.es.readyState !== EventSource.CLOSED) liveStatus('reconnecting', 'live: connection lost, reconnecting…'); };
+    d3.select('#live-pause').on('click', function () {
+      live.paused = !live.paused;
+      this.textContent = live.paused ? 'Resume' : 'Pause';
+      if (!live.paused && live.pending) { setDocument(live.pending, 'live', true); live.pending = null; }
+      liveStatus(live.paused ? 'paused' : '', live.paused ? 'live: paused' : 'live: resumed');
+    });
   }
 
   function loadFile(file) {
@@ -416,6 +450,8 @@
   }
 
   render();
-  const src = new URLSearchParams(location.search).get('src');
-  if (src) loadUrl(src); else loadSample();
+  const params = new URLSearchParams(location.search);
+  if (params.get('live')) connectLive();
+  else if (params.get('src')) loadUrl(params.get('src'));
+  else loadSample();
 })();
