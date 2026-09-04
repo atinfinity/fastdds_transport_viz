@@ -56,6 +56,7 @@ struct Options
   bool watch{false};
   double interval{2.0};
   std::string topic_regex;
+  std::string node_regex;
   bool list_codes{false};
   enum class Color { Auto, Always, Never } color{Color::Auto};
 };
@@ -75,6 +76,9 @@ void usage()
     "  --quiet <sec>      stop early after this many seconds without discovery events\n"
     "                     (default: 1; ignored with --stats)\n"
     "  --topic <regex>    only show topics whose (ROS) name matches the regex\n"
+    "  --node <regex>     only show pairs where the writer or the reader belongs to a\n"
+    "                     node whose full name matches the regex (that node's unpaired\n"
+    "                     endpoints are kept too)\n"
     "  --all              include services/actions and non-ROS DDS topics\n"
     "  -v, --verbose      expand writer -> reader pairs under each topic\n"
     "  --explain          print a legend for every reason code used\n"
@@ -108,6 +112,8 @@ bool parse(int argc, char ** argv, Options & o)
       o.timeout = std::atof(need(i, "--timeout"));
     } else if (a == "--quiet") {o.quiet = std::atof(need(i, "--quiet"));} else if (a == "--topic") {
       o.topic_regex = need(i, "--topic");
+    } else if (a == "--node") {
+      o.node_regex = need(i, "--node");
     } else if (a == "--interval") {o.interval = std::atof(need(i, "--interval"));} else if (a == "--color") {
       std::string m = need(i, "--color");
       if (m == "auto") {o.color = Options::Color::Auto;} else if (m == "always") {
@@ -132,6 +138,17 @@ bool parse(int argc, char ** argv, Options & o)
       return false;
     }
   }
+  for (const auto & [name, pattern] : {std::pair<const char *, const std::string *>{"--topic", &o.topic_regex},
+      std::pair<const char *, const std::string *>{"--node", &o.node_regex}})
+  {
+    if (pattern->empty()) {continue;}
+    try {
+      std::regex{*pattern};
+    } catch (const std::regex_error & e) {
+      std::cerr << name << ": invalid regex '" << *pattern << "': " << e.what() << "\n";
+      return false;
+    }
+  }
   return true;
 }
 
@@ -141,6 +158,16 @@ std::string now_iso8601()
   char buf[32];
   std::strftime(buf, sizeof(buf), "%Y-%m-%dT%H:%M:%SZ", std::gmtime(&t));
   return buf;
+}
+
+void apply_node_filter(std::vector<fastdds_transport_viz::TopicSummary> & topics, const Options & o)
+{
+  if (o.node_regex.empty()) {return;}
+  const std::regex re(o.node_regex);
+  fastdds_transport_viz::filter_by_node(
+    topics, [&re](const fastdds_transport_viz::Endpoint & e) {
+      return !e.node_name.empty() && std::regex_search(e.node_name, re);
+    });
 }
 
 Snapshot collect(
@@ -200,6 +227,7 @@ Snapshot collect(
   snap.local_host_id = observer.local_host_id();
   snap.endpoints = std::move(kept);
   snap.topics = fastdds_transport_viz::summarize(snap.endpoints);
+  apply_node_filter(snap.topics, o);
   snap.stats = std::move(stats_data);
   fastdds_transport_viz::apply_stats(snap.topics, snap.stats);
   return snap;
@@ -288,7 +316,7 @@ struct WatchState
   WatchDecorations deco;
 
   /// Apply the diff between the previously rendered frame and `snap`.
-  void update(Snapshot & snap, const RenderOptions & ropt)
+  void update(Snapshot & snap, const RenderOptions & ropt, const Options & o)
   {
     auto current = fastdds_transport_viz::pair_states(snap);
     snap.has_changes = true;
@@ -347,6 +375,7 @@ struct WatchState
     // Snapshot::endpoints, so rebuild them against the copy.
     last_snapshot = snap;
     last_snapshot.topics = fastdds_transport_viz::summarize(last_snapshot.endpoints);
+    apply_node_filter(last_snapshot.topics, o);
     fastdds_transport_viz::apply_stats(last_snapshot.topics, last_snapshot.stats);
     have_previous = true;
   }
@@ -437,7 +466,7 @@ int main(int argc, char ** argv)
           Snapshot snap = collect(observer, resolver, stats.get(), o, domain, elapsed);
           ropt.verbose = o.verbose;
           ropt.explain = o.explain;
-          ws.update(snap, ropt);
+          ws.update(snap, ropt, o);
           if (o.json) {
             std::cout << fastdds_transport_viz::render_json(snap, ropt) << std::flush;
           } else {
@@ -448,7 +477,9 @@ int main(int argc, char ** argv)
             std::ostringstream frame;
             frame << "transport_viz  domain " << domain << "  " << snap.observed_at
                   << "  refresh " << o.interval << "s" << (paused ? "  [PAUSED]" : "")
-                  << (o.all ? "  [all]" : "") << "\n\n";
+                  << (o.all ? "  [all]" : "")
+                  << (o.topic_regex.empty() ? "" : "  [topic: " + o.topic_regex + "]")
+                  << (o.node_regex.empty() ? "" : "  [node: " + o.node_regex + "]") << "\n\n";
             frame << fastdds_transport_viz::render_table(snap, ropt);
             if (term.enabled()) {
               frame << "\n q quit   p " << (paused ? "resume" : "pause") << "   v pairs   e legend   a all\n";

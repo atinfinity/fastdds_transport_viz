@@ -4,6 +4,7 @@
 #include "fastdds_transport_viz/decision.hpp"
 
 #include <algorithm>
+#include <functional>
 #include <map>
 #include <set>
 #include <string>
@@ -217,6 +218,58 @@ std::vector<TopicSummary> summarize(const std::vector<Endpoint> & endpoints)
       return a.display_topic < b.display_topic;
     });
   return out;
+}
+
+void filter_by_node(
+  std::vector<TopicSummary> & topics,
+  const std::function<bool(const Endpoint &)> & node_matches)
+{
+  std::vector<TopicSummary> out;
+  out.reserve(topics.size());
+  for (auto & t : topics) {
+    std::set<const Endpoint *> matching;     // endpoints of matching nodes
+    for (const auto * e : t.writers) {
+      if (node_matches(*e)) {matching.insert(e);}
+    }
+    for (const auto * e : t.readers) {
+      if (node_matches(*e)) {matching.insert(e);}
+    }
+    std::set<const Endpoint *> keep = matching;   // + partners of the kept pairs
+    std::vector<Pair> pairs;
+    for (const auto & p : t.pairs) {
+      if (matching.count(p.writer) || matching.count(p.reader)) {
+        keep.insert(p.writer);
+        keep.insert(p.reader);
+        pairs.push_back(p);
+      }
+    }
+    if (keep.empty()) {
+      continue;
+    }
+    auto prune = [&keep](std::vector<const Endpoint *> & v) {
+        v.erase(
+          std::remove_if(v.begin(), v.end(), [&keep](const Endpoint * e) {return !keep.count(e);}),
+          v.end());
+      };
+    prune(t.writers);
+    prune(t.readers);
+    t.pairs = std::move(pairs);
+    const bool type_mismatch = std::find(
+      t.unmatched_reasons.begin(), t.unmatched_reasons.end(), "type-name-mismatch") !=
+      t.unmatched_reasons.end();
+    t.unmatched_reasons.clear();
+    if (t.writers.empty()) {
+      t.unmatched_reasons.push_back("no-matching-writer");
+    }
+    if (t.readers.empty()) {
+      t.unmatched_reasons.push_back("no-matching-reader");
+    }
+    if (type_mismatch && t.pairs.empty()) {
+      t.unmatched_reasons.push_back("type-name-mismatch");
+    }
+    out.push_back(std::move(t));
+  }
+  topics = std::move(out);
 }
 
 namespace

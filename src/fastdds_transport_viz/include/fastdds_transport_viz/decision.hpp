@@ -9,6 +9,7 @@
 #define FASTDDS_TRANSPORT_VIZ__DECISION_HPP_
 
 #include <map>
+#include <functional>
 #include <string>
 #include <vector>
 
@@ -24,6 +25,14 @@ Verdict decide(const Endpoint & writer, const Endpoint & reader);
 /// Endpoints are grouped by DDS topic name; writers and readers with
 /// different type names are not paired and produce a warning on the topic.
 std::vector<TopicSummary> summarize(const std::vector<Endpoint> & endpoints);
+
+/// --node filter, applied after summarize(): keeps the pairs whose writer or reader
+/// belongs to a node accepted by `node_matches`, every endpoint of such nodes (paired or
+/// not) and the partner endpoints of the kept pairs. Topics left without endpoints are
+/// dropped; the no-matching-* reasons are recomputed for topics left without pairs.
+void filter_by_node(
+  std::vector<TopicSummary> & topics,
+  const std::function<bool(const Endpoint &)> & node_matches);
 
 /// Overlay statistics-module measurements on the predicted verdicts:
 /// fills Pair::measured, upgrades confidence, and adds reason / warning codes

@@ -196,6 +196,73 @@ TEST(Summarize, PairsWritersWithReadersAndFlagsUnmatched)
   EXPECT_TRUE(has(topics[1].unmatched_reasons, "no-matching-reader"));
 }
 
+TEST(FilterByNode, KeepsMatchingNodesTheirPartnersAndUnpairedEndpoints)
+{
+  auto ep = [](bool writer, const std::string & topic, const std::string & node) {
+      Endpoint e = make(writer, HOST_A, {shm(), udp4("127.0.0.1")});
+      e.dds_topic = "rt" + topic;
+      e.ros_topic = topic;
+      e.node_name = node;
+      return e;
+    };
+  std::vector<Endpoint> eps;
+  eps.push_back(ep(true, "/chatter", "/talker"));      // 0
+  eps.push_back(ep(false, "/chatter", "/listener"));   // 1
+  eps.push_back(ep(false, "/chatter", "/other"));      // 2
+  eps.push_back(ep(true, "/solo", "/listener"));       // 3: no reader
+  eps.push_back(ep(true, "/x", "/foo"));               // 4
+  eps.push_back(ep(false, "/x", "/bar"));              // 5
+  eps.push_back(ep(false, "/raw", ""));                // 6: no node name
+  auto topics = summarize(eps);
+  ASSERT_EQ(topics.size(), 4u);
+
+  filter_by_node(topics, [](const Endpoint & e) {return e.node_name == "/listener";});
+
+  ASSERT_EQ(topics.size(), 2u);
+  const auto & chatter = topics[0];
+  EXPECT_EQ(chatter.display_topic, "/chatter");
+  ASSERT_EQ(chatter.pairs.size(), 1u);
+  EXPECT_EQ(chatter.pairs[0].writer, &eps[0]);       // partner kept
+  EXPECT_EQ(chatter.pairs[0].reader, &eps[1]);
+  EXPECT_EQ(chatter.writers.size(), 1u);
+  EXPECT_EQ(chatter.readers.size(), 1u);             // /other dropped
+  EXPECT_TRUE(chatter.unmatched_reasons.empty());
+
+  const auto & solo = topics[1];
+  EXPECT_EQ(solo.display_topic, "/solo");
+  EXPECT_TRUE(solo.pairs.empty());
+  EXPECT_EQ(solo.writers.size(), 1u);
+  EXPECT_TRUE(has(solo.unmatched_reasons, "no-matching-reader"));
+}
+
+TEST(FilterByNode, RecomputesUnmatchedWhenPartnersVanish)
+{
+  // writer of /talker paired with a reader of /other only: filtering on /talker keeps
+  // the pair (and thus /other's reader); filtering on /other keeps it too. Filtering on
+  // a node whose reader has no writer yields no-matching-writer.
+  auto ep = [](bool writer, const std::string & node) {
+      Endpoint e = make(writer, HOST_A, {shm(), udp4("127.0.0.1")});
+      e.node_name = node;
+      return e;
+    };
+  std::vector<Endpoint> eps;
+  eps.push_back(ep(true, "/talker"));
+  eps.push_back(ep(false, "/other"));
+  Endpoint lonely = ep(false, "/lonely");
+  lonely.dds_type = "other::type";       // type mismatch: never paired
+  eps.push_back(lonely);
+  auto topics = summarize(eps);
+  ASSERT_EQ(topics.size(), 1u);
+  EXPECT_TRUE(has(topics[0].unmatched_reasons, "type-name-mismatch"));
+
+  filter_by_node(topics, [](const Endpoint & e) {return e.node_name == "/lonely";});
+  ASSERT_EQ(topics.size(), 1u);
+  EXPECT_TRUE(topics[0].pairs.empty());
+  EXPECT_TRUE(topics[0].writers.empty());
+  EXPECT_TRUE(has(topics[0].unmatched_reasons, "no-matching-writer"));
+  EXPECT_FALSE(has(topics[0].unmatched_reasons, "no-matching-reader"));
+}
+
 TEST(RosNames, DemangleTopics)
 {
   EXPECT_EQ(demangle_topic("rt/chatter").kind, RosEntityKind::Topic);

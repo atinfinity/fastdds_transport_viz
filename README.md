@@ -41,8 +41,8 @@ the nodes you observe.
 ## Usage
 
 ```
-ros2 transport list [--domain N] [--timeout S] [--quiet S] [--topic REGEX] [--all]
-                    [-v] [--explain] [--stats] [--json] [--color auto|always|never]
+ros2 transport list [--domain N] [--timeout S] [--quiet S] [--topic REGEX] [--node REGEX]
+                    [--all] [-v] [--explain] [--stats] [--json] [--color auto|always|never]
                     [--watch [--interval S]]
 ros2 transport codes
 ```
@@ -57,6 +57,8 @@ ros2 transport codes
 | `--explain` | append a legend for the reason codes used |
 | `--stats` | also show measured transports (observed nodes need `FASTDDS_STATISTICS`, see [docs/statistics.md](docs/statistics.md)) |
 | `--json` | machine-readable output (`schema_version: 1`, see `schema/`); open it in the [web viewer](docs/web-viewer.md) |
+| `--topic REGEX` | only topics whose name matches |
+| `--node REGEX` | only pairs involving a node whose full name matches (its unpaired endpoints stay visible) |
 | `--all` | include services/actions and non-ROS DDS topics |
 | `--watch` | re-render every `--interval` seconds, highlighting added/changed/removed pairs; keys `q p v e a` (with `--json`: JSON Lines with a `changes` object) |
 | `--color` | ANSI colors for transports and warnings (`auto` = only on a terminal) |
