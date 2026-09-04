@@ -4,6 +4,7 @@
 import os
 import sys
 
+import launch
 import launch_testing
 
 sys.path.insert(0, os.path.dirname(__file__))
@@ -22,10 +23,13 @@ def has_ipv6_interface():
 
 
 def generate_test_description():
-    nodes = []
     if has_ipv6_interface():
         nodes = [node_action('demo_nodes_cpp', 'talker', 'talker', ENV),
                  node_action('demo_nodes_cpp', 'listener', 'listener', ENV)]
+    else:
+        # keep the launch alive while the test skips itself (launch_testing fails when
+        # every process is gone before the tests ran)
+        nodes = [launch.actions.ExecuteProcess(cmd=['sleep', '30'], output='screen')]
     return description(nodes), {}
 
 
