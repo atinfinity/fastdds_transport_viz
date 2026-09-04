@@ -8,6 +8,7 @@
 #ifndef FASTDDS_TRANSPORT_VIZ__DECISION_HPP_
 #define FASTDDS_TRANSPORT_VIZ__DECISION_HPP_
 
+#include <map>
 #include <string>
 #include <vector>
 
@@ -28,6 +29,16 @@ std::vector<TopicSummary> summarize(const std::vector<Endpoint> & endpoints);
 /// fills Pair::measured, upgrades confidence, and adds reason / warning codes
 /// (e.g. measured-transport-mismatch). Pure function.
 void apply_stats(std::vector<TopicSummary> & topics, const StatsData & stats);
+
+/// Key and highlight-relevant state of a pair.
+PairKey pair_key(const TopicSummary & topic, const Pair & pair);
+PairState pair_state(const Pair & pair);
+
+/// All pairs of a snapshot keyed for comparison.
+std::map<PairKey, PairState> pair_states(const Snapshot & snap);
+
+/// Pairs added / removed / changed between two frames. Pure function.
+Changes diff(const std::map<PairKey, PairState> & previous, const std::map<PairKey, PairState> & current);
 
 /// Human readable explanation for a reason / warning code (English).
 std::string explain(const std::string & code);

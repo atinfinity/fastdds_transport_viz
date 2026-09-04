@@ -14,6 +14,7 @@
 #include <set>
 #include <utility>
 #include <string>
+#include <tuple>
 #include <vector>
 
 namespace fastdds_transport_viz
@@ -159,6 +160,53 @@ struct StatsData
   size_t samples{0};
 };
 
+// ---- frame-to-frame changes (--watch) ------------------------------------------
+
+struct PairKey
+{
+  std::string topic;          // display topic name
+  std::string writer_guid;
+  std::string reader_guid;
+  bool operator<(const PairKey & o) const
+  {
+    return std::tie(topic, writer_guid, reader_guid) < std::tie(o.topic, o.writer_guid, o.reader_guid);
+  }
+  bool operator==(const PairKey & o) const
+  {
+    return topic == o.topic && writer_guid == o.writer_guid && reader_guid == o.reader_guid;
+  }
+};
+
+/// The part of a pair's verdict whose change is worth highlighting.
+struct PairState
+{
+  Transport transport{Transport::None};
+  Confidence confidence{Confidence::Certain};
+  std::vector<Transport> measured;
+  std::vector<std::string> warnings;
+  bool operator==(const PairState & o) const
+  {
+    return transport == o.transport && confidence == o.confidence && measured == o.measured &&
+           warnings == o.warnings;
+  }
+  bool operator!=(const PairState & o) const {return !(*this == o);}
+};
+
+struct PairChange
+{
+  PairKey key;
+  PairState from;
+  PairState to;
+};
+
+struct Changes
+{
+  std::vector<PairKey> added;
+  std::vector<PairKey> removed;
+  std::vector<PairChange> changed;
+  bool empty() const {return added.empty() && removed.empty() && changed.empty();}
+};
+
 struct Snapshot
 {
   int domain{0};
@@ -168,6 +216,8 @@ struct Snapshot
   std::vector<Endpoint> endpoints;
   std::vector<TopicSummary> topics;
   StatsData stats;
+  bool has_changes{false};      // true in --watch mode: `changes` is meaningful
+  Changes changes;              // relative to the previously rendered frame
 };
 
 // ---- small helpers -------------------------------------------------------

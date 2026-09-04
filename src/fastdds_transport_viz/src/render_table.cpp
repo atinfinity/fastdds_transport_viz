@@ -31,8 +31,66 @@ std::string host_label(const Snapshot & snap, const Endpoint & e, const RenderOp
   return "host:" + host_id_hex(e.host_id);
 }
 
+size_t visible_width(const std::string & s)
+{
+  size_t n = 0;
+  for (size_t i = 0; i < s.size(); ++i) {
+    if (s[i] == '\033') {                 // skip CSI sequence "\033[...m"
+      while (i < s.size() && s[i] != 'm') {++i;}
+      continue;
+    }
+    if ((static_cast<unsigned char>(s[i]) & 0xC0) != 0x80) {++n;}   // count UTF-8 lead bytes
+  }
+  return n;
+}
+
+std::string truncate_visible(const std::string & s, size_t width)
+{
+  if (width == 0 || visible_width(s) <= width) {return s;}
+  std::string out;
+  size_t n = 0;
+  bool in_escape = false;
+  for (size_t i = 0; i < s.size(); ++i) {
+    if (s[i] == '\033') {in_escape = true;}
+    if (in_escape) {
+      out += s[i];
+      if (s[i] == 'm') {in_escape = false;}
+      continue;
+    }
+    bool lead = (static_cast<unsigned char>(s[i]) & 0xC0) != 0x80;
+    if (lead && n + 1 >= width) {break;}
+    if (lead) {++n;}
+    out += s[i];
+  }
+  return out + "\u2026\033[0m";
+}
+
 namespace
 {
+
+const char * ansi_for(Transport t)
+{
+  switch (t) {
+    case Transport::UDPv4: return "\033[34m";
+    case Transport::UDPv6: return "\033[36m";
+    case Transport::TCPv4:
+    case Transport::TCPv6: return "\033[35m";
+    case Transport::SHM: return "\033[32m";
+    case Transport::DataSharing: return "\033[33m";
+    default: return "\033[2m";
+  }
+}
+
+std::string paint(const std::string & text, const char * code, bool enabled)
+{
+  return enabled ? std::string(code) + text + "\033[0m" : text;
+}
+
+const char * const RED = "\033[31m";
+const char * const GREEN = "\033[32m";
+const char * const YELLOW = "\033[33m";
+const char * const DIM = "\033[2m";
+const char * const BOLD = "\033[1m";
 
 std::string join(const std::vector<std::string> & v, const std::string & sep)
 {
@@ -44,35 +102,36 @@ std::string join(const std::vector<std::string> & v, const std::string & sep)
   return out;
 }
 
-std::string transport_label(const Verdict & v)
+std::string transport_label(const Verdict & v, bool color = false)
 {
   std::string s = to_string(v.transport);
   if (v.confidence == Confidence::Likely) {
     s += "?";
   }
-  return s;
+  return paint(s, ansi_for(v.transport), color);
 }
 
-std::string aggregate_transports(const TopicSummary & t)
+std::string aggregate_transports(const TopicSummary & t, bool color)
 {
   if (t.pairs.empty()) {
     return "-";
   }
   std::map<std::string, int> counts;
   std::vector<std::string> order;
+  std::map<std::string, std::string> painted;
   for (const auto & p : t.pairs) {
     auto label = transport_label(p.verdict);
-    if (!counts.count(label)) {order.push_back(label);}
+    if (!counts.count(label)) {order.push_back(label); painted[label] = transport_label(p.verdict, color);}
     counts[label]++;
   }
   std::vector<std::string> parts;
   for (const auto & label : order) {
-    parts.push_back(label + " x" + std::to_string(counts[label]));
+    parts.push_back(painted[label] + " x" + std::to_string(counts[label]));
   }
   return join(parts, ", ");
 }
 
-std::string aggregate_reasons(const TopicSummary & t)
+std::string aggregate_reasons(const TopicSummary & t, bool color)
 {
   std::vector<std::string> out;
   std::set<std::string> seen;
@@ -82,10 +141,12 @@ std::string aggregate_reasons(const TopicSummary & t)
   for (const auto & r : t.unmatched_reasons) {add(r);}
   for (const auto & p : t.pairs) {
     for (const auto & r : p.verdict.reasons) {add(r);}
-    for (const auto & w : p.verdict.warnings) {add("!" + w);}
+    for (const auto & w : p.verdict.warnings) {add(paint("!" + w, RED, color));}
   }
   return join(out, ",");
 }
+
+}  // namespace
 
 std::string endpoint_label(const Snapshot & snap, const Endpoint & e, const RenderOptions & opt)
 {
@@ -96,6 +157,9 @@ std::string endpoint_label(const Snapshot & snap, const Endpoint & e, const Rend
   }
   return label;
 }
+
+namespace
+{
 
 std::string measured_label(const Pair & p)
 {
@@ -114,24 +178,59 @@ std::string measured_label(const Pair & p)
   return s;
 }
 
-void print_rows(std::ostringstream & os, const std::vector<std::vector<std::string>> & rows)
+std::vector<size_t> column_widths(const std::vector<std::vector<std::string>> & rows)
 {
-  if (rows.empty()) {return;}
-  std::vector<size_t> widths(rows[0].size(), 0);
+  std::vector<size_t> widths(rows.empty() ? 0 : rows[0].size(), 0);
   for (const auto & r : rows) {
-    for (size_t i = 0; i < r.size(); ++i) {
-      widths[i] = std::max(widths[i], r[i].size());
+    for (size_t i = 0; i < r.size() && i < widths.size(); ++i) {
+      widths[i] = std::max(widths[i], visible_width(r[i]));
     }
   }
-  for (const auto & r : rows) {
-    for (size_t i = 0; i < r.size(); ++i) {
-      os << r[i];
-      if (i + 1 < r.size()) {
-        os << std::string(widths[i] - r[i].size() + 2, ' ');
-      }
+  return widths;
+}
+
+void emit_row(std::ostringstream & os, const std::vector<std::string> & r,
+  const std::vector<size_t> & widths, size_t max_width)
+{
+  std::string line;
+  for (size_t i = 0; i < r.size(); ++i) {
+    line += r[i];
+    if (i + 1 < r.size()) {
+      size_t w = i < widths.size() ? widths[i] : visible_width(r[i]);
+      line += std::string(w - std::min(w, visible_width(r[i])) + 2, ' ');
     }
-    os << '\n';
   }
+  os << truncate_visible(line, max_width) << '\n';
+}
+
+void print_rows(std::ostringstream & os, const std::vector<std::vector<std::string>> & rows,
+  size_t max_width = 0)
+{
+  auto widths = column_widths(rows);
+  for (const auto & r : rows) {emit_row(os, r, widths, max_width);}
+}
+
+/// Mark column for --watch: "+" / "~" / "-" painted, or a space.
+std::string mark_cell(char mark, bool color)
+{
+  switch (mark) {
+    case '+': return paint("+", GREEN, color);
+    case '~': return paint("~", YELLOW, color);
+    case '-': return paint("-", DIM, color);
+    default: return " ";
+  }
+}
+
+char topic_mark(const TopicSummary & t, const WatchDecorations & w)
+{
+  char best = ' ';
+  for (const auto & p : t.pairs) {
+    auto it = w.marks.find(pair_key(t, p));
+    if (it == w.marks.end()) {continue;}
+    if (it->second == '+') {return '+';}
+    best = it->second;
+  }
+  return best;
 }
 
 }  // namespace
@@ -139,51 +238,86 @@ void print_rows(std::ostringstream & os, const std::vector<std::vector<std::stri
 std::string render_table(const Snapshot & snap, const RenderOptions & opt)
 {
   std::ostringstream os;
+  const bool color = opt.color;
+  const WatchDecorations * watch = opt.watch;
+  const std::string indent = watch ? "     " : "    ";
+
   std::vector<std::vector<std::string>> rows;
-  rows.push_back({"TOPIC", "TYPE", "PUBS", "SUBS", "TRANSPORT", "REASON"});
+  std::vector<std::string> header = {"TOPIC", "TYPE", "PUBS", "SUBS", "TRANSPORT", "REASON"};
+  if (watch) {header.insert(header.begin(), " ");}
+  rows.push_back(header);
   for (const auto & t : snap.topics) {
-    rows.push_back({
-        t.display_topic, t.display_type,
-        std::to_string(t.writers.size()), std::to_string(t.readers.size()),
-        aggregate_transports(t), aggregate_reasons(t)});
+    std::vector<std::string> row = {
+      t.display_topic, t.display_type,
+      std::to_string(t.writers.size()), std::to_string(t.readers.size()),
+      aggregate_transports(t, color), aggregate_reasons(t, color)};
+    if (watch) {row.insert(row.begin(), mark_cell(topic_mark(t, *watch), color));}
+    rows.push_back(row);
   }
-  if (!opt.verbose) {
-    print_rows(os, rows);
-  } else {
-    // Print each topic row followed by its indented pair rows. Widths are
-    // computed over the topic rows only so the table header stays aligned.
-    std::vector<std::vector<std::string>> header_only = {rows[0]};
-    std::vector<size_t> widths(rows[0].size(), 0);
-    for (const auto & r : rows) {
-      for (size_t i = 0; i < r.size(); ++i) {widths[i] = std::max(widths[i], r[i].size());}
+  // ghosts whose topic disappeared entirely get a topic row of their own
+  std::vector<const GhostPair *> orphan_ghosts;
+  if (watch) {
+    for (const auto & g : watch->ghosts) {
+      bool found = std::any_of(snap.topics.begin(), snap.topics.end(),
+          [&](const TopicSummary & t) {return t.display_topic == g.key.topic;});
+      if (!found) {orphan_ghosts.push_back(&g);}
     }
-    auto emit = [&](const std::vector<std::string> & r) {
-        for (size_t i = 0; i < r.size(); ++i) {
-          os << r[i];
-          if (i + 1 < r.size()) {os << std::string(widths[i] - r[i].size() + 2, ' ');}
-        }
-        os << '\n';
-      };
-    emit(rows[0]);
+    for (const auto * g : orphan_ghosts) {
+      rows.push_back({mark_cell('-', color), paint(g->key.topic, DIM, color), paint(g->type, DIM, color),
+          "-", "-", paint(g->transport_label, DIM, color), paint("(removed)", DIM, color)});
+    }
+  }
+
+  auto ghost_rows_for = [&](const std::string & topic) {
+      std::vector<std::vector<std::string>> out;
+      if (!watch) {return out;}
+      for (const auto & g : watch->ghosts) {
+        if (g.key.topic != topic) {continue;}
+        std::vector<std::string> row = {
+          mark_cell('-', color),
+          paint(indent.substr(1) + g.writer_label + " -> " + g.reader_label, DIM, color),
+          paint(g.transport_label, DIM, color)};
+        if (snap.stats.enabled) {row.push_back("");}
+        row.push_back(paint("(removed)", DIM, color));
+        out.push_back(row);
+      }
+      return out;
+    };
+
+  if (!opt.verbose) {
+    print_rows(os, rows, opt.max_width);
+  } else {
+    // Widths are computed over the topic rows only so the header stays aligned.
+    auto widths = column_widths(rows);
+    emit_row(os, rows[0], widths, opt.max_width);
     size_t idx = 1;
     for (const auto & t : snap.topics) {
-      emit(rows[idx++]);
+      emit_row(os, rows[idx++], widths, opt.max_width);
       std::vector<std::vector<std::string>> pair_rows;
       for (const auto & p : t.pairs) {
         std::string reasons = join(p.verdict.reasons, ",");
-        for (const auto & w : p.verdict.warnings) {reasons += ",!" + w;}
-        std::vector<std::string> row = {
-          "    " + endpoint_label(snap, *p.writer, opt) + " -> " +
-          endpoint_label(snap, *p.reader, opt),
-          transport_label(p.verdict)};
+        for (const auto & w : p.verdict.warnings) {reasons += "," + paint("!" + w, RED, color);}
+        std::vector<std::string> row;
+        if (watch) {
+          auto it = watch->marks.find(pair_key(t, p));
+          row.push_back(mark_cell(it == watch->marks.end() ? ' ' : it->second, color));
+        }
+        row.push_back(indent.substr(watch ? 1 : 0) + endpoint_label(snap, *p.writer, opt) + " -> " +
+          endpoint_label(snap, *p.reader, opt));
+        row.push_back(transport_label(p.verdict, color));
         if (snap.stats.enabled) {
           row.push_back("measured=" + measured_label(p));
         }
         row.push_back(reasons);
         pair_rows.push_back(row);
       }
-      print_rows(os, pair_rows);
+      for (auto & g : ghost_rows_for(t.display_topic)) {pair_rows.push_back(g);}
+      print_rows(os, pair_rows, opt.max_width);
     }
+    for (; idx < rows.size(); ++idx) {emit_row(os, rows[idx], widths, opt.max_width);}
+  }
+  if (watch && !watch->summary.empty()) {
+    os << "\n" << paint("changes: ", BOLD, color) << watch->summary << "\n";
   }
 
   if (snap.topics.empty()) {

@@ -3,11 +3,17 @@
 //
 // transport_viz: show which Fast DDS transport each ROS 2 topic uses and why.
 
+#include <poll.h>
+#include <sys/ioctl.h>
+#include <termios.h>
 #include <unistd.h>
 
+#include <algorithm>
 #include <chrono>
 #include <cstdlib>
 #include <cstring>
+#include <map>
+#include <sstream>
 #include <ctime>
 #include <iostream>
 #include <memory>
@@ -27,8 +33,12 @@
 
 using namespace std::chrono_literals;
 using fastdds_transport_viz::Endpoint;
+using fastdds_transport_viz::GhostPair;
+using fastdds_transport_viz::PairKey;
+using fastdds_transport_viz::PairState;
 using fastdds_transport_viz::RenderOptions;
 using fastdds_transport_viz::Snapshot;
+using fastdds_transport_viz::WatchDecorations;
 
 namespace
 {
@@ -47,6 +57,7 @@ struct Options
   double interval{2.0};
   std::string topic_regex;
   bool list_codes{false};
+  enum class Color { Auto, Always, Never } color{Color::Auto};
 };
 
 void usage()
@@ -71,8 +82,12 @@ void usage()
     "  --stats            also subscribe to the Fast DDS statistics topics and show the\n"
     "                     transport that actually carried packets; observed nodes must run\n"
     "                     with FASTDDS_STATISTICS=\"RTPS_SENT_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC\"\n"
-    "  --watch            keep observing and re-render every --interval seconds;\n"
-    "                     with --json, emits one compact document per line (JSON Lines)\n"
+    "  --color <mode>     auto|always|never: ANSI colors for transports and warnings\n"
+    "                     (default: auto = only when stdout is a terminal; honours NO_COLOR)\n"
+    "  --watch            keep observing and re-render every --interval seconds, marking\n"
+    "                     added (+), changed (~) and removed (-) pairs; on a terminal, keys:\n"
+    "                     q quit, p pause, v pairs, e legend, a all. With --json, emits one\n"
+    "                     compact document per line (JSON Lines) with a `changes` object\n"
     "  --interval <sec>   refresh period for --watch (default: 2)\n"
     "  --list-codes       list all reason codes with descriptions and exit\n"
     "  -h, --help         this help\n";
@@ -93,7 +108,15 @@ bool parse(int argc, char ** argv, Options & o)
       o.timeout = std::atof(need(i, "--timeout"));
     } else if (a == "--quiet") {o.quiet = std::atof(need(i, "--quiet"));} else if (a == "--topic") {
       o.topic_regex = need(i, "--topic");
-    } else if (a == "--interval") {o.interval = std::atof(need(i, "--interval"));} else if (a == "--all") {
+    } else if (a == "--interval") {o.interval = std::atof(need(i, "--interval"));} else if (a == "--color") {
+      std::string m = need(i, "--color");
+      if (m == "auto") {o.color = Options::Color::Auto;} else if (m == "always") {
+        o.color = Options::Color::Always;
+      } else if (m == "never") {o.color = Options::Color::Never;} else {
+        std::cerr << "--color expects auto, always or never\n";
+        return false;
+      }
+    } else if (a == "--all") {
       o.all = true;
     } else if (a == "-v" || a == "--verbose") {o.verbose = true;} else if (a == "--explain") {
       o.explain = true;
@@ -124,7 +147,7 @@ Snapshot collect(
   fastdds_transport_viz::DiscoveryObserver & observer,
   fastdds_transport_viz::RosGraphResolver & resolver,
   fastdds_transport_viz::StatsObserver * stats,
-  const Options & o, int domain, double observation_seconds)
+  const Options & o, int domain, double observation_seconds)   // NOLINT(readability-function-size)
 {
   fastdds_transport_viz::StatsData stats_data;
   if (stats != nullptr) {
@@ -182,6 +205,153 @@ Snapshot collect(
   return snap;
 }
 
+/// Raw-mode keyboard input and alternate screen for --watch on a terminal.
+class Terminal
+{
+public:
+  explicit Terminal(bool enable)
+  : enabled_(enable && isatty(STDIN_FILENO) && isatty(STDOUT_FILENO))
+  {
+    if (!enabled_) {return;}
+    tcgetattr(STDIN_FILENO, &saved_);
+    termios raw = saved_;
+    raw.c_lflag &= ~(ICANON | ECHO);
+    raw.c_cc[VMIN] = 0;
+    raw.c_cc[VTIME] = 0;
+    tcsetattr(STDIN_FILENO, TCSANOW, &raw);
+    std::cout << "\033[?1049h\033[?25l" << std::flush;   // alternate screen, hide cursor
+  }
+  ~Terminal()
+  {
+    if (!enabled_) {return;}
+    std::cout << "\033[?25h\033[?1049l" << std::flush;
+    tcsetattr(STDIN_FILENO, TCSANOW, &saved_);
+  }
+  bool enabled() const {return enabled_;}
+
+  /// Wait up to timeout_ms for a key; returns 0 when none.
+  char read_key(int timeout_ms)
+  {
+    if (!enabled_) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(timeout_ms));
+      return 0;
+    }
+    pollfd fd{STDIN_FILENO, POLLIN, 0};
+    if (poll(&fd, 1, timeout_ms) > 0) {
+      char c = 0;
+      if (read(STDIN_FILENO, &c, 1) == 1) {return c;}
+    }
+    return 0;
+  }
+
+  void size(size_t & rows, size_t & cols) const
+  {
+    winsize ws{};
+    if (enabled_ && ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) == 0 && ws.ws_col > 0) {
+      rows = ws.ws_row;
+      cols = ws.ws_col;
+    } else {
+      rows = cols = 0;
+    }
+  }
+
+  /// Paint a frame in place: home the cursor, overwrite line by line, clear the rest.
+  void paint(const std::string & frame, size_t max_rows)
+  {
+    std::ostringstream os;
+    os << "\033[H";
+    std::istringstream in(frame);
+    std::string line;
+    size_t n = 0;
+    while (std::getline(in, line) && (max_rows == 0 || n < max_rows)) {
+      os << line << "\033[K\n";
+      ++n;
+    }
+    os << "\033[J";
+    std::cout << os.str() << std::flush;
+  }
+
+private:
+  bool enabled_;
+  termios saved_{};
+};
+
+/// Frame-to-frame highlight state for --watch.
+struct WatchState
+{
+  static constexpr int kHoldFrames = 3;
+  std::map<PairKey, PairState> last_rendered;
+  Snapshot last_snapshot;
+  bool have_previous{false};
+  std::map<PairKey, int> mark_ttl;
+  std::map<PairKey, int> ghost_ttl;
+  WatchDecorations deco;
+
+  /// Apply the diff between the previously rendered frame and `snap`.
+  void update(Snapshot & snap, const RenderOptions & ropt)
+  {
+    auto current = fastdds_transport_viz::pair_states(snap);
+    snap.has_changes = true;
+    if (have_previous) {
+      snap.changes = fastdds_transport_viz::diff(last_rendered, current);
+    }
+    // age existing marks / ghosts
+    for (auto it = mark_ttl.begin(); it != mark_ttl.end();) {
+      if (--it->second <= 0) {deco.marks.erase(it->first); it = mark_ttl.erase(it);} else {++it;}
+    }
+    for (auto it = ghost_ttl.begin(); it != ghost_ttl.end();) {
+      if (--it->second <= 0) {
+        auto & g = deco.ghosts;
+        g.erase(std::remove_if(g.begin(), g.end(), [&](const GhostPair & x) {return x.key == it->first;}), g.end());
+        it = ghost_ttl.erase(it);
+      } else {++it;}
+    }
+    for (const auto & k : snap.changes.added) {deco.marks[k] = '+'; mark_ttl[k] = kHoldFrames;}
+    for (const auto & c : snap.changes.changed) {deco.marks[c.key] = '~'; mark_ttl[c.key] = kHoldFrames;}
+    for (const auto & k : snap.changes.removed) {
+      // a pair that came back is no ghost any more
+      deco.ghosts.erase(std::remove_if(deco.ghosts.begin(), deco.ghosts.end(),
+          [&](const GhostPair & x) {return x.key == k;}), deco.ghosts.end());
+      for (const auto & t : last_snapshot.topics) {
+        for (const auto & p : t.pairs) {
+          if (fastdds_transport_viz::pair_key(t, p) == k) {
+            std::string label = fastdds_transport_viz::to_string(p.verdict.transport) +
+              (p.verdict.confidence == fastdds_transport_viz::Confidence::Likely ? "?" : "");
+            deco.ghosts.push_back(GhostPair{k, t.display_type,
+                fastdds_transport_viz::endpoint_label(last_snapshot, *p.writer, ropt),
+                fastdds_transport_viz::endpoint_label(last_snapshot, *p.reader, ropt), label});
+            ghost_ttl[k] = kHoldFrames;
+          }
+        }
+      }
+    }
+    for (const auto & k : snap.changes.added) {
+      deco.ghosts.erase(std::remove_if(deco.ghosts.begin(), deco.ghosts.end(),
+          [&](const GhostPair & x) {return x.key == k;}), deco.ghosts.end());
+      ghost_ttl.erase(k);
+    }
+    const auto & c = snap.changes;
+    if (!have_previous) {
+      deco.summary = "first frame";
+    } else if (c.empty()) {
+      deco.summary = "none";
+    } else {
+      std::ostringstream os;
+      if (!c.added.empty()) {os << "+" << c.added.size() << (c.added.size() == 1 ? " pair  " : " pairs  ");}
+      if (!c.removed.empty()) {os << "-" << c.removed.size() << (c.removed.size() == 1 ? " pair  " : " pairs  ");}
+      if (!c.changed.empty()) {os << "~" << c.changed.size() << " changed";}
+      deco.summary = os.str();
+    }
+    last_rendered = std::move(current);
+    // Keep the frame for ghost rows. TopicSummary holds pointers into
+    // Snapshot::endpoints, so rebuild them against the copy.
+    last_snapshot = snap;
+    last_snapshot.topics = fastdds_transport_viz::summarize(last_snapshot.endpoints);
+    fastdds_transport_viz::apply_stats(last_snapshot.topics, last_snapshot.stats);
+    have_previous = true;
+  }
+};
+
 }  // namespace
 
 int main(int argc, char ** argv)
@@ -229,6 +399,8 @@ int main(int argc, char ** argv)
     ropt.verbose = o.verbose;
     ropt.explain = o.explain;
     ropt.compact = o.json && o.watch;   // JSON Lines: one document per line
+    ropt.color = o.color == Options::Color::Always ||
+      (o.color == Options::Color::Auto && isatty(STDOUT_FILENO) && std::getenv("NO_COLOR") == nullptr);
 
     const auto start = std::chrono::steady_clock::now();
     // Wait until --timeout, or until discovery has been quiet for --quiet
@@ -244,27 +416,59 @@ int main(int argc, char ** argv)
       if (!rclcpp::ok()) {break;}
     }
 
-    do {
-      double elapsed = std::chrono::duration<double>(
-        std::chrono::steady_clock::now() - start).count();
+    if (!o.watch) {
+      double elapsed = std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
       Snapshot snap = collect(observer, resolver, stats.get(), o, domain, elapsed);
-      std::string out = o.json ? fastdds_transport_viz::render_json(snap, ropt) :
-        fastdds_transport_viz::render_table(snap, ropt);
-      if (o.watch && !o.json) {
-        std::cout << "\033[2J\033[H";   // clear screen, home cursor
-        std::cout << "transport_viz  domain " << domain << "  " << snap.observed_at
-                  << "  (refresh " << o.interval << "s, Ctrl-C to quit)\n\n";
-      }
-      std::cout << out << std::flush;
-      if (o.watch) {
-        auto deadline = std::chrono::steady_clock::now() +
-          std::chrono::duration_cast<std::chrono::milliseconds>(
-          std::chrono::duration<double>(o.interval));
-        while (rclcpp::ok() && std::chrono::steady_clock::now() < deadline) {
-          std::this_thread::sleep_for(50ms);
+      std::cout << (o.json ? fastdds_transport_viz::render_json(snap, ropt) :
+        fastdds_transport_viz::render_table(snap, ropt)) << std::flush;
+    } else {
+      Terminal term(!o.json);
+      WatchState ws;
+      bool paused = false;
+      bool quit = false;
+      bool force = true;
+      auto next_frame = std::chrono::steady_clock::now();
+      while (rclcpp::ok() && !quit) {
+        if (force || (!paused && std::chrono::steady_clock::now() >= next_frame)) {
+          force = false;
+          next_frame = std::chrono::steady_clock::now() + std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::duration<double>(o.interval));
+          double elapsed = std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
+          Snapshot snap = collect(observer, resolver, stats.get(), o, domain, elapsed);
+          ropt.verbose = o.verbose;
+          ropt.explain = o.explain;
+          ws.update(snap, ropt);
+          if (o.json) {
+            std::cout << fastdds_transport_viz::render_json(snap, ropt) << std::flush;
+          } else {
+            size_t rows = 0, cols = 0;
+            term.size(rows, cols);
+            ropt.max_width = cols;
+            ropt.watch = &ws.deco;
+            std::ostringstream frame;
+            frame << "transport_viz  domain " << domain << "  " << snap.observed_at
+                  << "  refresh " << o.interval << "s" << (paused ? "  [PAUSED]" : "")
+                  << (o.all ? "  [all]" : "") << "\n\n";
+            frame << fastdds_transport_viz::render_table(snap, ropt);
+            if (term.enabled()) {
+              frame << "\n q quit   p " << (paused ? "resume" : "pause") << "   v pairs   e legend   a all\n";
+              term.paint(frame.str(), rows);
+            } else {
+              std::cout << frame.str() << "\n" << std::flush;
+            }
+          }
+        }
+        char key = term.read_key(50);
+        switch (key) {
+          case 'q': case 'Q': case 3: quit = true; break;     // 3 = Ctrl-C in raw mode
+          case 'p': case 'P': paused = !paused; force = true; break;
+          case 'v': case 'V': o.verbose = !o.verbose; force = true; break;
+          case 'e': case 'E': o.explain = !o.explain; force = true; break;
+          case 'a': case 'A': o.all = !o.all; force = true; break;
+          default: break;
         }
       }
-    } while (o.watch && rclcpp::ok());
+    }
   }
   rclcpp::shutdown();
   return rc;

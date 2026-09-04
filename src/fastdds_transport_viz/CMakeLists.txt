@@ -85,6 +85,8 @@ if(BUILD_TESTING)
   find_package(ament_cmake_gtest REQUIRED)
   ament_add_gtest(test_decision test/test_decision.cpp)
   target_link_libraries(test_decision ${PROJECT_NAME}_core)
+  ament_add_gtest(test_render test/test_render.cpp)
+  target_link_libraries(test_render ${PROJECT_NAME}_lib)
 
   find_package(launch_testing_ament_cmake REQUIRED)
   add_launch_test(test/launch/test_same_host_shm.py TIMEOUT 60)

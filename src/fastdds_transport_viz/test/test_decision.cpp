@@ -367,3 +367,64 @@ TEST(ApplyStats, WriterInstanceLimitSuspectedWhenTenLocatorsReported)
   EXPECT_TRUE(has(p.verdict.warnings, "stats-writer-instance-limit-suspected"));
   EXPECT_FALSE(has(p.verdict.warnings, "no-traffic-observed"));
 }
+
+// ---- frame-to-frame diff (--watch) ----------------------------------------------
+
+TEST(Diff, DetectsAddedRemovedAndChangedPairs)
+{
+  std::map<PairKey, PairState> prev, cur;
+  PairState shm;
+  shm.transport = Transport::SHM;
+  PairState udp;
+  udp.transport = Transport::UDPv4;
+  PairState shm_measured = shm;
+  shm_measured.measured = {Transport::SHM};
+
+  prev[{"/a", "w1", "r1"}] = shm;   // unchanged
+  prev[{"/a", "w1", "r2"}] = shm;   // changes transport
+  prev[{"/b", "w2", "r3"}] = udp;   // removed
+  cur[{"/a", "w1", "r1"}] = shm;
+  cur[{"/a", "w1", "r2"}] = udp;
+  cur[{"/c", "w3", "r4"}] = shm_measured;   // added
+
+  auto c = diff(prev, cur);
+  ASSERT_EQ(c.added.size(), 1u);
+  EXPECT_EQ(c.added[0].topic, "/c");
+  ASSERT_EQ(c.removed.size(), 1u);
+  EXPECT_EQ(c.removed[0].reader_guid, "r3");
+  ASSERT_EQ(c.changed.size(), 1u);
+  EXPECT_EQ(c.changed[0].from.transport, Transport::SHM);
+  EXPECT_EQ(c.changed[0].to.transport, Transport::UDPv4);
+}
+
+TEST(Diff, MeasuredAndWarningChangesCount)
+{
+  std::map<PairKey, PairState> prev, cur;
+  PairState a;
+  a.transport = Transport::SHM;
+  PairState b = a;
+  b.measured = {Transport::SHM};
+  PairState c = a;
+  c.warnings = {"no-traffic-observed"};
+  prev[{"/t", "w", "r1"}] = a;
+  prev[{"/t", "w", "r2"}] = a;
+  cur[{"/t", "w", "r1"}] = b;
+  cur[{"/t", "w", "r2"}] = c;
+  auto d = diff(prev, cur);
+  EXPECT_EQ(d.changed.size(), 2u);
+  EXPECT_TRUE(d.added.empty());
+  EXPECT_TRUE(d.removed.empty());
+  EXPECT_TRUE(diff(cur, cur).empty());
+}
+
+TEST(Diff, PairStatesFromSnapshot)
+{
+  Snapshot snap;
+  snap.endpoints.push_back(make(true, HOST_A, {shm()}));
+  snap.endpoints.push_back(make(false, HOST_A, {shm()}));
+  snap.topics = summarize(snap.endpoints);
+  auto states = pair_states(snap);
+  ASSERT_EQ(states.size(), 1u);
+  EXPECT_EQ(states.begin()->first.topic, "/chatter");
+  EXPECT_EQ(states.begin()->second.transport, Transport::SHM);
+}

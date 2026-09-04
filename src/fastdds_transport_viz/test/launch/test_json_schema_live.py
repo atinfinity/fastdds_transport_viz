@@ -4,6 +4,7 @@
 import json
 import os
 import pathlib
+import subprocess
 import sys
 
 import jsonschema
@@ -38,6 +39,23 @@ class TestJsonSchemaLive(Base):
                     used.update(p['reasons'])
                     used.update(p['warnings'])
             self.assertLessEqual(used, set(doc['reason_code_descriptions']), args)
+
+    def test_watch_json_lines_have_changes(self):
+        with open(SCHEMA) as f:
+            validator = jsonschema.Draft202012Validator(json.load(f))
+        proc = subprocess.Popen(
+            ['ros2', 'run', 'fastdds_transport_viz', 'transport_viz', '--watch', '--json',
+             '--interval', '1', '--timeout', '2'],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        try:
+            docs = [json.loads(proc.stdout.readline()) for _ in range(2)]
+        finally:
+            proc.terminate()
+            proc.wait(timeout=10)
+        for doc in docs:
+            validator.validate(doc)
+            self.assertIn('changes', doc)
+        self.assertEqual(docs[0]['changes'], {'added_pairs': [], 'removed_pairs': [], 'changed_pairs': []})
 
 
 @launch_testing.post_shutdown_test()

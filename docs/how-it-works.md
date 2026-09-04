@@ -55,3 +55,27 @@ Without `--stats`, hosts are shown as `local` (same host id as the tool) or
 statistics `PHYSICAL_DATA` topic. Containers with separate network namespaces on one
 machine can share a host id while announcing different IP addresses; this is reported as
 the warning `host-id-match-but-ip-differs`.
+
+## Watch mode
+
+`--watch` re-observes and re-renders every `--interval` seconds. On a terminal it uses the
+alternate screen buffer (no flicker, restored on exit), truncates lines to the terminal
+width, and highlights what changed since the previously rendered frame:
+
+| Mark | Meaning |
+|---|---|
+| `+` (green) | pair appeared |
+| `~` (yellow) | transport, confidence, measured transport or warnings changed |
+| `-` (dim) | pair disappeared; kept for three frames, then dropped |
+
+A topic row carries the mark of its pairs; a `changes:` summary line follows the table.
+Keys while watching: `q` quit, `p` pause/resume (changes made while paused are
+highlighted on resume), `v` toggle pair rows, `e` toggle the reason-code legend, `a` toggle
+`--all`. When stdout is not a terminal the frames are printed one after another without
+escape sequences; with `--json` every frame is one JSON Lines document that additionally
+carries a `changes` object (`added_pairs`, `removed_pairs`, `changed_pairs` with
+`from`/`to`).
+
+Colors (`--color auto|always|never`, default `auto`; `NO_COLOR` is honoured) apply to
+the one-shot table as well: transports use the same palette as the web viewer and
+warnings are red.
