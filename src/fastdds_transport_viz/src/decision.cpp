@@ -344,6 +344,51 @@ void apply_stats(std::vector<TopicSummary> & topics, const StatsData & stats)
   }
 }
 
+PairKey pair_key(const TopicSummary & topic, const Pair & pair)
+{
+  return PairKey{topic.display_topic, pair.writer->guid, pair.reader->guid};
+}
+
+PairState pair_state(const Pair & pair)
+{
+  PairState s;
+  s.transport = pair.verdict.transport;
+  s.confidence = pair.verdict.confidence;
+  s.measured = pair.measured.transports;
+  s.warnings = pair.verdict.warnings;
+  return s;
+}
+
+std::map<PairKey, PairState> pair_states(const Snapshot & snap)
+{
+  std::map<PairKey, PairState> out;
+  for (const auto & t : snap.topics) {
+    for (const auto & p : t.pairs) {
+      out[pair_key(t, p)] = pair_state(p);
+    }
+  }
+  return out;
+}
+
+Changes diff(const std::map<PairKey, PairState> & previous, const std::map<PairKey, PairState> & current)
+{
+  Changes c;
+  for (const auto & kv : current) {
+    auto it = previous.find(kv.first);
+    if (it == previous.end()) {
+      c.added.push_back(kv.first);
+    } else if (it->second != kv.second) {
+      c.changed.push_back(PairChange{kv.first, it->second, kv.second});
+    }
+  }
+  for (const auto & kv : previous) {
+    if (!current.count(kv.first)) {
+      c.removed.push_back(kv.first);
+    }
+  }
+  return c;
+}
+
 namespace
 {
 const std::map<std::string, std::string> & explanations()

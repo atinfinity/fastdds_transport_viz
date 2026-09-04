@@ -4,130 +4,508 @@
   "title": "transport_viz --json output (schema_version 1)",
   "description": "Minimal contract that front-ends rely on. Unknown keys are allowed so the tool can add fields without a schema bump; a breaking change bumps schema_version.",
   "type": "object",
-  "required": ["schema_version", "domain", "observed_at", "observation_seconds", "local_host_id", "topics", "reason_code_descriptions", "stats"],
+  "required": [
+    "schema_version",
+    "domain",
+    "observed_at",
+    "observation_seconds",
+    "local_host_id",
+    "topics",
+    "reason_code_descriptions",
+    "stats"
+  ],
   "properties": {
-    "schema_version": {"const": 1},
-    "domain": {"type": "integer", "minimum": 0},
-    "observed_at": {"type": "string"},
-    "observation_seconds": {"type": "number", "minimum": 0},
-    "local_host_id": {"type": "string", "pattern": "^[0-9a-f]{8}$"},
-    "topics": {"type": "array", "items": {"$ref": "#/$defs/topic"}},
-    "reason_code_descriptions": {"type": "object", "additionalProperties": {"type": "string"}},
-    "stats": {"$ref": "#/$defs/stats"}
+    "schema_version": {
+      "const": 1
+    },
+    "domain": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "observed_at": {
+      "type": "string"
+    },
+    "observation_seconds": {
+      "type": "number",
+      "minimum": 0
+    },
+    "local_host_id": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}$"
+    },
+    "topics": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/topic"
+      }
+    },
+    "reason_code_descriptions": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "stats": {
+      "$ref": "#/$defs/stats"
+    },
+    "changes": {
+      "$ref": "#/$defs/changes"
+    }
   },
   "$defs": {
-    "transport": {"enum": ["UDPv4", "UDPv6", "TCPv4", "TCPv6", "SHM", "DATA_SHARING", "NONE"]},
-    "confidence": {"enum": ["certain", "likely"]},
-    "locatorKind": {"enum": ["UDPv4", "UDPv6", "TCPv4", "TCPv6", "SHM", "INVALID"]},
-    "code": {"type": "string", "pattern": "^[a-z0-9-]+$"},
+    "transport": {
+      "enum": [
+        "UDPv4",
+        "UDPv6",
+        "TCPv4",
+        "TCPv6",
+        "SHM",
+        "DATA_SHARING",
+        "NONE"
+      ]
+    },
+    "confidence": {
+      "enum": [
+        "certain",
+        "likely"
+      ]
+    },
+    "locatorKind": {
+      "enum": [
+        "UDPv4",
+        "UDPv6",
+        "TCPv4",
+        "TCPv6",
+        "SHM",
+        "INVALID"
+      ]
+    },
+    "code": {
+      "type": "string",
+      "pattern": "^[a-z0-9-]+$"
+    },
     "locator": {
       "type": "object",
-      "required": ["kind", "address", "port"],
+      "required": [
+        "kind",
+        "address",
+        "port"
+      ],
       "properties": {
-        "kind": {"$ref": "#/$defs/locatorKind"},
-        "address": {"type": "string"},
-        "port": {"type": "integer", "minimum": 0}
+        "kind": {
+          "$ref": "#/$defs/locatorKind"
+        },
+        "address": {
+          "type": "string"
+        },
+        "port": {
+          "type": "integer",
+          "minimum": 0
+        }
       }
     },
     "endpoint": {
       "type": "object",
-      "required": ["guid", "participant_guid_prefix", "host_id", "host", "node", "dds_topic", "dds_type",
-                   "ros_topic", "ros_type", "unicast_locators", "multicast_locators", "qos"],
+      "required": [
+        "guid",
+        "participant_guid_prefix",
+        "host_id",
+        "host",
+        "node",
+        "dds_topic",
+        "dds_type",
+        "ros_topic",
+        "ros_type",
+        "unicast_locators",
+        "multicast_locators",
+        "qos"
+      ],
       "properties": {
-        "guid": {"type": "string"},
-        "participant_guid_prefix": {"type": "string"},
-        "host_id": {"type": "string", "pattern": "^[0-9a-f]{8}$"},
-        "host": {"type": "string"},
-        "host_name": {"type": "string"},
-        "process": {"type": "string"},
-        "node": {"type": "string"},
-        "dds_topic": {"type": "string"},
-        "dds_type": {"type": "string"},
-        "ros_topic": {"type": "string"},
-        "ros_type": {"type": "string"},
-        "unicast_locators": {"type": "array", "items": {"$ref": "#/$defs/locator"}},
-        "multicast_locators": {"type": "array", "items": {"$ref": "#/$defs/locator"}},
+        "guid": {
+          "type": "string"
+        },
+        "participant_guid_prefix": {
+          "type": "string"
+        },
+        "host_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}$"
+        },
+        "host": {
+          "type": "string"
+        },
+        "host_name": {
+          "type": "string"
+        },
+        "process": {
+          "type": "string"
+        },
+        "node": {
+          "type": "string"
+        },
+        "dds_topic": {
+          "type": "string"
+        },
+        "dds_type": {
+          "type": "string"
+        },
+        "ros_topic": {
+          "type": "string"
+        },
+        "ros_type": {
+          "type": "string"
+        },
+        "unicast_locators": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/locator"
+          }
+        },
+        "multicast_locators": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/locator"
+          }
+        },
         "qos": {
           "type": "object",
-          "required": ["reliability", "durability", "data_sharing"],
+          "required": [
+            "reliability",
+            "durability",
+            "data_sharing"
+          ],
           "properties": {
-            "reliability": {"type": "string"},
-            "durability": {"type": "string"},
-            "data_sharing": {"enum": ["OFF", "ON", "AUTO", "UNKNOWN"]},
-            "data_sharing_domain_ids": {"type": "array", "items": {"type": "integer"}}
+            "reliability": {
+              "type": "string"
+            },
+            "durability": {
+              "type": "string"
+            },
+            "data_sharing": {
+              "enum": [
+                "OFF",
+                "ON",
+                "AUTO",
+                "UNKNOWN"
+              ]
+            },
+            "data_sharing_domain_ids": {
+              "type": "array",
+              "items": {
+                "type": "integer"
+              }
+            }
           }
         }
       }
     },
     "measurement": {
       "type": "object",
-      "required": ["available", "transports", "packets", "bytes", "delivered"],
+      "required": [
+        "available",
+        "transports",
+        "packets",
+        "bytes",
+        "delivered"
+      ],
       "properties": {
-        "available": {"type": "boolean"},
-        "transports": {"type": "array", "items": {"$ref": "#/$defs/transport"}},
-        "packets": {"type": "integer", "minimum": 0},
-        "bytes": {"type": "number", "minimum": 0},
-        "delivered": {"type": "boolean"}
+        "available": {
+          "type": "boolean"
+        },
+        "transports": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/transport"
+          }
+        },
+        "packets": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "bytes": {
+          "type": "number",
+          "minimum": 0
+        },
+        "delivered": {
+          "type": "boolean"
+        }
       }
     },
     "pair": {
       "type": "object",
-      "required": ["writer_guid", "reader_guid", "writer_node", "reader_node", "writer_host", "reader_host",
-                   "transport", "confidence", "reasons", "warnings", "measured"],
+      "required": [
+        "writer_guid",
+        "reader_guid",
+        "writer_node",
+        "reader_node",
+        "writer_host",
+        "reader_host",
+        "transport",
+        "confidence",
+        "reasons",
+        "warnings",
+        "measured"
+      ],
       "properties": {
-        "writer_guid": {"type": "string"},
-        "reader_guid": {"type": "string"},
-        "writer_node": {"type": "string"},
-        "reader_node": {"type": "string"},
-        "writer_host": {"type": "string"},
-        "reader_host": {"type": "string"},
-        "transport": {"$ref": "#/$defs/transport"},
-        "confidence": {"$ref": "#/$defs/confidence"},
-        "reasons": {"type": "array", "items": {"$ref": "#/$defs/code"}},
-        "warnings": {"type": "array", "items": {"$ref": "#/$defs/code"}},
-        "measured": {"$ref": "#/$defs/measurement"}
+        "writer_guid": {
+          "type": "string"
+        },
+        "reader_guid": {
+          "type": "string"
+        },
+        "writer_node": {
+          "type": "string"
+        },
+        "reader_node": {
+          "type": "string"
+        },
+        "writer_host": {
+          "type": "string"
+        },
+        "reader_host": {
+          "type": "string"
+        },
+        "transport": {
+          "$ref": "#/$defs/transport"
+        },
+        "confidence": {
+          "$ref": "#/$defs/confidence"
+        },
+        "reasons": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/code"
+          }
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/code"
+          }
+        },
+        "measured": {
+          "$ref": "#/$defs/measurement"
+        }
       }
     },
     "topic": {
       "type": "object",
-      "required": ["topic", "dds_topic", "type", "is_ros_topic", "unmatched_reasons", "writers", "readers", "pairs"],
+      "required": [
+        "topic",
+        "dds_topic",
+        "type",
+        "is_ros_topic",
+        "unmatched_reasons",
+        "writers",
+        "readers",
+        "pairs"
+      ],
       "properties": {
-        "topic": {"type": "string"},
-        "dds_topic": {"type": "string"},
-        "type": {"type": "string"},
-        "is_ros_topic": {"type": "boolean"},
-        "unmatched_reasons": {"type": "array", "items": {"$ref": "#/$defs/code"}},
-        "writers": {"type": "array", "items": {"$ref": "#/$defs/endpoint"}},
-        "readers": {"type": "array", "items": {"$ref": "#/$defs/endpoint"}},
-        "pairs": {"type": "array", "items": {"$ref": "#/$defs/pair"}}
+        "topic": {
+          "type": "string"
+        },
+        "dds_topic": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "is_ros_topic": {
+          "type": "boolean"
+        },
+        "unmatched_reasons": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/code"
+          }
+        },
+        "writers": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/endpoint"
+          }
+        },
+        "readers": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/endpoint"
+          }
+        },
+        "pairs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/pair"
+          }
+        }
       }
     },
     "stats": {
       "type": "object",
-      "required": ["enabled", "samples", "participants_with_stats", "physical", "traffic"],
+      "required": [
+        "enabled",
+        "samples",
+        "participants_with_stats",
+        "physical",
+        "traffic"
+      ],
       "properties": {
-        "enabled": {"type": "boolean"},
-        "samples": {"type": "integer", "minimum": 0},
-        "participants_with_stats": {"type": "array", "items": {"type": "string"}},
+        "enabled": {
+          "type": "boolean"
+        },
+        "samples": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "participants_with_stats": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
         "physical": {
           "type": "object",
           "additionalProperties": {
             "type": "object",
-            "required": ["host", "user", "process"],
-            "properties": {"host": {"type": "string"}, "user": {"type": "string"}, "process": {"type": "string"}}
+            "required": [
+              "host",
+              "user",
+              "process"
+            ],
+            "properties": {
+              "host": {
+                "type": "string"
+              },
+              "user": {
+                "type": "string"
+              },
+              "process": {
+                "type": "string"
+              }
+            }
           }
         },
         "traffic": {
           "type": "array",
           "items": {
             "type": "object",
-            "required": ["src_participant_guid_prefix", "dst_locator", "packets", "bytes"],
+            "required": [
+              "src_participant_guid_prefix",
+              "dst_locator",
+              "packets",
+              "bytes"
+            ],
             "properties": {
-              "src_participant_guid_prefix": {"type": "string"},
-              "dst_locator": {"$ref": "#/$defs/locator"},
-              "packets": {"type": "integer", "minimum": 0},
-              "bytes": {"type": "number", "minimum": 0}
+              "src_participant_guid_prefix": {
+                "type": "string"
+              },
+              "dst_locator": {
+                "$ref": "#/$defs/locator"
+              },
+              "packets": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "bytes": {
+                "type": "number",
+                "minimum": 0
+              }
             }
+          }
+        }
+      }
+    },
+    "pairKey": {
+      "type": "object",
+      "required": [
+        "topic",
+        "writer_guid",
+        "reader_guid"
+      ],
+      "properties": {
+        "topic": {
+          "type": "string"
+        },
+        "writer_guid": {
+          "type": "string"
+        },
+        "reader_guid": {
+          "type": "string"
+        }
+      }
+    },
+    "pairState": {
+      "type": "object",
+      "required": [
+        "transport",
+        "confidence",
+        "measured",
+        "warnings"
+      ],
+      "properties": {
+        "transport": {
+          "$ref": "#/$defs/transport"
+        },
+        "confidence": {
+          "$ref": "#/$defs/confidence"
+        },
+        "measured": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/transport"
+          }
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/code"
+          }
+        }
+      }
+    },
+    "changes": {
+      "description": "Only present in --watch --json documents: pairs added, removed or changed since the previously emitted document (empty in the first one).",
+      "type": "object",
+      "required": [
+        "added_pairs",
+        "removed_pairs",
+        "changed_pairs"
+      ],
+      "properties": {
+        "added_pairs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/pairKey"
+          }
+        },
+        "removed_pairs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/pairKey"
+          }
+        },
+        "changed_pairs": {
+          "type": "array",
+          "items": {
+            "allOf": [
+              {
+                "$ref": "#/$defs/pairKey"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "from",
+                  "to"
+                ],
+                "properties": {
+                  "from": {
+                    "$ref": "#/$defs/pairState"
+                  },
+                  "to": {
+                    "$ref": "#/$defs/pairState"
+                  }
+                }
+              }
+            ]
           }
         }
       }

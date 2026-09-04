@@ -121,6 +121,31 @@ std::string render_json(const Snapshot & snap, const RenderOptions & opt)
   }
   root["reason_code_descriptions"] = descriptions;
 
+  if (snap.has_changes) {
+    auto key_json = [](const PairKey & k) {
+        return json{{"topic", k.topic}, {"writer_guid", k.writer_guid}, {"reader_guid", k.reader_guid}};
+      };
+    auto state_json = [](const PairState & st) {
+        json measured = json::array();
+        for (auto t : st.measured) {measured.push_back(to_string(t));}
+        return json{{"transport", to_string(st.transport)}, {"confidence", to_string(st.confidence)},
+          {"measured", measured}, {"warnings", st.warnings}};
+      };
+    json changes;
+    changes["added_pairs"] = json::array();
+    for (const auto & k : snap.changes.added) {changes["added_pairs"].push_back(key_json(k));}
+    changes["removed_pairs"] = json::array();
+    for (const auto & k : snap.changes.removed) {changes["removed_pairs"].push_back(key_json(k));}
+    changes["changed_pairs"] = json::array();
+    for (const auto & c : snap.changes.changed) {
+      json cj = key_json(c.key);
+      cj["from"] = state_json(c.from);
+      cj["to"] = state_json(c.to);
+      changes["changed_pairs"].push_back(cj);
+    }
+    root["changes"] = changes;
+  }
+
   json stats;
   stats["enabled"] = snap.stats.enabled;
   stats["samples"] = snap.stats.samples;
