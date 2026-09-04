@@ -1,10 +1,12 @@
 // Copyright 2026 atinfinity
 // SPDX-License-Identifier: Apache-2.0
 
+#include <set>
 #include <string>
 
 #include <nlohmann/json.hpp>
 
+#include "fastdds_transport_viz/decision.hpp"
 #include "fastdds_transport_viz/render.hpp"
 
 namespace fastdds_transport_viz
@@ -102,6 +104,23 @@ std::string render_json(const Snapshot & snap, const RenderOptions & opt)
     topics.push_back(tj);
   }
   root["topics"] = topics;
+
+  // Descriptions for every reason / warning code that appears in this document,
+  // so that front-ends never have to duplicate the texts.
+  std::set<std::string> codes;
+  for (const auto & t : snap.topics) {
+    for (const auto & r : t.unmatched_reasons) {codes.insert(r);}
+    for (const auto & p : t.pairs) {
+      for (const auto & r : p.verdict.reasons) {codes.insert(r);}
+      for (const auto & w : p.verdict.warnings) {codes.insert(w);}
+    }
+  }
+  json descriptions = json::object();
+  for (const auto & c : codes) {
+    descriptions[c] = explain(c);
+  }
+  root["reason_code_descriptions"] = descriptions;
+
   json stats;
   stats["enabled"] = snap.stats.enabled;
   stats["samples"] = snap.stats.samples;
