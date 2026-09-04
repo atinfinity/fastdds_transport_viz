@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!-- Discovery over unicast only, for networks that do not carry multicast (many Wi-Fi
+     access points, some VLANs). Announcing a metatraffic unicast locator stops Fast DDS
+     from adding the default multicast one; without a multicast locator remote
+     participants always send discovery data by unicast. (With the default locators
+     Fast DDS prefers the multicast locator as soon as two peers share it, so
+     ROS_STATIC_PEERS alone is not enough.) Use on every participant, the observed
+     nodes and transport_viz alike, together with the peers:
+       export FASTRTPS_DEFAULT_PROFILES_FILE=$(ros2 pkg prefix fastdds_transport_viz)/share/fastdds_transport_viz/config/unicast_discovery.xml
+       export ROS_STATIC_PEERS="<other host>;<this host>"     # this host: so the local nodes find transport_viz -->
+<dds xmlns="http://www.eprosima.com/XMLSchemas/fastRTPS_Profiles">
+  <profiles>
+    <participant profile_name="unicast_discovery" is_default_profile="true">
+      <rtps>
+        <builtin>
+          <metatrafficUnicastLocatorList>
+            <locator><udpv4><address>0.0.0.0</address><port>0</port></udpv4></locator>
+          </metatrafficUnicastLocatorList>
+        </builtin>
+      </rtps>
+    </participant>
+  </profiles>
+</dds>

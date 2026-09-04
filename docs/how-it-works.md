@@ -43,10 +43,12 @@ discovery listener is never touched.
 
 The tool reads the same environment Fast DDS reads and never modifies it: run it in the
 same shell environment as the nodes you observe — same `FASTDDS_BUILTIN_TRANSPORTS`,
-`FASTRTPS_DEFAULT_PROFILES_FILE`, `ROS_DISCOVERY_SERVER`,
-`ROS_AUTOMATIC_DISCOVERY_RANGE`, and the same network and IPC namespace (for containers:
+`FASTRTPS_DEFAULT_PROFILES_FILE` (the observer participant takes the default participant
+profile from it, like the nodes), `ROS_DISCOVERY_SERVER`, `ROS_AUTOMATIC_DISCOVERY_RANGE`,
+`ROS_STATIC_PEERS`, and the same network and IPC namespace (for containers:
 `network_mode` / `ipc`). If the tool cannot see the nodes, `ros2 topic list` in that
-environment will not either.
+environment will not either. For hosts on a network without multicast see
+[development.md](development.md#two-physical-hosts).
 
 ## Hosts
 

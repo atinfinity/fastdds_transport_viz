@@ -23,12 +23,58 @@ FASTDDS_BUILTIN_TRANSPORTS=UDPv4 ros2 run demo_nodes_cpp listener &
 ros2 run fastdds_transport_viz transport_viz -v                # second pair -> UDPv4, reader-no-shm-locator
 ```
 
-Two containers (separate network and IPC namespaces ⇒ different host ids ⇒ UDPv4),
-run from the Docker host:
+## Multi-container scenarios
+
+`scripts/integration_test.sh <scenario>` (run on the Docker host, not inside a container)
+builds the workspace, starts demo nodes in separate containers, runs `transport_viz`
+in a third container on the same scope and asserts the verdict:
+
+| Scenario | Containers | Expected |
+|---|---|---|
+| `multi_container` (default) | `talker`, `listener`: separate network and IPC namespaces ⇒ different host ids | `UDPv4`, `different-host` |
+| `stats_multi_container` | `talker_stats`, `listener_stats`: as above with `FASTDDS_STATISTICS` | measured `UDPv4`, two different `PHYSICAL_DATA` host names |
+| `hostnet_shm` | two `hostnet` containers: `network_mode: host` + `ipc: host` ⇒ same host id, shared `/dev/shm` | `SHM`, `same-host-guid` |
+| `all` | the three above in sequence | |
+
+Output goes to `/tmp/transport_viz_<scenario>.json`.
+
+## Two physical hosts
+
+Run the `hostnet` service on each machine so the nodes use the real LAN interfaces (the
+image has to be built on both, `docker compose build dev`; `colcon build` is only needed
+where `transport_viz` runs). A native ROS 2 install works the same way.
 
 ```
-scripts/integration_test.sh
+# host A
+docker compose run --rm hostnet ros2 run demo_nodes_cpp talker
+# host B
+docker compose run --rm hostnet ros2 run demo_nodes_cpp listener
+# either host
+docker compose run --rm hostnet ros2 run fastdds_transport_viz transport_viz -v --explain
 ```
+
+Expected: `/chatter` = `UDPv4`, `different-host`, hosts `local` and `host:<id>`. Add
+`--stats` with `FASTDDS_STATISTICS` on the nodes to see the two host names and measured
+`UDPv4`.
+
+Things learned while trying this on a Wi-Fi LAN
+([#15](https://github.com/atinfinity/fastdds_transport_viz/issues/15), still open):
+
+- **Docker Desktop on macOS cannot be one of the hosts.** Its "host network" is the
+  Linux VM's: the participant announces `192.168.65.x` / `192.168.64.x` / `172.17.0.1`
+  locators that the LAN cannot reach (and that collide with the other machine's own
+  Docker bridges). Use a native install or a Linux host.
+- If multicast does not cross the network (common on Wi-Fi access points), set
+  `ROS_STATIC_PEERS=<other host IP>` on both sides. That alone is not always enough: with
+  the default locators Fast DDS sends discovery data to the *multicast* metatraffic
+  locator as soon as two peers share it, so a node with any other local peer stops
+  announcing to the static peer by unicast. `config/unicast_discovery.xml` removes the
+  multicast metatraffic locator; use it via `FASTRTPS_DEFAULT_PROFILES_FILE` on every
+  participant (nodes and `transport_viz`) and list this host's own IP in
+  `ROS_STATIC_PEERS` as well so that the local nodes still find `transport_viz`.
+- `ROS_AUTOMATIC_DISCOVERY_RANGE=OFF` disables discovery completely (rmw_fastrtps caps
+  the participant count at one); `LOCALHOST` makes nodes announce only `127.0.0.1`.
+  Neither helps across hosts.
 
 ## Verification nodes
 
@@ -63,6 +109,20 @@ colcon test && colcon test-result --verbose
 request inside a `ros:jazzy` container: `rosdep install`, `colcon build`, `colcon test`.
 Test result XML files and launch logs are uploaded as a workflow artifact.
 
+A second job, `integration`, runs `scripts/integration_test.sh all` on the x86_64 runner
+VM on pushes to `main` and on `workflow_dispatch` (not for pull requests, to keep PR CI
+short); the `transport_viz` JSON of each scenario is uploaded as an artifact.
+
+## Verification results
+
+| Date | Scenario | Arch | Fast DDS | Result | Reproduce |
+|---|---|---|---|---|---|
+| 2026-09-04 | two bridged containers | arm64 | 2.14 (`ros:jazzy`) | `UDPv4`, `different-host` | `scripts/integration_test.sh multi_container` |
+| 2026-09-05 | two bridged containers | x86_64 | 2.14.6 | `UDPv4`, `different-host` | `scripts/integration_test.sh multi_container` |
+| 2026-09-05 | two bridged containers, `--stats` | x86_64 | 2.14.6 | measured `UDPv4`, host names differ (container ids) | `scripts/integration_test.sh stats_multi_container` |
+| 2026-09-05 | two `hostnet` containers | x86_64 | 2.14.6 | `SHM`, `same-host-guid`, no `host-id-match-but-ip-differs` | `scripts/integration_test.sh hostnet_shm` |
+| 2026-09-05 | two physical hosts on one Wi-Fi LAN: x86_64 Ubuntu (Docker `hostnet`) ↔ macOS arm64 (native RoboStack Jazzy) | x86_64 + arm64 | 2.14.6 both | discovery not established, remote writer never seen ([#15](https://github.com/atinfinity/fastdds_transport_viz/issues/15)) | see "Two physical hosts" |
+
 ## Layout
 
 ```
@@ -84,7 +144,7 @@ schema/                            JSON Schema for --json output
 - [x] M2 `--stats`: measured per-locator traffic via the Fast DDS statistics module,
       host names, mismatch detection
 - [x] M3 data-sharing confidence from `HISTORY_LATENCY` + traffic
-- [ ] M4 multi-host verification on x86_64 (arm64 verified) — [#1](https://github.com/atinfinity/fastdds_transport_viz/issues/1)
+- [x] M4 multi-host verification with containers on x86_64 and arm64 — [#1](https://github.com/atinfinity/fastdds_transport_viz/issues/1); two physical hosts on a Wi-Fi LAN still open — [#15](https://github.com/atinfinity/fastdds_transport_viz/issues/15)
 - [ ] M5 richer `--watch` — [#2](https://github.com/atinfinity/fastdds_transport_viz/issues/2)
 - [ ] Web visualization on top of `--json` — [#3](https://github.com/atinfinity/fastdds_transport_viz/issues/3)
 - [ ] Everything else: see the [issue tracker](https://github.com/atinfinity/fastdds_transport_viz/issues)

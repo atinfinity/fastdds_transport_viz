@@ -62,7 +62,7 @@ transport_viz [--domain N] [--timeout S] [--quiet S] [--topic REGEX] [--all]
 - [Measured transports (`--stats`)](docs/statistics.md) — statistics topics, enabling them, the 10-instance pitfall
 - [Data-sharing (zero-copy)](docs/data-sharing.md) — why ROS 2 topics show `SHM` by default and how to enable data-sharing
 - [Web viewer](docs/web-viewer.md) — graph/table view of `--json` output in the browser, live mode (`transport_viz_web`), JSON schema
-- [Development, verification and tests](docs/development.md) — Docker environment, verification nodes, tests, roadmap
+- [Development, verification and tests](docs/development.md) — Docker environment, verification nodes, multi-container scenarios, tests, verification results, roadmap
 
 ## License
 
