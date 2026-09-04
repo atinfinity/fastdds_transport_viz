@@ -42,7 +42,8 @@ the nodes you observe.
 
 ```
 transport_viz [--domain N] [--timeout S] [--quiet S] [--topic REGEX] [--all]
-              [-v] [--explain] [--stats] [--json] [--watch [--interval S]] [--list-codes]
+              [-v] [--explain] [--stats] [--json] [--color auto|always|never]
+              [--watch [--interval S]] [--list-codes]
 ```
 
 | Option | Effect |
@@ -52,11 +53,12 @@ transport_viz [--domain N] [--timeout S] [--quiet S] [--topic REGEX] [--all]
 | `--stats` | also show measured transports (observed nodes need `FASTDDS_STATISTICS`, see [docs/statistics.md](docs/statistics.md)) |
 | `--json` | machine-readable output (`schema_version: 1`, see `schema/`); open it in the [web viewer](docs/web-viewer.md) |
 | `--all` | include services/actions and non-ROS DDS topics |
-| `--watch` | re-render every `--interval` seconds (with `--json`: JSON Lines) |
+| `--watch` | re-render every `--interval` seconds, highlighting added/changed/removed pairs; keys `q p v e a` (with `--json`: JSON Lines with a `changes` object) |
+| `--color` | ANSI colors for transports and warnings (`auto` = only on a terminal) |
 
 ## Documentation
 
-- [How it works](docs/how-it-works.md) — decision rules, reason codes, hosts, where to run it
+- [How it works](docs/how-it-works.md) — decision rules, reason codes, hosts, where to run it, watch mode
 - [Measured transports (`--stats`)](docs/statistics.md) — statistics topics, enabling them, the 10-instance pitfall
 - [Data-sharing (zero-copy)](docs/data-sharing.md) — why ROS 2 topics show `SHM` by default and how to enable data-sharing
 - [Web viewer](docs/web-viewer.md) — graph/table view of `--json` output in the browser, live mode (`transport_viz_web`), JSON schema
