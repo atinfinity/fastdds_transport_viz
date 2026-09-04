@@ -32,6 +32,10 @@ def add_list_arguments(parser):
         '--topic', metavar='REGEX',
         help='only show topics whose (ROS) name matches the regex')
     parser.add_argument(
+        '--node', metavar='REGEX',
+        help='only show pairs where the writer or the reader belongs to a node whose full '
+             "name matches the regex (that node's unpaired endpoints are kept too)")
+    parser.add_argument(
         '--all', action='store_true',
         help='include services/actions and non-ROS DDS topics')
     parser.add_argument(
@@ -69,6 +73,7 @@ _LIST_OPTIONS = (
     ('timeout', '--timeout', True),
     ('quiet', '--quiet', True),
     ('topic', '--topic', True),
+    ('node', '--node', True),
     ('all', '--all', False),
     ('verbose', '-v', False),
     ('explain', '--explain', False),

@@ -21,6 +21,12 @@ to select a transport for each writer → reader pair.
 Topics with only publishers or only subscriptions are listed with `-` and the reason
 `no-matching-reader` / `no-matching-writer`.
 
+`--topic REGEX` keeps the topics whose name matches. `--node REGEX` keeps the pairs in
+which the writer or the reader belongs to a node whose full name (`/ns/name`) matches,
+together with that node's unpaired endpoints; the other side of a kept pair stays
+visible even if it does not match. Both filters combine with AND. An invalid regex is
+rejected at start-up (exit code 2).
+
 ## Reason codes
 
 Every verdict carries machine-readable reason codes (`same-host-guid`,

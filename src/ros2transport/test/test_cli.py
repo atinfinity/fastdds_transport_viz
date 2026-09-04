@@ -42,12 +42,12 @@ def test_list_argv_empty():
 
 def test_list_argv_all_options():
     args = parse(['--domain', '7', '--timeout', '2.5', '--quiet', '0', '--topic', '^/ch',
-                  '--all', '-v', '--explain', '--json', '--stats', '--color', 'never',
-                  '--watch', '--interval', '1'])
+                  '--node', 'talker', '--all', '-v', '--explain', '--json', '--stats',
+                  '--color', 'never', '--watch', '--interval', '1'])
     assert list_argv(args) == [
         '--domain', '7', '--timeout', '2.5', '--quiet', '0', '--topic', '^/ch',
-        '--all', '-v', '--explain', '--json', '--stats', '--color', 'never',
-        '--watch', '--interval', '1']
+        '--node', 'talker', '--all', '-v', '--explain', '--json', '--stats',
+        '--color', 'never', '--watch', '--interval', '1']
 
 
 def test_color_rejects_unknown():
