@@ -165,11 +165,37 @@ schema/                            JSON Schema for --json output
 
 ## Roadmap
 
-- [x] M1 discovery-based prediction, table/JSON, tests, Docker env
-- [x] M2 `--stats`: measured per-locator traffic via the Fast DDS statistics module,
-      host names, mismatch detection
-- [x] M3 data-sharing confidence from `HISTORY_LATENCY` + traffic
-- [x] M4 multi-host verification with containers on x86_64 and arm64 — [#1](https://github.com/atinfinity/fastdds_transport_viz/issues/1); two physical hosts on a Wi-Fi LAN still open — [#15](https://github.com/atinfinity/fastdds_transport_viz/issues/15)
-- [ ] M5 richer `--watch` — [#2](https://github.com/atinfinity/fastdds_transport_viz/issues/2)
-- [ ] Web visualization on top of `--json` — [#3](https://github.com/atinfinity/fastdds_transport_viz/issues/3)
-- [ ] Everything else: see the [issue tracker](https://github.com/atinfinity/fastdds_transport_viz/issues)
+As of 2026-09-05. The [issue tracker](https://github.com/atinfinity/fastdds_transport_viz/issues)
+is the source of truth; update this list when closing an issue.
+
+Done:
+
+- M1 discovery-based prediction, table/JSON, tests, Docker env
+- M2 `--stats`: measured per-locator traffic via the Fast DDS statistics module, host
+  names, mismatch detection
+- M3 data-sharing confidence from `HISTORY_LATENCY` + traffic
+- M4 multi-host verification with containers on x86_64 and arm64 —
+  [#1](https://github.com/atinfinity/fastdds_transport_viz/issues/1)
+- M5 richer `--watch`: change marks, colors, keys, alternate screen —
+  [#2](https://github.com/atinfinity/fastdds_transport_viz/issues/2)
+- Web viewer for `--json` (graph/table) —
+  [#3](https://github.com/atinfinity/fastdds_transport_viz/issues/3), live mode
+  (`transport_viz_web`) — [#10](https://github.com/atinfinity/fastdds_transport_viz/issues/10)
+- `ros2 transport list` / `codes` (ros2cli extension) —
+  [#4](https://github.com/atinfinity/fastdds_transport_viz/issues/4)
+- `--node` filter — [#7](https://github.com/atinfinity/fastdds_transport_viz/issues/7)
+- Transport configurations verified: `LARGE_DATA`/TCPv4, UDPv6, Discovery Server,
+  `LOCALHOST`/`OFF`, large SHM samples —
+  [#6](https://github.com/atinfinity/fastdds_transport_viz/issues/6)
+
+Open:
+
+- Fast DDS 3.x (ROS 2 Rolling / Kilted) —
+  [#5](https://github.com/atinfinity/fastdds_transport_viz/issues/5)
+- Japanese README — [#8](https://github.com/atinfinity/fastdds_transport_viz/issues/8)
+- Data-sharing: stronger confirmation with `--stats` —
+  [#9](https://github.com/atinfinity/fastdds_transport_viz/issues/9)
+- Two physical hosts on a Wi-Fi LAN —
+  [#15](https://github.com/atinfinity/fastdds_transport_viz/issues/15)
+- Web viewer: node filter in the UI —
+  [#18](https://github.com/atinfinity/fastdds_transport_viz/issues/18)
