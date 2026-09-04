@@ -50,3 +50,24 @@ jobs:
             build/**/test_results/**/*.xml
             log/latest_test/**/*.log
           if-no-files-found: ignore
+
+  integration:
+    # Multi-container scenarios (scripts/integration_test.sh) on the x86_64 runner VM:
+    # bridged containers => UDPv4, --stats across containers, host network/IPC => SHM.
+    # Skipped for pull requests to keep PR CI short; run it by hand with workflow_dispatch.
+    name: multi-container integration (x86_64)
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run scenarios
+        run: scripts/integration_test.sh all
+
+      - name: Upload transport_viz output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-json
+          path: /tmp/transport_viz_*.json
+          if-no-files-found: ignore

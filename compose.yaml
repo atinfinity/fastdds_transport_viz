@@ -3,10 +3,15 @@
 #   docker compose build
 #   docker compose run --rm dev                 # interactive shell, repo mounted at /ws
 #   docker compose up talker listener           # two containers => different "hosts" => UDPv4
+#   docker compose up talker_stats listener_stats   # same, with FASTDDS_STATISTICS
 #   docker compose up pair_shm                  # talker + listener in one container => SHM
+#   docker compose run --rm -d hostnet ros2 run demo_nodes_cpp talker
+#   docker compose run --rm -d hostnet ros2 run demo_nodes_cpp listener
+#                                               # host network + IPC => same host id => SHM
 #
 # Run transport_viz from inside the same network/IPC scope as the nodes you
-# want to observe (see README).
+# want to observe (see README). scripts/integration_test.sh drives these
+# services and asserts the expected transports.
 
 x-base: &base
   build:
@@ -18,6 +23,13 @@ x-base: &base
   environment:
     - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-0}
     - RMW_IMPLEMENTATION=rmw_fastrtps_cpp
+
+# Fast DDS statistics on the observed nodes (see docs/statistics.md).
+x-stats-env: &stats_env
+  ROS_DOMAIN_ID: ${ROS_DOMAIN_ID:-0}
+  RMW_IMPLEMENTATION: rmw_fastrtps_cpp
+  FASTDDS_STATISTICS: RTPS_SENT_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC
+  FASTRTPS_DEFAULT_PROFILES_FILE: /ws/src/fastdds_transport_viz/config/statistics.xml
 
 services:
   dev:
@@ -35,6 +47,26 @@ services:
   listener:
     <<: *base
     command: ros2 run demo_nodes_cpp listener
+
+  # Same two containers with the statistics module enabled: --stats measures
+  # UDPv4 and PHYSICAL_DATA reports two different host names.
+  talker_stats:
+    <<: *base
+    environment: *stats_env
+    command: ros2 run demo_nodes_cpp talker
+  listener_stats:
+    <<: *base
+    environment: *stats_env
+    command: ros2 run demo_nodes_cpp listener
+
+  # Shares the Docker host's network and IPC namespaces: two of these get the
+  # same host id and the same /dev/shm => SHM. Also the service to use on each
+  # machine of a real multi-host setup (docs/development.md).
+  hostnet:
+    <<: *base
+    network_mode: host
+    ipc: host
+    command: sleep infinity
 
   # Same container: same host ID and shared /dev/shm => SHM.
   pair_shm:
