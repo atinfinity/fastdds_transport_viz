@@ -55,13 +55,13 @@ add_executable(transport_viz src/main.cpp)
 target_link_libraries(transport_viz PRIVATE ${PROJECT_NAME}_lib)
 
 # --- verification nodes ---------------------------------------------------------
-foreach(node bounded_pub bounded_sub unbounded_pub large_array_pub)
+foreach(node bounded_pub bounded_sub unbounded_pub large_array_pub large_array_sub)
   add_executable(${node} src/test_nodes/${node}.cpp)
   target_link_libraries(${node} PRIVATE rclcpp::rclcpp ${std_msgs_TARGETS})
 endforeach()
 
 install(TARGETS
-  transport_viz bounded_pub bounded_sub unbounded_pub large_array_pub
+  transport_viz bounded_pub bounded_sub unbounded_pub large_array_pub large_array_sub
   DESTINATION lib/${PROJECT_NAME})
 install(TARGETS ${PROJECT_NAME}_core ${PROJECT_NAME}_lib ${PROJECT_NAME}_stats_types
   ARCHIVE DESTINATION lib
@@ -98,6 +98,11 @@ if(BUILD_TESTING)
   ament_add_pytest_test(test_json_schema test/test_json_schema.py)
   ament_add_pytest_test(test_web_serve test/test_web_serve.py)
   add_launch_test(test/launch/test_web_live.py TIMEOUT 90)
+  add_launch_test(test/launch/test_udpv6.py TIMEOUT 90)
+  add_launch_test(test/launch/test_localhost_range.py TIMEOUT 90)
+  add_launch_test(test/launch/test_discovery_server.py TIMEOUT 120)
+  add_launch_test(test/launch/test_large_data_same_host.py TIMEOUT 90)
+  add_launch_test(test/launch/test_large_shm.py TIMEOUT 120)
 endif()
 
 ament_package()

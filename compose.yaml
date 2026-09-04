@@ -4,6 +4,8 @@
 #   docker compose run --rm dev                 # interactive shell, repo mounted at /ws
 #   docker compose up talker listener           # two containers => different "hosts" => UDPv4
 #   docker compose up talker_stats listener_stats   # same, with FASTDDS_STATISTICS
+#   docker compose up talker_large_data listener_large_data   # LARGE_DATA => TCPv4
+#   docker compose up talker_udpv6 listener_udpv6   # DEFAULTv6 => UDPv6
 #   docker compose up pair_shm                  # talker + listener in one container => SHM
 #   docker compose run --rm -d hostnet ros2 run demo_nodes_cpp talker
 #   docker compose run --rm -d hostnet ros2 run demo_nodes_cpp listener
@@ -28,6 +30,14 @@ x-base: &base
 x-stats-env: &stats_env
   ROS_DOMAIN_ID: ${ROS_DOMAIN_ID:-0}
   RMW_IMPLEMENTATION: rmw_fastrtps_cpp
+  FASTDDS_STATISTICS: RTPS_SENT_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC
+  FASTRTPS_DEFAULT_PROFILES_FILE: /ws/src/fastdds_transport_viz/config/statistics.xml
+
+# LARGE_DATA builtin transports (UDPv4 discovery, TCPv4 + SHM user data) with statistics.
+x-large-data-env: &large_data_env
+  ROS_DOMAIN_ID: ${ROS_DOMAIN_ID:-0}
+  RMW_IMPLEMENTATION: rmw_fastrtps_cpp
+  FASTDDS_BUILTIN_TRANSPORTS: LARGE_DATA
   FASTDDS_STATISTICS: RTPS_SENT_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC
   FASTRTPS_DEFAULT_PROFILES_FILE: /ws/src/fastdds_transport_viz/config/statistics.xml
 
@@ -59,6 +69,34 @@ services:
     environment: *stats_env
     command: ros2 run demo_nodes_cpp listener
 
+  # Same two containers with FASTDDS_BUILTIN_TRANSPORTS=LARGE_DATA: user data must go
+  # over TCPv4 between them (SHM is not shared, discovery stays UDPv4).
+  talker_large_data:
+    <<: *base
+    environment: *large_data_env
+    command: ros2 run demo_nodes_cpp talker
+  listener_large_data:
+    <<: *base
+    environment: *large_data_env
+    command: ros2 run demo_nodes_cpp listener
+
+  # Same two containers with FASTDDS_BUILTIN_TRANSPORTS=DEFAULTv6 (UDPv6 + SHM): the
+  # default network below has IPv6, user data must go over UDPv6 between them.
+  talker_udpv6:
+    <<: *base
+    environment:
+      - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-0}
+      - RMW_IMPLEMENTATION=rmw_fastrtps_cpp
+      - FASTDDS_BUILTIN_TRANSPORTS=DEFAULTv6
+    command: ros2 run demo_nodes_cpp talker
+  listener_udpv6:
+    <<: *base
+    environment:
+      - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-0}
+      - RMW_IMPLEMENTATION=rmw_fastrtps_cpp
+      - FASTDDS_BUILTIN_TRANSPORTS=DEFAULTv6
+    command: ros2 run demo_nodes_cpp listener
+
   # Shares the Docker host's network and IPC namespaces: two of these get the
   # same host id and the same /dev/shm => SHM. Also the service to use on each
   # machine of a real multi-host setup (docs/development.md).
@@ -72,3 +110,13 @@ services:
   pair_shm:
     <<: *base
     command: bash -c "ros2 run demo_nodes_cpp talker & exec ros2 run demo_nodes_cpp listener"
+
+# IPv6 on the project network so that UDPv6 / DEFAULTv6 can be exercised (Docker >= 27
+# needs no daemon configuration for this).
+networks:
+  default:
+    enable_ipv6: true
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
+        - subnet: fd00:fd00:7a1e::/64
