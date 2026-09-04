@@ -1,0 +1,10 @@
+The files in this directory are generated code (fastddsgen) copied verbatim from
+eProsima Fast DDS v2.14.6, commit f052f239538ebc0df56835fdb57f7628628010bc,
+path src/cpp/statistics/types/ (source IDL: include/fastdds/statistics/types.idl).
+
+Copyright 2016 Proyectos y Sistemas de Mantenimiento SL (eProsima).
+Licensed under the Apache License, Version 2.0 (see LICENSE in this directory).
+
+They are vendored because ROS 2 Jazzy installs the compiled statistics types in
+libfastrtps but ships neither their headers nor fastddsgen. Replace this
+directory when targeting a different Fast DDS version.

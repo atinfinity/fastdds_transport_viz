@@ -31,6 +31,8 @@ json endpoint_json(const Snapshot & snap, const Endpoint & e, const RenderOption
     {"host_id", host_id_hex(e.host_id)},
     {"host", host_label(snap, e, opt)},
     {"node", e.node_name},
+    {"host_name", e.host_name},
+    {"process", e.process},
     {"dds_topic", e.dds_topic},
     {"dds_type", e.dds_type},
     {"ros_topic", e.ros_topic},
@@ -83,12 +85,41 @@ std::string render_json(const Snapshot & snap, const RenderOptions & opt)
           {"confidence", to_string(p.verdict.confidence)},
           {"reasons", p.verdict.reasons},
           {"warnings", p.verdict.warnings},
+          {"measured", {
+              {"available", p.measured.available},
+              {"transports", [&]() {
+                  json arr = json::array();
+                  for (auto t : p.measured.transports) {arr.push_back(to_string(t));}
+                  return arr;
+                }()},
+              {"packets", p.measured.packets},
+              {"bytes", p.measured.bytes},
+              {"delivered", p.measured.delivered},
+            }},
         });
     }
     tj["pairs"] = pairs;
     topics.push_back(tj);
   }
   root["topics"] = topics;
+  json stats;
+  stats["enabled"] = snap.stats.enabled;
+  stats["samples"] = snap.stats.samples;
+  stats["participants_with_stats"] = snap.stats.participants_with_stats;
+  json physical = json::object();
+  for (const auto & kv : snap.stats.physical) {
+    physical[kv.first] = {{"host", kv.second.host}, {"user", kv.second.user},
+      {"process", kv.second.process}};
+  }
+  stats["physical"] = physical;
+  json traffic = json::array();
+  for (const auto & t : snap.stats.traffic) {
+    traffic.push_back({{"src_participant_guid_prefix", t.src_participant_prefix},
+        {"dst_locator", {{"kind", to_string(t.dst.kind)}, {"address", t.dst.address}, {"port", t.dst.port}}},
+        {"packets", t.packets}, {"bytes", t.bytes}});
+  }
+  stats["traffic"] = traffic;
+  root["stats"] = stats;
   return root.dump(2) + "\n";
 }
 

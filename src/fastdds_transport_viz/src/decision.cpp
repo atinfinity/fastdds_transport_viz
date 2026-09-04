@@ -221,6 +221,131 @@ std::vector<TopicSummary> summarize(const std::vector<Endpoint> & endpoints)
 
 namespace
 {
+
+bool same_locator(const Locator & a, const Locator & b)
+{
+  return a.kind == b.kind && a.port == b.port && (a.kind == LocatorKind::SHM || a.address == b.address);
+}
+
+bool reader_has_locator(const Endpoint & reader, const Locator & l)
+{
+  for (const auto * list : {&reader.unicast, &reader.multicast}) {
+    for (const auto & rl : *list) {
+      if (same_locator(rl, l)) {return true;}
+    }
+  }
+  return false;
+}
+
+Transport transport_for_kind(LocatorKind kind)
+{
+  switch (kind) {
+    case LocatorKind::UDPv4: return Transport::UDPv4;
+    case LocatorKind::UDPv6: return Transport::UDPv6;
+    case LocatorKind::TCPv4: return Transport::TCPv4;
+    case LocatorKind::TCPv6: return Transport::TCPv6;
+    case LocatorKind::SHM: return Transport::SHM;
+    default: return Transport::None;
+  }
+}
+
+std::string measured_reason(Transport t)
+{
+  switch (t) {
+    case Transport::UDPv4: return "measured-udpv4-traffic";
+    case Transport::UDPv6: return "measured-udpv6-traffic";
+    case Transport::TCPv4: return "measured-tcpv4-traffic";
+    case Transport::TCPv6: return "measured-tcpv6-traffic";
+    case Transport::SHM: return "measured-shm-traffic";
+    default: return "measured-unknown-traffic";
+  }
+}
+
+constexpr size_t kStatsWriterInstanceLimit = 10;   // Fast DDS default resource_limits.max_instances
+
+void replace_code(std::vector<std::string> & codes, const std::string & from, const std::string & to)
+{
+  for (auto & c : codes) {
+    if (c == from) {c = to; return;}
+  }
+  codes.push_back(to);
+}
+
+}  // namespace
+
+void apply_stats(std::vector<TopicSummary> & topics, const StatsData & stats)
+{
+  if (!stats.enabled) {
+    return;
+  }
+  // Distinct destination locators reported per source participant. The Fast DDS
+  // statistics DataWriter keeps the default resource limit of 10 instances, so a
+  // participant talking to more than 10 locators silently stops reporting new
+  // ones - exactly 10 reported locators plus a missing one is the signature.
+  std::map<std::string, size_t> locators_per_source;
+  for (const auto & s : stats.traffic) {
+    locators_per_source[s.src_participant_prefix]++;
+  }
+  for (auto & t : topics) {
+    for (auto & p : t.pairs) {
+      Measurement & m = p.measured;
+      const std::string & src = p.writer->participant_guid_prefix;
+      m.available = stats.participants_with_stats.count(src) > 0;
+      m.delivered = stats.delivered.count({p.writer->guid, p.reader->guid}) > 0;
+      for (const auto & s : stats.traffic) {
+        if (s.src_participant_prefix != src || !reader_has_locator(*p.reader, s.dst)) {
+          continue;
+        }
+        if (s.packets == 0) {
+          continue;
+        }
+        Transport tr = transport_for_kind(s.dst.kind);
+        if (std::find(m.transports.begin(), m.transports.end(), tr) == m.transports.end()) {
+          m.transports.push_back(tr);
+        }
+        m.packets += s.packets;
+        m.bytes += s.bytes;
+      }
+
+      Verdict & v = p.verdict;
+      if (!m.available) {
+        v.warnings.push_back("stats-not-enabled-on-writer");
+        continue;
+      }
+      if (v.transport == Transport::DataSharing) {
+        // Zero-copy delivery leaves no RTPS trace. Delivery confirmed by
+        // HISTORY_LATENCY plus silence on every locator of the reader => certain.
+        if (m.delivered && m.transports.empty()) {
+          v.confidence = Confidence::Certain;
+          replace_code(v.reasons, "datasharing-unverified-by-traffic", "datasharing-confirmed-no-traffic");
+        } else if (!m.transports.empty()) {
+          replace_code(v.reasons, "datasharing-unverified-by-traffic", "datasharing-ambiguous-participant-traffic");
+        } else {
+          replace_code(v.reasons, "datasharing-unverified-by-traffic", "datasharing-no-delivery-observed");
+        }
+        continue;
+      }
+      if (m.transports.empty()) {
+        v.warnings.push_back(
+          locators_per_source[src] >= kStatsWriterInstanceLimit ?
+          "stats-writer-instance-limit-suspected" : "no-traffic-observed");
+        continue;
+      }
+      bool matches = std::find(m.transports.begin(), m.transports.end(), v.transport) != m.transports.end();
+      for (auto tr : m.transports) {
+        v.reasons.push_back(measured_reason(tr));
+      }
+      if (matches) {
+        v.confidence = Confidence::Certain;
+      } else {
+        v.warnings.push_back("measured-transport-mismatch");
+      }
+    }
+  }
+}
+
+namespace
+{
 const std::map<std::string, std::string> & explanations()
 {
   static const std::map<std::string, std::string> m = {
@@ -275,6 +400,37 @@ const std::map<std::string, std::string> & explanations()
     {"no-matching-reader", "No subscription was discovered for this topic."},
     {"type-name-mismatch",
       "A writer and a reader on this topic announce different type names, so they do not match."},
+    {"measured-udpv4-traffic", "Statistics show RTPS packets from the writer's participant to the reader's UDPv4 locator."},
+    {"measured-udpv6-traffic", "Statistics show RTPS packets from the writer's participant to the reader's UDPv6 locator."},
+    {"measured-tcpv4-traffic", "Statistics show RTPS packets from the writer's participant to the reader's TCPv4 locator."},
+    {"measured-tcpv6-traffic", "Statistics show RTPS packets from the writer's participant to the reader's TCPv6 locator."},
+    {"measured-shm-traffic", "Statistics show RTPS packets from the writer's participant to the reader's SHM locator."},
+    {"measured-unknown-traffic", "Statistics show RTPS packets to a locator of unknown kind."},
+    {"measured-transport-mismatch",
+      "The transport predicted from discovery data differs from the locator kind(s) that actually "
+      "carried packets. Please report this with the --json output."},
+    {"stats-writer-instance-limit-suspected",
+      "The writer's participant reports traffic to 10 or more locators but none to this reader. "
+      "The Fast DDS statistics DataWriter keeps the default resource limit of 10 instances "
+      "(one per destination locator), so counters for further locators are never published. "
+      "Raise it with an XML profile named after the statistics topic "
+      "(_fastdds_statistics_rtps_sent) whose <resourceLimitsQos> sets max_instances to 0."},
+    {"no-traffic-observed",
+      "The writer's participant publishes statistics but sent no packets to any locator of the "
+      "reader during the observation window (idle topic, or a longer --timeout is needed)."},
+    {"stats-not-enabled-on-writer",
+      "No statistics were received from the writer's participant. Start it with "
+      "FASTDDS_STATISTICS=\"RTPS_SENT_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC\"."},
+    {"datasharing-confirmed-no-traffic",
+      "HISTORY_LATENCY statistics prove samples reached the reader while no RTPS packets went to "
+      "any of its locators: zero-copy data-sharing delivery is confirmed."},
+    {"datasharing-ambiguous-participant-traffic",
+      "The writer's participant did send packets to the reader's locators. Statistics are per "
+      "participant, and reliable data-sharing endpoints still exchange heartbeats/acknacks over "
+      "the transport, so this does not disprove zero-copy delivery; it just cannot confirm it."},
+    {"datasharing-no-delivery-observed",
+      "No HISTORY_LATENCY sample for this pair yet (needs HISTORY_LATENCY_TOPIC enabled and at "
+      "least one published sample), so data-sharing remains unconfirmed."},
     {"host-id-match-but-ip-differs",
       "The endpoints share a host id but announce no common IP address (typical for containers "
       "with separate network namespaces on one machine). SHM works only if /dev/shm is shared."},

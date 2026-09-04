@@ -11,6 +11,8 @@
 #include <array>
 #include <cstdint>
 #include <map>
+#include <set>
+#include <utility>
 #include <string>
 #include <vector>
 
@@ -67,6 +69,8 @@ struct Endpoint
   std::string ros_topic;          // demangled; empty when not a ROS topic
   std::string ros_type;           // demangled; empty when not a ROS type
   std::string node_name;          // fully-qualified ROS node name, may be empty
+  std::string host_name;          // from statistics PHYSICAL_DATA, may be empty
+  std::string process;            // from statistics PHYSICAL_DATA, may be empty
   std::vector<Locator> unicast;
   std::vector<Locator> multicast;
   EndpointQos qos;
@@ -97,11 +101,22 @@ struct Verdict
   std::vector<std::string> warnings;   // machine-readable warning codes
 };
 
+/// What the Fast DDS statistics module actually observed for a pair.
+struct Measurement
+{
+  bool available{false};             // writer's participant publishes statistics
+  std::vector<Transport> transports; // locator kinds that carried packets to the reader
+  uint64_t packets{0};
+  double bytes{0.0};
+  bool delivered{false};             // HISTORY_LATENCY sample seen for this writer->reader
+};
+
 struct Pair
 {
   const Endpoint * writer{nullptr};
   const Endpoint * reader{nullptr};
   Verdict verdict;
+  Measurement measured;
 };
 
 struct TopicSummary
@@ -116,6 +131,34 @@ struct TopicSummary
   std::vector<std::string> unmatched_reasons;   // e.g. no-matching-reader
 };
 
+// ---- statistics module data (--stats) ----------------------------------------
+
+struct HostInfo
+{
+  std::string host;
+  std::string user;
+  std::string process;
+};
+
+/// Latest cumulative RTPS_SENT counter for (source participant, destination locator).
+struct TrafficSample
+{
+  std::string src_participant_prefix;   // 12-byte prefix, dotted hex
+  Locator dst;
+  uint64_t packets{0};
+  double bytes{0.0};
+};
+
+struct StatsData
+{
+  bool enabled{false};
+  std::map<std::string, HostInfo> physical;               // participant prefix -> host info
+  std::vector<TrafficSample> traffic;
+  std::set<std::pair<std::string, std::string>> delivered;  // (writer guid, reader guid)
+  std::set<std::string> participants_with_stats;           // prefixes seen on any stats topic
+  size_t samples{0};
+};
+
 struct Snapshot
 {
   int domain{0};
@@ -124,6 +167,7 @@ struct Snapshot
   HostId local_host_id{};
   std::vector<Endpoint> endpoints;
   std::vector<TopicSummary> topics;
+  StatsData stats;
 };
 
 // ---- small helpers -------------------------------------------------------

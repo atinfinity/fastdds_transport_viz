@@ -10,6 +10,7 @@
 #include <cstring>
 #include <ctime>
 #include <iostream>
+#include <memory>
 #include <regex>
 #include <string>
 #include <thread>
@@ -22,6 +23,7 @@
 #include "fastdds_transport_viz/model.hpp"
 #include "fastdds_transport_viz/render.hpp"
 #include "fastdds_transport_viz/ros_graph_resolver.hpp"
+#include "fastdds_transport_viz/stats_observer.hpp"
 
 using namespace std::chrono_literals;
 using fastdds_transport_viz::Endpoint;
@@ -34,7 +36,8 @@ namespace
 struct Options
 {
   int domain{-1};             // -1 => ROS_DOMAIN_ID / 0
-  double timeout{3.0};        // seconds to wait for discovery
+  double timeout{-1.0};       // seconds to wait for discovery (-1: 3, or 5 with --stats)
+  bool stats{false};
   double quiet{1.0};          // stop early after this many silent seconds
   bool json{false};
   bool verbose{false};
@@ -57,14 +60,17 @@ void usage()
     "\n"
     "Options:\n"
     "  --domain <id>      DDS domain id (default: $ROS_DOMAIN_ID or 0)\n"
-    "  --timeout <sec>    max time to wait for discovery (default: 3)\n"
+    "  --timeout <sec>    max time to wait for discovery (default: 3, 5 with --stats)\n"
     "  --quiet <sec>      stop early after this many seconds without discovery events\n"
-    "                     (default: 1)\n"
+    "                     (default: 1; ignored with --stats)\n"
     "  --topic <regex>    only show topics whose (ROS) name matches the regex\n"
     "  --all              include services/actions and non-ROS DDS topics\n"
     "  -v, --verbose      expand writer -> reader pairs under each topic\n"
     "  --explain          print a legend for every reason code used\n"
     "  --json             emit JSON (schema_version 1) instead of a table\n"
+    "  --stats            also subscribe to the Fast DDS statistics topics and show the\n"
+    "                     transport that actually carried packets; observed nodes must run\n"
+    "                     with FASTDDS_STATISTICS=\"RTPS_SENT_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC\"\n"
     "  --watch            keep observing and re-render every --interval seconds\n"
     "  --interval <sec>   refresh period for --watch (default: 2)\n"
     "  --list-codes       list all reason codes with descriptions and exit\n"
@@ -90,7 +96,7 @@ bool parse(int argc, char ** argv, Options & o)
       o.all = true;
     } else if (a == "-v" || a == "--verbose") {o.verbose = true;} else if (a == "--explain") {
       o.explain = true;
-    } else if (a == "--json") {o.json = true;} else if (a == "--watch") {o.watch = true;} else if (a ==
+    } else if (a == "--json") {o.json = true;} else if (a == "--stats") {o.stats = true;} else if (a == "--watch") {o.watch = true;} else if (a ==
       "--list-codes")
     {
       o.list_codes = true;
@@ -116,8 +122,13 @@ std::string now_iso8601()
 Snapshot collect(
   fastdds_transport_viz::DiscoveryObserver & observer,
   fastdds_transport_viz::RosGraphResolver & resolver,
+  fastdds_transport_viz::StatsObserver * stats,
   const Options & o, int domain, double observation_seconds)
 {
+  fastdds_transport_viz::StatsData stats_data;
+  if (stats != nullptr) {
+    stats_data = stats->snapshot();
+  }
   resolver.refresh();
   const std::string own = resolver.own_node_name();
 
@@ -129,6 +140,11 @@ Snapshot collect(
   }
   for (auto & e : endpoints) {
     e.node_name = resolver.node_for_guid(e.guid_bytes);
+    auto phys = stats_data.physical.find(e.participant_guid_prefix);
+    if (phys != stats_data.physical.end()) {
+      e.host_name = phys->second.host;
+      e.process = phys->second.process;
+    }
     // Our own rclcpp node's endpoints: topic endpoints resolve to our node
     // name, service endpoints live under our node name (services are not
     // covered by the graph API).
@@ -160,6 +176,8 @@ Snapshot collect(
   snap.local_host_id = observer.local_host_id();
   snap.endpoints = std::move(kept);
   snap.topics = fastdds_transport_viz::summarize(snap.endpoints);
+  snap.stats = std::move(stats_data);
+  fastdds_transport_viz::apply_stats(snap.topics, snap.stats);
   return snap;
 }
 
@@ -178,6 +196,9 @@ int main(int argc, char ** argv)
     return 0;
   }
 
+  if (o.timeout < 0) {
+    o.timeout = o.stats ? 5.0 : 3.0;
+  }
   int domain = o.domain;
   if (domain < 0) {
     const char * env = std::getenv("ROS_DOMAIN_ID");
@@ -198,6 +219,10 @@ int main(int argc, char ** argv)
       "_transport_viz_" + std::to_string(getpid()), node_opts);
     fastdds_transport_viz::RosGraphResolver resolver(node);
     fastdds_transport_viz::DiscoveryObserver observer(domain);
+    std::unique_ptr<fastdds_transport_viz::StatsObserver> stats;
+    if (o.stats) {
+      stats = std::make_unique<fastdds_transport_viz::StatsObserver>(observer.participant());
+    }
 
     RenderOptions ropt;
     ropt.verbose = o.verbose;
@@ -212,14 +237,15 @@ int main(int argc, char ** argv)
       double elapsed = std::chrono::duration<double>(now - start).count();
       double since_last = std::chrono::duration<double>(now - observer.last_event()).count();
       if (elapsed >= o.timeout) {break;}
-      if (o.quiet > 0 && elapsed >= o.quiet && since_last >= o.quiet) {break;}
+      // With --stats the whole window is needed for traffic counters to accumulate.
+      if (!o.stats && o.quiet > 0 && elapsed >= o.quiet && since_last >= o.quiet) {break;}
       if (!rclcpp::ok()) {break;}
     }
 
     do {
       double elapsed = std::chrono::duration<double>(
         std::chrono::steady_clock::now() - start).count();
-      Snapshot snap = collect(observer, resolver, o, domain, elapsed);
+      Snapshot snap = collect(observer, resolver, stats.get(), o, domain, elapsed);
       std::string out = o.json ? fastdds_transport_viz::render_json(snap, ropt) :
         fastdds_transport_viz::render_table(snap, ropt);
       if (o.watch && !o.json) {

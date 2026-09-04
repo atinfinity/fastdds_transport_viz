@@ -40,6 +40,9 @@ public:
   /// Host id (first 4 bytes of our GUID prefix) - "local" for display purposes.
   HostId local_host_id() const;
 
+  /// The underlying participant (used by StatsObserver to add readers).
+  eprosima::fastdds::dds::DomainParticipant * participant() const {return participant_;}
+
   void on_participant_discovery(
     eprosima::fastdds::dds::DomainParticipant * participant,
     eprosima::fastrtps::rtps::ParticipantDiscoveryInfo && info) override;

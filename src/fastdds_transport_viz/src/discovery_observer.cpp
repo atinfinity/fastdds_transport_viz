@@ -19,6 +19,7 @@
 #include <fastdds/rtps/writer/WriterDiscoveryInfo.h>
 #include <fastrtps/utils/IPLocator.h>
 
+#include "fastdds_transport_viz/fastdds_util.hpp"
 #include "fastdds_transport_viz/ros_names.hpp"
 
 namespace fastdds_transport_viz
@@ -26,9 +27,6 @@ namespace fastdds_transport_viz
 
 namespace dds = eprosima::fastdds::dds;
 namespace rtps = eprosima::fastrtps::rtps;
-
-namespace
-{
 
 std::string guid_to_string(const rtps::GUID_t & guid)
 {
@@ -53,7 +51,7 @@ std::string prefix_to_string(const rtps::GuidPrefix_t & prefix)
   return buf;
 }
 
-Locator convert(const rtps::Locator_t & l)
+Locator convert_locator(const rtps::Locator_t & l)
 {
   Locator out;
   out.port = l.port;
@@ -86,13 +84,16 @@ Locator convert(const rtps::Locator_t & l)
   return out;
 }
 
+namespace
+{
+
 void fill_locators(const rtps::RemoteLocatorList & list, Endpoint & e)
 {
   for (const auto & l : list.unicast) {
-    e.unicast.push_back(convert(l));
+    e.unicast.push_back(convert_locator(l));
   }
   for (const auto & l : list.multicast) {
-    e.multicast.push_back(convert(l));
+    e.multicast.push_back(convert_locator(l));
   }
 }
 

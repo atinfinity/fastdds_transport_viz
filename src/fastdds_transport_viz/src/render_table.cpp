@@ -16,6 +16,11 @@ namespace fastdds_transport_viz
 
 std::string host_label(const Snapshot & snap, const Endpoint & e, const RenderOptions & opt)
 {
+  if (!e.host_name.empty()) {
+    // PHYSICAL_DATA reports "<hostname>:<numeric host id>"; show the hostname.
+    auto colon = e.host_name.find(':');
+    return colon == std::string::npos ? e.host_name : e.host_name.substr(0, colon);
+  }
   auto it = opt.host_labels.find(host_id_hex(e.host_id));
   if (it != opt.host_labels.end()) {
     return it->second;
@@ -85,7 +90,28 @@ std::string aggregate_reasons(const TopicSummary & t)
 std::string endpoint_label(const Snapshot & snap, const Endpoint & e, const RenderOptions & opt)
 {
   std::string who = e.node_name.empty() ? ("guid:" + e.guid.substr(0, 11) + "..") : e.node_name;
-  return who + "@" + host_label(snap, e, opt);
+  std::string label = who + "@" + host_label(snap, e, opt);
+  if (!e.process.empty()) {
+    label += "(" + e.process + ")";
+  }
+  return label;
+}
+
+std::string measured_label(const Pair & p)
+{
+  if (!p.measured.available) {
+    return "n/a";
+  }
+  if (p.measured.transports.empty()) {
+    return p.measured.delivered ? "none(delivered)" : "none";
+  }
+  std::vector<std::string> parts;
+  for (auto t : p.measured.transports) {
+    parts.push_back(to_string(t));
+  }
+  std::string s = join(parts, "+");
+  s += " " + std::to_string(p.measured.packets) + "pkt";
+  return s;
 }
 
 void print_rows(std::ostringstream & os, const std::vector<std::vector<std::string>> & rows)
@@ -146,10 +172,15 @@ std::string render_table(const Snapshot & snap, const RenderOptions & opt)
       for (const auto & p : t.pairs) {
         std::string reasons = join(p.verdict.reasons, ",");
         for (const auto & w : p.verdict.warnings) {reasons += ",!" + w;}
-        pair_rows.push_back({
-            "    " + endpoint_label(snap, *p.writer, opt) + " -> " +
-            endpoint_label(snap, *p.reader, opt),
-            transport_label(p.verdict), reasons});
+        std::vector<std::string> row = {
+          "    " + endpoint_label(snap, *p.writer, opt) + " -> " +
+          endpoint_label(snap, *p.reader, opt),
+          transport_label(p.verdict)};
+        if (snap.stats.enabled) {
+          row.push_back("measured=" + measured_label(p));
+        }
+        row.push_back(reasons);
+        pair_rows.push_back(row);
       }
       print_rows(os, pair_rows);
     }
@@ -157,6 +188,15 @@ std::string render_table(const Snapshot & snap, const RenderOptions & opt)
 
   if (snap.topics.empty()) {
     os << "(no endpoints discovered in domain " << snap.domain << ")\n";
+  }
+  if (snap.stats.enabled) {
+    os << "\nstatistics: " << snap.stats.samples << " samples from "
+       << snap.stats.participants_with_stats.size() << " participant(s)";
+    if (snap.stats.participants_with_stats.empty()) {
+      os << " - start the observed nodes with FASTDDS_STATISTICS=\""
+         << "RTPS_SENT_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC\"";
+    }
+    os << "\n";
   }
 
   if (opt.explain) {

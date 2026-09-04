@@ -24,6 +24,11 @@ Verdict decide(const Endpoint & writer, const Endpoint & reader);
 /// different type names are not paired and produce a warning on the topic.
 std::vector<TopicSummary> summarize(const std::vector<Endpoint> & endpoints);
 
+/// Overlay statistics-module measurements on the predicted verdicts:
+/// fills Pair::measured, upgrades confidence, and adds reason / warning codes
+/// (e.g. measured-transport-mismatch). Pure function.
+void apply_stats(std::vector<TopicSummary> & topics, const StatsData & stats);
+
 /// Human readable explanation for a reason / warning code (English).
 std::string explain(const std::string & code);
 

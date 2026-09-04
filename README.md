@@ -6,6 +6,14 @@ UDPv6, TCP, shared memory (SHM) or zero-copy data-sharing — **and why**.
 Target: ROS 2 Jazzy with `rmw_fastrtps_cpp` (Fast DDS 2.14).
 
 ```
+$ ros2 run fastdds_transport_viz transport_viz -v --stats
+TOPIC     TYPE                 PUBS  SUBS  TRANSPORT         REASON
+/chatter  std_msgs/msg/String  1     2     SHM x1, UDPv4 x1  same-host-guid,...
+    /talker@myhost(136) -> /listener@myhost(135)      SHM    measured=SHM 47pkt    same-host-guid,datasharing-disabled-writer,both-shm-locators,measured-shm-traffic
+    /talker@myhost(136) -> /listener_udp@myhost(134)  UDPv4  measured=UDPv4 49pkt  same-host-guid,datasharing-disabled-writer,reader-no-shm-locator,common-udpv4-locator,measured-udpv4-traffic
+
+statistics: 63 samples from 3 participant(s)
+
 $ ros2 run fastdds_transport_viz transport_viz -v --explain
 TOPIC     TYPE                 PUBS  SUBS  TRANSPORT           REASON
 /chatter  std_msgs/msg/String  1     2     SHM x1, UDPv4 x1    same-host-guid,datasharing-disabled-writer,both-shm-locators,reader-no-shm-locator,common-udpv4-locator
@@ -40,6 +48,49 @@ transport means confidence `likely` rather than `certain`.
 
 ROS node names are resolved through the rclcpp graph API, so the tool registers a
 hidden node `_transport_viz_<pid>` (excluded from its own output).
+
+### Measured transports (`--stats`)
+
+Discovery data tells you what *should* happen. With `--stats` the tool also subscribes
+to the [Fast DDS statistics module](https://fast-dds.docs.eprosima.com/en/2.14.x/fastdds/statistics/statistics.html)
+topics and shows what *did* happen:
+
+- `_fastdds_statistics_rtps_sent` — RTPS packets/bytes sent by each participant to each
+  destination locator. Matched against the locators the reader announced, this gives the
+  locator kind that actually carried packets (`measured=SHM 47pkt`). A disagreement with
+  the prediction is flagged `!measured-transport-mismatch`.
+- `_fastdds_statistics_history2history_latency` — proves samples from a writer reached a
+  specific reader (used to confirm zero-copy data-sharing, which leaves no RTPS trace).
+- `_fastdds_statistics_physical_data` — host name, user and process id per participant,
+  shown instead of `local` / `host:<id>`.
+
+The observed nodes must publish statistics; no code change is needed, just:
+
+```
+export FASTDDS_STATISTICS="RTPS_SENT_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC"
+```
+
+Statistics are per *participant* (one per ROS node), so the measurement applies to the
+writer's node → reader's node link; the prediction is what tells the pairs apart. `--stats`
+observes for the full `--timeout` (default 5 s) so that counters can accumulate.
+
+**Pitfall: the 10-instance limit.** Fast DDS 2.14 creates the statistics DataWriters with
+the default resource limit of 10 instances. `RTPS_SENT` is keyed by destination locator,
+so a node that talks to more than 10 locators (a handful of peers is enough: every peer
+has metatraffic, user-data and SHM locators) silently stops reporting the extra ones.
+The tool flags this as `!stats-writer-instance-limit-suspected`. Lift the limit on the
+observed nodes with the shipped profile (profile names must match the aliases in
+`FASTDDS_STATISTICS`):
+
+```
+export FASTRTPS_DEFAULT_PROFILES_FILE=$(ros2 pkg prefix fastdds_transport_viz)/share/fastdds_transport_viz/config/statistics.xml
+export FASTDDS_STATISTICS="RTPS_SENT_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC"
+```
+
+(Merge it with `datasharing_auto.xml` if you need both; Fast DDS reads a single file.) The
+generated type-support code for the statistics topics is vendored under
+`third_party/fastdds_statistics_types/` (Fast DDS 2.14.6, Apache-2.0) because Jazzy does
+not ship its headers.
 
 ## Usage
 
@@ -99,7 +150,10 @@ ros2 run fastdds_transport_viz bounded_sub &
 ros2 run fastdds_transport_viz transport_viz -v      # /bounded -> DATA_SHARING? (likely)
 ```
 
-The `?` stays until `--stats` (M2) can confirm that no RTPS traffic flows for the pair.
+The `?` (confidence `likely`) stays even with `--stats`: reliable data-sharing endpoints
+still exchange heartbeats over SHM and statistics are per participant, so traffic on the
+link does not disprove zero-copy delivery. It becomes `certain` only when
+`HISTORY_LATENCY` proves delivery while no packet at all reached the reader's locators.
 
 ## Tests
 
@@ -109,14 +163,15 @@ colcon test && colcon test-result --verbose
 
 - `test_decision`: gtest over the pure decision logic and name demangling.
 - `test_same_host_shm.py` / `test_same_host_udp.py`: launch_testing against real demo nodes.
+- `test_stats.py`: demo nodes with `FASTDDS_STATISTICS`; asserts measured SHM / UDPv4 and host names.
 
 ## Roadmap
 
 - [x] M1 discovery-based prediction, table/JSON, tests, Docker env
-- [ ] M2 `--stats`: measured per-locator traffic via the Fast DDS statistics module
-      (`FASTDDS_STATISTICS="RTPS_SENT_TOPIC;RTPS_LOST_TOPIC;PHYSICAL_DATA_TOPIC"` on the
-      observed nodes), host names, `MISMATCH` detection
-- [ ] M3 data-sharing confidence upgrade from traffic
+- [x] M2 `--stats`: measured per-locator traffic via the Fast DDS statistics module,
+      host names, mismatch detection
+- [x] M3 data-sharing confidence from `HISTORY_LATENCY` + traffic (certain only when the
+      link is completely silent; heartbeats usually keep it `likely`)
 - [ ] M4 multi-host verification (x86_64 / arm64)
 - [ ] M5 richer `--watch`
 

@@ -217,3 +217,153 @@ TEST(RosNames, DemangleTypes)
     "example_interfaces/srv/AddTwoInts_Request");
   EXPECT_EQ(demangle_type("HelloWorld"), "");
 }
+
+// ---- statistics overlay --------------------------------------------------------
+
+namespace
+{
+StatsData stats_with(const Endpoint & w, std::vector<TrafficSample> traffic, bool delivered_to = false,
+  const Endpoint * r = nullptr)
+{
+  StatsData s;
+  s.enabled = true;
+  s.participants_with_stats.insert(w.participant_guid_prefix);
+  s.traffic = std::move(traffic);
+  if (delivered_to && r) {
+    s.delivered.insert({w.guid, r->guid});
+  }
+  return s;
+}
+}  // namespace
+
+TEST(ApplyStats, MeasuredShmConfirmsPrediction)
+{
+  std::vector<Endpoint> eps;
+  eps.push_back(make(true, HOST_A, {udp4("10.0.0.1"), shm(7415)}));
+  eps.push_back(make(false, HOST_A, {udp4("10.0.0.1", 7413), shm(7413)}));
+  eps[0].participant_guid_prefix = "P1";
+  auto topics = summarize(eps);
+  ASSERT_EQ(topics[0].pairs.size(), 1u);
+  auto stats = stats_with(eps[0], {TrafficSample{"P1", shm(7413), 10, 1000.0}});
+  apply_stats(topics, stats);
+  const auto & p = topics[0].pairs[0];
+  EXPECT_TRUE(p.measured.available);
+  ASSERT_EQ(p.measured.transports.size(), 1u);
+  EXPECT_EQ(p.measured.transports[0], Transport::SHM);
+  EXPECT_EQ(p.measured.packets, 10u);
+  EXPECT_EQ(p.verdict.confidence, Confidence::Certain);
+  EXPECT_TRUE(has(p.verdict.reasons, "measured-shm-traffic"));
+  EXPECT_TRUE(p.verdict.warnings.empty());
+}
+
+TEST(ApplyStats, MismatchWarnsWhenPacketsWentElsewhere)
+{
+  std::vector<Endpoint> eps;
+  eps.push_back(make(true, HOST_A, {udp4("10.0.0.1"), shm(7415)}));
+  eps.push_back(make(false, HOST_A, {udp4("10.0.0.1", 7413), shm(7413)}));
+  eps[0].participant_guid_prefix = "P1";
+  auto topics = summarize(eps);
+  // predicted SHM, but packets only on the reader's UDPv4 locator
+  auto stats = stats_with(eps[0], {TrafficSample{"P1", udp4("10.0.0.1", 7413), 5, 500.0}});
+  apply_stats(topics, stats);
+  const auto & p = topics[0].pairs[0];
+  EXPECT_EQ(p.verdict.transport, Transport::SHM);
+  EXPECT_TRUE(has(p.verdict.reasons, "measured-udpv4-traffic"));
+  EXPECT_TRUE(has(p.verdict.warnings, "measured-transport-mismatch"));
+}
+
+TEST(ApplyStats, TrafficToOtherLocatorsIsIgnored)
+{
+  std::vector<Endpoint> eps;
+  eps.push_back(make(true, HOST_A, {shm(7415)}));
+  eps.push_back(make(false, HOST_A, {shm(7413)}));
+  eps[0].participant_guid_prefix = "P1";
+  auto topics = summarize(eps);
+  // metatraffic port 7412 is not a locator of the reader; different source participant too
+  auto stats = stats_with(eps[0], {
+      TrafficSample{"P1", udp4("10.0.0.1", 7412), 5, 500.0},
+      TrafficSample{"P9", shm(7413), 5, 500.0}});
+  apply_stats(topics, stats);
+  const auto & p = topics[0].pairs[0];
+  EXPECT_TRUE(p.measured.transports.empty());
+  EXPECT_TRUE(has(p.verdict.warnings, "no-traffic-observed"));
+  EXPECT_EQ(p.verdict.confidence, Confidence::Certain);   // prediction untouched
+}
+
+TEST(ApplyStats, NoStatsFromWriterParticipant)
+{
+  std::vector<Endpoint> eps;
+  eps.push_back(make(true, HOST_A, {shm(7415)}));
+  eps.push_back(make(false, HOST_A, {shm(7413)}));
+  eps[0].participant_guid_prefix = "P1";
+  auto topics = summarize(eps);
+  StatsData s;
+  s.enabled = true;   // enabled but nobody publishes
+  apply_stats(topics, s);
+  const auto & p = topics[0].pairs[0];
+  EXPECT_FALSE(p.measured.available);
+  EXPECT_TRUE(has(p.verdict.warnings, "stats-not-enabled-on-writer"));
+}
+
+TEST(ApplyStats, DisabledStatsLeavesVerdictUntouched)
+{
+  std::vector<Endpoint> eps;
+  eps.push_back(make(true, HOST_A, {shm(7415)}));
+  eps.push_back(make(false, HOST_A, {shm(7413)}));
+  auto topics = summarize(eps);
+  StatsData s;
+  apply_stats(topics, s);
+  EXPECT_FALSE(topics[0].pairs[0].measured.available);
+  EXPECT_TRUE(topics[0].pairs[0].verdict.warnings.empty());
+}
+
+TEST(ApplyStats, DataSharingConfirmedByDeliveryWithoutTraffic)
+{
+  std::vector<Endpoint> eps;
+  eps.push_back(make(true, HOST_A, {shm(7415)}, DataSharingKind::On, {1}));
+  eps.push_back(make(false, HOST_A, {shm(7413)}, DataSharingKind::On, {1}));
+  eps[0].participant_guid_prefix = "P1";
+  auto topics = summarize(eps);
+  ASSERT_EQ(topics[0].pairs[0].verdict.transport, Transport::DataSharing);
+  auto stats = stats_with(eps[0], {}, true, &eps[1]);
+  apply_stats(topics, stats);
+  const auto & p = topics[0].pairs[0];
+  EXPECT_TRUE(p.measured.delivered);
+  EXPECT_EQ(p.verdict.confidence, Confidence::Certain);
+  EXPECT_TRUE(has(p.verdict.reasons, "datasharing-confirmed-no-traffic"));
+  EXPECT_FALSE(has(p.verdict.reasons, "datasharing-unverified-by-traffic"));
+}
+
+TEST(ApplyStats, DataSharingStaysLikelyWithParticipantTraffic)
+{
+  std::vector<Endpoint> eps;
+  eps.push_back(make(true, HOST_A, {shm(7415)}, DataSharingKind::On, {1}));
+  eps.push_back(make(false, HOST_A, {shm(7413)}, DataSharingKind::On, {1}));
+  eps[0].participant_guid_prefix = "P1";
+  auto topics = summarize(eps);
+  auto stats = stats_with(eps[0], {TrafficSample{"P1", shm(7413), 3, 300.0}}, true, &eps[1]);
+  apply_stats(topics, stats);
+  const auto & p = topics[0].pairs[0];
+  EXPECT_EQ(p.verdict.transport, Transport::DataSharing);
+  EXPECT_EQ(p.verdict.confidence, Confidence::Likely);
+  EXPECT_TRUE(has(p.verdict.reasons, "datasharing-ambiguous-participant-traffic"));
+}
+
+TEST(ApplyStats, WriterInstanceLimitSuspectedWhenTenLocatorsReported)
+{
+  std::vector<Endpoint> eps;
+  eps.push_back(make(true, HOST_A, {shm(7415)}));
+  eps.push_back(make(false, HOST_A, {shm(7413)}));
+  eps[0].participant_guid_prefix = "P1";
+  auto topics = summarize(eps);
+  std::vector<TrafficSample> traffic;
+  for (uint32_t port = 8000; port < 8010; ++port) {   // 10 unrelated locators
+    traffic.push_back(TrafficSample{"P1", udp4("10.0.0.1", port), 1, 100.0});
+  }
+  auto stats = stats_with(eps[0], traffic);
+  apply_stats(topics, stats);
+  const auto & p = topics[0].pairs[0];
+  EXPECT_TRUE(p.measured.transports.empty());
+  EXPECT_TRUE(has(p.verdict.warnings, "stats-writer-instance-limit-suspected"));
+  EXPECT_FALSE(has(p.verdict.warnings, "no-traffic-observed"));
+}
