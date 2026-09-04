@@ -228,6 +228,19 @@
         },
         "delivered": {
           "type": "boolean"
+        },
+        "delivered_samples": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "HISTORY_LATENCY samples seen for this pair during the observation"
+        },
+        "data_submessages": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "description": "DATA/DATA_FRAG submessages the writer sent through a transport during the observation (DATA_COUNT delta); null when the writer's participant does not publish DATA_COUNT"
         }
       }
     },
@@ -410,6 +423,29 @@
                 "minimum": 0
               }
             }
+          }
+        },
+        "data_count": {
+          "type": "object",
+          "description": "writer guid -> cumulative DATA_COUNT at the first and last sample seen",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "first": {
+                "type": "integer"
+              },
+              "last": {
+                "type": "integer"
+              },
+              "samples": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "first",
+              "last",
+              "samples"
+            ]
           }
         }
       }

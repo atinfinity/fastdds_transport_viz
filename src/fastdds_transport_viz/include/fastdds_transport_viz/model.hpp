@@ -110,6 +110,10 @@ struct Measurement
   uint64_t packets{0};
   double bytes{0.0};
   bool delivered{false};             // HISTORY_LATENCY sample seen for this writer->reader
+  size_t delivered_samples{0};       // HISTORY_LATENCY samples seen for this pair
+  bool data_count_available{false};  // the writer's participant publishes DATA_COUNT
+  uint64_t data_submessages{0};      // DATA/DATA_FRAG the writer sent through a transport
+                                     // during the observation (DATA_COUNT delta)
 };
 
 struct Pair
@@ -150,12 +154,25 @@ struct TrafficSample
   double bytes{0.0};
 };
 
+/// DATA_COUNT samples of one writer: cumulative count at the first and the last sample.
+struct DataCountSample
+{
+  uint64_t first{0};
+  uint64_t last{0};
+  size_t samples{0};
+};
+
+/// DDS name of the Fast DDS DATA_COUNT statistics topic.
+inline constexpr const char * kStatsDataCountTopic = "_fastdds_statistics_data_count";
+
 struct StatsData
 {
   bool enabled{false};
   std::map<std::string, HostInfo> physical;               // participant prefix -> host info
   std::vector<TrafficSample> traffic;
-  std::set<std::pair<std::string, std::string>> delivered;  // (writer guid, reader guid)
+  std::map<std::pair<std::string, std::string>, size_t> delivered;  // (writer, reader) guid -> HISTORY_LATENCY samples
+  std::map<std::string, DataCountSample> data_count;       // writer guid -> DATA_COUNT
+  std::set<std::pair<std::string, std::string>> statistics_writers;  // (participant prefix, statistics topic) discovered
   std::set<std::string> participants_with_stats;           // prefixes seen on any stats topic
   size_t samples{0};
 };

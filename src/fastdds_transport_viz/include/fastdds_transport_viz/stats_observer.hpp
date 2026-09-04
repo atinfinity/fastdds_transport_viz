@@ -59,6 +59,7 @@ private:
   Reader rtps_sent_;
   Reader history_latency_;
   Reader physical_data_;
+  Reader data_count_;
 
   std::mutex mutex_;
   using TrafficKey = std::tuple<std::string, int, std::string, uint32_t>;  // src, kind, addr, port

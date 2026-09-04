@@ -103,6 +103,7 @@ if(BUILD_TESTING)
   add_launch_test(test/launch/test_discovery_server.py TIMEOUT 120)
   add_launch_test(test/launch/test_large_data_same_host.py TIMEOUT 90)
   add_launch_test(test/launch/test_large_shm.py TIMEOUT 120)
+  add_launch_test(test/launch/test_datasharing_stats.py TIMEOUT 120)
 endif()
 
 ament_package()

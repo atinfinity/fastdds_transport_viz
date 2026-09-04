@@ -297,7 +297,7 @@ StatsData stats_with(const Endpoint & w, std::vector<TrafficSample> traffic, boo
   s.participants_with_stats.insert(w.participant_guid_prefix);
   s.traffic = std::move(traffic);
   if (delivered_to && r) {
-    s.delivered.insert({w.guid, r->guid});
+    s.delivered[{w.guid, r->guid}] = 1;
   }
   return s;
 }
@@ -414,6 +414,86 @@ TEST(ApplyStats, DataSharingStaysLikelyWithParticipantTraffic)
   EXPECT_EQ(p.verdict.transport, Transport::DataSharing);
   EXPECT_EQ(p.verdict.confidence, Confidence::Likely);
   EXPECT_TRUE(has(p.verdict.reasons, "datasharing-ambiguous-participant-traffic"));
+}
+
+TEST(ApplyStats, DataSharingConfirmedWhenDataCountDoesNotGrow)
+{
+  std::vector<Endpoint> eps;
+  eps.push_back(make(true, HOST_A, {shm(7415)}, DataSharingKind::On, {1}));
+  eps.push_back(make(false, HOST_A, {shm(7413)}, DataSharingKind::On, {1}));
+  eps[0].participant_guid_prefix = "P1";
+  auto topics = summarize(eps);
+  // heartbeats on the link, delivery proven, DATA_COUNT stayed at 5 during the window
+  auto stats = stats_with(eps[0], {TrafficSample{"P1", shm(7413), 3, 300.0}}, true, &eps[1]);
+  stats.data_count[eps[0].guid] = DataCountSample{5, 5, 2};
+  stats.statistics_writers.insert({"P1", kStatsDataCountTopic});
+  apply_stats(topics, stats);
+  const auto & p = topics[0].pairs[0];
+  EXPECT_EQ(p.verdict.transport, Transport::DataSharing);
+  EXPECT_EQ(p.verdict.confidence, Confidence::Certain);
+  EXPECT_TRUE(has(p.verdict.reasons, "datasharing-confirmed-no-data-submessages"));
+  EXPECT_TRUE(p.measured.data_count_available);
+  EXPECT_EQ(p.measured.data_submessages, 0u);
+  EXPECT_EQ(p.measured.delivered_samples, 1u);
+}
+
+TEST(ApplyStats, DataSharingConfirmedWhenWriterNeverPublishedDataCount)
+{
+  // A writer that never sent a DATA submessage never publishes DATA_COUNT; the
+  // discovered DATA_COUNT statistics writer of its participant stands in for "zero".
+  std::vector<Endpoint> eps;
+  eps.push_back(make(true, HOST_A, {shm(7415)}, DataSharingKind::On, {1}));
+  eps.push_back(make(false, HOST_A, {shm(7413)}, DataSharingKind::On, {1}));
+  eps[0].participant_guid_prefix = "P1";
+  auto topics = summarize(eps);
+  auto stats = stats_with(eps[0], {TrafficSample{"P1", shm(7413), 3, 300.0}}, true, &eps[1]);
+  stats.statistics_writers.insert({"P1", kStatsDataCountTopic});
+  apply_stats(topics, stats);
+  const auto & p = topics[0].pairs[0];
+  EXPECT_EQ(p.verdict.confidence, Confidence::Certain);
+  EXPECT_TRUE(has(p.verdict.reasons, "datasharing-confirmed-no-data-submessages"));
+  EXPECT_EQ(p.measured.data_submessages, 0u);
+}
+
+TEST(ApplyStats, DataSharingNotUsedWhenDataSubmessagesWereSent)
+{
+  std::vector<Endpoint> eps;
+  eps.push_back(make(true, HOST_A, {shm(7415)}, DataSharingKind::On, {1}));
+  eps.push_back(make(false, HOST_A, {shm(7413)}, DataSharingKind::On, {1}));
+  eps[0].participant_guid_prefix = "P1";
+  auto topics = summarize(eps);
+  auto stats = stats_with(eps[0], {TrafficSample{"P1", shm(7413), 30, 30000.0}}, true, &eps[1]);
+  stats.data_count[eps[0].guid] = DataCountSample{5, 25, 6};
+  stats.statistics_writers.insert({"P1", kStatsDataCountTopic});
+  apply_stats(topics, stats);
+  const auto & p = topics[0].pairs[0];
+  EXPECT_EQ(p.verdict.transport, Transport::SHM);
+  EXPECT_EQ(p.verdict.confidence, Confidence::Certain);
+  EXPECT_TRUE(has(p.verdict.reasons, "datasharing-data-submessages-sent"));
+  EXPECT_TRUE(has(p.verdict.reasons, "measured-shm-traffic"));
+  EXPECT_TRUE(has(p.verdict.warnings, "datasharing-not-used"));
+  EXPECT_EQ(p.measured.data_submessages, 20u);
+}
+
+TEST(ApplyStats, DataSharingStaysLikelyWithMixedReaders)
+{
+  std::vector<Endpoint> eps;
+  eps.push_back(make(true, HOST_A, {shm(7415)}, DataSharingKind::On, {1}));
+  eps.push_back(make(false, HOST_A, {shm(7413)}, DataSharingKind::On, {1}));
+  eps.push_back(make(false, HOST_A, {shm(7417)}, DataSharingKind::Off));   // plain SHM reader
+  eps[0].participant_guid_prefix = "P1";
+  auto topics = summarize(eps);
+  ASSERT_EQ(topics[0].pairs.size(), 2u);
+  auto stats = stats_with(eps[0], {TrafficSample{"P1", shm(7413), 3, 300.0}}, true, &eps[1]);
+  stats.data_count[eps[0].guid] = DataCountSample{5, 25, 6};   // DATA for the SHM reader
+  stats.statistics_writers.insert({"P1", kStatsDataCountTopic});
+  apply_stats(topics, stats);
+  const auto & ds = *std::find_if(topics[0].pairs.begin(), topics[0].pairs.end(),
+      [&](const Pair & q) {return q.reader == &eps[1];});
+  EXPECT_EQ(ds.verdict.transport, Transport::DataSharing);
+  EXPECT_EQ(ds.verdict.confidence, Confidence::Likely);
+  EXPECT_TRUE(has(ds.verdict.reasons, "datasharing-ambiguous-mixed-readers"));
+  EXPECT_TRUE(ds.verdict.warnings.empty());
 }
 
 TEST(ApplyStats, WriterInstanceLimitSuspectedWhenTenLocatorsReported)

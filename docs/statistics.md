@@ -9,6 +9,7 @@ topics and shows what *did* happen:
 | `_fastdds_statistics_rtps_sent` | RTPS packets/bytes sent by each participant to each destination locator. Matched against the locators the reader announced, this gives the locator kind that actually carried packets (`measured=SHM 47pkt`). A disagreement with the prediction is flagged `!measured-transport-mismatch`. |
 | `_fastdds_statistics_history2history_latency` | Proves that samples from a writer reached a specific reader. Used to confirm zero-copy data-sharing, which leaves no RTPS trace. |
 | `_fastdds_statistics_physical_data` | Host name, user and process id per participant, shown instead of `local` / `host:<id>`. |
+| `_fastdds_statistics_data_count` | DATA/DATA_FRAG submessages each writer sent through a transport. Zero-copy delivery does not touch it, so a growing count settles whether data-sharing was really used (see [data-sharing.md](data-sharing.md#confidence)). |
 
 ## Enabling statistics on the observed nodes
 
@@ -16,7 +17,7 @@ No code change is needed; Fast DDS reads an environment variable when the partic
 created:
 
 ```
-export FASTDDS_STATISTICS="RTPS_SENT_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC"
+export FASTDDS_STATISTICS="RTPS_SENT_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC;DATA_COUNT_TOPIC"
 ```
 
 Nodes started without it are reported with the warning `stats-not-enabled-on-writer`.
@@ -42,11 +43,12 @@ the aliases passed in `FASTDDS_STATISTICS`:
 
 ```
 export FASTRTPS_DEFAULT_PROFILES_FILE=$(ros2 pkg prefix fastdds_transport_viz)/share/fastdds_transport_viz/config/statistics.xml
-export FASTDDS_STATISTICS="RTPS_SENT_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC"
+export FASTDDS_STATISTICS="RTPS_SENT_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC;DATA_COUNT_TOPIC"
 ```
 
-Fast DDS reads a single profiles file, so merge it with `datasharing_auto.xml` if you need
-both. (The tool's own statistics readers already use unlimited instances.)
+Fast DDS reads a single profiles file; `datasharing_auto_stats.xml` is the merge of this
+file with `datasharing_auto.xml` for observing data-sharing with `--stats`. (The tool's
+own statistics readers already use unlimited instances.)
 
 ## Implementation notes
 

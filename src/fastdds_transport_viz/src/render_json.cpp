@@ -97,6 +97,9 @@ std::string render_json(const Snapshot & snap, const RenderOptions & opt)
               {"packets", p.measured.packets},
               {"bytes", p.measured.bytes},
               {"delivered", p.measured.delivered},
+              {"delivered_samples", p.measured.delivered_samples},
+              {"data_submessages", p.measured.data_count_available ?
+                json(p.measured.data_submessages) : json(nullptr)},
             }},
         });
     }
@@ -149,6 +152,13 @@ std::string render_json(const Snapshot & snap, const RenderOptions & opt)
   json stats;
   stats["enabled"] = snap.stats.enabled;
   stats["samples"] = snap.stats.samples;
+  {
+    json dc = json::object();
+    for (const auto & kv : snap.stats.data_count) {
+      dc[kv.first] = {{"first", kv.second.first}, {"last", kv.second.last}, {"samples", kv.second.samples}};
+    }
+    stats["data_count"] = dc;   // writer guid -> cumulative DATA_COUNT at first/last sample
+  }
   stats["participants_with_stats"] = snap.stats.participants_with_stats;
   json physical = json::object();
   for (const auto & kv : snap.stats.physical) {

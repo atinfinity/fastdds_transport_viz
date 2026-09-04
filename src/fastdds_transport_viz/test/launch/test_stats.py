@@ -12,7 +12,7 @@ from _common import Base, description, node_action, topic, transport_viz_json  #
 from ament_index_python.packages import get_package_share_directory  # noqa: E402
 
 STATS_ENV = {
-    'FASTDDS_STATISTICS': 'RTPS_SENT_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC',
+    'FASTDDS_STATISTICS': 'RTPS_SENT_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC;DATA_COUNT_TOPIC',
     # lift the statistics writers' 10-instance resource limit (see README)
     'FASTRTPS_DEFAULT_PROFILES_FILE': os.path.join(
         get_package_share_directory('fastdds_transport_viz'), 'config', 'statistics.xml'),

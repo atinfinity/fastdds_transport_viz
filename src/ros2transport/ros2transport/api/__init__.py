@@ -51,7 +51,7 @@ def add_list_arguments(parser):
         '--stats', action='store_true',
         help='also subscribe to the Fast DDS statistics topics and show the transport that '
              'actually carried packets; observed nodes must run with '
-             'FASTDDS_STATISTICS="RTPS_SENT_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC"')
+             'FASTDDS_STATISTICS="RTPS_SENT_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC;DATA_COUNT_TOPIC"')
     parser.add_argument(
         '--color', choices=['auto', 'always', 'never'], metavar='MODE',
         help='auto|always|never: ANSI colors for transports and warnings '
