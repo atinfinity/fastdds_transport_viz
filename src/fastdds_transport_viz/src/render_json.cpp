@@ -139,7 +139,7 @@ std::string render_json(const Snapshot & snap, const RenderOptions & opt)
   }
   stats["traffic"] = traffic;
   root["stats"] = stats;
-  return root.dump(2) + "\n";
+  return (opt.compact ? root.dump() : root.dump(2)) + "\n";
 }
 
 }  // namespace fastdds_transport_viz
