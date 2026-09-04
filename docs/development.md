@@ -52,6 +52,10 @@ colcon test && colcon test-result --verbose
   nodes (SHM, and UDPv4 fallback via `FASTDDS_BUILTIN_TRANSPORTS=UDPv4`).
 - `test_stats.py`: demo nodes with `FASTDDS_STATISTICS`; asserts measured SHM / UDPv4 and
   host names.
+- `test_json_schema` / `test_json_schema_live.py`: sample and live `--json` output against
+  `schema/transport_viz.schema.json`.
+- `test_web_serve` (pytest, fake `transport_viz`) / `test_web_live.py` (real one): the live
+  server's SSE stream, `/latest.json` and shutdown behaviour.
 
 ## Continuous integration
 
@@ -68,6 +72,8 @@ src/fastdds_transport_viz/
   src/                             implementation + main.cpp
   src/test_nodes/                  verification nodes
   config/                          statistics.xml, datasharing_auto.xml
+web/                               static viewer (index.html, app.js), serve.py (transport_viz_web), sample/
+schema/                            JSON Schema for --json output
   third_party/fastdds_statistics_types/   vendored generated statistics types
   test/                            gtest + launch tests
 ```
