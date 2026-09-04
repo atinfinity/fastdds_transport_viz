@@ -78,7 +78,7 @@ StatsObserver::~StatsObserver()
 {
   for (auto * r : {&rtps_sent_, &history_latency_, &physical_data_}) {
     if (r->reader) {subscriber_->delete_datareader(r->reader);}
-    if (r->topic) {participant_->delete_topic(r->topic);}
+    if (r->topic && r->owns_topic) {participant_->delete_topic(r->topic);}
   }
   if (subscriber_) {
     participant_->delete_subscriber(subscriber_);
@@ -90,7 +90,16 @@ StatsObserver::Reader StatsObserver::create_reader(
 {
   Reader r;
   type.register_type(participant_);
-  r.topic = participant_->create_topic(topic_name, type.get_type_name(), dds::TOPIC_QOS_DEFAULT);
+  // When FASTDDS_STATISTICS is set in our own environment (the docs recommend running the
+  // tool in the nodes' environment), Fast DDS has already created the statistics topics
+  // on this participant; creating them again fails, so reuse them.
+  if (auto * existing = participant_->lookup_topicdescription(topic_name); existing != nullptr) {
+    r.topic = dynamic_cast<dds::Topic *>(existing);
+    r.owns_topic = false;
+  } else {
+    r.topic = participant_->create_topic(topic_name, type.get_type_name(), dds::TOPIC_QOS_DEFAULT);
+    r.owns_topic = true;
+  }
   if (r.topic == nullptr) {
     throw std::runtime_error("failed to create statistics topic " + topic_name);
   }

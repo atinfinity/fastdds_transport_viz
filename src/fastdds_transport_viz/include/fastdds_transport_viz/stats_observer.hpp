@@ -47,6 +47,7 @@ private:
   struct Reader
   {
     eprosima::fastdds::dds::Topic * topic{nullptr};
+    bool owns_topic{true};   // false when reusing a topic Fast DDS created (FASTDDS_STATISTICS)
     eprosima::fastdds::dds::DataReader * reader{nullptr};
   };
   Reader create_reader(
