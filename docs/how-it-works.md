@@ -1,0 +1,57 @@
+# How it works
+
+`ros2 topic info -v` cannot tell you the transport: the rmw layer exposes no locator
+information. `transport_viz` therefore creates its own Fast DDS `DomainParticipant` and
+listens to endpoint discovery, which carries every remote writer's/reader's **announced
+locators** (`UDPv4`, `SHM`, ...) and QoS. It then applies the same rules Fast DDS 2.14 uses
+to select a transport for each writer → reader pair.
+
+## Decision rules
+
+1. **Same host?** Fast DDS considers two participants to be on the same host when the
+   first 4 bytes of their GUID prefixes are equal.
+2. Same host and both endpoints announce data-sharing (zero-copy) with intersecting
+   domain ids → `DATA_SHARING` (confidence `likely`, see [data-sharing.md](data-sharing.md)).
+3. Same host and both announce a SHM locator → `SHM`. Fast DDS then uses shared memory
+   exclusively for user data between those participants; discovery still goes over UDP.
+4. Otherwise the first network locator kind the reader announces that the writer also
+   speaks → `UDPv4` / `UDPv6` / `TCPv4` / `TCPv6`.
+5. Nothing in common → `NONE`.
+
+Topics with only publishers or only subscriptions are listed with `-` and the reason
+`no-matching-reader` / `no-matching-writer`.
+
+## Reason codes
+
+Every verdict carries machine-readable reason codes (`same-host-guid`,
+`reader-no-shm-locator`, ...) and, where relevant, warnings prefixed with `!`.
+`--explain` appends a legend for the codes used in the current output;
+`transport_viz --list-codes` prints all of them. A `?` after a transport means confidence
+`likely` rather than `certain`.
+
+The decision logic lives in `src/fastdds_transport_viz/src/decision.cpp` as pure
+functions with no DDS dependency, and is covered by `test/test_decision.cpp`.
+
+## Node names and the tool's own footprint
+
+ROS node names are resolved through the rclcpp graph API (endpoint GID → node), so the
+tool registers a hidden node `_transport_viz_<pid>`. Its own endpoints are excluded from
+the output. Discovery is observed by a second, raw Fast DDS participant so that rmw's own
+discovery listener is never touched.
+
+## Run it where the nodes run
+
+The tool reads the same environment Fast DDS reads and never modifies it: run it in the
+same shell environment as the nodes you observe — same `FASTDDS_BUILTIN_TRANSPORTS`,
+`FASTRTPS_DEFAULT_PROFILES_FILE`, `ROS_DISCOVERY_SERVER`,
+`ROS_AUTOMATIC_DISCOVERY_RANGE`, and the same network and IPC namespace (for containers:
+`network_mode` / `ipc`). If the tool cannot see the nodes, `ros2 topic list` in that
+environment will not either.
+
+## Hosts
+
+Without `--stats`, hosts are shown as `local` (same host id as the tool) or
+`host:<4-byte hex>`. With `--stats`, host names and process ids come from the
+statistics `PHYSICAL_DATA` topic. Containers with separate network namespaces on one
+machine can share a host id while announcing different IP addresses; this is reported as
+the warning `host-id-match-but-ip-differs`.
