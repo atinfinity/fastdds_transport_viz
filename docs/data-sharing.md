@@ -19,7 +19,7 @@ export FASTRTPS_DEFAULT_PROFILES_FILE=$(ros2 pkg prefix fastdds_transport_viz)/s
 export RMW_FASTRTPS_USE_QOS_FROM_XML=1
 ros2 run fastdds_transport_viz bounded_pub &
 ros2 run fastdds_transport_viz bounded_sub &
-ros2 run fastdds_transport_viz transport_viz -v      # /bounded -> DATA_SHARING? (likely)
+ros2 transport list -v                              # /bounded -> DATA_SHARING? (likely)
 ```
 
 Use `AUTO`, not `ON`, in the default profile: `ON` makes writer creation fail for unbounded

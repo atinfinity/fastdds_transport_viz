@@ -1,0 +1,27 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>ros2transport</name>
+  <version>0.1.0</version>
+  <description>
+    ros2 CLI extension: `ros2 transport list` shows which Fast DDS transport each ROS 2
+    topic is communicated over. Thin wrapper around the transport_viz binary of
+    fastdds_transport_viz.
+  </description>
+  <maintainer email="dandelion1124@gmail.com">atinfinity</maintainer>
+  <license>Apache-2.0</license>
+
+  <exec_depend>ament_index_python</exec_depend>
+  <exec_depend>fastdds_transport_viz</exec_depend>
+  <exec_depend>ros2cli</exec_depend>
+
+  <test_depend>demo_nodes_cpp</test_depend>
+  <test_depend>launch</test_depend>
+  <test_depend>launch_ros</test_depend>
+  <test_depend>launch_testing</test_depend>
+  <test_depend>python3-pytest</test_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>

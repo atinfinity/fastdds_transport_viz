@@ -8,7 +8,7 @@ UDPv6, TCP, shared memory (SHM) or zero-copy data-sharing — **and why**.
 Target: ROS 2 Jazzy with `rmw_fastrtps_cpp` (Fast DDS 2.14).
 
 ```
-$ ros2 run fastdds_transport_viz transport_viz -v --stats
+$ ros2 transport list -v --stats
 TOPIC     TYPE                 PUBS  SUBS  TRANSPORT         REASON
 /chatter  std_msgs/msg/String  1     2     SHM x1, UDPv4 x1  same-host-guid,...
     /talker@myhost(136) -> /listener@myhost(135)      SHM    measured=SHM 47pkt    same-host-guid,datasharing-disabled-writer,both-shm-locators,measured-shm-traffic
@@ -32,7 +32,7 @@ colcon build --symlink-install && source install/setup.bash
 
 ros2 run demo_nodes_cpp talker &
 ros2 run demo_nodes_cpp listener &
-ros2 run fastdds_transport_viz transport_viz -v --explain
+ros2 transport list -v --explain
 ```
 
 Run the tool in the same environment (env vars, XML profile, network/IPC namespace) as
@@ -41,10 +41,15 @@ the nodes you observe.
 ## Usage
 
 ```
-transport_viz [--domain N] [--timeout S] [--quiet S] [--topic REGEX] [--all]
-              [-v] [--explain] [--stats] [--json] [--color auto|always|never]
-              [--watch [--interval S]] [--list-codes]
+ros2 transport list [--domain N] [--timeout S] [--quiet S] [--topic REGEX] [--all]
+                    [-v] [--explain] [--stats] [--json] [--color auto|always|never]
+                    [--watch [--interval S]]
+ros2 transport codes
 ```
+
+`ros2 transport` is a thin ros2cli extension (package `ros2transport`) that runs the
+`transport_viz` binary of `fastdds_transport_viz`; the binary can also be run directly as
+`ros2 run fastdds_transport_viz transport_viz`, with the same options plus `--list-codes`.
 
 | Option | Effect |
 |---|---|
@@ -62,7 +67,7 @@ transport_viz [--domain N] [--timeout S] [--quiet S] [--topic REGEX] [--all]
 - [Measured transports (`--stats`)](docs/statistics.md) — statistics topics, enabling them, the 10-instance pitfall
 - [Data-sharing (zero-copy)](docs/data-sharing.md) — why ROS 2 topics show `SHM` by default and how to enable data-sharing
 - [Web viewer](docs/web-viewer.md) — graph/table view of `--json` output in the browser, live mode (`transport_viz_web`), JSON schema
-- [Development, verification and tests](docs/development.md) — Docker environment, verification nodes, multi-container scenarios, tests, verification results, roadmap
+- [Development, verification and tests](docs/development.md) — Docker environment, packages, verification nodes, multi-container scenarios, tests, verification results, roadmap
 
 ## License
 

@@ -17,10 +17,10 @@ Try it in that shell:
 ```
 ros2 run demo_nodes_cpp talker &
 ros2 run demo_nodes_cpp listener &
-ros2 run fastdds_transport_viz transport_viz -v --explain      # /chatter -> SHM
+ros2 transport list -v --explain                               # /chatter -> SHM
 
 FASTDDS_BUILTIN_TRANSPORTS=UDPv4 ros2 run demo_nodes_cpp listener &
-ros2 run fastdds_transport_viz transport_viz -v                # second pair -> UDPv4, reader-no-shm-locator
+ros2 transport list -v                                         # second pair -> UDPv4, reader-no-shm-locator
 ```
 
 ## Multi-container scenarios
@@ -102,6 +102,9 @@ colcon test && colcon test-result --verbose
   `schema/transport_viz.schema.json`.
 - `test_web_serve` (pytest, fake `transport_viz`) / `test_web_live.py` (real one): the live
   server's SSE stream, `/latest.json` and shutdown behaviour.
+- `ros2transport/test/test_cli.py` (pytest, fake `transport_viz`): argument translation of
+  `ros2 transport list`, parity with the binary's `--help`, `codes`, missing binary.
+  `test_list_live.py`: `ros2 transport list --json` against real demo nodes.
 
 ## Continuous integration
 
@@ -125,7 +128,15 @@ short); the `transport_viz` JSON of each scenario is uploaded as an artifact.
 
 ## Layout
 
+Two packages: `fastdds_transport_viz` (C++, all Fast DDS logic, the `transport_viz`
+binary and `transport_viz_web`) and `ros2transport` (Python ros2cli extension that
+execs the binary: `ros2 transport list`, `ros2 transport codes`).
+
 ```
+src/ros2transport/
+  ros2transport/api/               binary lookup, option mirroring, exec
+  ros2transport/command/, verb/    ros2cli entry points (transport; list, codes)
+  test/                            pytest with a fake binary + launch test
 src/fastdds_transport_viz/
   include/fastdds_transport_viz/   model.hpp, decision.hpp, discovery_observer.hpp,
                                    ros_graph_resolver.hpp, stats_observer.hpp, render.hpp
