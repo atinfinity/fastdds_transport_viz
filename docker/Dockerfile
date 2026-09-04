@@ -10,6 +10,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         jq \
         nlohmann-json3-dev \
         python3-colcon-common-extensions \
+        python3-jsonschema \
+        python3-pytest \
         ros-jazzy-demo-nodes-cpp \
         ros-jazzy-launch-testing \
         ros-jazzy-launch-testing-ros \

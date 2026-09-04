@@ -1,0 +1,421 @@
+// Copyright 2026 atinfinity
+// SPDX-License-Identifier: Apache-2.0
+//
+// Static viewer for `transport_viz --json` documents (schema_version 1).
+// Hosts are columns, ROS nodes are boxes, writer -> reader pairs are arrows
+// colored by transport. No build step; d3 is used for SVG data joins and zoom.
+
+/* global d3 */
+(() => {
+  'use strict';
+
+  const TRANSPORTS = ['UDPv4', 'UDPv6', 'TCPv4', 'TCPv6', 'SHM', 'DATA_SHARING', 'NONE'];
+  const COLORS = {
+    UDPv4: 'var(--c-udpv4)', UDPv6: 'var(--c-udpv6)', TCPv4: 'var(--c-tcp)', TCPv6: 'var(--c-tcp)',
+    SHM: 'var(--c-shm)', DATA_SHARING: 'var(--c-ds)', NONE: 'var(--c-none)',
+  };
+  const INTERNAL_TOPICS = new Set(['/parameter_events', '/rosout']);
+
+  const state = {
+    doc: null,
+    view: 'graph',
+    filter: { topic: '', transports: new Set(TRANSPORTS), hideInternal: true },
+    selection: null,   // {kind: 'node', id} | {kind: 'edge', id} | {kind: 'pair', id}
+    sort: { key: 'topic', asc: true },
+  };
+
+  // ---------------------------------------------------------------- data model
+
+  /** Flatten the document into nodes, hosts and pairs with resolved endpoints. */
+  function buildModel(doc) {
+    const nodes = new Map();      // key -> {id, name, host, process, pubs:[], subs:[], unmatched:[]}
+    const hosts = new Map();      // host label -> {label, nodes:[]}
+    const pairs = [];
+    const endpointsByGuid = new Map();
+
+    // Service endpoints carry no node name (the ROS graph API only covers
+    // topics); attribute them to the node that owns the same participant.
+    const nodeByParticipant = new Map();
+    for (const t of doc.topics) {
+      for (const ep of [...t.writers, ...t.readers]) {
+        if (ep.node) nodeByParticipant.set(ep.participant_guid_prefix, ep.node);
+      }
+    }
+    const nodeKey = (ep) => ep.node || nodeByParticipant.get(ep.participant_guid_prefix) || `participant ${ep.participant_guid_prefix}`;
+
+    const touchNode = (ep) => {
+      const id = nodeKey(ep);
+      if (!nodes.has(id)) {
+        nodes.set(id, { id, name: id, host: ep.host, process: ep.process || '', pubs: [], subs: [], unmatched: [] });
+        if (!hosts.has(ep.host)) hosts.set(ep.host, { label: ep.host, nodes: [] });
+        hosts.get(ep.host).nodes.push(nodes.get(id));
+      }
+      return nodes.get(id);
+    };
+
+    for (const t of doc.topics) {
+      for (const w of t.writers) { endpointsByGuid.set(w.guid, w); touchNode(w).pubs.push({ topic: t, ep: w }); }
+      for (const r of t.readers) { endpointsByGuid.set(r.guid, r); touchNode(r).subs.push({ topic: t, ep: r }); }
+      if (t.unmatched_reasons.length) {
+        for (const ep of [...t.writers, ...t.readers]) touchNode(ep).unmatched.push({ topic: t, reasons: t.unmatched_reasons });
+      }
+      t.pairs.forEach((p, i) => {
+        const w = endpointsByGuid.get(p.writer_guid);
+        const r = endpointsByGuid.get(p.reader_guid);
+        pairs.push({
+          id: `${t.dds_topic}#${i}`, topic: t, pair: p, writer: w, reader: r,
+          writerNode: nodeKey(w), readerNode: nodeKey(r),
+        });
+      });
+    }
+    for (const n of nodes.values()) {
+      n.pubs.sort((a, b) => a.topic.topic.localeCompare(b.topic.topic));
+      n.subs.sort((a, b) => a.topic.topic.localeCompare(b.topic.topic));
+    }
+    const hostList = [...hosts.values()].sort((a, b) => (a.label === 'local' ? -1 : b.label === 'local' ? 1 : a.label.localeCompare(b.label)));
+    for (const h of hostList) h.nodes.sort((a, b) => a.name.localeCompare(b.name));
+    return { nodes, hosts: hostList, pairs };
+  }
+
+  function visiblePairs(model) {
+    const f = state.filter;
+    let re = null;
+    if (f.topic) { try { re = new RegExp(f.topic); } catch (e) { re = null; } }
+    return model.pairs.filter(({ topic, pair }) => {
+      if (f.hideInternal && INTERNAL_TOPICS.has(topic.topic)) return false;
+      if (!f.transports.has(pair.transport)) return false;
+      if (re && !re.test(topic.topic)) return false;
+      return true;
+    });
+  }
+
+  /** Bundle pairs into edges: same writer node, reader node, transport and confidence. */
+  function bundle(pairs) {
+    const edges = new Map();
+    for (const vp of pairs) {
+      const key = `${vp.writerNode}→${vp.readerNode}|${vp.pair.transport}|${vp.pair.confidence}`;
+      if (!edges.has(key)) {
+        edges.set(key, { id: key, source: vp.writerNode, target: vp.readerNode, transport: vp.pair.transport, confidence: vp.pair.confidence, pairs: [], warn: false });
+      }
+      const e = edges.get(key);
+      e.pairs.push(vp);
+      if (vp.pair.warnings.length) e.warn = true;
+    }
+    return [...edges.values()];
+  }
+
+  // ---------------------------------------------------------------- layout
+
+  const L = { hostGap: 60, hostPad: 16, nodeW: 190, nodeH: 46, nodeGap: 34, maxRows: 8, top: 40, left: 30 };
+
+  function layout(model) {
+    let x = L.left;
+    const pos = new Map();
+    const hostBoxes = [];
+    for (const h of model.hosts) {
+      const cols = Math.ceil(h.nodes.length / L.maxRows);
+      const rows = Math.min(h.nodes.length, L.maxRows);
+      const w = L.hostPad * 2 + cols * L.nodeW + (cols - 1) * L.nodeGap;
+      const hgt = L.hostPad * 2 + 24 + rows * L.nodeH + (rows - 1) * L.nodeGap;
+      h.nodes.forEach((n, i) => {
+        const c = Math.floor(i / L.maxRows);
+        const r = i % L.maxRows;
+        pos.set(n.id, { x: x + L.hostPad + c * (L.nodeW + L.nodeGap), y: L.top + L.hostPad + 24 + r * (L.nodeH + L.nodeGap), w: L.nodeW, h: L.nodeH });
+      });
+      hostBoxes.push({ host: h, x, y: L.top, w, h: hgt });
+      x += w + L.hostGap;
+    }
+    return { pos, hostBoxes, width: x, height: L.top + Math.max(0, ...hostBoxes.map(b => b.h)) + 40 };
+  }
+
+  /** Path between two node boxes; `k` spreads parallel edges apart. */
+  function edgePath(a, b, k) {
+    const spread = k * 14;
+    if (a === b) {
+      const x = a.x + a.w, y = a.y + a.h / 2 + spread;
+      return `M${x},${y - 8} C${x + 50},${y - 30} ${x + 50},${y + 30} ${x},${y + 8}`;
+    }
+    const ac = { x: a.x + a.w / 2, y: a.y + a.h / 2 };
+    const bc = { x: b.x + b.w / 2, y: b.y + b.h / 2 };
+    const sameColumn = Math.abs(ac.x - bc.x) < 1;
+    if (sameColumn) {
+      const x = a.x + a.w, dir = 1;
+      const mid = (ac.y + bc.y) / 2;
+      const bulge = 40 + Math.abs(ac.y - bc.y) * 0.15 + spread;
+      return `M${x},${ac.y + spread * 0.3} C${x + bulge * dir},${ac.y} ${x + bulge * dir},${bc.y} ${x},${bc.y - spread * 0.3}`;
+    }
+    const leftToRight = ac.x < bc.x;
+    const sx = leftToRight ? a.x + a.w : a.x;
+    const tx = leftToRight ? b.x : b.x + b.w;
+    const sy = ac.y + spread, ty = bc.y + spread;
+    const dx = (tx - sx) * 0.5;
+    return `M${sx},${sy} C${sx + dx},${sy} ${tx - dx},${ty} ${tx},${ty}`;
+  }
+
+  // ---------------------------------------------------------------- rendering: graph
+
+  const svg = d3.select('#graph');
+  const root = svg.append('g').attr('class', 'root');
+  svg.append('defs').html(TRANSPORTS.map(t =>
+    `<marker id="arrow-${t}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+       <path d="M0,0 L10,5 L0,10 z" fill="${COLORS[t]}"/></marker>`).join(''));
+  svg.call(d3.zoom().scaleExtent([0.2, 3]).on('zoom', (ev) => root.attr('transform', ev.transform)));
+
+  function renderGraph(model) {
+    const pairs = visiblePairs(model);
+    const edges = bundle(pairs);
+    const { pos, hostBoxes } = layout(model);
+
+    // parallel-edge index per (source,target) so bundles do not overlap
+    const groups = new Map();
+    for (const e of edges) {
+      const g = [e.source, e.target].join('→');
+      if (!groups.has(g)) groups.set(g, []);
+      groups.get(g).push(e);
+    }
+    for (const list of groups.values()) list.forEach((e, i) => { e.k = i - (list.length - 1) / 2; });
+
+    const hosts = root.selectAll('g.host').data(hostBoxes, d => d.host.label);
+    const hostsEnter = hosts.enter().append('g').attr('class', 'host');
+    hostsEnter.append('rect');
+    hostsEnter.append('text').attr('class', 'label');
+    hosts.exit().remove();
+    const hostsAll = hostsEnter.merge(hosts);
+    hostsAll.select('rect').attr('x', d => d.x).attr('y', d => d.y).attr('width', d => d.w).attr('height', d => d.h).attr('rx', 8);
+    hostsAll.select('text.label').attr('x', d => d.x + L.hostPad).attr('y', d => d.y + L.hostPad + 6).text(d => `host: ${d.host.label}`);
+
+    const edgeSel = root.selectAll('g.edge').data(edges, d => d.id);
+    const edgeEnter = edgeSel.enter().append('g').attr('class', 'edge');
+    edgeEnter.append('path').attr('class', 'halo');
+    edgeEnter.append('path').attr('class', 'main');
+    edgeEnter.append('path').attr('class', 'hit');
+    edgeEnter.append('text');
+    edgeSel.exit().remove();
+    const edgesAll = edgeEnter.merge(edgeSel)
+      .attr('class', d => `edge ${d.confidence === 'likely' ? 'likely' : ''} ${d.warn ? 'warn' : ''} ${isSelected('edge', d.id) ? 'selected' : ''}`)
+      .on('click', (ev, d) => { ev.stopPropagation(); select({ kind: 'edge', id: d.id }); });
+    edgesAll.selectAll('path').attr('d', d => edgePath(pos.get(d.source), pos.get(d.target), d.k));
+    edgesAll.select('path.main').attr('stroke', d => COLORS[d.transport]).attr('marker-end', d => `url(#arrow-${d.transport})`);
+    edgesAll.select('text').each(function (d) {
+      const p = this.parentNode.querySelector('path.main');
+      const len = p.getTotalLength();
+      const pt = p.getPointAtLength(len * 0.5);
+      d3.select(this).attr('x', pt.x).attr('y', pt.y - 6).attr('text-anchor', 'middle')
+        .text(d.pairs.length === 1 ? `${d.pairs[0].topic.topic} · ${d.transport}${d.confidence === 'likely' ? '?' : ''}` : `${d.pairs.length} topics · ${d.transport}${d.confidence === 'likely' ? '?' : ''}`);
+    });
+
+    const hideInternal = state.filter.hideInternal;
+    const unmatchedCount = n => n.unmatched.filter(u => !(hideInternal && INTERNAL_TOPICS.has(u.topic.topic))).length;
+    const nodeData = [...model.nodes.values()].map(n => ({ n, p: pos.get(n.id), unmatched: unmatchedCount(n) }));
+    const nodeSel = root.selectAll('g.node').data(nodeData, d => d.n.id);
+    const nodeEnter = nodeSel.enter().append('g').attr('class', 'node');
+    nodeEnter.append('rect');
+    nodeEnter.append('text').attr('class', 'name');
+    nodeEnter.append('text').attr('class', 'proc');
+    nodeEnter.append('text').attr('class', 'unmatched');
+    nodeSel.exit().remove();
+    const nodesAll = nodeEnter.merge(nodeSel)
+      .attr('class', d => `node ${isSelected('node', d.n.id) ? 'selected' : ''}`)
+      .attr('transform', d => `translate(${d.p.x},${d.p.y})`)
+      .on('click', (ev, d) => { ev.stopPropagation(); select({ kind: 'node', id: d.n.id }); });
+    nodesAll.select('rect').attr('width', L.nodeW).attr('height', L.nodeH);
+    nodesAll.select('text.name').attr('x', 10).attr('y', 19).text(d => d.n.name);
+    nodesAll.select('text.proc').attr('x', 10).attr('y', 36).text(d => d.n.process ? `pid ${d.n.process}` : '');
+    nodesAll.select('text.unmatched').attr('x', L.nodeW - 8).attr('y', 36).attr('text-anchor', 'end')
+      .text(d => d.unmatched ? `+${d.unmatched} unmatched` : '');
+  }
+
+  svg.on('click', () => select(null));
+
+  // ---------------------------------------------------------------- rendering: table
+
+  const COLUMNS = [
+    { key: 'topic', label: 'Topic', get: v => v.topic.topic },
+    { key: 'type', label: 'Type', get: v => v.topic.type },
+    { key: 'writer', label: 'Writer', get: v => `${v.pair.writer_node || v.writerNode}@${v.pair.writer_host}` },
+    { key: 'reader', label: 'Reader', get: v => `${v.pair.reader_node || v.readerNode}@${v.pair.reader_host}` },
+    { key: 'transport', label: 'Transport', get: v => v.pair.transport },
+    { key: 'confidence', label: 'Confidence', get: v => v.pair.confidence },
+    { key: 'measured', label: 'Measured', get: v => measuredText(v.pair.measured) },
+    { key: 'reasons', label: 'Reasons', get: v => [...v.pair.reasons, ...v.pair.warnings.map(w => '!' + w)].join(', ') },
+  ];
+
+  function measuredText(m) {
+    if (!m || !m.available) return '';
+    if (!m.transports.length) return m.delivered ? 'none (delivered)' : 'none';
+    return `${m.transports.join('+')} ${m.packets} pkt`;
+  }
+
+  function renderTable(model) {
+    const rows = visiblePairs(model);
+    const col = COLUMNS.find(c => c.key === state.sort.key);
+    rows.sort((a, b) => col.get(a).localeCompare(col.get(b)) * (state.sort.asc ? 1 : -1));
+    const head = d3.select('#pairs-head').selectAll('th').data(COLUMNS, d => d.key);
+    head.enter().append('th').merge(head)
+      .text(d => `${d.label}${state.sort.key === d.key ? (state.sort.asc ? ' ▲' : ' ▼') : ''}`)
+      .on('click', (ev, d) => { state.sort = { key: d.key, asc: state.sort.key === d.key ? !state.sort.asc : true }; render(); });
+    const tr = d3.select('#pairs-body').selectAll('tr').data(rows, d => d.id);
+    const trEnter = tr.enter().append('tr');
+    tr.exit().remove();
+    const trAll = trEnter.merge(tr)
+      .attr('class', d => (isSelected('pair', d.id) ? 'selected' : ''))
+      .on('click', (ev, d) => select({ kind: 'pair', id: d.id }));
+    trAll.order();
+    const td = trAll.selectAll('td').data(d => COLUMNS.map(c => ({ c, v: d })));
+    td.enter().append('td').merge(td).html(({ c, v }) => {
+      if (c.key === 'transport') return badge(v.pair);
+      return escapeHtml(c.get(v));
+    });
+  }
+
+  // ---------------------------------------------------------------- rendering: panel
+
+  const panel = d3.select('#panel');
+
+  function badge(pair) {
+    const t = pair.transport;
+    const cls = `badge ${pair.confidence === 'likely' ? 'likely' : ''}`;
+    return `<span class="${cls}" style="background:${COLORS[t]}">${t}${pair.confidence === 'likely' ? '?' : ''}</span>` +
+      (pair.warnings.length ? ' <span class="badge warn">!</span>' : '');
+  }
+
+  function codeList(codes, warn) {
+    const desc = state.doc.reason_code_descriptions || {};
+    return codes.map(c => `<span class="code ${warn ? 'warn' : ''}"><b>${warn ? '!' : ''}${escapeHtml(c)}</b><span class="desc">${escapeHtml(desc[c] || '')}</span></span>`).join('');
+  }
+
+  function locators(ep) {
+    const fmt = l => `${l.kind}${l.address ? ' ' + l.address : ''}:${l.port}`;
+    return escapeHtml([...ep.unicast_locators.map(fmt), ...ep.multicast_locators.map(l => fmt(l) + ' (multicast)')].join(', ')) || '—';
+  }
+
+  function endpointDetails(label, ep, pairSide) {
+    return `<h3>${label}</h3><dl>
+      <dt>node</dt><dd>${escapeHtml(ep.node || '(non-ROS participant)')}</dd>
+      <dt>host</dt><dd>${escapeHtml(ep.host)}${ep.process ? ` (pid ${escapeHtml(ep.process)})` : ''}</dd>
+      <dt>guid</dt><dd><code>${escapeHtml(ep.guid)}</code></dd>
+      <dt>locators</dt><dd>${locators(ep)}</dd>
+      <dt>qos</dt><dd>${escapeHtml(ep.qos.reliability)}, ${escapeHtml(ep.qos.durability)}, data-sharing ${escapeHtml(ep.qos.data_sharing)}${ep.qos.data_sharing_domain_ids && ep.qos.data_sharing_domain_ids.length ? ` [${ep.qos.data_sharing_domain_ids.join(', ')}]` : ''}</dd>
+    </dl>`;
+  }
+
+  function pairCard(vp, selected) {
+    const p = vp.pair;
+    return `<div class="pair ${selected ? 'selected' : ''}">
+      <div><b>${escapeHtml(vp.topic.topic)}</b> <span class="muted">${escapeHtml(vp.topic.type)}</span></div>
+      <div style="margin:4px 0">${badge(p)} confidence ${p.confidence}${p.measured && p.measured.available ? ` · measured ${escapeHtml(measuredText(p.measured))}` : ''}</div>
+      <div>${escapeHtml(p.writer_node || vp.writerNode)}@${escapeHtml(p.writer_host)} → ${escapeHtml(p.reader_node || vp.readerNode)}@${escapeHtml(p.reader_host)}</div>
+      ${codeList(p.reasons, false)}${codeList(p.warnings, true)}
+      ${endpointDetails('Writer', vp.writer)}${endpointDetails('Reader', vp.reader)}
+    </div>`;
+  }
+
+  function renderPanel(model) {
+    const sel = state.selection;
+    if (!sel) { panel.html('<div class="panel-empty">Click a node or an edge for details.</div>'); return; }
+    if (sel.kind === 'edge') {
+      const e = bundle(visiblePairs(model)).find(x => x.id === sel.id);
+      if (!e) { select(null); return; }
+      panel.html(`<h2>${escapeHtml(e.source)} → ${escapeHtml(e.target)}</h2><div>${e.pairs.length} pair(s), ${e.transport}${e.confidence === 'likely' ? ' (likely)' : ''}</div>` +
+        e.pairs.map(vp => pairCard(vp, false)).join(''));
+    } else if (sel.kind === 'pair') {
+      const vp = model.pairs.find(x => x.id === sel.id);
+      if (!vp) { select(null); return; }
+      panel.html(`<h2>Pair</h2>${pairCard(vp, true)}`);
+    } else if (sel.kind === 'node') {
+      const n = model.nodes.get(sel.id);
+      if (!n) { select(null); return; }
+      const list = (items) => items.length ? `<dl>${items.map(({ topic, ep }) => `<dt>${escapeHtml(topic.topic)}</dt><dd>${escapeHtml(topic.type)}</dd>`).join('')}</dl>` : '<div class="muted">none</div>';
+      panel.html(`<h2>${escapeHtml(n.name)}</h2><dl><dt>host</dt><dd>${escapeHtml(n.host)}</dd>${n.process ? `<dt>pid</dt><dd>${escapeHtml(n.process)}</dd>` : ''}</dl>
+        <h3>Publishers (${n.pubs.length})</h3>${list(n.pubs)}
+        <h3>Subscriptions (${n.subs.length})</h3>${list(n.subs)}
+        ${n.unmatched.length ? `<h3>Unmatched topics (${n.unmatched.length})</h3>` + n.unmatched.map(u => `<div><b>${escapeHtml(u.topic.topic)}</b>${codeList(u.reasons, false)}</div>`).join('') : ''}`);
+    }
+  }
+
+  // ---------------------------------------------------------------- toolbar, legend, loading
+
+  function renderToolbar() {
+    const box = d3.select('#filter-transports');
+    if (box.selectAll('label').empty()) {
+      box.selectAll('label').data(TRANSPORTS).enter().append('label')
+        .html(t => `<input type="checkbox" checked> <span style="color:${COLORS[t]};font-weight:600">${t}</span>`)
+        .select('input').on('change', function (ev, t) { this.checked ? state.filter.transports.add(t) : state.filter.transports.delete(t); render(); });
+    }
+    d3.select('#legend').html(
+      TRANSPORTS.map(t => `<span class="item"><span class="sw" style="border-top-color:${COLORS[t]}"></span>${t}</span>`).join('') +
+      '<span class="item"><span class="sw dashed" style="border-top-color:#8b949e"></span>likely</span>' +
+      '<span class="item"><span class="sw warn"></span>warning</span>');
+  }
+
+  function renderMeta() {
+    const d = state.doc;
+    if (!d) { d3.select('#meta').text('no document loaded'); return; }
+    const n = d.topics.reduce((a, t) => a + t.pairs.length, 0);
+    d3.select('#meta').text(`domain ${d.domain} · ${d.observed_at} · ${d.topics.length} topics, ${n} pairs · ` +
+      (d.stats && d.stats.enabled ? `statistics: ${d.stats.samples} samples` : 'no statistics'));
+  }
+
+  function render() {
+    renderMeta();
+    renderToolbar();
+    d3.selectAll('.tab').classed('active', function () { return this.dataset.view === state.view; });
+    d3.select('#graph-view').attr('hidden', state.view === 'graph' ? null : true);
+    d3.select('#table-view').attr('hidden', state.view === 'table' ? null : true);
+    if (!state.doc) return;
+    const model = buildModel(state.doc);
+    if (state.view === 'graph') renderGraph(model); else renderTable(model);
+    renderPanel(model);
+  }
+
+  function isSelected(kind, id) { return state.selection && state.selection.kind === kind && state.selection.id === id; }
+  function select(sel) { state.selection = sel; render(); }
+
+  function setDocument(doc, sourceName) {
+    if (!doc || doc.schema_version !== 1 || !Array.isArray(doc.topics)) {
+      alert(`Not a transport_viz --json document (schema_version 1): ${sourceName}`);
+      return;
+    }
+    state.doc = doc;
+    state.selection = null;
+    render();
+    document.title = `transport_viz viewer – ${sourceName}`;
+  }
+
+  function loadFile(file) {
+    const reader = new FileReader();
+    reader.onload = () => { try { setDocument(JSON.parse(reader.result), file.name); } catch (e) { alert(`Invalid JSON: ${e.message}`); } };
+    reader.readAsText(file);
+  }
+
+  function loadUrl(url) {
+    fetch(url).then(r => { if (!r.ok) throw new Error(`${r.status} ${r.statusText}`); return r.json(); })
+      .then(doc => setDocument(doc, url))
+      .catch(e => { d3.select('#meta').text(`failed to load ${url}: ${e.message} (fetch does not work from file://; use "Open JSON…")`); });
+  }
+
+  function escapeHtml(s) { return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+
+  // wiring
+  d3.select('#file').on('change', function () { if (this.files[0]) loadFile(this.files[0]); this.value = ''; });
+  d3.select('#load-sample').on('click', () => loadSample());
+  d3.selectAll('.tab').on('click', function () { state.view = this.dataset.view; render(); });
+  d3.select('#filter-topic').on('input', function () { state.filter.topic = this.value; render(); });
+  d3.select('#filter-internal').on('change', function () { state.filter.hideInternal = this.checked; render(); });
+  const overlay = document.getElementById('drop-overlay');
+  let dragDepth = 0;
+  document.addEventListener('dragenter', (e) => { e.preventDefault(); dragDepth++; overlay.hidden = false; });
+  document.addEventListener('dragleave', () => { if (--dragDepth <= 0) { dragDepth = 0; overlay.hidden = true; } });
+  document.addEventListener('dragover', (e) => e.preventDefault());
+  document.addEventListener('drop', (e) => { e.preventDefault(); dragDepth = 0; overlay.hidden = true; if (e.dataTransfer.files[0]) loadFile(e.dataTransfer.files[0]); });
+
+  function loadSample() {
+    // sample/sample.js embeds sample.json so this also works from file://
+    if (window.TRANSPORT_VIZ_SAMPLE) setDocument(window.TRANSPORT_VIZ_SAMPLE, 'sample/sample.json');
+    else loadUrl('sample/sample.json');
+  }
+
+  render();
+  const src = new URLSearchParams(location.search).get('src');
+  if (src) loadUrl(src); else loadSample();
+})();

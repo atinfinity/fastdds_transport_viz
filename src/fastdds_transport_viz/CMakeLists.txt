@@ -80,6 +80,10 @@ if(BUILD_TESTING)
   add_launch_test(test/launch/test_same_host_shm.py TIMEOUT 60)
   add_launch_test(test/launch/test_same_host_udp.py TIMEOUT 60)
   add_launch_test(test/launch/test_stats.py TIMEOUT 90)
+  add_launch_test(test/launch/test_json_schema_live.py TIMEOUT 90)
+
+  find_package(ament_cmake_pytest REQUIRED)
+  ament_add_pytest_test(test_json_schema test/test_json_schema.py)
 endif()
 
 ament_package()
