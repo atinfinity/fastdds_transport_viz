@@ -33,15 +33,21 @@ class TestWebLive(Base):
             m = re.search(r'listening on (http://[^/]+)/', line)
             self.assertTrue(m, line)
             base = m.group(1)
+            # The demo nodes may still be starting when the first frame is observed
+            # (3 s), so read frames until the pair shows up.
+            deadline = time.monotonic() + 40
+            doc = None
             with urllib.request.urlopen(f'{base}/events', timeout=30) as resp:
-                doc = None
                 for raw in resp:
                     line = raw.decode().rstrip('\n')
-                    if line.startswith('data: '):
-                        doc = json.loads(line[6:])
+                    if not line.startswith('data: '):
+                        continue
+                    doc = json.loads(line[6:])
+                    self.assertEqual(doc['schema_version'], 1)
+                    chatter = next((t for t in doc['topics'] if t['topic'] == '/chatter'), None)
+                    if chatter and len(chatter['pairs']) == 1 or time.monotonic() > deadline:
                         break
             self.assertIsNotNone(doc)
-            self.assertEqual(doc['schema_version'], 1)
             chatter = topic(doc, '/chatter')
             self.assertEqual(len(chatter['pairs']), 1, chatter)
             with urllib.request.urlopen(f'{base}/latest.json', timeout=10) as resp:
