@@ -78,6 +78,7 @@ src/fastdds_transport_viz/
 - [x] M2 `--stats`: measured per-locator traffic via the Fast DDS statistics module,
       host names, mismatch detection
 - [x] M3 data-sharing confidence from `HISTORY_LATENCY` + traffic
-- [ ] M4 multi-host verification on x86_64 (arm64 verified)
-- [ ] M5 richer `--watch`
-- [ ] Other front-ends on top of `--json`
+- [ ] M4 multi-host verification on x86_64 (arm64 verified) — [#1](https://github.com/atinfinity/fastdds_transport_viz/issues/1)
+- [ ] M5 richer `--watch` — [#2](https://github.com/atinfinity/fastdds_transport_viz/issues/2)
+- [ ] Web visualization on top of `--json` — [#3](https://github.com/atinfinity/fastdds_transport_viz/issues/3)
+- [ ] Everything else: see the [issue tracker](https://github.com/atinfinity/fastdds_transport_viz/issues)
