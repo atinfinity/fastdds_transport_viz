@@ -1,0 +1,44 @@
+# Copyright 2026 atinfinity
+# SPDX-License-Identifier: Apache-2.0
+"""ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST on nodes and tool: unicast-only discovery, SHM data."""
+import os
+import sys
+
+import launch_testing
+
+sys.path.insert(0, os.path.dirname(__file__))
+from _common import Base, description, node_action, pair_of, transport_viz_json  # noqa: E402
+
+ENV = {'ROS_AUTOMATIC_DISCOVERY_RANGE': 'LOCALHOST'}
+
+
+def generate_test_description():
+    return description([
+        node_action('demo_nodes_cpp', 'talker', 'talker', ENV),
+        node_action('demo_nodes_cpp', 'listener', 'listener', ENV),
+    ]), {}
+
+
+class TestLocalhostRange(Base):
+
+    def test_chatter_uses_shm(self):
+        doc = None
+        for _ in range(4):
+            doc = transport_viz_json(env=ENV)
+            chatter = next((t for t in doc['topics'] if t['topic'] == '/chatter'), None)
+            if chatter and len(chatter['pairs']) == 1:
+                break
+        topic, pair = pair_of(doc, '/chatter')
+        self.assertEqual(pair['transport'], 'SHM', pair)
+        self.assertIn('both-shm-locators', pair['reasons'])
+        # LOCALHOST mode announces loopback only
+        for ep in topic['writers'] + topic['readers']:
+            addrs = {l['address'] for l in ep['unicast_locators'] if l['kind'] == 'UDPv4'}
+            self.assertEqual(addrs, {'127.0.0.1'}, ep)
+
+
+@launch_testing.post_shutdown_test()
+class TestShutdown(Base):
+
+    def test_exit_codes(self, proc_info):
+        pass

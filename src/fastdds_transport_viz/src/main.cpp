@@ -407,6 +407,22 @@ int main(int argc, char ** argv)
 
   rclcpp::InitOptions init_opts;
   init_opts.set_domain_id(static_cast<size_t>(domain));
+  // Discovery Server: a plain CLIENT only learns about the endpoints it matches, so an
+  // observer must be a SUPER_CLIENT (Fast DDS reads ROS_SUPER_CLIENT for both our
+  // participants). An explicit ROS_SUPER_CLIENT is respected.
+  if (const char * ds = std::getenv("ROS_DISCOVERY_SERVER"); ds != nullptr && *ds != '\0') {
+    if (std::getenv("ROS_SUPER_CLIENT") == nullptr) {
+      setenv("ROS_SUPER_CLIENT", "TRUE", 1);
+      std::cerr << "ROS_DISCOVERY_SERVER is set: observing as SUPER_CLIENT "
+        "(set ROS_SUPER_CLIENT to override)\n";
+    }
+  }
+  if (const char * range = std::getenv("ROS_AUTOMATIC_DISCOVERY_RANGE");
+    range != nullptr && std::string(range) == "OFF")
+  {
+    std::cerr << "warning: ROS_AUTOMATIC_DISCOVERY_RANGE=OFF disables discovery entirely "
+      "(rmw_fastrtps allows a single participant); nothing can be observed in this mode\n";
+  }
   rclcpp::init(argc, argv, init_opts);
   int rc = 0;
   {

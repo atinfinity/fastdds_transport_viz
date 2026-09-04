@@ -56,6 +56,24 @@ profile from it, like the nodes), `ROS_DISCOVERY_SERVER`, `ROS_AUTOMATIC_DISCOVE
 environment will not either. For hosts on a network without multicast see
 [development.md](development.md#two-physical-hosts).
 
+Transport-specific notes (all covered by launch tests or the multi-container scenarios,
+see [development.md](development.md#verification-results)):
+
+- `FASTDDS_BUILTIN_TRANSPORTS=LARGE_DATA` announces TCPv4 next to SHM; on one host SHM
+  still wins (`both-shm-locators`), between hosts the verdict is `TCPv4`
+  (`common-tcpv4-locator`) and `--stats` measures the TCP traffic. Start the tool with
+  `LARGE_DATA` too when using `--stats`: the statistics samples travel over TCP.
+- `UDPv6` / `DEFAULTv6` need an interface with an IPv6 address (Docker's default bridge
+  has none); the tool must speak UDPv6 as well to hear the discovery traffic.
+- `ROS_DISCOVERY_SERVER`: a plain client only learns about the endpoints it matches, so
+  the tool makes itself a `SUPER_CLIENT` when the variable is set (a message on stderr
+  says so). An explicit `ROS_SUPER_CLIENT` is respected.
+- `ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST` works unchanged (nodes announce loopback
+  locators only). `OFF` limits every participant to itself, so nothing can be observed;
+  the tool prints a warning in that case.
+- Large samples (2 MB `UInt8MultiArray`) stay on SHM; Fast DDS fragments them to the
+  transport's maximum message size.
+
 ## Hosts
 
 Without `--stats`, hosts are shown as `local` (same host id as the tool) or

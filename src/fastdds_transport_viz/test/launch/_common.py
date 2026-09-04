@@ -11,6 +11,8 @@ import launch
 import launch_ros.actions
 import launch_testing.actions
 
+from ament_index_python.packages import get_package_share_directory
+
 
 def transport_viz_json(extra_args=(), timeout=6.0, env=None):
     """Run transport_viz --json and return the parsed document."""
@@ -31,13 +33,29 @@ def topic(doc, name):
     raise AssertionError(f'topic {name} not found in {[t["topic"] for t in doc["topics"]]}')
 
 
-def node_action(package, executable, name, env_overrides=None):
+def node_action(package, executable, name, env_overrides=None, arguments=None):
     env = dict(os.environ)
     if env_overrides:
         env.update(env_overrides)
     return launch_ros.actions.Node(
         package=package, executable=executable, name=name, output='screen',
-        env=env)
+        env=env, arguments=list(arguments or []))
+
+
+STATS_ENV = {
+    'FASTDDS_STATISTICS': 'RTPS_SENT_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC',
+    # lift the statistics writers' 10-instance resource limit (see docs/statistics.md)
+    'FASTRTPS_DEFAULT_PROFILES_FILE': os.path.join(
+        get_package_share_directory('fastdds_transport_viz'), 'config', 'statistics.xml'),
+}
+
+
+def pair_of(doc, name, reader_node=None):
+    """The single pair of topic `name` (or the one whose reader is `reader_node`)."""
+    t = topic(doc, name)
+    pairs = [p for p in t['pairs'] if reader_node is None or p['reader_node'] == reader_node]
+    assert len(pairs) == 1, t
+    return t, pairs[0]
 
 
 def description(nodes):

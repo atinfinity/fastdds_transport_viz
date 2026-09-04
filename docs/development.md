@@ -34,7 +34,9 @@ in a third container on the same scope and asserts the verdict:
 | `multi_container` (default) | `talker`, `listener`: separate network and IPC namespaces ⇒ different host ids | `UDPv4`, `different-host` |
 | `stats_multi_container` | `talker_stats`, `listener_stats`: as above with `FASTDDS_STATISTICS` | measured `UDPv4`, two different `PHYSICAL_DATA` host names |
 | `hostnet_shm` | two `hostnet` containers: `network_mode: host` + `ipc: host` ⇒ same host id, shared `/dev/shm` | `SHM`, `same-host-guid` |
-| `all` | the three above in sequence | |
+| `large_data_tcp` | `talker_large_data`, `listener_large_data`: bridged, `FASTDDS_BUILTIN_TRANSPORTS=LARGE_DATA` + statistics | `TCPv4`, `common-tcpv4-locator`, measured `TCPv4` |
+| `udpv6_multi_container` | `talker_udpv6`, `listener_udpv6`: bridged (the project network has IPv6), `DEFAULTv6` | `UDPv6`, `common-udpv6-locator` |
+| `all` | the five above in sequence | |
 
 Output goes to `/tmp/transport_viz_<scenario>.json`.
 
@@ -84,7 +86,7 @@ Shipped with the package for reproducing the scenarios in the docs:
 |---|---|
 | `bounded_pub` / `bounded_sub` | `std_msgs/Int32`, data-sharing eligible |
 | `unbounded_pub` | `std_msgs/String`, never data-sharing |
-| `large_array_pub --size-kb N` | large `std_msgs/UInt8MultiArray` samples |
+| `large_array_pub --size-kb N` / `large_array_sub` | large `std_msgs/UInt8MultiArray` samples |
 
 ## Tests
 
@@ -98,6 +100,11 @@ colcon test && colcon test-result --verbose
   nodes (SHM, and UDPv4 fallback via `FASTDDS_BUILTIN_TRANSPORTS=UDPv4`).
 - `test_stats.py`: demo nodes with `FASTDDS_STATISTICS`; asserts measured SHM / UDPv4 and
   host names.
+- `test_udpv6.py` (`FASTDDS_BUILTIN_TRANSPORTS=UDPv6`, skipped without an IPv6
+  interface), `test_localhost_range.py` (`ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST`),
+  `test_discovery_server.py` (`fast-discovery-server`, SUPER_CLIENT vs plain client),
+  `test_large_data_same_host.py` (`LARGE_DATA`: TCPv4 announced, SHM chosen),
+  `test_large_shm.py` (2 MB samples measured on SHM).
 - `test_json_schema` / `test_json_schema_live.py`: sample and live `--json` output against
   `schema/transport_viz.schema.json`.
 - `test_web_serve` (pytest, fake `transport_viz`) / `test_web_live.py` (real one): the live
@@ -124,6 +131,13 @@ short); the `transport_viz` JSON of each scenario is uploaded as an artifact.
 | 2026-09-05 | two bridged containers | x86_64 | 2.14.6 | `UDPv4`, `different-host` | `scripts/integration_test.sh multi_container` |
 | 2026-09-05 | two bridged containers, `--stats` | x86_64 | 2.14.6 | measured `UDPv4`, host names differ (container ids) | `scripts/integration_test.sh stats_multi_container` |
 | 2026-09-05 | two `hostnet` containers | x86_64 | 2.14.6 | `SHM`, `same-host-guid`, no `host-id-match-but-ip-differs` | `scripts/integration_test.sh hostnet_shm` |
+| 2026-09-05 | `LARGE_DATA`, two bridged containers, `--stats` | x86_64 | 2.14.6 | `TCPv4`, `common-tcpv4-locator`, measured `TCPv4` (physical port matches `RTPS_SENT`) | `scripts/integration_test.sh large_data_tcp` |
+| 2026-09-05 | `LARGE_DATA`, one host | x86_64 | 2.14.6 | TCPv4 announced, `SHM` chosen (`both-shm-locators`) | `test_large_data_same_host.py` |
+| 2026-09-05 | `DEFAULTv6`, two bridged containers (IPv6 network) | x86_64 | 2.14.6 | `UDPv6`, `common-udpv6-locator` | `scripts/integration_test.sh udpv6_multi_container` |
+| 2026-09-05 | `UDPv6`, one host | x86_64 | 2.14.6 | `UDPv6`, `same-host-guid` (needs an IPv6 interface; multicast only, `ROS_STATIC_PEERS` is IPv4-only in Jazzy) | `test_udpv6.py` |
+| 2026-09-05 | `ROS_DISCOVERY_SERVER` (fast-discovery-server on 127.0.0.1:11811) | x86_64 | 2.14.6 | `SHM` pair seen as SUPER_CLIENT; a plain CLIENT does not see `/chatter` | `test_discovery_server.py` |
+| 2026-09-05 | `ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST` | x86_64 | 2.14.6 | `SHM`, nodes announce `127.0.0.1` only; `OFF` sees nothing (warning printed) | `test_localhost_range.py` |
+| 2026-09-05 | 2 MB samples over SHM, `--stats` | x86_64 | 2.14.6 | `SHM`, measured `SHM`, bytes consistent with the sample size | `test_large_shm.py` |
 | 2026-09-05 | two physical hosts on one Wi-Fi LAN: x86_64 Ubuntu (Docker `hostnet`) ↔ macOS arm64 (native RoboStack Jazzy) | x86_64 + arm64 | 2.14.6 both | discovery not established, remote writer never seen ([#15](https://github.com/atinfinity/fastdds_transport_viz/issues/15)) | see "Two physical hosts" |
 
 ## Layout
