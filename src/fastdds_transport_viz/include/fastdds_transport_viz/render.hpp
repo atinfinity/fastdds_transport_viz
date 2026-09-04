@@ -16,6 +16,7 @@ struct RenderOptions
 {
   bool verbose{false};     // expand writer->reader pairs under each topic
   bool explain{false};     // append a legend for every reason code used
+  bool compact{false};     // JSON: one line per document (JSON Lines), no indentation
   /// GUID-prefix host id -> label (hostname / "local"); missing => "host:<hex>"
   std::map<std::string, std::string> host_labels;
 };

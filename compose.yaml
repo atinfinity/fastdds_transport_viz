@@ -24,6 +24,8 @@ services:
     <<: *base
     command: sleep infinity
     ipc: host
+    ports:
+      - "8765:8765"   # transport_viz_web --bind 0.0.0.0 (web viewer live mode)
 
   # Two separate containers: separate network + IPC namespaces => Fast DDS
   # assigns different host IDs => user data must go over UDPv4.

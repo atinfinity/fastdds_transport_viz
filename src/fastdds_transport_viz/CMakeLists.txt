@@ -68,6 +68,16 @@ install(TARGETS ${PROJECT_NAME}_core ${PROJECT_NAME}_lib ${PROJECT_NAME}_stats_t
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin)
 install(DIRECTORY include/ DESTINATION include)
+
+# Web viewer (repository-level web/ directory) and its live server.
+set(WEB_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../web)
+if(EXISTS ${WEB_DIR}/index.html)
+  install(DIRECTORY ${WEB_DIR}/ DESTINATION share/${PROJECT_NAME}/web
+    PATTERN "serve.py" EXCLUDE PATTERN "README.md" EXCLUDE)
+  install(PROGRAMS ${WEB_DIR}/serve.py RENAME transport_viz_web DESTINATION lib/${PROJECT_NAME})
+else()
+  message(WARNING "web/ not found next to the package; transport_viz_web will not be installed")
+endif()
 install(DIRECTORY config DESTINATION share/${PROJECT_NAME})
 
 # --- tests -------------------------------------------------------------------------
@@ -84,6 +94,8 @@ if(BUILD_TESTING)
 
   find_package(ament_cmake_pytest REQUIRED)
   ament_add_pytest_test(test_json_schema test/test_json_schema.py)
+  ament_add_pytest_test(test_web_serve test/test_web_serve.py)
+  add_launch_test(test/launch/test_web_live.py TIMEOUT 90)
 endif()
 
 ament_package()

@@ -47,6 +47,44 @@ The **Table** tab shows one row per pair (sortable by clicking a header).
 (topic regex, transport checkboxes, "hide ROS internal topics" for `/parameter_events`
 and `/rosout`) apply to the graph, the table and the panel.
 
+## Live mode
+
+`transport_viz_web` (installed from `web/serve.py`, Python standard library only) runs
+`transport_viz --watch --json` as a subprocess and serves the viewer together with a
+Server-Sent Events stream of every new document:
+
+```
+ros2 run fastdds_transport_viz transport_viz_web --stats --interval 1
+# transport_viz_web: listening on http://127.0.0.1:8765/
+```
+
+Open the printed URL: `/` redirects to `index.html?live=1`, which connects to `/events`
+and re-renders on every document while keeping the selection, filters and zoom (the
+layout is deterministic, so nothing jumps). The header shows the live state and the
+time of the last update; **Pause** stops applying frames until **Resume**. `/latest.json`
+always returns the most recent document (usable with `?src=/latest.json`).
+
+![live mode](images/web-viewer-live.jpg)
+
+Options before the double dash belong to the server, everything else is forwarded to
+`transport_viz`:
+
+| Option | Meaning |
+|---|---|
+| `--bind ADDR` | listen address, default `127.0.0.1`; use `0.0.0.0` to view from another machine (e.g. a laptop looking at a robot) |
+| `--port N` | default `8765`, `0` picks a free port |
+| `--transport-viz PATH` | executable to run (default: next to the script, then `$PATH`) |
+| `--verbose` | log requests and received documents |
+| anything else | forwarded: `--stats`, `--interval S`, `--domain N`, `--all`, `--topic REGEX`, `--timeout S` |
+
+If `transport_viz` exits, the server sends a `status` event (shown as "live: transport_viz
+exited …") and stops with a non-zero code. In the Docker environment, `docker compose run
+--rm --service-ports dev` publishes port 8765, so `transport_viz_web --bind 0.0.0.0` inside
+the container is reachable from the host browser.
+
+`transport_viz --watch --json` itself prints one compact document per line (JSON Lines),
+so any other consumer can read the same stream.
+
 ## JSON schema
 
 `schema/transport_viz.schema.json` (JSON Schema 2020-12) is the contract the viewer relies

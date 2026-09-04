@@ -71,7 +71,8 @@ void usage()
     "  --stats            also subscribe to the Fast DDS statistics topics and show the\n"
     "                     transport that actually carried packets; observed nodes must run\n"
     "                     with FASTDDS_STATISTICS=\"RTPS_SENT_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC\"\n"
-    "  --watch            keep observing and re-render every --interval seconds\n"
+    "  --watch            keep observing and re-render every --interval seconds;\n"
+    "                     with --json, emits one compact document per line (JSON Lines)\n"
     "  --interval <sec>   refresh period for --watch (default: 2)\n"
     "  --list-codes       list all reason codes with descriptions and exit\n"
     "  -h, --help         this help\n";
@@ -227,6 +228,7 @@ int main(int argc, char ** argv)
     RenderOptions ropt;
     ropt.verbose = o.verbose;
     ropt.explain = o.explain;
+    ropt.compact = o.json && o.watch;   // JSON Lines: one document per line
 
     const auto start = std::chrono::steady_clock::now();
     // Wait until --timeout, or until discovery has been quiet for --quiet

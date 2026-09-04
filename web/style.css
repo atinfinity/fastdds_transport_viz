@@ -12,6 +12,10 @@ header .title { font-weight: 600; font-size: 15px; }
 header .sub { color: var(--muted); font-weight: 400; margin-left: 6px; }
 header .meta { color: var(--muted); flex: 1; }
 header .hint { color: var(--muted); }
+header .live { display: flex; align-items: center; gap: 6px; color: var(--muted); }
+header .live .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--c-shm); }
+header .live.paused .dot { background: var(--c-ds); }
+header .live.ended .dot, header .live.reconnecting .dot { background: var(--warn); }
 .btn { display: inline-block; padding: 4px 10px; border: 1px solid var(--line); border-radius: 6px; background: #f6f8fa; cursor: pointer; font: inherit; }
 .btn:hover { background: #eef1f4; }
 .toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; padding: 6px 12px; background: var(--panel); border-bottom: 1px solid var(--line); }
