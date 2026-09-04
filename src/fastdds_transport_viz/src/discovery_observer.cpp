@@ -158,9 +158,13 @@ Endpoint make_endpoint(const ProxyData & data, bool is_writer)
 DiscoveryObserver::DiscoveryObserver(int domain_id)
 : last_event_(std::chrono::steady_clock::now())
 {
-  dds::DomainParticipantQos qos = dds::PARTICIPANT_QOS_DEFAULT;
+  // The factory default honours the default participant profile of
+  // FASTRTPS_DEFAULT_PROFILES_FILE (PARTICIPANT_QOS_DEFAULT is the built-in constant),
+  // so the observer participant discovers the same way the observed nodes do.
+  auto * factory = dds::DomainParticipantFactory::get_instance();
+  dds::DomainParticipantQos qos = factory->get_default_participant_qos();
   qos.name("fastdds_transport_viz");
-  participant_ = dds::DomainParticipantFactory::get_instance()->create_participant(
+  participant_ = factory->create_participant(
     static_cast<dds::DomainId_t>(domain_id), qos, this, dds::StatusMask::none());
   if (participant_ == nullptr) {
     throw std::runtime_error("failed to create Fast DDS DomainParticipant");
