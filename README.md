@@ -50,7 +50,7 @@ transport_viz [--domain N] [--timeout S] [--quiet S] [--topic REGEX] [--all]
 | `-v` | expand writer → reader pairs under each topic |
 | `--explain` | append a legend for the reason codes used |
 | `--stats` | also show measured transports (observed nodes need `FASTDDS_STATISTICS`, see [docs/statistics.md](docs/statistics.md)) |
-| `--json` | machine-readable output (`schema_version: 1`, no compatibility promise yet) |
+| `--json` | machine-readable output (`schema_version: 1`, see `schema/`); open it in the [web viewer](docs/web-viewer.md) |
 | `--all` | include services/actions and non-ROS DDS topics |
 | `--watch` | re-render every `--interval` seconds |
 
@@ -59,6 +59,7 @@ transport_viz [--domain N] [--timeout S] [--quiet S] [--topic REGEX] [--all]
 - [How it works](docs/how-it-works.md) — decision rules, reason codes, hosts, where to run it
 - [Measured transports (`--stats`)](docs/statistics.md) — statistics topics, enabling them, the 10-instance pitfall
 - [Data-sharing (zero-copy)](docs/data-sharing.md) — why ROS 2 topics show `SHM` by default and how to enable data-sharing
+- [Web viewer](docs/web-viewer.md) — graph/table view of `--json` output in the browser, JSON schema
 - [Development, verification and tests](docs/development.md) — Docker environment, verification nodes, tests, roadmap
 
 ## License
