@@ -1,4 +1,4 @@
-// Copyright 2026 dandelion
+// Copyright 2026 atinfinity
 // SPDX-License-Identifier: Apache-2.0
 //
 // A raw Fast DDS DomainParticipant whose listener records every discovered

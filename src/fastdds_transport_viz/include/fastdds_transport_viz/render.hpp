@@ -1,4 +1,4 @@
-// Copyright 2026 dandelion
+// Copyright 2026 atinfinity
 // SPDX-License-Identifier: Apache-2.0
 
 #ifndef FASTDDS_TRANSPORT_VIZ__RENDER_HPP_

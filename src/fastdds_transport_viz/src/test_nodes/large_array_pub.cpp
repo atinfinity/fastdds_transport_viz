@@ -1,4 +1,4 @@
-// Copyright 2026 dandelion
+// Copyright 2026 atinfinity
 // SPDX-License-Identifier: Apache-2.0
 // Publishes a large UInt8MultiArray (size via --size-kb, default 1024) at 5 Hz.
 #include <chrono>

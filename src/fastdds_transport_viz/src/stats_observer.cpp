@@ -1,4 +1,4 @@
-// Copyright 2026 dandelion
+// Copyright 2026 atinfinity
 // SPDX-License-Identifier: Apache-2.0
 
 #include "fastdds_transport_viz/stats_observer.hpp"

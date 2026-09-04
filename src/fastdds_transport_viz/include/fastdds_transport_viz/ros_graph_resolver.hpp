@@ -1,4 +1,4 @@
-// Copyright 2026 dandelion
+// Copyright 2026 atinfinity
 // SPDX-License-Identifier: Apache-2.0
 //
 // Maps DDS endpoint GUIDs to ROS 2 node names using the rclcpp graph API.

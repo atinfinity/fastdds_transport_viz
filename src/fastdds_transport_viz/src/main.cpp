@@ -1,4 +1,4 @@
-// Copyright 2026 dandelion
+// Copyright 2026 atinfinity
 // SPDX-License-Identifier: Apache-2.0
 //
 // transport_viz: show which Fast DDS transport each ROS 2 topic uses and why.

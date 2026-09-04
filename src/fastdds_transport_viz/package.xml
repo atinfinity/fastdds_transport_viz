@@ -8,7 +8,7 @@
     communicated over, and why, using Fast DDS discovery data and optionally the
     Fast DDS statistics module.
   </description>
-  <maintainer email="dandelion1124@gmail.com">dandelion</maintainer>
+  <maintainer email="dandelion1124@gmail.com">atinfinity</maintainer>
   <license>Apache-2.0</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>

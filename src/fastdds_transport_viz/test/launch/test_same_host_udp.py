@@ -1,4 +1,4 @@
-# Copyright 2026 dandelion
+# Copyright 2026 atinfinity
 # SPDX-License-Identifier: Apache-2.0
 """listener started with FASTDDS_BUILTIN_TRANSPORTS=UDPv4 => no SHM locator => UDPv4."""
 import os

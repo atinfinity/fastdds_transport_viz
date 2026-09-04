@@ -1,4 +1,4 @@
-# Copyright 2026 dandelion
+# Copyright 2026 atinfinity
 # SPDX-License-Identifier: Apache-2.0
 """talker + listener in one process namespace => SHM (String is unbounded: no data-sharing)."""
 import os

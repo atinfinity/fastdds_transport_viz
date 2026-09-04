@@ -1,4 +1,4 @@
-# Copyright 2026 dandelion
+# Copyright 2026 atinfinity
 # SPDX-License-Identifier: Apache-2.0
 """--stats: nodes started with FASTDDS_STATISTICS => measured SHM traffic and host names."""
 import os

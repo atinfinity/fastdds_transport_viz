@@ -1,4 +1,4 @@
-// Copyright 2026 dandelion
+// Copyright 2026 atinfinity
 // SPDX-License-Identifier: Apache-2.0
 // Publishes an unbounded type (String): not eligible for data-sharing.
 #include <chrono>
