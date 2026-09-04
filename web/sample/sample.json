@@ -1,0 +1,2318 @@
+{
+  "domain": 3,
+  "local_host_id": "010f3dea",
+  "observation_seconds": 5.014519502,
+  "observed_at": "2026-09-04T15:20:44Z",
+  "reason_code_descriptions": {
+    "both-shm-locators": "Both endpoints announce a SHM locator. On the same host Fast DDS then uses the shared memory transport exclusively for user data (discovery still goes over UDP).",
+    "common-udpv4-locator": "The reader announces a UDPv4 locator and the writer speaks UDPv4.",
+    "datasharing-disabled-writer": "The writer announces data-sharing OFF (explicitly disabled, or AUTO resolved to OFF because the type is unbounded / the history memory policy is not preallocated).",
+    "measured-shm-traffic": "Statistics show RTPS packets from the writer's participant to the reader's SHM locator.",
+    "measured-udpv4-traffic": "Statistics show RTPS packets from the writer's participant to the reader's UDPv4 locator.",
+    "no-matching-reader": "No subscription was discovered for this topic.",
+    "reader-no-shm-locator": "The reader's participant announces no SHM locator: SHM transport is not instantiated on its side (e.g. FASTDDS_BUILTIN_TRANSPORTS=UDPv4, or an XML profile without SHM).",
+    "same-host-guid": "Writer and reader GUID prefixes share the same first 4 bytes, which is how Fast DDS decides both participants run on the same host.",
+    "stats-writer-instance-limit-suspected": "The writer's participant reports traffic to 10 or more locators but none to this reader. The Fast DDS statistics DataWriter keeps the default resource limit of 10 instances (one per destination locator), so counters for further locators are never published. Raise it with an XML profile named after the statistics topic (_fastdds_statistics_rtps_sent) whose <resourceLimitsQos> sets max_instances to 0.",
+    "writer-no-shm-locator": "The writer's participant announces no SHM locator: SHM transport is not instantiated on its side (e.g. FASTDDS_BUILTIN_TRANSPORTS=UDPv4, or an XML profile without SHM)."
+  },
+  "schema_version": 1,
+  "stats": {
+    "enabled": true,
+    "participants_with_stats": [
+      "01.0f.3d.ea.01.01.80.96.00.00.00.00",
+      "01.0f.3d.ea.02.01.e8.a4.00.00.00.00",
+      "01.0f.3d.ea.03.01.40.93.00.00.00.00",
+      "01.0f.3d.ea.04.01.06.c9.00.00.00.00",
+      "01.0f.3d.ea.13.01.ad.1b.00.00.00.00",
+      "01.0f.3d.ea.56.01.23.26.00.00.00.00"
+    ],
+    "physical": {
+      "01.0f.3d.ea.01.01.80.96.00.00.00.00": {
+        "host": "6f138392437d:6251712681390440448",
+        "process": "257",
+        "user": "root"
+      },
+      "01.0f.3d.ea.02.01.e8.a4.00.00.00.00": {
+        "host": "6f138392437d:6251712681390440448",
+        "process": "258",
+        "user": "root"
+      },
+      "01.0f.3d.ea.03.01.40.93.00.00.00.00": {
+        "host": "6f138392437d:6251712681390440448",
+        "process": "259",
+        "user": "root"
+      },
+      "01.0f.3d.ea.04.01.06.c9.00.00.00.00": {
+        "host": "6f138392437d:6251712681390440448",
+        "process": "260",
+        "user": "root"
+      },
+      "01.0f.3d.ea.13.01.ad.1b.00.00.00.00": {
+        "host": "6f138392437d:6251712681390440448",
+        "process": "275",
+        "user": "root"
+      }
+    },
+    "samples": 129,
+    "traffic": [
+      {
+        "bytes": 3256.0,
+        "dst_locator": {
+          "address": "127.0.0.1",
+          "kind": "UDPv4",
+          "port": 7003
+        },
+        "packets": 14,
+        "src_participant_guid_prefix": "01.0f.3d.ea.01.01.80.96.00.00.00.00"
+      },
+      {
+        "bytes": 20372.0,
+        "dst_locator": {
+          "address": "127.0.0.1",
+          "kind": "UDPv4",
+          "port": 8160
+        },
+        "packets": 44,
+        "src_participant_guid_prefix": "01.0f.3d.ea.01.01.80.96.00.00.00.00"
+      },
+      {
+        "bytes": 20364.0,
+        "dst_locator": {
+          "address": "127.0.0.1",
+          "kind": "UDPv4",
+          "port": 8162
+        },
+        "packets": 44,
+        "src_participant_guid_prefix": "01.0f.3d.ea.01.01.80.96.00.00.00.00"
+      },
+      {
+        "bytes": 2868.0,
+        "dst_locator": {
+          "address": "127.0.0.1",
+          "kind": "UDPv4",
+          "port": 8163
+        },
+        "packets": 22,
+        "src_participant_guid_prefix": "01.0f.3d.ea.01.01.80.96.00.00.00.00"
+      },
+      {
+        "bytes": 20372.0,
+        "dst_locator": {
+          "address": "127.0.0.1",
+          "kind": "UDPv4",
+          "port": 8164
+        },
+        "packets": 44,
+        "src_participant_guid_prefix": "01.0f.3d.ea.01.01.80.96.00.00.00.00"
+      },
+      {
+        "bytes": 19816.0,
+        "dst_locator": {
+          "address": "127.0.0.1",
+          "kind": "UDPv4",
+          "port": 8168
+        },
+        "packets": 33,
+        "src_participant_guid_prefix": "01.0f.3d.ea.01.01.80.96.00.00.00.00"
+      },
+      {
+        "bytes": 15476.0,
+        "dst_locator": {
+          "address": "127.0.0.1",
+          "kind": "UDPv4",
+          "port": 8170
+        },
+        "packets": 18,
+        "src_participant_guid_prefix": "01.0f.3d.ea.01.01.80.96.00.00.00.00"
+      },
+      {
+        "bytes": 15600.0,
+        "dst_locator": {
+          "address": "127.0.0.1",
+          "kind": "UDPv4",
+          "port": 8172
+        },
+        "packets": 19,
+        "src_participant_guid_prefix": "01.0f.3d.ea.01.01.80.96.00.00.00.00"
+      },
+      {
+        "bytes": 3556.0,
+        "dst_locator": {
+          "address": "239.255.0.1",
+          "kind": "UDPv4",
+          "port": 8150
+        },
+        "packets": 7,
+        "src_participant_guid_prefix": "01.0f.3d.ea.01.01.80.96.00.00.00.00"
+      },
+      {
+        "bytes": 1032.0,
+        "dst_locator": {
+          "address": "",
+          "kind": "SHM",
+          "port": 7000
+        },
+        "packets": 6,
+        "src_participant_guid_prefix": "01.0f.3d.ea.01.01.80.96.00.00.00.00"
+      },
+      {
+        "bytes": 1032.0,
+        "dst_locator": {
+          "address": "",
+          "kind": "SHM",
+          "port": 7002
+        },
+        "packets": 6,
+        "src_participant_guid_prefix": "01.0f.3d.ea.01.01.80.96.00.00.00.00"
+      },
+      {
+        "bytes": 952.0,
+        "dst_locator": {
+          "address": "",
+          "kind": "SHM",
+          "port": 7003
+        },
+        "packets": 5,
+        "src_participant_guid_prefix": "01.0f.3d.ea.01.01.80.96.00.00.00.00"
+      },
+      {
+        "bytes": 968.0,
+        "dst_locator": {
+          "address": "",
+          "kind": "SHM",
+          "port": 7004
+        },
+        "packets": 5,
+        "src_participant_guid_prefix": "01.0f.3d.ea.01.01.80.96.00.00.00.00"
+      },
+      {
+        "bytes": 2488.0,
+        "dst_locator": {
+          "address": "",
+          "kind": "SHM",
+          "port": 8161
+        },
+        "packets": 19,
+        "src_participant_guid_prefix": "01.0f.3d.ea.01.01.80.96.00.00.00.00"
+      },
+      {
+        "bytes": 876.0,
+        "dst_locator": {
+          "address": "",
+          "kind": "SHM",
+          "port": 8165
+        },
+        "packets": 7,
+        "src_participant_guid_prefix": "01.0f.3d.ea.01.01.80.96.00.00.00.00"
+      },
+      {
+        "bytes": 1004.0,
+        "dst_locator": {
+          "address": "",
+          "kind": "SHM",
+          "port": 8169
+        },
+        "packets": 8,
+        "src_participant_guid_prefix": "01.0f.3d.ea.01.01.80.96.00.00.00.00"
+      },
+      {
+        "bytes": 760.0,
+        "dst_locator": {
+          "address": "",
+          "kind": "SHM",
+          "port": 8171
+        },
+        "packets": 6,
+        "src_participant_guid_prefix": "01.0f.3d.ea.01.01.80.96.00.00.00.00"
+      },
+      {
+        "bytes": 4148.0,
+        "dst_locator": {
+          "address": "127.0.0.1",
+          "kind": "UDPv4",
+          "port": 7003
+        },
+        "packets": 18,
+        "src_participant_guid_prefix": "01.0f.3d.ea.02.01.e8.a4.00.00.00.00"
+      },
+      {
+        "bytes": 20776.0,
+        "dst_locator": {
+          "address": "127.0.0.1",
+          "kind": "UDPv4",
+          "port": 8162
+        },
+        "packets": 47,
+        "src_participant_guid_prefix": "01.0f.3d.ea.02.01.e8.a4.00.00.00.00"
+      },
+      {
+        "bytes": 1128.0,
+        "dst_locator": {
+          "address": "127.0.0.1",
+          "kind": "UDPv4",
+          "port": 8163
+        },
+        "packets": 9,
+        "src_participant_guid_prefix": "01.0f.3d.ea.02.01.e8.a4.00.00.00.00"
+      },
+      {
+        "bytes": 20396.0,
+        "dst_locator": {
+          "address": "127.0.0.1",
+          "kind": "UDPv4",
+          "port": 8164
+        },
+        "packets": 44,
+        "src_participant_guid_prefix": "01.0f.3d.ea.02.01.e8.a4.00.00.00.00"
+      },
+      {
+        "bytes": 20400.0,
+        "dst_locator": {
+          "address": "127.0.0.1",
+          "kind": "UDPv4",
+          "port": 8166
+        },
+        "packets": 44,
+        "src_participant_guid_prefix": "01.0f.3d.ea.02.01.e8.a4.00.00.00.00"
+      },
+      {
+        "bytes": 19844.0,
+        "dst_locator": {
+          "address": "127.0.0.1",
+          "kind": "UDPv4",
+          "port": 8168
+        },
+        "packets": 33,
+        "src_participant_guid_prefix": "01.0f.3d.ea.02.01.e8.a4.00.00.00.00"
+      },
+      {
+        "bytes": 15424.0,
+        "dst_locator": {
+          "address": "127.0.0.1",
+          "kind": "UDPv4",
+          "port": 8170
+        },
+        "packets": 17,
+        "src_participant_guid_prefix": "01.0f.3d.ea.02.01.e8.a4.00.00.00.00"
+      },
+      {
+        "bytes": 15552.0,
+        "dst_locator": {
+          "address": "127.0.0.1",
+          "kind": "UDPv4",
+          "port": 8172
+        },
+        "packets": 18,
+        "src_participant_guid_prefix": "01.0f.3d.ea.02.01.e8.a4.00.00.00.00"
+      },
+      {
+        "bytes": 3556.0,
+        "dst_locator": {
+          "address": "239.255.0.1",
+          "kind": "UDPv4",
+          "port": 8150
+        },
+        "packets": 7,
+        "src_participant_guid_prefix": "01.0f.3d.ea.02.01.e8.a4.00.00.00.00"
+      },
+      {
+        "bytes": 1052.0,
+        "dst_locator": {
+          "address": "",
+          "kind": "SHM",
+          "port": 7001
+        },
+        "packets": 6,
+        "src_participant_guid_prefix": "01.0f.3d.ea.02.01.e8.a4.00.00.00.00"
+      },
+      {
+        "bytes": 6048.0,
+        "dst_locator": {
+          "address": "",
+          "kind": "SHM",
+          "port": 7002
+        },
+        "packets": 28,
+        "src_participant_guid_prefix": "01.0f.3d.ea.02.01.e8.a4.00.00.00.00"
+      },
+      {
+        "bytes": 956.0,
+        "dst_locator": {
+          "address": "",
+          "kind": "SHM",
+          "port": 7003
+        },
+        "packets": 5,
+        "src_participant_guid_prefix": "01.0f.3d.ea.02.01.e8.a4.00.00.00.00"
+      },
+      {
+        "bytes": 972.0,
+        "dst_locator": {
+          "address": "",
+          "kind": "SHM",
+          "port": 7004
+        },
+        "packets": 5,
+        "src_participant_guid_prefix": "01.0f.3d.ea.02.01.e8.a4.00.00.00.00"
+      },
+      {
+        "bytes": 1004.0,
+        "dst_locator": {
+          "address": "",
+          "kind": "SHM",
+          "port": 8165
+        },
+        "packets": 8,
+        "src_participant_guid_prefix": "01.0f.3d.ea.02.01.e8.a4.00.00.00.00"
+      },
+      {
+        "bytes": 1248.0,
+        "dst_locator": {
+          "address": "",
+          "kind": "SHM",
+          "port": 8167
+        },
+        "packets": 10,
+        "src_participant_guid_prefix": "01.0f.3d.ea.02.01.e8.a4.00.00.00.00"
+      },
+      {
+        "bytes": 1004.0,
+        "dst_locator": {
+          "address": "",
+          "kind": "SHM",
+          "port": 8169
+        },
+        "packets": 8,
+        "src_participant_guid_prefix": "01.0f.3d.ea.02.01.e8.a4.00.00.00.00"
+      },
+      {
+        "bytes": 760.0,
+        "dst_locator": {
+          "address": "",
+          "kind": "SHM",
+          "port": 8171
+        },
+        "packets": 6,
+        "src_participant_guid_prefix": "01.0f.3d.ea.02.01.e8.a4.00.00.00.00"
+      },
+      {
+        "bytes": 928.0,
+        "dst_locator": {
+          "address": "127.0.0.1",
+          "kind": "UDPv4",
+          "port": 7000
+        },
+        "packets": 5,
+        "src_participant_guid_prefix": "01.0f.3d.ea.03.01.40.93.00.00.00.00"
+      },
+      {
+        "bytes": 928.0,
+        "dst_locator": {
+          "address": "127.0.0.1",
+          "kind": "UDPv4",
+          "port": 7001
+        },
+        "packets": 5,
+        "src_participant_guid_prefix": "01.0f.3d.ea.03.01.40.93.00.00.00.00"
+      },
+      {
+        "bytes": 928.0,
+        "dst_locator": {
+          "address": "127.0.0.1",
+          "kind": "UDPv4",
+          "port": 7002
+        },
+        "packets": 5,
+        "src_participant_guid_prefix": "01.0f.3d.ea.03.01.40.93.00.00.00.00"
+      },
+      {
+        "bytes": 960.0,
+        "dst_locator": {
+          "address": "127.0.0.1",
+          "kind": "UDPv4",
+          "port": 7004
+        },
+        "packets": 5,
+        "src_participant_guid_prefix": "01.0f.3d.ea.03.01.40.93.00.00.00.00"
+      },
+      {
+        "bytes": 976.0,
+        "dst_locator": {
+          "address": "127.0.0.1",
+          "kind": "UDPv4",
+          "port": 7005
+        },
+        "packets": 5,
+        "src_participant_guid_prefix": "01.0f.3d.ea.03.01.40.93.00.00.00.00"
+      },
+      {
+        "bytes": 18696.0,
+        "dst_locator": {
+          "address": "127.0.0.1",
+          "kind": "UDPv4",
+          "port": 8160
+        },
+        "packets": 44,
+        "src_participant_guid_prefix": "01.0f.3d.ea.03.01.40.93.00.00.00.00"
+      },
+      {
+        "bytes": 876.0,
+        "dst_locator": {
+          "address": "127.0.0.1",
+          "kind": "UDPv4",
+          "port": 8161
+        },
+        "packets": 7,
+        "src_participant_guid_prefix": "01.0f.3d.ea.03.01.40.93.00.00.00.00"
+      },
+      {
+        "bytes": 18324.0,
+        "dst_locator": {
+          "address": "127.0.0.1",
+          "kind": "UDPv4",
+          "port": 8164
+        },
+        "packets": 41,
+        "src_participant_guid_prefix": "01.0f.3d.ea.03.01.40.93.00.00.00.00"
+      },
+      {
+        "bytes": 876.0,
+        "dst_locator": {
+          "address": "127.0.0.1",
+          "kind": "UDPv4",
+          "port": 8165
+        },
+        "packets": 7,
+        "src_participant_guid_prefix": "01.0f.3d.ea.03.01.40.93.00.00.00.00"
+      },
+      {
+        "bytes": 18324.0,
+        "dst_locator": {
+          "address": "127.0.0.1",
+          "kind": "UDPv4",
+          "port": 8166
+        },
+        "packets": 41,
+        "src_participant_guid_prefix": "01.0f.3d.ea.03.01.40.93.00.00.00.00"
+      },
+      {
+        "bytes": 1372.0,
+        "dst_locator": {
+          "address": "127.0.0.1",
+          "kind": "UDPv4",
+          "port": 8167
+        },
+        "packets": 11,
+        "src_participant_guid_prefix": "01.0f.3d.ea.03.01.40.93.00.00.00.00"
+      },
+      {
+        "bytes": 18920.0,
+        "dst_locator": {
+          "address": "127.0.0.1",
+          "kind": "UDPv4",
+          "port": 8168
+        },
+        "packets": 32,
+        "src_participant_guid_prefix": "01.0f.3d.ea.03.01.40.93.00.00.00.00"
+      },
+      {
+        "bytes": 1004.0,
+        "dst_locator": {
+          "address": "127.0.0.1",
+          "kind": "UDPv4",
+          "port": 8169
+        },
+        "packets": 8,
+        "src_participant_guid_prefix": "01.0f.3d.ea.03.01.40.93.00.00.00.00"
+      },
+      {
+        "bytes": 14668.0,
+        "dst_locator": {
+          "address": "127.0.0.1",
+          "kind": "UDPv4",
+          "port": 8170
+        },
+        "packets": 16,
+        "src_participant_guid_prefix": "01.0f.3d.ea.03.01.40.93.00.00.00.00"
+      },
+      {
+        "bytes": 760.0,
+        "dst_locator": {
+          "address": "127.0.0.1",
+          "kind": "UDPv4",
+          "port": 8171
+        },
+        "packets": 6,
+        "src_participant_guid_prefix": "01.0f.3d.ea.03.01.40.93.00.00.00.00"
+      },
+      {
+        "bytes": 14796.0,
+        "dst_locator": {
+          "address": "127.0.0.1",
+          "kind": "UDPv4",
+          "port": 8172
+        },
+        "packets": 17,
+        "src_participant_guid_prefix": "01.0f.3d.ea.03.01.40.93.00.00.00.00"
+      },
+      {
+        "bytes": 3360.0,
+        "dst_locator": {
+          "address": "239.255.0.1",
+          "kind": "UDPv4",
+          "port": 8150
+        },
+        "packets": 7,
+        "src_participant_guid_prefix": "01.0f.3d.ea.03.01.40.93.00.00.00.00"
+      },
+      {
+        "bytes": 3260.0,
+        "dst_locator": {
+          "address": "127.0.0.1",
+          "kind": "UDPv4",
+          "port": 7003
+        },
+        "packets": 14,
+        "src_participant_guid_prefix": "01.0f.3d.ea.04.01.06.c9.00.00.00.00"
+      },
+      {
+        "bytes": 20452.0,
+        "dst_locator": {
+          "address": "127.0.0.1",
+          "kind": "UDPv4",
+          "port": 8160
+        },
+        "packets": 44,
+        "src_participant_guid_prefix": "01.0f.3d.ea.04.01.06.c9.00.00.00.00"
+      },
+      {
+        "bytes": 20428.0,
+        "dst_locator": {
+          "address": "127.0.0.1",
+          "kind": "UDPv4",
+          "port": 8162
+        },
+        "packets": 44,
+        "src_participant_guid_prefix": "01.0f.3d.ea.04.01.06.c9.00.00.00.00"
+      },
+      {
+        "bytes": 1128.0,
+        "dst_locator": {
+          "address": "127.0.0.1",
+          "kind": "UDPv4",
+          "port": 8163
+        },
+        "packets": 9,
+        "src_participant_guid_prefix": "01.0f.3d.ea.04.01.06.c9.00.00.00.00"
+      },
+      {
+        "bytes": 20436.0,
+        "dst_locator": {
+          "address": "127.0.0.1",
+          "kind": "UDPv4",
+          "port": 8166
+        },
+        "packets": 44,
+        "src_participant_guid_prefix": "01.0f.3d.ea.04.01.06.c9.00.00.00.00"
+      },
+      {
+        "bytes": 19880.0,
+        "dst_locator": {
+          "address": "127.0.0.1",
+          "kind": "UDPv4",
+          "port": 8168
+        },
+        "packets": 33,
+        "src_participant_guid_prefix": "01.0f.3d.ea.04.01.06.c9.00.00.00.00"
+      },
+      {
+        "bytes": 15460.0,
+        "dst_locator": {
+          "address": "127.0.0.1",
+          "kind": "UDPv4",
+          "port": 8170
+        },
+        "packets": 17,
+        "src_participant_guid_prefix": "01.0f.3d.ea.04.01.06.c9.00.00.00.00"
+      },
+      {
+        "bytes": 15588.0,
+        "dst_locator": {
+          "address": "127.0.0.1",
+          "kind": "UDPv4",
+          "port": 8172
+        },
+        "packets": 18,
+        "src_participant_guid_prefix": "01.0f.3d.ea.04.01.06.c9.00.00.00.00"
+      },
+      {
+        "bytes": 3556.0,
+        "dst_locator": {
+          "address": "239.255.0.1",
+          "kind": "UDPv4",
+          "port": 8150
+        },
+        "packets": 7,
+        "src_participant_guid_prefix": "01.0f.3d.ea.04.01.06.c9.00.00.00.00"
+      },
+      {
+        "bytes": 1052.0,
+        "dst_locator": {
+          "address": "",
+          "kind": "SHM",
+          "port": 7000
+        },
+        "packets": 6,
+        "src_participant_guid_prefix": "01.0f.3d.ea.04.01.06.c9.00.00.00.00"
+      },
+      {
+        "bytes": 1036.0,
+        "dst_locator": {
+          "address": "",
+          "kind": "SHM",
+          "port": 7001
+        },
+        "packets": 6,
+        "src_participant_guid_prefix": "01.0f.3d.ea.04.01.06.c9.00.00.00.00"
+      },
+      {
+        "bytes": 956.0,
+        "dst_locator": {
+          "address": "",
+          "kind": "SHM",
+          "port": 7003
+        },
+        "packets": 5,
+        "src_participant_guid_prefix": "01.0f.3d.ea.04.01.06.c9.00.00.00.00"
+      },
+      {
+        "bytes": 972.0,
+        "dst_locator": {
+          "address": "",
+          "kind": "SHM",
+          "port": 7004
+        },
+        "packets": 5,
+        "src_participant_guid_prefix": "01.0f.3d.ea.04.01.06.c9.00.00.00.00"
+      },
+      {
+        "bytes": 876.0,
+        "dst_locator": {
+          "address": "",
+          "kind": "SHM",
+          "port": 8161
+        },
+        "packets": 7,
+        "src_participant_guid_prefix": "01.0f.3d.ea.04.01.06.c9.00.00.00.00"
+      },
+      {
+        "bytes": 1004.0,
+        "dst_locator": {
+          "address": "",
+          "kind": "SHM",
+          "port": 8167
+        },
+        "packets": 8,
+        "src_participant_guid_prefix": "01.0f.3d.ea.04.01.06.c9.00.00.00.00"
+      },
+      {
+        "bytes": 2368.0,
+        "dst_locator": {
+          "address": "",
+          "kind": "SHM",
+          "port": 8169
+        },
+        "packets": 19,
+        "src_participant_guid_prefix": "01.0f.3d.ea.04.01.06.c9.00.00.00.00"
+      },
+      {
+        "bytes": 760.0,
+        "dst_locator": {
+          "address": "",
+          "kind": "SHM",
+          "port": 8171
+        },
+        "packets": 6,
+        "src_participant_guid_prefix": "01.0f.3d.ea.04.01.06.c9.00.00.00.00"
+      },
+      {
+        "bytes": 812.0,
+        "dst_locator": {
+          "address": "127.0.0.1",
+          "kind": "UDPv4",
+          "port": 7003
+        },
+        "packets": 4,
+        "src_participant_guid_prefix": "01.0f.3d.ea.13.01.ad.1b.00.00.00.00"
+      },
+      {
+        "bytes": 19176.0,
+        "dst_locator": {
+          "address": "127.0.0.1",
+          "kind": "UDPv4",
+          "port": 8160
+        },
+        "packets": 27,
+        "src_participant_guid_prefix": "01.0f.3d.ea.13.01.ad.1b.00.00.00.00"
+      },
+      {
+        "bytes": 19176.0,
+        "dst_locator": {
+          "address": "127.0.0.1",
+          "kind": "UDPv4",
+          "port": 8162
+        },
+        "packets": 27,
+        "src_participant_guid_prefix": "01.0f.3d.ea.13.01.ad.1b.00.00.00.00"
+      },
+      {
+        "bytes": 876.0,
+        "dst_locator": {
+          "address": "127.0.0.1",
+          "kind": "UDPv4",
+          "port": 8163
+        },
+        "packets": 7,
+        "src_participant_guid_prefix": "01.0f.3d.ea.13.01.ad.1b.00.00.00.00"
+      },
+      {
+        "bytes": 19176.0,
+        "dst_locator": {
+          "address": "127.0.0.1",
+          "kind": "UDPv4",
+          "port": 8164
+        },
+        "packets": 27,
+        "src_participant_guid_prefix": "01.0f.3d.ea.13.01.ad.1b.00.00.00.00"
+      },
+      {
+        "bytes": 19176.0,
+        "dst_locator": {
+          "address": "127.0.0.1",
+          "kind": "UDPv4",
+          "port": 8166
+        },
+        "packets": 27,
+        "src_participant_guid_prefix": "01.0f.3d.ea.13.01.ad.1b.00.00.00.00"
+      },
+      {
+        "bytes": 15348.0,
+        "dst_locator": {
+          "address": "127.0.0.1",
+          "kind": "UDPv4",
+          "port": 8170
+        },
+        "packets": 16,
+        "src_participant_guid_prefix": "01.0f.3d.ea.13.01.ad.1b.00.00.00.00"
+      },
+      {
+        "bytes": 15472.0,
+        "dst_locator": {
+          "address": "127.0.0.1",
+          "kind": "UDPv4",
+          "port": 8172
+        },
+        "packets": 17,
+        "src_participant_guid_prefix": "01.0f.3d.ea.13.01.ad.1b.00.00.00.00"
+      },
+      {
+        "bytes": 3556.0,
+        "dst_locator": {
+          "address": "239.255.0.1",
+          "kind": "UDPv4",
+          "port": 8150
+        },
+        "packets": 7,
+        "src_participant_guid_prefix": "01.0f.3d.ea.13.01.ad.1b.00.00.00.00"
+      },
+      {
+        "bytes": 812.0,
+        "dst_locator": {
+          "address": "",
+          "kind": "SHM",
+          "port": 7000
+        },
+        "packets": 4,
+        "src_participant_guid_prefix": "01.0f.3d.ea.13.01.ad.1b.00.00.00.00"
+      },
+      {
+        "bytes": 812.0,
+        "dst_locator": {
+          "address": "",
+          "kind": "SHM",
+          "port": 7001
+        },
+        "packets": 4,
+        "src_participant_guid_prefix": "01.0f.3d.ea.13.01.ad.1b.00.00.00.00"
+      },
+      {
+        "bytes": 812.0,
+        "dst_locator": {
+          "address": "",
+          "kind": "SHM",
+          "port": 7002
+        },
+        "packets": 4,
+        "src_participant_guid_prefix": "01.0f.3d.ea.13.01.ad.1b.00.00.00.00"
+      },
+      {
+        "bytes": 844.0,
+        "dst_locator": {
+          "address": "",
+          "kind": "SHM",
+          "port": 7004
+        },
+        "packets": 4,
+        "src_participant_guid_prefix": "01.0f.3d.ea.13.01.ad.1b.00.00.00.00"
+      },
+      {
+        "bytes": 876.0,
+        "dst_locator": {
+          "address": "",
+          "kind": "SHM",
+          "port": 8161
+        },
+        "packets": 7,
+        "src_participant_guid_prefix": "01.0f.3d.ea.13.01.ad.1b.00.00.00.00"
+      },
+      {
+        "bytes": 13708.0,
+        "dst_locator": {
+          "address": "",
+          "kind": "SHM",
+          "port": 8165
+        },
+        "packets": 97,
+        "src_participant_guid_prefix": "01.0f.3d.ea.13.01.ad.1b.00.00.00.00"
+      },
+      {
+        "bytes": 876.0,
+        "dst_locator": {
+          "address": "",
+          "kind": "SHM",
+          "port": 8167
+        },
+        "packets": 7,
+        "src_participant_guid_prefix": "01.0f.3d.ea.13.01.ad.1b.00.00.00.00"
+      },
+      {
+        "bytes": 760.0,
+        "dst_locator": {
+          "address": "",
+          "kind": "SHM",
+          "port": 8171
+        },
+        "packets": 6,
+        "src_participant_guid_prefix": "01.0f.3d.ea.13.01.ad.1b.00.00.00.00"
+      }
+    ]
+  },
+  "topics": [
+    {
+      "dds_topic": "rt/bounded",
+      "is_ros_topic": true,
+      "pairs": [
+        {
+          "confidence": "certain",
+          "measured": {
+            "available": true,
+            "bytes": 13708.0,
+            "delivered": true,
+            "packets": 97,
+            "transports": [
+              "SHM"
+            ]
+          },
+          "reader_guid": "01.0f.3d.ea.04.01.06.c9.00.00.00.00|00.00.14.04",
+          "reader_host": "6f138392437d",
+          "reader_node": "/bounded_sub",
+          "reasons": [
+            "same-host-guid",
+            "datasharing-disabled-writer",
+            "both-shm-locators",
+            "measured-shm-traffic"
+          ],
+          "transport": "SHM",
+          "warnings": [],
+          "writer_guid": "01.0f.3d.ea.13.01.ad.1b.00.00.00.00|00.00.14.03",
+          "writer_host": "6f138392437d",
+          "writer_node": "/bounded_pub"
+        }
+      ],
+      "readers": [
+        {
+          "dds_topic": "rt/bounded",
+          "dds_type": "std_msgs::msg::dds_::Int32_",
+          "guid": "01.0f.3d.ea.04.01.06.c9.00.00.00.00|00.00.14.04",
+          "host": "6f138392437d",
+          "host_id": "010f3dea",
+          "host_name": "6f138392437d:6251712681390440448",
+          "multicast_locators": [],
+          "node": "/bounded_sub",
+          "participant_guid_prefix": "01.0f.3d.ea.04.01.06.c9.00.00.00.00",
+          "process": "260",
+          "qos": {
+            "data_sharing": "OFF",
+            "data_sharing_domain_ids": [],
+            "durability": "VOLATILE",
+            "reliability": "RELIABLE"
+          },
+          "ros_topic": "/bounded",
+          "ros_type": "std_msgs/msg/Int32",
+          "unicast_locators": [
+            {
+              "address": "",
+              "kind": "SHM",
+              "port": 8165
+            },
+            {
+              "address": "127.0.0.1",
+              "kind": "UDPv4",
+              "port": 8165
+            }
+          ]
+        }
+      ],
+      "topic": "/bounded",
+      "type": "std_msgs/msg/Int32",
+      "unmatched_reasons": [],
+      "writers": [
+        {
+          "dds_topic": "rt/bounded",
+          "dds_type": "std_msgs::msg::dds_::Int32_",
+          "guid": "01.0f.3d.ea.13.01.ad.1b.00.00.00.00|00.00.14.03",
+          "host": "6f138392437d",
+          "host_id": "010f3dea",
+          "host_name": "6f138392437d:6251712681390440448",
+          "multicast_locators": [],
+          "node": "/bounded_pub",
+          "participant_guid_prefix": "01.0f.3d.ea.13.01.ad.1b.00.00.00.00",
+          "process": "275",
+          "qos": {
+            "data_sharing": "OFF",
+            "data_sharing_domain_ids": [],
+            "durability": "VOLATILE",
+            "reliability": "RELIABLE"
+          },
+          "ros_topic": "/bounded",
+          "ros_type": "std_msgs/msg/Int32",
+          "unicast_locators": [
+            {
+              "address": "",
+              "kind": "SHM",
+              "port": 8169
+            },
+            {
+              "address": "127.0.0.1",
+              "kind": "UDPv4",
+              "port": 8169
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "dds_topic": "rt/chatter",
+      "is_ros_topic": true,
+      "pairs": [
+        {
+          "confidence": "certain",
+          "measured": {
+            "available": true,
+            "bytes": 2488.0,
+            "delivered": true,
+            "packets": 19,
+            "transports": [
+              "SHM"
+            ]
+          },
+          "reader_guid": "01.0f.3d.ea.02.01.e8.a4.00.00.00.00|00.00.14.04",
+          "reader_host": "6f138392437d",
+          "reader_node": "/listener",
+          "reasons": [
+            "same-host-guid",
+            "datasharing-disabled-writer",
+            "both-shm-locators",
+            "measured-shm-traffic"
+          ],
+          "transport": "SHM",
+          "warnings": [],
+          "writer_guid": "01.0f.3d.ea.01.01.80.96.00.00.00.00|00.00.14.03",
+          "writer_host": "6f138392437d",
+          "writer_node": "/talker"
+        },
+        {
+          "confidence": "certain",
+          "measured": {
+            "available": true,
+            "bytes": 2868.0,
+            "delivered": true,
+            "packets": 22,
+            "transports": [
+              "UDPv4"
+            ]
+          },
+          "reader_guid": "01.0f.3d.ea.03.01.40.93.00.00.00.00|00.00.14.04",
+          "reader_host": "6f138392437d",
+          "reader_node": "/listener_udp",
+          "reasons": [
+            "same-host-guid",
+            "datasharing-disabled-writer",
+            "reader-no-shm-locator",
+            "common-udpv4-locator",
+            "measured-udpv4-traffic"
+          ],
+          "transport": "UDPv4",
+          "warnings": [],
+          "writer_guid": "01.0f.3d.ea.01.01.80.96.00.00.00.00|00.00.14.03",
+          "writer_host": "6f138392437d",
+          "writer_node": "/talker"
+        }
+      ],
+      "readers": [
+        {
+          "dds_topic": "rt/chatter",
+          "dds_type": "std_msgs::msg::dds_::String_",
+          "guid": "01.0f.3d.ea.02.01.e8.a4.00.00.00.00|00.00.14.04",
+          "host": "6f138392437d",
+          "host_id": "010f3dea",
+          "host_name": "6f138392437d:6251712681390440448",
+          "multicast_locators": [],
+          "node": "/listener",
+          "participant_guid_prefix": "01.0f.3d.ea.02.01.e8.a4.00.00.00.00",
+          "process": "258",
+          "qos": {
+            "data_sharing": "OFF",
+            "data_sharing_domain_ids": [],
+            "durability": "VOLATILE",
+            "reliability": "RELIABLE"
+          },
+          "ros_topic": "/chatter",
+          "ros_type": "std_msgs/msg/String",
+          "unicast_locators": [
+            {
+              "address": "",
+              "kind": "SHM",
+              "port": 8161
+            },
+            {
+              "address": "127.0.0.1",
+              "kind": "UDPv4",
+              "port": 8161
+            }
+          ]
+        },
+        {
+          "dds_topic": "rt/chatter",
+          "dds_type": "std_msgs::msg::dds_::String_",
+          "guid": "01.0f.3d.ea.03.01.40.93.00.00.00.00|00.00.14.04",
+          "host": "6f138392437d",
+          "host_id": "010f3dea",
+          "host_name": "6f138392437d:6251712681390440448",
+          "multicast_locators": [],
+          "node": "/listener_udp",
+          "participant_guid_prefix": "01.0f.3d.ea.03.01.40.93.00.00.00.00",
+          "process": "259",
+          "qos": {
+            "data_sharing": "OFF",
+            "data_sharing_domain_ids": [],
+            "durability": "VOLATILE",
+            "reliability": "RELIABLE"
+          },
+          "ros_topic": "/chatter",
+          "ros_type": "std_msgs/msg/String",
+          "unicast_locators": [
+            {
+              "address": "127.0.0.1",
+              "kind": "UDPv4",
+              "port": 8163
+            }
+          ]
+        }
+      ],
+      "topic": "/chatter",
+      "type": "std_msgs/msg/String",
+      "unmatched_reasons": [],
+      "writers": [
+        {
+          "dds_topic": "rt/chatter",
+          "dds_type": "std_msgs::msg::dds_::String_",
+          "guid": "01.0f.3d.ea.01.01.80.96.00.00.00.00|00.00.14.03",
+          "host": "6f138392437d",
+          "host_id": "010f3dea",
+          "host_name": "6f138392437d:6251712681390440448",
+          "multicast_locators": [],
+          "node": "/talker",
+          "participant_guid_prefix": "01.0f.3d.ea.01.01.80.96.00.00.00.00",
+          "process": "257",
+          "qos": {
+            "data_sharing": "OFF",
+            "data_sharing_domain_ids": [],
+            "durability": "VOLATILE",
+            "reliability": "RELIABLE"
+          },
+          "ros_topic": "/chatter",
+          "ros_type": "std_msgs/msg/String",
+          "unicast_locators": [
+            {
+              "address": "",
+              "kind": "SHM",
+              "port": 8167
+            },
+            {
+              "address": "127.0.0.1",
+              "kind": "UDPv4",
+              "port": 8167
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "dds_topic": "rt/parameter_events",
+      "is_ros_topic": true,
+      "pairs": [
+        {
+          "confidence": "certain",
+          "measured": {
+            "available": true,
+            "bytes": 0.0,
+            "delivered": true,
+            "packets": 0,
+            "transports": []
+          },
+          "reader_guid": "01.0f.3d.ea.01.01.80.96.00.00.00.00|00.00.11.04",
+          "reader_host": "6f138392437d",
+          "reader_node": "/talker",
+          "reasons": [
+            "same-host-guid",
+            "datasharing-disabled-writer",
+            "both-shm-locators"
+          ],
+          "transport": "SHM",
+          "warnings": [
+            "stats-writer-instance-limit-suspected"
+          ],
+          "writer_guid": "01.0f.3d.ea.01.01.80.96.00.00.00.00|00.00.10.03",
+          "writer_host": "6f138392437d",
+          "writer_node": "/talker"
+        },
+        {
+          "confidence": "certain",
+          "measured": {
+            "available": true,
+            "bytes": 2488.0,
+            "delivered": false,
+            "packets": 19,
+            "transports": [
+              "SHM"
+            ]
+          },
+          "reader_guid": "01.0f.3d.ea.02.01.e8.a4.00.00.00.00|00.00.11.04",
+          "reader_host": "6f138392437d",
+          "reader_node": "/listener",
+          "reasons": [
+            "same-host-guid",
+            "datasharing-disabled-writer",
+            "both-shm-locators",
+            "measured-shm-traffic"
+          ],
+          "transport": "SHM",
+          "warnings": [],
+          "writer_guid": "01.0f.3d.ea.01.01.80.96.00.00.00.00|00.00.10.03",
+          "writer_host": "6f138392437d",
+          "writer_node": "/talker"
+        },
+        {
+          "confidence": "certain",
+          "measured": {
+            "available": true,
+            "bytes": 2868.0,
+            "delivered": false,
+            "packets": 22,
+            "transports": [
+              "UDPv4"
+            ]
+          },
+          "reader_guid": "01.0f.3d.ea.03.01.40.93.00.00.00.00|00.00.11.04",
+          "reader_host": "6f138392437d",
+          "reader_node": "/listener_udp",
+          "reasons": [
+            "same-host-guid",
+            "datasharing-disabled-writer",
+            "reader-no-shm-locator",
+            "common-udpv4-locator",
+            "measured-udpv4-traffic"
+          ],
+          "transport": "UDPv4",
+          "warnings": [],
+          "writer_guid": "01.0f.3d.ea.01.01.80.96.00.00.00.00|00.00.10.03",
+          "writer_host": "6f138392437d",
+          "writer_node": "/talker"
+        },
+        {
+          "confidence": "certain",
+          "measured": {
+            "available": true,
+            "bytes": 876.0,
+            "delivered": false,
+            "packets": 7,
+            "transports": [
+              "SHM"
+            ]
+          },
+          "reader_guid": "01.0f.3d.ea.04.01.06.c9.00.00.00.00|00.00.11.04",
+          "reader_host": "6f138392437d",
+          "reader_node": "/bounded_sub",
+          "reasons": [
+            "same-host-guid",
+            "datasharing-disabled-writer",
+            "both-shm-locators",
+            "measured-shm-traffic"
+          ],
+          "transport": "SHM",
+          "warnings": [],
+          "writer_guid": "01.0f.3d.ea.01.01.80.96.00.00.00.00|00.00.10.03",
+          "writer_host": "6f138392437d",
+          "writer_node": "/talker"
+        },
+        {
+          "confidence": "certain",
+          "measured": {
+            "available": true,
+            "bytes": 1004.0,
+            "delivered": false,
+            "packets": 8,
+            "transports": [
+              "SHM"
+            ]
+          },
+          "reader_guid": "01.0f.3d.ea.13.01.ad.1b.00.00.00.00|00.00.11.04",
+          "reader_host": "6f138392437d",
+          "reader_node": "/bounded_pub",
+          "reasons": [
+            "same-host-guid",
+            "datasharing-disabled-writer",
+            "both-shm-locators",
+            "measured-shm-traffic"
+          ],
+          "transport": "SHM",
+          "warnings": [],
+          "writer_guid": "01.0f.3d.ea.01.01.80.96.00.00.00.00|00.00.10.03",
+          "writer_host": "6f138392437d",
+          "writer_node": "/talker"
+        },
+        {
+          "confidence": "certain",
+          "measured": {
+            "available": true,
+            "bytes": 1248.0,
+            "delivered": false,
+            "packets": 10,
+            "transports": [
+              "SHM"
+            ]
+          },
+          "reader_guid": "01.0f.3d.ea.01.01.80.96.00.00.00.00|00.00.11.04",
+          "reader_host": "6f138392437d",
+          "reader_node": "/talker",
+          "reasons": [
+            "same-host-guid",
+            "datasharing-disabled-writer",
+            "both-shm-locators",
+            "measured-shm-traffic"
+          ],
+          "transport": "SHM",
+          "warnings": [],
+          "writer_guid": "01.0f.3d.ea.02.01.e8.a4.00.00.00.00|00.00.10.03",
+          "writer_host": "6f138392437d",
+          "writer_node": "/listener"
+        },
+        {
+          "confidence": "certain",
+          "measured": {
+            "available": true,
+            "bytes": 0.0,
+            "delivered": true,
+            "packets": 0,
+            "transports": []
+          },
+          "reader_guid": "01.0f.3d.ea.02.01.e8.a4.00.00.00.00|00.00.11.04",
+          "reader_host": "6f138392437d",
+          "reader_node": "/listener",
+          "reasons": [
+            "same-host-guid",
+            "datasharing-disabled-writer",
+            "both-shm-locators"
+          ],
+          "transport": "SHM",
+          "warnings": [
+            "stats-writer-instance-limit-suspected"
+          ],
+          "writer_guid": "01.0f.3d.ea.02.01.e8.a4.00.00.00.00|00.00.10.03",
+          "writer_host": "6f138392437d",
+          "writer_node": "/listener"
+        },
+        {
+          "confidence": "certain",
+          "measured": {
+            "available": true,
+            "bytes": 1128.0,
+            "delivered": false,
+            "packets": 9,
+            "transports": [
+              "UDPv4"
+            ]
+          },
+          "reader_guid": "01.0f.3d.ea.03.01.40.93.00.00.00.00|00.00.11.04",
+          "reader_host": "6f138392437d",
+          "reader_node": "/listener_udp",
+          "reasons": [
+            "same-host-guid",
+            "datasharing-disabled-writer",
+            "reader-no-shm-locator",
+            "common-udpv4-locator",
+            "measured-udpv4-traffic"
+          ],
+          "transport": "UDPv4",
+          "warnings": [],
+          "writer_guid": "01.0f.3d.ea.02.01.e8.a4.00.00.00.00|00.00.10.03",
+          "writer_host": "6f138392437d",
+          "writer_node": "/listener"
+        },
+        {
+          "confidence": "certain",
+          "measured": {
+            "available": true,
+            "bytes": 1004.0,
+            "delivered": false,
+            "packets": 8,
+            "transports": [
+              "SHM"
+            ]
+          },
+          "reader_guid": "01.0f.3d.ea.04.01.06.c9.00.00.00.00|00.00.11.04",
+          "reader_host": "6f138392437d",
+          "reader_node": "/bounded_sub",
+          "reasons": [
+            "same-host-guid",
+            "datasharing-disabled-writer",
+            "both-shm-locators",
+            "measured-shm-traffic"
+          ],
+          "transport": "SHM",
+          "warnings": [],
+          "writer_guid": "01.0f.3d.ea.02.01.e8.a4.00.00.00.00|00.00.10.03",
+          "writer_host": "6f138392437d",
+          "writer_node": "/listener"
+        },
+        {
+          "confidence": "certain",
+          "measured": {
+            "available": true,
+            "bytes": 1004.0,
+            "delivered": false,
+            "packets": 8,
+            "transports": [
+              "SHM"
+            ]
+          },
+          "reader_guid": "01.0f.3d.ea.13.01.ad.1b.00.00.00.00|00.00.11.04",
+          "reader_host": "6f138392437d",
+          "reader_node": "/bounded_pub",
+          "reasons": [
+            "same-host-guid",
+            "datasharing-disabled-writer",
+            "both-shm-locators",
+            "measured-shm-traffic"
+          ],
+          "transport": "SHM",
+          "warnings": [],
+          "writer_guid": "01.0f.3d.ea.02.01.e8.a4.00.00.00.00|00.00.10.03",
+          "writer_host": "6f138392437d",
+          "writer_node": "/listener"
+        },
+        {
+          "confidence": "certain",
+          "measured": {
+            "available": true,
+            "bytes": 1372.0,
+            "delivered": false,
+            "packets": 11,
+            "transports": [
+              "UDPv4"
+            ]
+          },
+          "reader_guid": "01.0f.3d.ea.01.01.80.96.00.00.00.00|00.00.11.04",
+          "reader_host": "6f138392437d",
+          "reader_node": "/talker",
+          "reasons": [
+            "same-host-guid",
+            "datasharing-disabled-writer",
+            "writer-no-shm-locator",
+            "common-udpv4-locator",
+            "measured-udpv4-traffic"
+          ],
+          "transport": "UDPv4",
+          "warnings": [],
+          "writer_guid": "01.0f.3d.ea.03.01.40.93.00.00.00.00|00.00.10.03",
+          "writer_host": "6f138392437d",
+          "writer_node": "/listener_udp"
+        },
+        {
+          "confidence": "certain",
+          "measured": {
+            "available": true,
+            "bytes": 876.0,
+            "delivered": false,
+            "packets": 7,
+            "transports": [
+              "UDPv4"
+            ]
+          },
+          "reader_guid": "01.0f.3d.ea.02.01.e8.a4.00.00.00.00|00.00.11.04",
+          "reader_host": "6f138392437d",
+          "reader_node": "/listener",
+          "reasons": [
+            "same-host-guid",
+            "datasharing-disabled-writer",
+            "writer-no-shm-locator",
+            "common-udpv4-locator",
+            "measured-udpv4-traffic"
+          ],
+          "transport": "UDPv4",
+          "warnings": [],
+          "writer_guid": "01.0f.3d.ea.03.01.40.93.00.00.00.00|00.00.10.03",
+          "writer_host": "6f138392437d",
+          "writer_node": "/listener_udp"
+        },
+        {
+          "confidence": "certain",
+          "measured": {
+            "available": true,
+            "bytes": 0.0,
+            "delivered": true,
+            "packets": 0,
+            "transports": []
+          },
+          "reader_guid": "01.0f.3d.ea.03.01.40.93.00.00.00.00|00.00.11.04",
+          "reader_host": "6f138392437d",
+          "reader_node": "/listener_udp",
+          "reasons": [
+            "same-host-guid",
+            "datasharing-disabled-writer",
+            "writer-no-shm-locator",
+            "reader-no-shm-locator",
+            "common-udpv4-locator"
+          ],
+          "transport": "UDPv4",
+          "warnings": [
+            "stats-writer-instance-limit-suspected"
+          ],
+          "writer_guid": "01.0f.3d.ea.03.01.40.93.00.00.00.00|00.00.10.03",
+          "writer_host": "6f138392437d",
+          "writer_node": "/listener_udp"
+        },
+        {
+          "confidence": "certain",
+          "measured": {
+            "available": true,
+            "bytes": 876.0,
+            "delivered": false,
+            "packets": 7,
+            "transports": [
+              "UDPv4"
+            ]
+          },
+          "reader_guid": "01.0f.3d.ea.04.01.06.c9.00.00.00.00|00.00.11.04",
+          "reader_host": "6f138392437d",
+          "reader_node": "/bounded_sub",
+          "reasons": [
+            "same-host-guid",
+            "datasharing-disabled-writer",
+            "writer-no-shm-locator",
+            "common-udpv4-locator",
+            "measured-udpv4-traffic"
+          ],
+          "transport": "UDPv4",
+          "warnings": [],
+          "writer_guid": "01.0f.3d.ea.03.01.40.93.00.00.00.00|00.00.10.03",
+          "writer_host": "6f138392437d",
+          "writer_node": "/listener_udp"
+        },
+        {
+          "confidence": "certain",
+          "measured": {
+            "available": true,
+            "bytes": 1004.0,
+            "delivered": false,
+            "packets": 8,
+            "transports": [
+              "UDPv4"
+            ]
+          },
+          "reader_guid": "01.0f.3d.ea.13.01.ad.1b.00.00.00.00|00.00.11.04",
+          "reader_host": "6f138392437d",
+          "reader_node": "/bounded_pub",
+          "reasons": [
+            "same-host-guid",
+            "datasharing-disabled-writer",
+            "writer-no-shm-locator",
+            "common-udpv4-locator",
+            "measured-udpv4-traffic"
+          ],
+          "transport": "UDPv4",
+          "warnings": [],
+          "writer_guid": "01.0f.3d.ea.03.01.40.93.00.00.00.00|00.00.10.03",
+          "writer_host": "6f138392437d",
+          "writer_node": "/listener_udp"
+        },
+        {
+          "confidence": "certain",
+          "measured": {
+            "available": true,
+            "bytes": 1004.0,
+            "delivered": false,
+            "packets": 8,
+            "transports": [
+              "SHM"
+            ]
+          },
+          "reader_guid": "01.0f.3d.ea.01.01.80.96.00.00.00.00|00.00.11.04",
+          "reader_host": "6f138392437d",
+          "reader_node": "/talker",
+          "reasons": [
+            "same-host-guid",
+            "datasharing-disabled-writer",
+            "both-shm-locators",
+            "measured-shm-traffic"
+          ],
+          "transport": "SHM",
+          "warnings": [],
+          "writer_guid": "01.0f.3d.ea.04.01.06.c9.00.00.00.00|00.00.10.03",
+          "writer_host": "6f138392437d",
+          "writer_node": "/bounded_sub"
+        },
+        {
+          "confidence": "certain",
+          "measured": {
+            "available": true,
+            "bytes": 876.0,
+            "delivered": false,
+            "packets": 7,
+            "transports": [
+              "SHM"
+            ]
+          },
+          "reader_guid": "01.0f.3d.ea.02.01.e8.a4.00.00.00.00|00.00.11.04",
+          "reader_host": "6f138392437d",
+          "reader_node": "/listener",
+          "reasons": [
+            "same-host-guid",
+            "datasharing-disabled-writer",
+            "both-shm-locators",
+            "measured-shm-traffic"
+          ],
+          "transport": "SHM",
+          "warnings": [],
+          "writer_guid": "01.0f.3d.ea.04.01.06.c9.00.00.00.00|00.00.10.03",
+          "writer_host": "6f138392437d",
+          "writer_node": "/bounded_sub"
+        },
+        {
+          "confidence": "certain",
+          "measured": {
+            "available": true,
+            "bytes": 1128.0,
+            "delivered": false,
+            "packets": 9,
+            "transports": [
+              "UDPv4"
+            ]
+          },
+          "reader_guid": "01.0f.3d.ea.03.01.40.93.00.00.00.00|00.00.11.04",
+          "reader_host": "6f138392437d",
+          "reader_node": "/listener_udp",
+          "reasons": [
+            "same-host-guid",
+            "datasharing-disabled-writer",
+            "reader-no-shm-locator",
+            "common-udpv4-locator",
+            "measured-udpv4-traffic"
+          ],
+          "transport": "UDPv4",
+          "warnings": [],
+          "writer_guid": "01.0f.3d.ea.04.01.06.c9.00.00.00.00|00.00.10.03",
+          "writer_host": "6f138392437d",
+          "writer_node": "/bounded_sub"
+        },
+        {
+          "confidence": "certain",
+          "measured": {
+            "available": true,
+            "bytes": 0.0,
+            "delivered": true,
+            "packets": 0,
+            "transports": []
+          },
+          "reader_guid": "01.0f.3d.ea.04.01.06.c9.00.00.00.00|00.00.11.04",
+          "reader_host": "6f138392437d",
+          "reader_node": "/bounded_sub",
+          "reasons": [
+            "same-host-guid",
+            "datasharing-disabled-writer",
+            "both-shm-locators"
+          ],
+          "transport": "SHM",
+          "warnings": [
+            "stats-writer-instance-limit-suspected"
+          ],
+          "writer_guid": "01.0f.3d.ea.04.01.06.c9.00.00.00.00|00.00.10.03",
+          "writer_host": "6f138392437d",
+          "writer_node": "/bounded_sub"
+        },
+        {
+          "confidence": "certain",
+          "measured": {
+            "available": true,
+            "bytes": 2368.0,
+            "delivered": false,
+            "packets": 19,
+            "transports": [
+              "SHM"
+            ]
+          },
+          "reader_guid": "01.0f.3d.ea.13.01.ad.1b.00.00.00.00|00.00.11.04",
+          "reader_host": "6f138392437d",
+          "reader_node": "/bounded_pub",
+          "reasons": [
+            "same-host-guid",
+            "datasharing-disabled-writer",
+            "both-shm-locators",
+            "measured-shm-traffic"
+          ],
+          "transport": "SHM",
+          "warnings": [],
+          "writer_guid": "01.0f.3d.ea.04.01.06.c9.00.00.00.00|00.00.10.03",
+          "writer_host": "6f138392437d",
+          "writer_node": "/bounded_sub"
+        },
+        {
+          "confidence": "certain",
+          "measured": {
+            "available": true,
+            "bytes": 876.0,
+            "delivered": false,
+            "packets": 7,
+            "transports": [
+              "SHM"
+            ]
+          },
+          "reader_guid": "01.0f.3d.ea.01.01.80.96.00.00.00.00|00.00.11.04",
+          "reader_host": "6f138392437d",
+          "reader_node": "/talker",
+          "reasons": [
+            "same-host-guid",
+            "datasharing-disabled-writer",
+            "both-shm-locators",
+            "measured-shm-traffic"
+          ],
+          "transport": "SHM",
+          "warnings": [],
+          "writer_guid": "01.0f.3d.ea.13.01.ad.1b.00.00.00.00|00.00.10.03",
+          "writer_host": "6f138392437d",
+          "writer_node": "/bounded_pub"
+        },
+        {
+          "confidence": "certain",
+          "measured": {
+            "available": true,
+            "bytes": 876.0,
+            "delivered": false,
+            "packets": 7,
+            "transports": [
+              "SHM"
+            ]
+          },
+          "reader_guid": "01.0f.3d.ea.02.01.e8.a4.00.00.00.00|00.00.11.04",
+          "reader_host": "6f138392437d",
+          "reader_node": "/listener",
+          "reasons": [
+            "same-host-guid",
+            "datasharing-disabled-writer",
+            "both-shm-locators",
+            "measured-shm-traffic"
+          ],
+          "transport": "SHM",
+          "warnings": [],
+          "writer_guid": "01.0f.3d.ea.13.01.ad.1b.00.00.00.00|00.00.10.03",
+          "writer_host": "6f138392437d",
+          "writer_node": "/bounded_pub"
+        },
+        {
+          "confidence": "certain",
+          "measured": {
+            "available": true,
+            "bytes": 876.0,
+            "delivered": false,
+            "packets": 7,
+            "transports": [
+              "UDPv4"
+            ]
+          },
+          "reader_guid": "01.0f.3d.ea.03.01.40.93.00.00.00.00|00.00.11.04",
+          "reader_host": "6f138392437d",
+          "reader_node": "/listener_udp",
+          "reasons": [
+            "same-host-guid",
+            "datasharing-disabled-writer",
+            "reader-no-shm-locator",
+            "common-udpv4-locator",
+            "measured-udpv4-traffic"
+          ],
+          "transport": "UDPv4",
+          "warnings": [],
+          "writer_guid": "01.0f.3d.ea.13.01.ad.1b.00.00.00.00|00.00.10.03",
+          "writer_host": "6f138392437d",
+          "writer_node": "/bounded_pub"
+        },
+        {
+          "confidence": "certain",
+          "measured": {
+            "available": true,
+            "bytes": 13708.0,
+            "delivered": false,
+            "packets": 97,
+            "transports": [
+              "SHM"
+            ]
+          },
+          "reader_guid": "01.0f.3d.ea.04.01.06.c9.00.00.00.00|00.00.11.04",
+          "reader_host": "6f138392437d",
+          "reader_node": "/bounded_sub",
+          "reasons": [
+            "same-host-guid",
+            "datasharing-disabled-writer",
+            "both-shm-locators",
+            "measured-shm-traffic"
+          ],
+          "transport": "SHM",
+          "warnings": [],
+          "writer_guid": "01.0f.3d.ea.13.01.ad.1b.00.00.00.00|00.00.10.03",
+          "writer_host": "6f138392437d",
+          "writer_node": "/bounded_pub"
+        },
+        {
+          "confidence": "certain",
+          "measured": {
+            "available": true,
+            "bytes": 0.0,
+            "delivered": true,
+            "packets": 0,
+            "transports": []
+          },
+          "reader_guid": "01.0f.3d.ea.13.01.ad.1b.00.00.00.00|00.00.11.04",
+          "reader_host": "6f138392437d",
+          "reader_node": "/bounded_pub",
+          "reasons": [
+            "same-host-guid",
+            "datasharing-disabled-writer",
+            "both-shm-locators"
+          ],
+          "transport": "SHM",
+          "warnings": [
+            "stats-writer-instance-limit-suspected"
+          ],
+          "writer_guid": "01.0f.3d.ea.13.01.ad.1b.00.00.00.00|00.00.10.03",
+          "writer_host": "6f138392437d",
+          "writer_node": "/bounded_pub"
+        }
+      ],
+      "readers": [
+        {
+          "dds_topic": "rt/parameter_events",
+          "dds_type": "rcl_interfaces::msg::dds_::ParameterEvent_",
+          "guid": "01.0f.3d.ea.01.01.80.96.00.00.00.00|00.00.11.04",
+          "host": "6f138392437d",
+          "host_id": "010f3dea",
+          "host_name": "6f138392437d:6251712681390440448",
+          "multicast_locators": [],
+          "node": "/talker",
+          "participant_guid_prefix": "01.0f.3d.ea.01.01.80.96.00.00.00.00",
+          "process": "257",
+          "qos": {
+            "data_sharing": "OFF",
+            "data_sharing_domain_ids": [],
+            "durability": "VOLATILE",
+            "reliability": "RELIABLE"
+          },
+          "ros_topic": "/parameter_events",
+          "ros_type": "rcl_interfaces/msg/ParameterEvent",
+          "unicast_locators": [
+            {
+              "address": "",
+              "kind": "SHM",
+              "port": 8167
+            },
+            {
+              "address": "127.0.0.1",
+              "kind": "UDPv4",
+              "port": 8167
+            }
+          ]
+        },
+        {
+          "dds_topic": "rt/parameter_events",
+          "dds_type": "rcl_interfaces::msg::dds_::ParameterEvent_",
+          "guid": "01.0f.3d.ea.02.01.e8.a4.00.00.00.00|00.00.11.04",
+          "host": "6f138392437d",
+          "host_id": "010f3dea",
+          "host_name": "6f138392437d:6251712681390440448",
+          "multicast_locators": [],
+          "node": "/listener",
+          "participant_guid_prefix": "01.0f.3d.ea.02.01.e8.a4.00.00.00.00",
+          "process": "258",
+          "qos": {
+            "data_sharing": "OFF",
+            "data_sharing_domain_ids": [],
+            "durability": "VOLATILE",
+            "reliability": "RELIABLE"
+          },
+          "ros_topic": "/parameter_events",
+          "ros_type": "rcl_interfaces/msg/ParameterEvent",
+          "unicast_locators": [
+            {
+              "address": "",
+              "kind": "SHM",
+              "port": 8161
+            },
+            {
+              "address": "127.0.0.1",
+              "kind": "UDPv4",
+              "port": 8161
+            }
+          ]
+        },
+        {
+          "dds_topic": "rt/parameter_events",
+          "dds_type": "rcl_interfaces::msg::dds_::ParameterEvent_",
+          "guid": "01.0f.3d.ea.03.01.40.93.00.00.00.00|00.00.11.04",
+          "host": "6f138392437d",
+          "host_id": "010f3dea",
+          "host_name": "6f138392437d:6251712681390440448",
+          "multicast_locators": [],
+          "node": "/listener_udp",
+          "participant_guid_prefix": "01.0f.3d.ea.03.01.40.93.00.00.00.00",
+          "process": "259",
+          "qos": {
+            "data_sharing": "OFF",
+            "data_sharing_domain_ids": [],
+            "durability": "VOLATILE",
+            "reliability": "RELIABLE"
+          },
+          "ros_topic": "/parameter_events",
+          "ros_type": "rcl_interfaces/msg/ParameterEvent",
+          "unicast_locators": [
+            {
+              "address": "127.0.0.1",
+              "kind": "UDPv4",
+              "port": 8163
+            }
+          ]
+        },
+        {
+          "dds_topic": "rt/parameter_events",
+          "dds_type": "rcl_interfaces::msg::dds_::ParameterEvent_",
+          "guid": "01.0f.3d.ea.04.01.06.c9.00.00.00.00|00.00.11.04",
+          "host": "6f138392437d",
+          "host_id": "010f3dea",
+          "host_name": "6f138392437d:6251712681390440448",
+          "multicast_locators": [],
+          "node": "/bounded_sub",
+          "participant_guid_prefix": "01.0f.3d.ea.04.01.06.c9.00.00.00.00",
+          "process": "260",
+          "qos": {
+            "data_sharing": "OFF",
+            "data_sharing_domain_ids": [],
+            "durability": "VOLATILE",
+            "reliability": "RELIABLE"
+          },
+          "ros_topic": "/parameter_events",
+          "ros_type": "rcl_interfaces/msg/ParameterEvent",
+          "unicast_locators": [
+            {
+              "address": "",
+              "kind": "SHM",
+              "port": 8165
+            },
+            {
+              "address": "127.0.0.1",
+              "kind": "UDPv4",
+              "port": 8165
+            }
+          ]
+        },
+        {
+          "dds_topic": "rt/parameter_events",
+          "dds_type": "rcl_interfaces::msg::dds_::ParameterEvent_",
+          "guid": "01.0f.3d.ea.13.01.ad.1b.00.00.00.00|00.00.11.04",
+          "host": "6f138392437d",
+          "host_id": "010f3dea",
+          "host_name": "6f138392437d:6251712681390440448",
+          "multicast_locators": [],
+          "node": "/bounded_pub",
+          "participant_guid_prefix": "01.0f.3d.ea.13.01.ad.1b.00.00.00.00",
+          "process": "275",
+          "qos": {
+            "data_sharing": "OFF",
+            "data_sharing_domain_ids": [],
+            "durability": "VOLATILE",
+            "reliability": "RELIABLE"
+          },
+          "ros_topic": "/parameter_events",
+          "ros_type": "rcl_interfaces/msg/ParameterEvent",
+          "unicast_locators": [
+            {
+              "address": "",
+              "kind": "SHM",
+              "port": 8169
+            },
+            {
+              "address": "127.0.0.1",
+              "kind": "UDPv4",
+              "port": 8169
+            }
+          ]
+        }
+      ],
+      "topic": "/parameter_events",
+      "type": "rcl_interfaces/msg/ParameterEvent",
+      "unmatched_reasons": [],
+      "writers": [
+        {
+          "dds_topic": "rt/parameter_events",
+          "dds_type": "rcl_interfaces::msg::dds_::ParameterEvent_",
+          "guid": "01.0f.3d.ea.01.01.80.96.00.00.00.00|00.00.10.03",
+          "host": "6f138392437d",
+          "host_id": "010f3dea",
+          "host_name": "6f138392437d:6251712681390440448",
+          "multicast_locators": [],
+          "node": "/talker",
+          "participant_guid_prefix": "01.0f.3d.ea.01.01.80.96.00.00.00.00",
+          "process": "257",
+          "qos": {
+            "data_sharing": "OFF",
+            "data_sharing_domain_ids": [],
+            "durability": "VOLATILE",
+            "reliability": "RELIABLE"
+          },
+          "ros_topic": "/parameter_events",
+          "ros_type": "rcl_interfaces/msg/ParameterEvent",
+          "unicast_locators": [
+            {
+              "address": "",
+              "kind": "SHM",
+              "port": 8167
+            },
+            {
+              "address": "127.0.0.1",
+              "kind": "UDPv4",
+              "port": 8167
+            }
+          ]
+        },
+        {
+          "dds_topic": "rt/parameter_events",
+          "dds_type": "rcl_interfaces::msg::dds_::ParameterEvent_",
+          "guid": "01.0f.3d.ea.02.01.e8.a4.00.00.00.00|00.00.10.03",
+          "host": "6f138392437d",
+          "host_id": "010f3dea",
+          "host_name": "6f138392437d:6251712681390440448",
+          "multicast_locators": [],
+          "node": "/listener",
+          "participant_guid_prefix": "01.0f.3d.ea.02.01.e8.a4.00.00.00.00",
+          "process": "258",
+          "qos": {
+            "data_sharing": "OFF",
+            "data_sharing_domain_ids": [],
+            "durability": "VOLATILE",
+            "reliability": "RELIABLE"
+          },
+          "ros_topic": "/parameter_events",
+          "ros_type": "rcl_interfaces/msg/ParameterEvent",
+          "unicast_locators": [
+            {
+              "address": "",
+              "kind": "SHM",
+              "port": 8161
+            },
+            {
+              "address": "127.0.0.1",
+              "kind": "UDPv4",
+              "port": 8161
+            }
+          ]
+        },
+        {
+          "dds_topic": "rt/parameter_events",
+          "dds_type": "rcl_interfaces::msg::dds_::ParameterEvent_",
+          "guid": "01.0f.3d.ea.03.01.40.93.00.00.00.00|00.00.10.03",
+          "host": "6f138392437d",
+          "host_id": "010f3dea",
+          "host_name": "6f138392437d:6251712681390440448",
+          "multicast_locators": [],
+          "node": "/listener_udp",
+          "participant_guid_prefix": "01.0f.3d.ea.03.01.40.93.00.00.00.00",
+          "process": "259",
+          "qos": {
+            "data_sharing": "OFF",
+            "data_sharing_domain_ids": [],
+            "durability": "VOLATILE",
+            "reliability": "RELIABLE"
+          },
+          "ros_topic": "/parameter_events",
+          "ros_type": "rcl_interfaces/msg/ParameterEvent",
+          "unicast_locators": [
+            {
+              "address": "127.0.0.1",
+              "kind": "UDPv4",
+              "port": 8163
+            }
+          ]
+        },
+        {
+          "dds_topic": "rt/parameter_events",
+          "dds_type": "rcl_interfaces::msg::dds_::ParameterEvent_",
+          "guid": "01.0f.3d.ea.04.01.06.c9.00.00.00.00|00.00.10.03",
+          "host": "6f138392437d",
+          "host_id": "010f3dea",
+          "host_name": "6f138392437d:6251712681390440448",
+          "multicast_locators": [],
+          "node": "/bounded_sub",
+          "participant_guid_prefix": "01.0f.3d.ea.04.01.06.c9.00.00.00.00",
+          "process": "260",
+          "qos": {
+            "data_sharing": "OFF",
+            "data_sharing_domain_ids": [],
+            "durability": "VOLATILE",
+            "reliability": "RELIABLE"
+          },
+          "ros_topic": "/parameter_events",
+          "ros_type": "rcl_interfaces/msg/ParameterEvent",
+          "unicast_locators": [
+            {
+              "address": "",
+              "kind": "SHM",
+              "port": 8165
+            },
+            {
+              "address": "127.0.0.1",
+              "kind": "UDPv4",
+              "port": 8165
+            }
+          ]
+        },
+        {
+          "dds_topic": "rt/parameter_events",
+          "dds_type": "rcl_interfaces::msg::dds_::ParameterEvent_",
+          "guid": "01.0f.3d.ea.13.01.ad.1b.00.00.00.00|00.00.10.03",
+          "host": "6f138392437d",
+          "host_id": "010f3dea",
+          "host_name": "6f138392437d:6251712681390440448",
+          "multicast_locators": [],
+          "node": "/bounded_pub",
+          "participant_guid_prefix": "01.0f.3d.ea.13.01.ad.1b.00.00.00.00",
+          "process": "275",
+          "qos": {
+            "data_sharing": "OFF",
+            "data_sharing_domain_ids": [],
+            "durability": "VOLATILE",
+            "reliability": "RELIABLE"
+          },
+          "ros_topic": "/parameter_events",
+          "ros_type": "rcl_interfaces/msg/ParameterEvent",
+          "unicast_locators": [
+            {
+              "address": "",
+              "kind": "SHM",
+              "port": 8169
+            },
+            {
+              "address": "127.0.0.1",
+              "kind": "UDPv4",
+              "port": 8169
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "dds_topic": "rt/rosout",
+      "is_ros_topic": true,
+      "pairs": [],
+      "readers": [],
+      "topic": "/rosout",
+      "type": "rcl_interfaces/msg/Log",
+      "unmatched_reasons": [
+        "no-matching-reader"
+      ],
+      "writers": [
+        {
+          "dds_topic": "rt/rosout",
+          "dds_type": "rcl_interfaces::msg::dds_::Log_",
+          "guid": "01.0f.3d.ea.01.01.80.96.00.00.00.00|00.00.03.03",
+          "host": "6f138392437d",
+          "host_id": "010f3dea",
+          "host_name": "6f138392437d:6251712681390440448",
+          "multicast_locators": [],
+          "node": "/talker",
+          "participant_guid_prefix": "01.0f.3d.ea.01.01.80.96.00.00.00.00",
+          "process": "257",
+          "qos": {
+            "data_sharing": "OFF",
+            "data_sharing_domain_ids": [],
+            "durability": "TRANSIENT_LOCAL",
+            "reliability": "RELIABLE"
+          },
+          "ros_topic": "/rosout",
+          "ros_type": "rcl_interfaces/msg/Log",
+          "unicast_locators": [
+            {
+              "address": "",
+              "kind": "SHM",
+              "port": 8167
+            },
+            {
+              "address": "127.0.0.1",
+              "kind": "UDPv4",
+              "port": 8167
+            }
+          ]
+        },
+        {
+          "dds_topic": "rt/rosout",
+          "dds_type": "rcl_interfaces::msg::dds_::Log_",
+          "guid": "01.0f.3d.ea.02.01.e8.a4.00.00.00.00|00.00.03.03",
+          "host": "6f138392437d",
+          "host_id": "010f3dea",
+          "host_name": "6f138392437d:6251712681390440448",
+          "multicast_locators": [],
+          "node": "/listener",
+          "participant_guid_prefix": "01.0f.3d.ea.02.01.e8.a4.00.00.00.00",
+          "process": "258",
+          "qos": {
+            "data_sharing": "OFF",
+            "data_sharing_domain_ids": [],
+            "durability": "TRANSIENT_LOCAL",
+            "reliability": "RELIABLE"
+          },
+          "ros_topic": "/rosout",
+          "ros_type": "rcl_interfaces/msg/Log",
+          "unicast_locators": [
+            {
+              "address": "",
+              "kind": "SHM",
+              "port": 8161
+            },
+            {
+              "address": "127.0.0.1",
+              "kind": "UDPv4",
+              "port": 8161
+            }
+          ]
+        },
+        {
+          "dds_topic": "rt/rosout",
+          "dds_type": "rcl_interfaces::msg::dds_::Log_",
+          "guid": "01.0f.3d.ea.03.01.40.93.00.00.00.00|00.00.03.03",
+          "host": "6f138392437d",
+          "host_id": "010f3dea",
+          "host_name": "6f138392437d:6251712681390440448",
+          "multicast_locators": [],
+          "node": "/listener_udp",
+          "participant_guid_prefix": "01.0f.3d.ea.03.01.40.93.00.00.00.00",
+          "process": "259",
+          "qos": {
+            "data_sharing": "OFF",
+            "data_sharing_domain_ids": [],
+            "durability": "TRANSIENT_LOCAL",
+            "reliability": "RELIABLE"
+          },
+          "ros_topic": "/rosout",
+          "ros_type": "rcl_interfaces/msg/Log",
+          "unicast_locators": [
+            {
+              "address": "127.0.0.1",
+              "kind": "UDPv4",
+              "port": 8163
+            }
+          ]
+        },
+        {
+          "dds_topic": "rt/rosout",
+          "dds_type": "rcl_interfaces::msg::dds_::Log_",
+          "guid": "01.0f.3d.ea.04.01.06.c9.00.00.00.00|00.00.03.03",
+          "host": "6f138392437d",
+          "host_id": "010f3dea",
+          "host_name": "6f138392437d:6251712681390440448",
+          "multicast_locators": [],
+          "node": "/bounded_sub",
+          "participant_guid_prefix": "01.0f.3d.ea.04.01.06.c9.00.00.00.00",
+          "process": "260",
+          "qos": {
+            "data_sharing": "OFF",
+            "data_sharing_domain_ids": [],
+            "durability": "TRANSIENT_LOCAL",
+            "reliability": "RELIABLE"
+          },
+          "ros_topic": "/rosout",
+          "ros_type": "rcl_interfaces/msg/Log",
+          "unicast_locators": [
+            {
+              "address": "",
+              "kind": "SHM",
+              "port": 8165
+            },
+            {
+              "address": "127.0.0.1",
+              "kind": "UDPv4",
+              "port": 8165
+            }
+          ]
+        },
+        {
+          "dds_topic": "rt/rosout",
+          "dds_type": "rcl_interfaces::msg::dds_::Log_",
+          "guid": "01.0f.3d.ea.13.01.ad.1b.00.00.00.00|00.00.03.03",
+          "host": "6f138392437d",
+          "host_id": "010f3dea",
+          "host_name": "6f138392437d:6251712681390440448",
+          "multicast_locators": [],
+          "node": "/bounded_pub",
+          "participant_guid_prefix": "01.0f.3d.ea.13.01.ad.1b.00.00.00.00",
+          "process": "275",
+          "qos": {
+            "data_sharing": "OFF",
+            "data_sharing_domain_ids": [],
+            "durability": "TRANSIENT_LOCAL",
+            "reliability": "RELIABLE"
+          },
+          "ros_topic": "/rosout",
+          "ros_type": "rcl_interfaces/msg/Log",
+          "unicast_locators": [
+            {
+              "address": "",
+              "kind": "SHM",
+              "port": 8169
+            },
+            {
+              "address": "127.0.0.1",
+              "kind": "UDPv4",
+              "port": 8169
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
