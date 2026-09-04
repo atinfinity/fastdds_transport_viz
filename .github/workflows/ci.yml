@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    name: colcon build & test (ROS 2 Jazzy)
+    runs-on: ubuntu-latest
+    container: ros:jazzy
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Install git for checkout
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends git
+
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies (rosdep)
+        run: |
+          rosdep update --rosdistro jazzy
+          rosdep install --from-paths src --ignore-src --rosdistro jazzy -y
+
+      - name: Build
+        run: |
+          source /opt/ros/jazzy/setup.bash
+          colcon build --symlink-install --event-handlers console_cohesion+
+
+      - name: Test
+        env:
+          RMW_IMPLEMENTATION: rmw_fastrtps_cpp
+        run: |
+          source /opt/ros/jazzy/setup.bash
+          source install/setup.bash
+          colcon test --event-handlers console_cohesion+ --return-code-on-test-failure
+          colcon test-result --verbose
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: |
+            build/**/test_results/**/*.xml
+            log/latest_test/**/*.log
+          if-no-files-found: ignore

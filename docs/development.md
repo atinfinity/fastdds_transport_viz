@@ -53,6 +53,12 @@ colcon test && colcon test-result --verbose
 - `test_stats.py`: demo nodes with `FASTDDS_STATISTICS`; asserts measured SHM / UDPv4 and
   host names.
 
+## Continuous integration
+
+`.github/workflows/ci.yml` runs the same steps on every push to `main` and every pull
+request inside a `ros:jazzy` container: `rosdep install`, `colcon build`, `colcon test`.
+Test result XML files and launch logs are uploaded as a workflow artifact.
+
 ## Layout
 
 ```

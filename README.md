@@ -1,5 +1,7 @@
 # fastdds_transport_viz
 
+[![CI](https://github.com/atinfinity/fastdds_transport_viz/actions/workflows/ci.yml/badge.svg)](https://github.com/atinfinity/fastdds_transport_viz/actions/workflows/ci.yml)
+
 Shows **which Fast DDS transport each ROS 2 topic is communicated over** — UDPv4,
 UDPv6, TCP, shared memory (SHM) or zero-copy data-sharing — **and why**.
 
