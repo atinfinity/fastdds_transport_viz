@@ -37,6 +37,47 @@ shared memory: /dev/shm 339 MB used of 16.7 GB (16.3 GB free) | Fast DDS 4.06 MB
   運んだ transport を表示します。
 - すべての判定に理由コードが付きます。`--explain` で説明を表示できます。
 
+## できること
+
+- **discovery データだけで、ペアごとの transport を予測。** writer → reader の各ペアに
+  transport (`UDPv4`、`UDPv6`、`TCPv4`/`TCPv6`、`SHM`、`DATA_SHARING`) と機械可読な理由コードを
+  付けます。観測対象のノードに変更は不要です。
+- **`--stats` で実測。** Fast DDS の statistics モジュールから、locator ごとに実際に流れた
+  パケット数とバイト数、payload レート (`RATE`)、ホスト名とプロセス id、zero-copy data-sharing の
+  証明を取り、予測と食い違う実測は警告します。
+- **複数のフロントエンド。** 色付きの表、`--watch` (変化を強調するライブ表示)、スキーマ付きの
+  `--json`、`ros2 transport` コマンド、web viewer (グラフと表、`transport_viz_web` によるライブ更新)。
+- **絞り込み。** `--topic` / `--node` の正規表現フィルタ、使われたコードの説明を出す `--explain`、
+  全コードを一覧する `ros2 transport codes`。
+- **環境の共有メモリ。** `/dev/shm` の容量、そこにある Fast DDS のセグメント・ポート・data-sharing
+  履歴、残骸 (stale)、観測対象ノードがそれを共有しているかどうか。
+- **検証済みの環境:** Jazzy (Fast DDS 2.14) と Kilted / Rolling (Fast DDS 3.x)、x86_64 と arm64、
+  Discovery Server、`LARGE_DATA` (TCP)、`UDPv6`、`LOCALHOST` の discovery range、大きな SHM
+  サンプル、zero-copy data-sharing。
+
+## 制限事項
+
+- **`rmw_fastrtps_cpp` 専用。** CycloneDDS、Connext、`rmw_fastrtps_dynamic_cpp` のノードは対象外です。
+  ROS ノードでない Fast DDS participant は `--all` でのみ表示されます。
+- **Linux 専用。** macOS には `/dev/shm` が無く、Docker Desktop からホスト上のノードは観測できません。
+- **ノードと同じ場所で実行する必要があります。** 同じドメイン、同じ環境変数と XML プロファイル、
+  同じネットワーク/IPC 名前空間。`ROS_AUTOMATIC_DISCOVERY_RANGE=OFF` では何も見えません。
+- **予測はモデルです。** 判定は Fast DDS の選択規則を写したもので、`--stats` で確認するまで
+  `likely` (`?` 付き) のままの状況があります。実測には観測対象ノードの *起動前* に
+  `FASTDDS_STATISTICS` を設定する必要があり、10 を超える locator と通信するノードには同梱の
+  プロファイルも必要です。
+- **statistics は participant 単位** (ROS ノードごとに 1 つ) なので、同じ 2 ノード間の複数トピックは
+  1 つの測定値を共有します。
+- **帯域や遅延の測定ツールではありません。** `RATE` は Fast DDS 自身の `PUBLICATION_THROUGHPUT` の
+  値で、遅延は表示しません。
+- **DDS Security (SROS2) は未対応** で未検証です。ツールの participant にはセキュリティ設定が無いので、
+  secure enclave 内の participant は発見できません。
+- **ツール自身の痕跡。** ツールはドメインに自身の participant を 2 つ追加します (出力からは除外)。
+- **検出できないケース。** ホスト id が同じで IPC 名前空間だけが別のノードは `shm-not-visible` に
+  なりません。
+- **2 台の物理ホスト** は予測のみ検証済みで、実測はまだです
+  ([#15](https://github.com/atinfinity/fastdds_transport_viz/issues/15))。
+
 ## クイックスタート
 
 ```
