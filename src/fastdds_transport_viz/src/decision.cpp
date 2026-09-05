@@ -566,8 +566,9 @@ const std::map<std::string, std::string> & explanations()
       "The writer's participant reports traffic to 10 or more locators but none to this reader. "
       "The Fast DDS statistics DataWriter keeps the default resource limit of 10 instances "
       "(one per destination locator), so counters for further locators are never published. "
-      "Raise it with an XML profile named after the statistics topic "
-      "(_fastdds_statistics_rtps_sent) whose <resourceLimitsQos> sets max_instances to 0."},
+      "Raise it with a data_writer XML profile named after the alias used in FASTDDS_STATISTICS "
+      "(RTPS_SENT_TOPIC) whose <resourceLimitsQos> sets max_instances to 0; the package ships "
+      "config/statistics.xml for this."},
     {"delivered-without-measured-traffic",
       "HISTORY_LATENCY statistics prove that samples reached the reader, but RTPS_SENT reported no "
       "packets to any of the reader's locators during the observation, so the transport that "

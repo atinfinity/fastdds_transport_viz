@@ -45,7 +45,7 @@ source install/setup.bash
 
 ```
 docker compose build
-docker compose run --rm dev
+docker compose run --rm dev bash
 colcon build --symlink-install && source install/setup.bash
 ```
 
@@ -112,7 +112,7 @@ ros2 run demo_nodes_cpp listener &
 ros2 transport list -v --stats
 ```
 
-ペアの行に `measured=SHM 47pkt 3.2 kB` が付き、`RATE` 列に payload のスループットが出て、
+ペアの行に `measured=SHM 47pkt 3.20 kB` が付き、`RATE` 列に payload のスループットが出て、
 ホストは名前とプロセス id で表示されます。プロファイルファイルは statistics writer の
 リソース制限を外すためのものです。トピックの説明と回避する落とし穴は
 [statistics.ja.md](statistics.ja.md) を参照してください。
@@ -130,7 +130,7 @@ ros2 transport list --watch --stats --interval 2
 
 ```
 ros2 run fastdds_transport_viz transport_viz_web --stats --interval 1
-# transport_viz_web: listening on http://127.0.0.1:8765/
+# transport_viz_web: listening on http://127.0.0.1:8765/  (serving .../share/fastdds_transport_viz/web)
 ```
 
 URL を開くと、ホストが列、ノードが箱、ペアが transport ごとに色分けされた矢印として
@@ -149,7 +149,8 @@ ros2 transport codes
 
 `ros2 transport` は `fastdds_transport_viz` の `transport_viz` バイナリを exec します。
 バイナリは `ros2 run fastdds_transport_viz transport_viz` で直接実行でき、同じオプションに
-加えて `--list-codes` があります。終了コード: 成功 0、使い方の誤り 2。
+加えて `--list-codes` があります。終了コード: 成功 0、使い方の誤り 2、バイナリが見つからない・起動
+できないときは `ros2 transport` が 1。
 
 ## うまくいかないときの最初の確認
 

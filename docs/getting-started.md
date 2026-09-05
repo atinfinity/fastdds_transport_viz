@@ -44,7 +44,7 @@ the tool sees the host's shared memory:
 
 ```
 docker compose build
-docker compose run --rm dev
+docker compose run --rm dev bash
 colcon build --symlink-install && source install/setup.bash
 ```
 
@@ -113,7 +113,7 @@ ros2 run demo_nodes_cpp listener &
 ros2 transport list -v --stats
 ```
 
-The pair row now carries `measured=SHM 47pkt 3.2 kB`, the `RATE` column shows the
+The pair row now carries `measured=SHM 47pkt 3.20 kB`, the `RATE` column shows the
 payload throughput, and hosts are shown by name with process ids. The profile file
 lifts a resource limit of the statistics writers; [statistics.md](statistics.md) explains
 the topics and the pitfall it avoids.
@@ -132,7 +132,7 @@ legend, `a` all topics.
 
 ```
 ros2 run fastdds_transport_viz transport_viz_web --stats --interval 1
-# transport_viz_web: listening on http://127.0.0.1:8765/
+# transport_viz_web: listening on http://127.0.0.1:8765/  (serving .../share/fastdds_transport_viz/web)
 ```
 
 Open the URL: hosts are columns, nodes are boxes, pairs are arrows colored by transport,
@@ -150,7 +150,8 @@ ros2 transport codes
 
 `ros2 transport` execs the `transport_viz` binary of `fastdds_transport_viz`; the binary
 can be run directly as `ros2 run fastdds_transport_viz transport_viz` with the same options
-plus `--list-codes`. Exit codes: 0 on success, 2 on a usage error.
+plus `--list-codes`. Exit codes: 0 on success, 2 on a usage error, and 1 from `ros2 transport`
+when the binary cannot be found or started.
 
 ## First checks when something is off
 

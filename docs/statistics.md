@@ -9,7 +9,7 @@ topics and shows what *did* happen:
 | `_fastdds_statistics_rtps_sent` | RTPS packets/bytes sent by each participant to each destination locator. Matched against the locators the reader announced, this gives the locator kind that actually carried packets (`measured=SHM 47pkt`). A disagreement with the prediction is flagged `!measured-transport-mismatch`. |
 | `_fastdds_statistics_history2history_latency` | Proves that samples from a writer reached a specific reader. Used to confirm zero-copy data-sharing, which leaves no RTPS trace. |
 | `_fastdds_statistics_physical_data` | Host name, user and process id per participant, shown instead of `local` / `host:<id>`. |
-| `_fastdds_statistics_publication_throughput` | Payload bytes per second of each writer; shown as `RATE` (per topic: sum of its writers) and `measured.throughput_bytes_per_s` in JSON. Independent of the transport, so it also quantifies zero-copy data-sharing. |
+| `_fastdds_statistics_publication_throughput` | Payload bytes per second of each writer; shown as `RATE` (per topic: sum of its writers) and, in JSON, `measured.throughput_bytes_per_s` per pair and `topics[].throughput_bytes_per_s` per topic. Independent of the transport, so it also quantifies zero-copy data-sharing. |
 | `_fastdds_statistics_data_count` | DATA/DATA_FRAG submessages each writer sent through a transport. Zero-copy delivery does not touch it, so a growing count settles whether data-sharing was really used (see [data-sharing.md](data-sharing.md#confidence)). |
 
 ## Enabling statistics on the observed nodes
@@ -21,7 +21,8 @@ created:
 export FASTDDS_STATISTICS="RTPS_SENT_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC;DATA_COUNT_TOPIC;PUBLICATION_THROUGHPUT_TOPIC"
 ```
 
-Nodes started without it are reported with the warning `stats-not-enabled-on-writer`.
+Pairs whose *writer* was started without it are reported with the warning
+`stats-not-enabled-on-writer` (a reader without statistics is not flagged).
 
 ## What the counters cover
 
@@ -31,7 +32,9 @@ between the first and the last sample as `packets` / `bytes` (`measured=SHM 148p
 7.63 MB`); the cumulative values are kept as `packets_total` / `bytes_total` in JSON.
 The transport kinds in `measured` are taken from every packet ever reported, so a pair
 that was active before but silent during the observation shows `measured=SHM (idle)`
-rather than losing its measured transport.
+rather than losing its measured transport. Other values of the cell: `n/a` (the writer's
+participant publishes no statistics), `none` (statistics, but no packet to any locator of
+the reader) and `none(delivered)` (the same, while `HISTORY_LATENCY` proved delivery).
 
 ## Granularity
 
@@ -53,8 +56,9 @@ than 10 locators (a handful of peers is enough: every peer has metatraffic, user
 SHM locators) silently stops reporting the extra ones. The tool flags this as
 `!stats-writer-instance-limit-suspected`.
 
-Lift the limit on the observed nodes with the shipped profile. Profile names must match
-the aliases passed in `FASTDDS_STATISTICS`:
+Lift the limit on the observed nodes with the shipped profile. Fast DDS applies a
+`data_writer` profile whose name is the alias passed in `FASTDDS_STATISTICS`; the file has
+one for every keyed topic (`PHYSICAL_DATA` has a single instance and needs none):
 
 ```
 export FASTRTPS_DEFAULT_PROFILES_FILE=$(ros2 pkg prefix fastdds_transport_viz)/share/fastdds_transport_viz/config/statistics.xml

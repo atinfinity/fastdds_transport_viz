@@ -4,7 +4,7 @@
 """Render terminal output with ANSI SGR colors (as printed by transport_viz --color always)
 into an SVG that looks like a dark terminal. Standard library only.
 
-    ansi2svg.py input.ansi output.svg [--title "text"]
+    ansi2svg.py input.ansi output.svg [--title "text"] [--max-cols N]
 
 Supported sequences: reset (0), bold (1), dim (2), foreground 30-37 / 90-97, background
 40-47 (ignored), and truecolor 38;2;r;g;b. Anything else is dropped.

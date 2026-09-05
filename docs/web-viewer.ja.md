@@ -1,6 +1,6 @@
 # Web viewer
 
-> 英語版が正です。この文書は 2026-09-05 時点の英語版に対応しています。
+> 英語版が正です。この文書は 2026-09-06 時点の英語版に対応しています。
 
 `web/index.html` は `transport_viz --json` の文書をグラフとして描画します。ホストが列、ROS ノードが
 箱、writer → reader の各ペアが transport ごとに色分けされた矢印です。静的ページ (素の HTML/JS と
@@ -31,7 +31,7 @@ open web/index.html            # macOS。あるいはファイルをダブルク
 |---|---|
 | 列 | ホスト (`local`、`host:<id>`、または statistics から得たホスト名) |
 | 箱 | ROS ノード (statistics があれば名前の下に `process id`)。赤い `+N unmatched` は相手のいないトピック |
-| 矢印 | 2 ノード間の同じ transport の writer → reader ペアを束ねたもの。トピック数付き |
+| 矢印 | 2 ノード間の同じ transport・同じ確信度の writer → reader ペアを束ねたもの。ラベルはペア数 |
 | 色 | UDPv4 青 · UDPv6 水色 · TCP 紫 · SHM 緑 · DATA_SHARING 橙 · NONE 灰 (凡例はツールバー) |
 | 破線 | 確信度 `likely` |
 | 赤い縁 | 警告が 1 つ以上ある (例: `measured-transport-mismatch`) |
@@ -51,7 +51,8 @@ writer の payload レートと観測中に運ばれたバイト数も出ます�
 ![table view](images/web-viewer-table.jpg)
 
 フィルタ (トピックの正規表現、ノードの正規表現、transport のチェックボックス、`/parameter_events`
-と `/rosout` を隠す「hide ROS internal topics」) はグラフ、表、パネルに適用されます。ノードの
+と `/rosout` を隠す「hide ROS internal topics」) はグラフ、表、矢印のパネルに適用されます (ノードの
+パネルはそのノードの全トピックを常に表示)。ノードの
 フィルタは `--node` と同じ意味論です。writer か reader が一致するノードに属するペアを残し、グラフ
 には一致したノード (強調表示。表示中のペアが無くても残る) と残ったペアの相手ノードを描き、それ以外
 は隠します。不正な正規表現は赤枠で表示され、何も絞り込みません。
@@ -64,17 +65,19 @@ Server-Sent Events ストリームを配信します。
 
 ```
 ros2 run fastdds_transport_viz transport_viz_web --stats --interval 1
-# transport_viz_web: listening on http://127.0.0.1:8765/
+# transport_viz_web: listening on http://127.0.0.1:8765/  (serving .../share/fastdds_transport_viz/web)
 ```
 
 表示された URL を開きます。`/` は `index.html?live=1` にリダイレクトされ、`/events` に接続して
 文書ごとに再描画します。選択状態、フィルタ、ズームは保たれます (レイアウトは決定的なので位置が
 跳びません)。ヘッダにはライブ状態と最終更新時刻が出ます。**Pause** でフレームの適用を止め、
-**Resume** で再開します。`/latest.json` は常に最新の文書を返します (`?src=/latest.json` で使えます)。
+**Resume** で再開します。`/latest.json` は常に最新の文書を返します (`?src=/latest.json` で使えます。両方あるときは
+`?live=1` が優先)。
 
 ![live mode](images/web-viewer-live.jpg)
 
-二重ダッシュより前のオプションはサーバーのもので、それ以外はすべて `transport_viz` に転送されます。
+サーバー自身のオプション以外の引数はすべて `transport_viz` に転送されます (`--` そのものも
+転送され、バイナリに拒否されます)。
 
 | オプション | 意味 |
 |---|---|
@@ -85,7 +88,7 @@ ros2 run fastdds_transport_viz transport_viz_web --stats --interval 1
 | それ以外 | 転送: `--stats`、`--interval S`、`--domain N`、`--all`、`--topic REGEX`、`--timeout S` |
 
 `transport_viz` が終了するとサーバーは `status` イベントを送り (「live: transport_viz exited …」と
-表示)、0 以外のコードで停止します。Docker 環境では `docker compose run --rm --service-ports dev` が
+表示) 停止します。終了コードは `transport_viz` が失敗していれば 1、そうでなければ 0 です。Docker 環境では `docker compose run --rm --service-ports dev` が
 ポート 8765 を公開するので、コンテナ内の `transport_viz_web --bind 0.0.0.0` にホストのブラウザから
 届きます。
 

@@ -225,7 +225,8 @@ one by major version and builds it into `fastdds_transport_viz_stats_types`.
 document: `buildModel()` turns it into nodes, hosts and bundled edges, filters apply
 `--node`/`--topic` semantics client-side, and the panel shows the reason codes with the
 descriptions carried in the document. `schema/transport_viz.schema.json` is the contract;
-`test_json_schema` validates the samples and the live output against it. The tool may add
+`test_json_schema` validates the shipped samples and `test_json_schema_live.py` the live
+output against it. The tool may add
 keys freely; a breaking change bumps `schema_version`.
 
 `web/serve.py` (`transport_viz_web`) runs `transport_viz --watch --json` as a subprocess,
@@ -243,15 +244,17 @@ src/ros2transport/
 src/fastdds_transport_viz/
   include/fastdds_transport_viz/   model.hpp, decision.hpp, discovery_observer.hpp,
                                    ros_graph_resolver.hpp, stats_observer.hpp, shm_info.hpp,
-                                   render.hpp, fastdds_compat.hpp
+                                   render.hpp, ros_names.hpp, fastdds_compat.hpp, fastdds_util.hpp
   src/                             implementation + main.cpp
   src/test_nodes/                  verification nodes (bounded_pub, large_array_pub, ...)
   config/                          statistics.xml, datasharing_auto.xml, datasharing_auto_stats.xml,
                                    unicast_discovery.xml
   third_party/fastdds_statistics_types/     vendored generated statistics types (Fast DDS 2.14)
   third_party/fastdds_statistics_types_v3/  same for Fast DDS 3.x
-  test/                            gtest (decision, render, shm_info) + launch tests
-web/                               static viewer (index.html, app.js), serve.py (transport_viz_web), sample/
+  test/                            gtest (decision, render, shm_info), pytest (json schema, web serve),
+                                   launch/ (launch tests, _common.py, large_shm_stats.xml)
+web/                               static viewer (index.html, app.js, style.css, vendor/d3), serve.py
+                                   (transport_viz_web), sample/
 schema/                            JSON Schema for --json output
 scripts/                           integration_test.sh (Docker scenarios), render_examples.sh, ansi2svg.py
 docker/, compose.yaml              development / verification containers

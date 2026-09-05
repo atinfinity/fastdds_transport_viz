@@ -27,8 +27,9 @@ types such as `/rosout`.
 
 ## Confidence
 
-The verdict is `likely` (`DATA_SHARING?`) when both endpoints announce data-sharing with
-intersecting domain ids. With `--stats` it becomes `certain` in two ways:
+The verdict is `likely` (`DATA_SHARING?`) when both endpoints announce data-sharing and
+their domain ids intersect (or at least one side announces none). With `--stats` it becomes
+`certain` in two ways:
 
 - `HISTORY_LATENCY` proves delivery while no packet at all reached the reader's locators
   (`datasharing-confirmed-no-traffic`).
@@ -50,9 +51,11 @@ intersecting domain ids. With `--stats` it becomes `certain` in two ways:
 If the writer also serves readers without data-sharing its `DATA_COUNT` mixes both paths
 and the verdict stays `likely` (`datasharing-ambiguous-mixed-readers`). If every reader
 uses data-sharing and the count still grows, Fast DDS did not use zero-copy: the verdict
-becomes the measured transport with the warning `datasharing-not-used`. Without
-`DATA_COUNT_TOPIC`, traffic on the link leaves the verdict `likely`
-(`datasharing-ambiguous-participant-traffic`). The JSON `measured` object carries
+becomes the measured transport (`SHM?` when no packet to the reader was attributed) with
+the reason `datasharing-data-submessages-sent` and the warning `datasharing-not-used`.
+Without `DATA_COUNT_TOPIC`, or while `HISTORY_LATENCY` has not proven delivery yet, traffic
+on the link leaves the verdict `likely` (`datasharing-ambiguous-participant-traffic`); no
+traffic and no delivery proof gives `datasharing-no-delivery-observed`. The JSON `measured` object carries
 `data_submessages` (the `DATA_COUNT` delta, `null` when unavailable) and
 `delivered_samples`.
 

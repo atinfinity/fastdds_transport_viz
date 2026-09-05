@@ -14,8 +14,9 @@ to select a transport for each writer → reader pair.
 
 1. **Same host?** Fast DDS considers two participants to be on the same host when the
    first 4 bytes of their GUID prefixes are equal.
-2. Same host and both endpoints announce data-sharing (zero-copy) with intersecting
-   domain ids → `DATA_SHARING` (confidence `likely`, see [data-sharing.md](data-sharing.md)).
+2. Same host and both endpoints announce data-sharing (zero-copy), and their domain ids
+   intersect or at least one side announces none → `DATA_SHARING` (confidence `likely`,
+   see [data-sharing.md](data-sharing.md)). Announced but disjoint domain ids fall through.
 3. Same host and both announce a SHM locator → `SHM`. Fast DDS then uses shared memory
    exclusively for user data between those participants; discovery still goes over UDP.
 4. Otherwise the first network locator kind the reader announces that the writer also
@@ -116,11 +117,14 @@ shared memory: /dev/shm 396 MB used of 16.7 GB (16.3 GB free) | Fast DDS 63.4 MB
   `fast_datasharing_*` entries: one
   *segment* (`fastrtps_<hex>`) per participant, one *port* ring buffer
   (`fastrtps_port<N>`) per SHM locator, and one *data-sharing history* per writer that
-  uses zero-copy delivery. Their sizes are summed.
+  uses zero-copy delivery. Their sizes (plus the small `sem.fastrtps_*` mutex files) are
+  summed.
 - **Stale** files are segments and ports whose `_el` lock file exists but nobody holds
   (the same `flock` probe `fastdds shm clean` uses): their owner died without cleaning
   up, and they keep consuming `/dev/shm`. The warning `shm-stale-files` suggests
-  `fastdds shm clean`, which removes exactly these.
+  `fastdds shm clean`, which removes exactly these. When none of the observed nodes is
+  in this IPC namespace (see visibility below) the stale counts are not reported, because
+  nothing here can be theirs.
   Data-sharing histories have no lock; those that belong to a discovered writer are
   reported on the writer (`datasharing_history_bytes` in JSON, the web viewer's endpoint
   details), the rest are counted as *unmatched* (another domain, or a finished writer).
@@ -132,7 +136,7 @@ shared memory: /dev/shm 396 MB used of 16.7 GB (16.3 GB free) | Fast DDS 63.4 MB
   between the nodes and this process is impossible. One case escapes the check: same
   host id but separate IPC namespaces (`network_mode: host` without `ipc: host`), where
   the tool's own participant opens the announced port here to send to it.
-- `shm-nearly-full` warns at 90 % usage or less than 16 MB free.
+- `shm-nearly-full` warns at 90 % usage or less than 16 MiB free.
 
 The line is omitted where there is no `/dev/shm` (macOS). In JSON the same data is the
 `shm` object; `--watch` refreshes it every frame.
@@ -147,7 +151,10 @@ width, and highlights what changed since the previously rendered frame:
 |---|---|
 | `+` (green) | pair appeared |
 | `~` (yellow) | transport, confidence, measured transport or warnings changed |
-| `-` (dim) | pair disappeared; kept for three frames, then dropped |
+| `-` (dim) | pair disappeared; the row is kept as a dimmed ghost |
+
+Every mark stays for three frames after the change, then the row returns to normal
+(ghost rows are dropped).
 
 A topic row carries the mark of its pairs; a `changes:` summary line follows the table.
 One frame, right after a new listener appeared and the UDP listener went away:
@@ -156,12 +163,12 @@ One frame, right after a new listener appeared and the UDP listener went away:
 
 Keys while watching: `q` quit, `p` pause/resume (changes made while paused are
 highlighted on resume), `v` toggle pair rows, `e` toggle the reason-code legend, `a` toggle
-`--all`. When stdout is not a terminal the frames are printed one after another without
-escape sequences; with `--json` every frame is one JSON Lines document that additionally
+`--all`. Unless both stdin and stdout are a terminal the frames are printed one after
+another (without escape sequences, unless `--color always`); with `--json` every frame is one JSON Lines document that additionally
 carries a `changes` object (`added_pairs`, `removed_pairs`, `changed_pairs` with
 `from`/`to`).
 
-Colors (`--color auto|always|never`, default `auto`; `NO_COLOR` is honoured) apply to
+Colors (`--color auto|always|never`, default `auto`, which honours `NO_COLOR`) apply to
 the one-shot table as well: transports use the same palette as the web viewer and
 warnings are red.
 

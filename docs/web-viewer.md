@@ -30,7 +30,7 @@ plus the bounded verification nodes with statistics enabled.
 |---|---|
 | Column | a host (`local`, `host:<id>`, or the host name from statistics) |
 | Box | a ROS node (`process id` below the name when statistics are available); a red `+N unmatched` marks topics without a peer |
-| Arrow | writer → reader pairs between two nodes with the same transport, bundled with the number of topics |
+| Arrow | writer → reader pairs between two nodes with the same transport and confidence, bundled; the label is the number of pairs |
 | Color | UDPv4 blue · UDPv6 cyan · TCP purple · SHM green · DATA_SHARING orange · NONE grey (legend in the toolbar) |
 | Dashed | confidence `likely` |
 | Red halo | at least one warning, e.g. `measured-transport-mismatch` |
@@ -51,7 +51,8 @@ it includes the writer's payload rate and the bytes carried during the observati
 
 The filters
 (topic regex, node regex, transport checkboxes, "hide ROS internal topics" for
-`/parameter_events` and `/rosout`) apply to the graph, the table and the panel. The node
+`/parameter_events` and `/rosout`) apply to the graph, the table and the edge panel (the
+node panel always lists every topic of the node). The node
 filter has the semantics of `--node`: pairs whose writer or reader belongs to a matching
 node stay, the graph keeps the matching nodes (highlighted, even without visible pairs)
 and the partner nodes of the remaining pairs, and hides the rest. An invalid regex is
@@ -65,19 +66,20 @@ Server-Sent Events stream of every new document:
 
 ```
 ros2 run fastdds_transport_viz transport_viz_web --stats --interval 1
-# transport_viz_web: listening on http://127.0.0.1:8765/
+# transport_viz_web: listening on http://127.0.0.1:8765/  (serving .../share/fastdds_transport_viz/web)
 ```
 
 Open the printed URL: `/` redirects to `index.html?live=1`, which connects to `/events`
 and re-renders on every document while keeping the selection, filters and zoom (the
 layout is deterministic, so nothing jumps). The header shows the live state and the
 time of the last update; **Pause** stops applying frames until **Resume**. `/latest.json`
-always returns the most recent document (usable with `?src=/latest.json`).
+always returns the most recent document (usable with `?src=/latest.json`; `?live=1` takes
+precedence when both are given).
 
 ![live mode](images/web-viewer-live.jpg)
 
-Options before the double dash belong to the server, everything else is forwarded to
-`transport_viz`:
+The server takes its own options; every other argument is forwarded to `transport_viz`
+(a literal `--` is forwarded too, and rejected by the binary):
 
 | Option | Meaning |
 |---|---|
@@ -88,7 +90,7 @@ Options before the double dash belong to the server, everything else is forwarde
 | anything else | forwarded: `--stats`, `--interval S`, `--domain N`, `--all`, `--topic REGEX`, `--timeout S` |
 
 If `transport_viz` exits, the server sends a `status` event (shown as "live: transport_viz
-exited …") and stops with a non-zero code. In the Docker environment, `docker compose run
+exited …") and stops; its exit code is 1 if `transport_viz` failed, 0 otherwise. In the Docker environment, `docker compose run
 --rm --service-ports dev` publishes port 8765, so `transport_viz_web --bind 0.0.0.0` inside
 the container is reachable from the host browser.
 

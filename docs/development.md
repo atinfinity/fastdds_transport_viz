@@ -10,7 +10,7 @@ the same `ROS_DISTRO` in the environment.
 
 ```
 docker compose build
-docker compose run --rm dev            # shell in the dev container, repo mounted at /ws
+docker compose run --rm dev bash       # shell in the dev container, repo mounted at /ws
 colcon build --symlink-install
 source install/setup.bash
 ```
@@ -41,7 +41,7 @@ in a third container on the same scope and asserts the verdict:
 | `udpv6_multi_container` | `talker_udpv6`, `listener_udpv6`: bridged (the project network has IPv6), `DEFAULTv6` | `UDPv6`, `common-udpv6-locator` |
 | `all` | the five above in sequence | |
 
-Output goes to `/tmp/transport_viz_<scenario>.json`.
+Output goes to `${TMPDIR:-/tmp}/transport_viz_<scenario>.json`.
 
 ## Two physical hosts
 
@@ -98,7 +98,7 @@ Shipped with the package for reproducing the scenarios in the docs:
 |---|---|
 | `bounded_pub` / `bounded_sub` | `std_msgs/Int32`, data-sharing eligible |
 | `unbounded_pub` | `std_msgs/String`, never data-sharing |
-| `large_array_pub --size-kb N` / `large_array_sub` | large `std_msgs/UInt8MultiArray` samples |
+| `large_array_pub --size-kb N [--period-ms M]` / `large_array_sub` | large `std_msgs/UInt8MultiArray` samples (default 200 ms period) |
 
 ## Tests
 
@@ -108,6 +108,8 @@ colcon test && colcon test-result --verbose
 
 - `test_decision`: gtest over the pure decision logic, the statistics overlay and name
   demangling.
+- `test_render`: gtest over the table renderer (visible width, truncation, colors, watch
+  marks and ghost rows).
 - `test_shm_info`: gtest over the `/dev/shm` scan on a temporary directory (sizes, stale
   detection through `flock`, data-sharing file names, IPC-namespace visibility).
 - `test_same_host_shm.py` / `test_same_host_udp.py`: launch_testing against real demo
@@ -116,7 +118,7 @@ colcon test && colcon test-result --verbose
   host names.
 - `test_udpv6.py` (`FASTDDS_BUILTIN_TRANSPORTS=UDPv6`, skipped without an IPv6
   interface), `test_localhost_range.py` (`ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST`),
-  `test_discovery_server.py` (`fast-discovery-server`, SUPER_CLIENT vs plain client),
+  `test_discovery_server.py` (`fastdds discovery` server, SUPER_CLIENT vs plain client),
   `test_large_data_same_host.py` (`LARGE_DATA`: TCPv4 announced, SHM chosen),
   `test_large_shm.py` (2 MB samples measured on SHM), `test_datasharing_stats.py`
   (`bounded_pub`/`bounded_sub` with `datasharing_auto_stats.xml`: `DATA_SHARING` becomes
@@ -159,7 +161,7 @@ request.
 | 2026-09-05 | `LARGE_DATA`, one host | x86_64 | 2.14.6 | TCPv4 announced, `SHM` chosen (`both-shm-locators`) | `test_large_data_same_host.py` |
 | 2026-09-05 | `DEFAULTv6`, two bridged containers (IPv6 network) | x86_64 | 2.14.6 | `UDPv6`, `common-udpv6-locator` | `scripts/integration_test.sh udpv6_multi_container` |
 | 2026-09-05 | `UDPv6`, one host | x86_64 | 2.14.6 | `UDPv6`, `same-host-guid` (needs an IPv6 interface; multicast only, `ROS_STATIC_PEERS` is IPv4-only in Jazzy) | `test_udpv6.py` |
-| 2026-09-05 | `ROS_DISCOVERY_SERVER` (fast-discovery-server on 127.0.0.1:11811) | x86_64 | 2.14.6 | `SHM` pair seen as SUPER_CLIENT; a plain CLIENT does not see `/chatter` | `test_discovery_server.py` |
+| 2026-09-05 | `ROS_DISCOVERY_SERVER` (`fastdds discovery` server on 127.0.0.1:11811) | x86_64 | 2.14.6 | `SHM` pair seen as SUPER_CLIENT; a plain CLIENT does not see `/chatter` | `test_discovery_server.py` |
 | 2026-09-05 | `ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST` | x86_64 | 2.14.6 | `SHM`, nodes announce `127.0.0.1` only; `OFF` sees nothing (warning printed) | `test_localhost_range.py` |
 | 2026-09-05 | 2 MB samples over SHM, `--stats` | x86_64 | 2.14.6 | `SHM`, measured `SHM`, bytes consistent with the sample size | `test_large_shm.py` |
 | 2026-09-06 | shared-memory line: nodes in the tool's IPC namespace visible (`hostnet_shm`), bridged containers reported `shm-not-visible` (`multi_container`) | x86_64 | 2.14.6 | as expected | `scripts/integration_test.sh multi_container`, `hostnet_shm`, `test_shm.py` |
@@ -170,8 +172,10 @@ request.
 
 `mkdocs.yml` builds this documentation with Material for MkDocs and `mkdocs-static-i18n`
 (English at `/`, Japanese at `/ja/` from the `*.ja.md` files, English fallback for
-untranslated pages). `.github/workflows/docs.yml` runs `mkdocs build --strict` on every
-pull request and deploys to GitHub Pages on pushes to `main`. Locally:
+untranslated pages). `.github/workflows/docs.yml` runs `mkdocs build --strict` on pull
+requests and deploys to GitHub Pages on pushes to `main`, in both cases only when `docs/**`,
+`README*.md`, `mkdocs.yml` or the workflow itself changed (the aggregate `Docs result`
+check passes otherwise). Locally:
 
 ```
 pip install -r docs/requirements.txt
