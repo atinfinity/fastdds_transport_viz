@@ -1,15 +1,10 @@
 # fastdds_transport_viz
 
-English | [日本語](README.ja.md)
-
-[![CI](https://github.com/atinfinity/fastdds_transport_viz/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/atinfinity/fastdds_transport_viz/actions/workflows/ci.yml)
-
-Documentation site: <https://atinfinity.github.io/fastdds_transport_viz/>
-
 Shows **which Fast DDS transport each ROS 2 topic is communicated over** — UDPv4,
 UDPv6, TCP, shared memory (SHM) or zero-copy data-sharing — **and why**.
 
 Targets: ROS 2 Jazzy (Fast DDS 2.14) and Kilted / Rolling (Fast DDS 3.x) with `rmw_fastrtps_cpp`.
+Source and issues: [github.com/atinfinity/fastdds_transport_viz](https://github.com/atinfinity/fastdds_transport_viz).
 
 ```
 $ ros2 transport list -v --stats
@@ -59,8 +54,8 @@ ros2 transport codes
 |---|---|
 | `-v` | expand writer → reader pairs under each topic |
 | `--explain` | append a legend for the reason codes used |
-| `--stats` | also show measured transports (observed nodes need `FASTDDS_STATISTICS`, see [docs/statistics.md](docs/statistics.md)) |
-| `--json` | machine-readable output (`schema_version: 1`, see `schema/`); open it in the [web viewer](docs/web-viewer.md) |
+| `--stats` | also show measured transports (observed nodes need `FASTDDS_STATISTICS`, see [Measured transports](statistics.md)) |
+| `--json` | machine-readable output (`schema_version: 1`); open it in the [web viewer](web-viewer.md) |
 | `--topic REGEX` | only topics whose name matches |
 | `--node REGEX` | only pairs involving a node whose full name matches (its unpaired endpoints stay visible) |
 | `--all` | include services/actions and non-ROS DDS topics |
@@ -69,11 +64,11 @@ ros2 transport codes
 
 ## Documentation
 
-- [How it works](docs/how-it-works.md) — decision rules, reason codes, hosts, where to run it, watch mode
-- [Measured transports (`--stats`)](docs/statistics.md) — statistics topics, enabling them, the 10-instance pitfall
-- [Data-sharing (zero-copy)](docs/data-sharing.md) — why ROS 2 topics show `SHM` by default and how to enable data-sharing
-- [Web viewer](docs/web-viewer.md) — graph/table view of `--json` output in the browser, live mode (`transport_viz_web`), JSON schema
-- [Development, verification and tests](docs/development.md) — Docker environment, packages, verification nodes, multi-container scenarios, tests, verification results, roadmap
+- [How it works](how-it-works.md) — decision rules, reason codes, hosts, where to run it, watch mode
+- [Measured transports (`--stats`)](statistics.md) — statistics topics, enabling them, the 10-instance pitfall
+- [Data-sharing (zero-copy)](data-sharing.md) — why ROS 2 topics show `SHM` by default and how to enable data-sharing
+- [Web viewer](web-viewer.md) — graph/table view of `--json` output in the browser, live mode (`transport_viz_web`), JSON schema
+- [Development, verification and tests](development.md) — Docker environment, packages, verification nodes, multi-container scenarios, tests, verification results, roadmap
 
 ## License
 

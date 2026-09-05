@@ -1,7 +1,5 @@
 # Data-sharing (zero-copy) 配送
 
-[English](data-sharing.md) | 日本語
-
 > 英語版が正です。この文書は 2026-09-05 時点の英語版に対応しています。
 
 writer と reader が同じホストにあり、型が bounded (サイズ上限あり) なら、Fast DDS はすべての

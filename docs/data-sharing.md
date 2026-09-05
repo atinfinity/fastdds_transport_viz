@@ -1,7 +1,5 @@
 # Data-sharing (zero-copy) delivery
 
-English | [日本語](data-sharing.ja.md)
-
 Fast DDS can bypass every transport when writer and reader are on the same host and the
 type is bounded: the reader maps the writer's history directly (data-sharing delivery).
 The tool reports it as `DATA_SHARING`, distinct from the `SHM` transport.

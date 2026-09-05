@@ -1,7 +1,5 @@
 # Web viewer
 
-[English](web-viewer.md) | 日本語
-
 > 英語版が正です。この文書は 2026-09-05 時点の英語版に対応しています。
 
 `web/index.html` は `transport_viz --json` の文書をグラフとして描画します。ホストが列、ROS ノードが
