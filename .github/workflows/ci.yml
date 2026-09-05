@@ -3,12 +3,21 @@ name: CI
 on:
   push:
     branches: [main]
+    paths-ignore: &docs_paths
+      - 'docs/**'
+      - '**.md'
+      - 'mkdocs.yml'
+      - '.github/workflows/docs.yml'
   pull_request:
+    paths-ignore: *docs_paths
   workflow_dispatch:
 
 jobs:
   build-and-test:
     name: colcon build & test (ROS 2 ${{ matrix.distro }})
+    # Pull requests validate the code; the merge commit on main only runs the
+    # multi-container job below (avoids running the matrix twice per change).
+    if: github.event_name != 'push'
     runs-on: ubuntu-latest
     container: ros:${{ matrix.distro }}
     # Jazzy: Fast DDS 2.14; Kilted: Fast DDS 3.2; Rolling: Fast DDS 3.x head, may break
