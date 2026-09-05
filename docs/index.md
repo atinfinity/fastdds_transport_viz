@@ -30,6 +30,52 @@ The same capture on a terminal (`--color auto`, default when stdout is a termina
   the transport that actually carried packets.
 - Every verdict carries reason codes; `--explain` describes them.
 
+## Features
+
+- **Transport per pair, from discovery alone.** Every writer → reader pair gets a
+  predicted transport (`UDPv4`, `UDPv6`, `TCPv4`/`TCPv6`, `SHM`, `DATA_SHARING`) with
+  machine-readable reason codes; the observed nodes need no change.
+- **Measurement with `--stats`.** The Fast DDS statistics module supplies the packets and
+  bytes that actually flowed per locator, the payload rate (`RATE`), host names and process
+  ids, and the proof of zero-copy data-sharing; a measurement that contradicts the
+  prediction is flagged.
+- **Several front-ends.** A table with colors, `--watch` (live terminal view that marks
+  what changed), `--json` with a published schema, the `ros2 transport` command, and a
+  web viewer (graph and table, live updates through `transport_viz_web`).
+- **Focus.** `--topic` / `--node` regex filters, `--explain` for the codes in use,
+  `ros2 transport codes` for all of them.
+- **Shared memory of the environment.** Capacity of `/dev/shm`, the Fast DDS segments,
+  ports and data-sharing histories in it, stale leftovers, and whether the observed nodes
+  share it at all.
+- **Verified on** Jazzy (Fast DDS 2.14) and Kilted / Rolling (Fast DDS 3.x), x86_64 and
+  arm64, with Discovery Server, `LARGE_DATA` (TCP), `UDPv6`, `LOCALHOST` discovery range,
+  large SHM samples and zero-copy data-sharing.
+
+## Limitations
+
+- **`rmw_fastrtps_cpp` only.** Nodes on CycloneDDS, Connext or `rmw_fastrtps_dynamic_cpp`
+  are not covered; Fast DDS participants that are not ROS nodes appear only with `--all`.
+- **Linux only.** macOS has no `/dev/shm`, and Docker Desktop cannot observe nodes on the
+  host.
+- **Run it where the nodes run.** Same domain, same environment variables and XML profile,
+  same network and IPC namespace. `ROS_AUTOMATIC_DISCOVERY_RANGE=OFF` hides everything.
+- **A prediction is a model.** The verdicts encode Fast DDS's selection rules; some
+  situations stay `likely` (marked `?`) until `--stats` confirms them. Measuring requires
+  `FASTDDS_STATISTICS` on the observed nodes *before they start*, and the shipped profile
+  when a node talks to more than 10 locators.
+- **Statistics are per participant** (one per ROS node), so several topics between the
+  same two nodes share one measurement.
+- **Not a bandwidth or latency tool.** `RATE` is Fast DDS's own `PUBLICATION_THROUGHPUT`
+  value; latency is not shown.
+- **DDS Security (SROS2) is not supported** and untested: the tool's participants carry no
+  security configuration, so participants inside a secure enclave are not discovered.
+- **Footprint.** The tool adds two participants of its own to the domain (filtered from
+  the output).
+- **Blind spot.** Nodes with the same host id but a separate IPC namespace are not
+  reported as `shm-not-visible`.
+- **Two physical hosts** are verified for the prediction only; the measured path is still
+  open ([#15](https://github.com/atinfinity/fastdds_transport_viz/issues/15)).
+
 ## Quick start
 
 ```
