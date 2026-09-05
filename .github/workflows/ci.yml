@@ -20,6 +20,10 @@ jobs:
       - id: filter
         uses: dorny/paths-filter@v3
         with:
+          # 'every': a changed file counts only if it matches all patterns, i.e. it is
+          # not documentation. With the default 'some', each negated pattern alone
+          # matches almost any file and docs-only changes still ran the matrix.
+          predicate-quantifier: every
           filters: |
             code:
               - '**'
