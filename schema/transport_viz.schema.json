@@ -220,11 +220,13 @@
         },
         "packets": {
           "type": "integer",
-          "minimum": 0
+          "minimum": 0,
+          "description": "RTPS packets to the reader's locators during the observation"
         },
         "bytes": {
           "type": "number",
-          "minimum": 0
+          "minimum": 0,
+          "description": "RTPS bytes to the reader's locators during the observation"
         },
         "delivered": {
           "type": "boolean"
@@ -241,6 +243,24 @@
           ],
           "minimum": 0,
           "description": "DATA/DATA_FRAG submessages the writer sent through a transport during the observation (DATA_COUNT delta); null when the writer's participant does not publish DATA_COUNT"
+        },
+        "packets_total": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "RTPS packets to the reader's locators since the writer's participant started"
+        },
+        "bytes_total": {
+          "type": "number",
+          "minimum": 0,
+          "description": "RTPS bytes to the reader's locators since the writer's participant started"
+        },
+        "throughput_bytes_per_s": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "description": "writer's payload throughput (PUBLICATION_THROUGHPUT, mean over the observation); null when not published"
         }
       }
     },
@@ -349,6 +369,14 @@
           "items": {
             "$ref": "#/$defs/pair"
           }
+        },
+        "throughput_bytes_per_s": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "description": "sum of the writers' payload throughput; null when no writer publishes PUBLICATION_THROUGHPUT"
         }
       }
     },
@@ -443,6 +471,29 @@
             },
             "required": [
               "first",
+              "last",
+              "samples"
+            ]
+          }
+        },
+        "throughput": {
+          "type": "object",
+          "description": "writer guid -> PUBLICATION_THROUGHPUT bytes/s (mean, last, samples)",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "mean": {
+                "type": "number"
+              },
+              "last": {
+                "type": "number"
+              },
+              "samples": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "mean",
               "last",
               "samples"
             ]

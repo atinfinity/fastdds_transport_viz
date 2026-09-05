@@ -257,14 +257,30 @@
     { key: 'reader', label: 'Reader', get: v => `${v.pair.reader_node || v.readerNode}@${v.pair.reader_host}` },
     { key: 'transport', label: 'Transport', get: v => v.pair.transport },
     { key: 'confidence', label: 'Confidence', get: v => v.pair.confidence },
+    { key: 'rate', label: 'Rate', get: v => rateText(v.pair.measured) },
     { key: 'measured', label: 'Measured', get: v => measuredText(v.pair.measured) },
     { key: 'reasons', label: 'Reasons', get: v => [...v.pair.reasons, ...v.pair.warnings.map(w => '!' + w)].join(', ') },
   ];
 
+  function humanBytes(v, unit) {
+    const prefixes = ['', 'k', 'M', 'G', 'T'];
+    let i = 0;
+    while (v >= 1000 && i < 4) { v /= 1000; i++; }
+    const digits = i === 0 ? 0 : v < 10 ? 2 : v < 100 ? 1 : 0;
+    return `${v.toFixed(digits)} ${prefixes[i]}${unit}`;
+  }
+
   function measuredText(m) {
     if (!m || !m.available) return '';
     if (!m.transports.length) return m.delivered ? 'none (delivered)' : 'none';
-    return `${m.transports.join('+')} ${m.packets} pkt`;
+    if (!m.packets) return `${m.transports.join('+')} (idle)`;
+    const bytes = typeof m.bytes === 'number' ? ` ${humanBytes(m.bytes, 'B')}` : '';
+    return `${m.transports.join('+')} ${m.packets} pkt${bytes}`;
+  }
+
+  function rateText(m) {
+    if (!m || typeof m.throughput_bytes_per_s !== 'number') return '';
+    return humanBytes(m.throughput_bytes_per_s, 'B/s');
   }
 
   function renderTable(model) {
@@ -324,7 +340,7 @@
     const p = vp.pair;
     return `<div class="pair ${selected ? 'selected' : ''}">
       <div><b>${escapeHtml(vp.topic.topic)}</b> <span class="muted">${escapeHtml(vp.topic.type)}</span></div>
-      <div style="margin:4px 0">${badge(p)} confidence ${p.confidence}${p.measured && p.measured.available ? ` · measured ${escapeHtml(measuredText(p.measured))}` : ''}</div>
+      <div style="margin:4px 0">${badge(p)} confidence ${p.confidence}${p.measured && p.measured.available ? ` · measured ${escapeHtml(measuredText(p.measured))}` : ''}${rateText(p.measured) ? ` · rate ${escapeHtml(rateText(p.measured))}` : ''}</div>
       <div>${escapeHtml(p.writer_node || vp.writerNode)}@${escapeHtml(p.writer_host)} → ${escapeHtml(p.reader_node || vp.readerNode)}@${escapeHtml(p.reader_host)}</div>
       ${codeList(p.reasons, false)}${codeList(p.warnings, true)}
       ${endpointDetails('Writer', vp.writer)}${endpointDetails('Reader', vp.reader)}

@@ -514,6 +514,40 @@ TEST(ApplyStats, DeliveredWithoutMeasuredTrafficIsItsOwnWarning)
   EXPECT_EQ(p.verdict.confidence, Confidence::Certain);  // nothing measured, prediction stands
 }
 
+TEST(ApplyStats, ThroughputPerWriterAndPerTopicAndWindowDeltas)
+{
+  std::vector<Endpoint> eps;
+  eps.push_back(make(true, HOST_A, {shm(7415)}));
+  eps.push_back(make(true, HOST_A, {shm(7419)}));
+  eps.push_back(make(false, HOST_A, {shm(7413)}));
+  eps[0].participant_guid_prefix = "P1";
+  eps[1].participant_guid_prefix = "P2";
+  auto topics = summarize(eps);
+  ASSERT_EQ(topics[0].pairs.size(), 2u);
+  // cumulative 100 packets / 10000 bytes at the first sample, 130 / 13000 at the last
+  TrafficSample t{"P1", shm(7413), 130, 13000.0};
+  t.packets_first = 100;
+  t.bytes_first = 10000.0;
+  t.samples = 3;
+  auto stats = stats_with(eps[0], {t});
+  stats.participants_with_stats.insert("P2");
+  stats.throughput[eps[0].guid] = ThroughputStat{300.0, 120.0, 3};   // mean 100 B/s
+  stats.throughput[eps[1].guid] = ThroughputStat{50.0, 50.0, 1};     // 50 B/s
+  apply_stats(topics, stats);
+  const auto & topic = topics[0];
+  EXPECT_TRUE(topic.throughput_available);
+  EXPECT_DOUBLE_EQ(topic.throughput, 150.0);
+  const auto & p = *std::find_if(topic.pairs.begin(), topic.pairs.end(),
+      [&](const Pair & q) {return q.writer == &eps[0];});
+  EXPECT_TRUE(p.measured.throughput_available);
+  EXPECT_DOUBLE_EQ(p.measured.throughput, 100.0);
+  EXPECT_EQ(p.measured.packets, 30u);            // during the observation
+  EXPECT_DOUBLE_EQ(p.measured.bytes, 3000.0);
+  EXPECT_EQ(p.measured.packets_total, 130u);     // since the participant started
+  EXPECT_DOUBLE_EQ(p.measured.bytes_total, 13000.0);
+  EXPECT_TRUE(has(p.verdict.reasons, "measured-shm-traffic"));
+}
+
 TEST(ApplyStats, WriterInstanceLimitSuspectedWhenTenLocatorsReported)
 {
   std::vector<Endpoint> eps;

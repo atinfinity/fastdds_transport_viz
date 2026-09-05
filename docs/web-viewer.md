@@ -40,7 +40,8 @@ traffic, reason codes with their descriptions (taken from `reason_code_descripti
 the document), locators and QoS of both endpoints. Click a node for its publishers,
 subscriptions and unmatched topics.
 
-The **Table** tab shows one row per pair (sortable by clicking a header).
+The **Table** tab shows one row per pair (sortable by clicking a header); with statistics
+it includes the writer's payload rate and the bytes carried during the observation.
 
 ![table view](images/web-viewer-table.jpg)
 

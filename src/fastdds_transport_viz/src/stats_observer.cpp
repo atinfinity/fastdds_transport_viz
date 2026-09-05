@@ -58,7 +58,7 @@ rtps::Locator_t to_rtps(const st::detail::Locator_s & l)
 
 std::string StatsObserver::required_env_value()
 {
-  return "RTPS_SENT_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC;DATA_COUNT_TOPIC";
+  return "RTPS_SENT_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC;DATA_COUNT_TOPIC;PUBLICATION_THROUGHPUT_TOPIC";
 }
 
 StatsObserver::StatsObserver(dds::DomainParticipant * participant)
@@ -76,12 +76,14 @@ StatsObserver::StatsObserver(dds::DomainParticipant * participant)
     st::PHYSICAL_DATA_TOPIC, dds::TypeSupport(new st::PhysicalDataPubSubType()));
   data_count_ = create_reader(
     st::DATA_COUNT_TOPIC, dds::TypeSupport(new st::EntityCountPubSubType()));
+  throughput_ = create_reader(
+    st::PUBLICATION_THROUGHPUT_TOPIC, dds::TypeSupport(new st::EntityDataPubSubType()));
   data_.enabled = true;
 }
 
 StatsObserver::~StatsObserver()
 {
-  for (auto * r : {&rtps_sent_, &history_latency_, &physical_data_, &data_count_}) {
+  for (auto * r : {&rtps_sent_, &history_latency_, &physical_data_, &data_count_, &throughput_}) {
     if (r->reader) {subscriber_->delete_datareader(r->reader);}
     if (r->topic && r->owns_topic) {participant_->delete_topic(r->topic);}
   }
@@ -150,7 +152,28 @@ void StatsObserver::drain()
     // floor(log10(byte_count)) (see StatisticsParticipantImpl::on_rtps_sent).
     s.bytes = static_cast<double>(traffic.byte_count());
     data_.participants_with_stats.insert(s.src_participant_prefix);
-    traffic_[TrafficKey{s.src_participant_prefix, static_cast<int>(dst.kind), dst.address, dst.port}] = s;
+    auto & slot = traffic_[TrafficKey{s.src_participant_prefix, static_cast<int>(dst.kind), dst.address, dst.port}];
+    if (slot.samples == 0) {   // TRANSIENT_LOCAL: the first sample is the value before we started
+      s.packets_first = s.packets;
+      s.bytes_first = s.bytes;
+    } else {
+      s.packets_first = slot.packets_first;
+      s.bytes_first = slot.bytes_first;
+    }
+    s.samples = slot.samples + 1;
+    slot = s;
+  }
+
+  st::EntityData throughput;
+  while (retcode_ok(throughput_.reader->take_next_sample(&throughput, &info))) {
+    if (!info.valid_data) {continue;}
+    ++data_.samples;
+    rtps::GUID_t g = to_rtps(throughput.guid());
+    data_.participants_with_stats.insert(prefix_to_string(g.guidPrefix));
+    auto & t = data_.throughput[guid_to_string(g)];
+    t.sum += throughput.data();
+    t.last = throughput.data();
+    ++t.samples;
   }
 
   st::WriterReaderData latency;
@@ -184,6 +207,12 @@ void StatsObserver::drain()
     data_.participants_with_stats.insert(prefix);
     data_.physical[prefix] = HostInfo{physical.host(), physical.user(), physical.process()};
   }
+}
+
+void StatsObserver::poll()
+{
+  std::lock_guard<std::mutex> lock(mutex_);
+  drain();
 }
 
 StatsData StatsObserver::snapshot()
