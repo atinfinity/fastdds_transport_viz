@@ -360,8 +360,45 @@ std::string render_table(const Snapshot & snap, const RenderOptions & opt)
     os << "\n";
   }
 
+  if (snap.shm.available) {
+    const auto & shm = snap.shm;
+    os << "\n" << paint("shared memory: ", BOLD, color) << shm.path << " "
+       << human_bytes(static_cast<double>(shm.used_bytes), "B") << " used of "
+       << human_bytes(static_cast<double>(shm.total_bytes), "B") << " ("
+       << human_bytes(static_cast<double>(shm.free_bytes), "B") << " free)"
+       << " | Fast DDS " << human_bytes(static_cast<double>(shm.fastdds_bytes), "B") << " in "
+       << shm.segments << " segment(s)";
+    if (shm.stale_segments) {os << " (" << shm.stale_segments << " stale)";}
+    os << ", " << shm.ports << " port(s)";
+    if (shm.stale_ports) {os << " (" << shm.stale_ports << " stale)";}
+    os << ", " << shm.datasharing_histories << " data-sharing histor" << (shm.datasharing_histories == 1 ? "y" : "ies");
+    if (shm.datasharing_unmatched) {os << " (" << shm.datasharing_unmatched << " unmatched)";}
+    os << "\n";
+    for (const auto & w : shm.warnings) {
+      os << "  " << paint("!" + w, RED, color);
+      if (w == "shm-stale-files") {
+        os << ": " << (shm.stale_segments + shm.stale_ports)
+           << " file(s) without a living owner, run 'fastdds shm clean'";
+      } else if (w == "shm-not-visible") {
+        os << ":";
+        if (!shm.missing_ports.empty()) {
+          os << " " << shm.missing_ports.size() << " of " << shm.checked_ports.size()
+             << " SHM port(s) of the nodes not open here (other IPC namespace)";
+        }
+        if (shm.other_host_participants) {
+          os << (shm.missing_ports.empty() ? " " : ", ") << shm.other_host_participants
+             << " participant(s) on another host id";
+        }
+      } else if (w == "shm-nearly-full") {
+        os << ": Fast DDS cannot create segments when " << shm.path << " is full";
+      }
+      os << "\n";
+    }
+  }
+
   if (opt.explain) {
     std::set<std::string> used;
+    for (const auto & w : snap.shm.warnings) {used.insert(w);}
     for (const auto & t : snap.topics) {
       for (const auto & r : t.unmatched_reasons) {used.insert(r);}
       for (const auto & p : t.pairs) {

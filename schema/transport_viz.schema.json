@@ -50,6 +50,9 @@
     },
     "changes": {
       "$ref": "#/$defs/changes"
+    },
+    "shm": {
+      "$ref": "#/$defs/shm"
     }
   },
   "$defs": {
@@ -196,6 +199,14 @@
               }
             }
           }
+        },
+        "datasharing_history_bytes": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "description": "size of the writer's data-sharing history file in the tool's /dev/shm; null when there is none"
         }
       }
     },
@@ -594,6 +605,95 @@
               }
             ]
           }
+        }
+      }
+    },
+    "shm": {
+      "type": "object",
+      "description": "shared memory of the environment the tool runs in (statvfs of /dev/shm and the Fast DDS files in it); the sizes are absent when `available` is false",
+      "required": [
+        "available",
+        "path",
+        "warnings"
+      ],
+      "properties": {
+        "available": {
+          "type": "boolean"
+        },
+        "path": {
+          "type": "string"
+        },
+        "total_bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "used_bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "free_bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "fastdds_bytes": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "sum of the fastrtps_* / fast_datasharing_* file sizes"
+        },
+        "segments": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "stale_segments": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "ports": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "stale_ports": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "datasharing_histories": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "datasharing_unmatched": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "nodes_visible": {
+          "type": "boolean",
+          "description": "no missing port and no participant with another host id: the observed nodes share this /dev/shm"
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/code"
+          }
+        },
+        "checked_ports": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "description": "SHM ports of observed nodes on the tool's host id that were probed here"
+        },
+        "missing_ports": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "description": "probed ports not held by a living process here (or the tool's own port number)"
+        },
+        "other_host_participants": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "observed participants with another host id: never in this /dev/shm"
         }
       }
     }

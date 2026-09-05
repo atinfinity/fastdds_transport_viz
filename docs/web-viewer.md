@@ -37,8 +37,12 @@ plus the bounded verification nodes with statistics enabled.
 
 Click an arrow to list its pairs in the side panel: transport, confidence, measured
 traffic, reason codes with their descriptions (taken from `reason_code_descriptions` in
-the document), locators and QoS of both endpoints. Click a node for its publishers,
-subscriptions and unmatched topics.
+the document), locators, QoS and the size of the data-sharing history of both endpoints.
+Click a node for its publishers, subscriptions and unmatched topics.
+
+The second header line summarizes the shared memory of the environment `transport_viz`
+ran in (the document's `shm` object, see [how-it-works.md](how-it-works.md#shared-memory-of-the-environment)):
+capacity of `/dev/shm`, what Fast DDS keeps there, stale files and the `shm-*` warnings.
 
 The **Table** tab shows one row per pair (sortable by clicking a header); with statistics
 it includes the writer's payload rate and the bytes carried during the observation.

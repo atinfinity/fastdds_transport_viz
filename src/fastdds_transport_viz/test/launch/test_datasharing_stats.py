@@ -46,6 +46,12 @@ class TestDataSharingStats(Base):
         self.assertTrue(
             codes & {'datasharing-confirmed-no-data-submessages', 'datasharing-confirmed-no-traffic'}, pair)
         self.assertNotIn('datasharing-not-used', pair['warnings'])
+        # the writer's history lives in /dev/shm and is attributed to it by name
+        t, _ = pair_of(doc, '/bounded')
+        writer = t['writers'][0]
+        self.assertIsInstance(writer['datasharing_history_bytes'], int, writer)
+        self.assertGreater(writer['datasharing_history_bytes'], 0, writer)
+        self.assertGreaterEqual(doc['shm']['datasharing_histories'], 1, doc['shm'])
 
 
 @launch_testing.post_shutdown_test()

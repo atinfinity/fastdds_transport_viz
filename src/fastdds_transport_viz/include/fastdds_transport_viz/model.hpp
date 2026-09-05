@@ -75,6 +75,8 @@ struct Endpoint
   std::vector<Locator> unicast;
   std::vector<Locator> multicast;
   EndpointQos qos;
+  bool datasharing_history_available{false};   // a data-sharing history file of this writer exists in /dev/shm
+  uint64_t datasharing_history_bytes{0};
 };
 
 enum class Transport
@@ -196,6 +198,31 @@ struct StatsData
   size_t samples{0};
 };
 
+// ---- shared memory of the tool's environment -----------------------------------
+
+/// /dev/shm capacity and what Fast DDS keeps there (see shm_info.hpp).
+struct ShmInfo
+{
+  bool available{false};             // the directory exists and statvfs() succeeded
+  std::string path;                  // e.g. "/dev/shm"
+  uint64_t total_bytes{0};
+  uint64_t used_bytes{0};
+  uint64_t free_bytes{0};
+  uint64_t fastdds_bytes{0};         // size of every fastrtps_* / fast_datasharing_* file
+  size_t segments{0};                // fastrtps_<hex>: one per participant
+  size_t stale_segments{0};          // ... whose lock file nobody holds (owner gone)
+  size_t ports{0};                   // fastrtps_port<N>: ring buffers of the SHM locators
+  size_t stale_ports{0};             // ... without a holder of the lock file
+  size_t datasharing_histories{0};   // fast_datasharing_<writer guid>
+  size_t datasharing_unmatched{0};   // ... not belonging to a discovered writer
+  std::vector<uint32_t> checked_ports;   // SHM ports of observed nodes with the tool's host id
+  std::vector<uint32_t> missing_ports;   // ... not held by a living process here, or the tool's own
+  size_t other_host_participants{0}; // observed participants with another host id
+  bool nodes_visible{true};          // missing_ports.empty() && other_host_participants == 0
+  std::vector<std::string> warnings; // shm-stale-files, shm-nearly-full, shm-not-visible
+  std::map<std::string, uint64_t> datasharing_by_writer;   // writer guid -> history bytes
+};
+
 // ---- frame-to-frame changes (--watch) ------------------------------------------
 
 struct PairKey
@@ -252,6 +279,7 @@ struct Snapshot
   std::vector<Endpoint> endpoints;
   std::vector<TopicSummary> topics;
   StatsData stats;
+  ShmInfo shm;                  // shared memory of the environment the tool runs in
   bool has_changes{false};      // true in --watch mode: `changes` is meaningful
   Changes changes;              // relative to the previously rendered frame
 };

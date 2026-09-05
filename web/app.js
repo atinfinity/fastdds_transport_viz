@@ -332,6 +332,7 @@
       <dt>host</dt><dd>${escapeHtml(ep.host)}${ep.process ? ` (pid ${escapeHtml(ep.process)})` : ''}</dd>
       <dt>guid</dt><dd><code>${escapeHtml(ep.guid)}</code></dd>
       <dt>locators</dt><dd>${locators(ep)}</dd>
+      ${typeof ep.datasharing_history_bytes === 'number' ? `<dt>data-sharing history</dt><dd>${humanBytes(ep.datasharing_history_bytes, 'B')} in /dev/shm</dd>` : ''}
       <dt>qos</dt><dd>${escapeHtml(ep.qos.reliability)}, ${escapeHtml(ep.qos.durability)}, data-sharing ${escapeHtml(ep.qos.data_sharing)}${ep.qos.data_sharing_domain_ids && ep.qos.data_sharing_domain_ids.length ? ` [${ep.qos.data_sharing_domain_ids.join(', ')}]` : ''}</dd>
     </dl>`;
   }
@@ -362,7 +363,7 @@
     } else if (sel.kind === 'node') {
       const n = model.nodes.get(sel.id);
       if (!n) { select(null); return; }
-      const list = (items) => items.length ? `<dl>${items.map(({ topic, ep }) => `<dt>${escapeHtml(topic.topic)}</dt><dd>${escapeHtml(topic.type)}</dd>`).join('')}</dl>` : '<div class="muted">none</div>';
+      const list = (items) => items.length ? `<dl>${items.map(({ topic, ep }) => `<dt>${escapeHtml(topic.topic)}</dt><dd>${escapeHtml(topic.type)}${typeof ep.datasharing_history_bytes === 'number' ? ` · data-sharing history ${humanBytes(ep.datasharing_history_bytes, 'B')}` : ''}</dd>`).join('')}</dl>` : '<div class="muted">none</div>';
       panel.html(`<h2>${escapeHtml(n.name)}</h2><dl><dt>host</dt><dd>${escapeHtml(n.host)}</dd>${n.process ? `<dt>pid</dt><dd>${escapeHtml(n.process)}</dd>` : ''}</dl>
         <h3>Publishers (${n.pubs.length})</h3>${list(n.pubs)}
         <h3>Subscriptions (${n.subs.length})</h3>${list(n.subs)}
@@ -391,6 +392,19 @@
     const n = d.topics.reduce((a, t) => a + t.pairs.length, 0);
     d3.select('#meta').text(`domain ${d.domain} · ${d.observed_at} · ${d.topics.length} topics, ${n} pairs · ` +
       (d.stats && d.stats.enabled ? `statistics: ${d.stats.samples} samples` : 'no statistics'));
+    d3.select('#shm').html(shmText(d.shm));
+  }
+
+  /** Shared memory of the environment transport_viz ran in (the `shm` object). */
+  function shmText(shm) {
+    if (!shm || !shm.available) return '';
+    const stale = shm.stale_segments + shm.stale_ports;
+    const desc = (state.doc && state.doc.reason_code_descriptions) || {};
+    const warnings = (shm.warnings || []).map(w => `<span class="code warn" title="${escapeHtml(desc[w] || '')}"><b>!${escapeHtml(w)}</b></span>`).join(' ');
+    return `shared memory: ${escapeHtml(shm.path)} ${humanBytes(shm.used_bytes, 'B')} used of ${humanBytes(shm.total_bytes, 'B')}` +
+      ` · Fast DDS ${humanBytes(shm.fastdds_bytes, 'B')} in ${shm.segments} segment(s), ${shm.ports} port(s), ${shm.datasharing_histories} data-sharing histor${shm.datasharing_histories === 1 ? 'y' : 'ies'}` +
+      (stale ? ` (${stale} stale)` : '') + (shm.nodes_visible === false ? ' · nodes in another IPC namespace' : '') +
+      (warnings ? ` ${warnings}` : '');
   }
 
   function render() {

@@ -19,6 +19,7 @@ TOPIC     TYPE                 PUBS  SUBS  TRANSPORT         REASON
     /talker@myhost(136) -> /listener_udp@myhost(134)  UDPv4  measured=UDPv4 49pkt  same-host-guid,datasharing-disabled-writer,reader-no-shm-locator,common-udpv4-locator,measured-udpv4-traffic
 
 statistics: 63 samples from 3 participant(s)
+shared memory: /dev/shm 2.19 MB used of 16.7 GB (16.7 GB free) | Fast DDS 2.19 MB in 3 segment(s), 6 port(s), 0 data-sharing histories
 ```
 
 The same output on a terminal (`--color auto`, default when stdout is a terminal):

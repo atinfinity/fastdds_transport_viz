@@ -69,7 +69,12 @@ if scenario == 'multi_container':
     assert p['transport'] == 'UDPv4', p
     assert 'different-host' in p['reasons'], p
     assert p['writer_host'] != p['reader_host'], p
-    print('PASS: /chatter across bridged containers uses UDPv4 (different-host)')
+    # the nodes' /dev/shm is not the tool's (separate IPC namespaces)
+    shm = doc['shm']
+    assert shm['available'] and not shm['nodes_visible'], shm
+    assert shm['other_host_participants'] >= 2 and shm['checked_ports'] == [], shm
+    assert 'shm-not-visible' in shm['warnings'], shm
+    print('PASS: /chatter across bridged containers uses UDPv4 (different-host); shm-not-visible reported')
 elif scenario == 'stats_multi_container':
     assert doc['stats']['enabled'] and doc['stats']['samples'] > 0, doc['stats']
     assert p['transport'] == 'UDPv4', p
@@ -100,7 +105,11 @@ elif scenario == 'hostnet_shm':
     assert 'same-host-guid' in p['reasons'] and 'both-shm-locators' in p['reasons'], p
     assert 'host-id-match-but-ip-differs' not in p['warnings'], p
     assert p['writer_host'] == p['reader_host'], p
-    print('PASS: /chatter across host-network/IPC containers uses SHM (same-host-guid)')
+    shm = doc['shm']
+    assert shm['available'] and shm['nodes_visible'], shm
+    assert 'shm-not-visible' not in shm['warnings'], shm
+    assert shm['segments'] - shm['stale_segments'] >= 2, shm   # talker and listener alive
+    print('PASS: /chatter across host-network/IPC containers uses SHM (same-host-guid); their segments are visible')
 else:
     sys.exit(f'unknown scenario {scenario}')
 PY

@@ -10,6 +10,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <map>
@@ -18,6 +19,7 @@
 #include <iostream>
 #include <memory>
 #include <regex>
+#include <set>
 #include <string>
 #include <thread>
 #include <vector>
@@ -29,6 +31,7 @@
 #include "fastdds_transport_viz/model.hpp"
 #include "fastdds_transport_viz/render.hpp"
 #include "fastdds_transport_viz/ros_graph_resolver.hpp"
+#include "fastdds_transport_viz/shm_info.hpp"
 #include "fastdds_transport_viz/stats_observer.hpp"
 
 using namespace std::chrono_literals;
@@ -189,8 +192,28 @@ Snapshot collect(
   if (!o.topic_regex.empty()) {
     re = std::regex(o.topic_regex);
   }
+  fastdds_transport_viz::ShmScanInput shm_in;   // SHM ports of every endpoint, filtered or not
+  const auto local_host = observer.local_host_id();
+  // Participants of our own rclcpp node: the node's topic endpoints resolve to our name;
+  // its participant-level endpoints (ros_discovery_info) do not, so match by prefix too.
+  std::set<std::string> own_prefixes;
+  std::set<std::string> other_host_prefixes;
+  {
+    // ... and the discovery/statistics participant of the tool itself
+    const auto & prefix = observer.participant()->guid().guidPrefix;
+    std::string s;
+    char buf[4];
+    for (int i = 0; i < 12; ++i) {
+      std::snprintf(buf, sizeof(buf), "%02x", prefix.value[i]);
+      s += (i ? "." : "") + std::string(buf);
+    }
+    own_prefixes.insert(s);
+  }
   for (auto & e : endpoints) {
     e.node_name = resolver.node_for_guid(e.guid_bytes);
+    if (e.node_name == own || e.ros_topic.rfind(own + "/", 0) == 0) {own_prefixes.insert(e.participant_guid_prefix);}
+  }
+  for (auto & e : endpoints) {
     auto phys = stats_data.physical.find(e.participant_guid_prefix);
     if (phys != stats_data.physical.end()) {
       e.host_name = phys->second.host;
@@ -204,9 +227,19 @@ Snapshot collect(
     // Our own rclcpp node's endpoints: topic endpoints resolve to our node
     // name, service endpoints live under our node name (services are not
     // covered by the graph API).
-    if (e.node_name == own || e.ros_topic.rfind(own + "/", 0) == 0) {
+    const bool ours = own_prefixes.count(e.participant_guid_prefix) > 0;
+    for (const auto & l : e.unicast) {
+      if (l.kind != fastdds_transport_viz::LocatorKind::SHM) {continue;}
+      if (ours) {
+        shm_in.own_ports.insert(l.port);
+      } else if (e.host_id == local_host) {
+        shm_in.node_ports.insert(l.port);
+      }
+    }
+    if (ours) {
       continue;
     }
+    if (e.host_id != local_host) {other_host_prefixes.insert(e.participant_guid_prefix);}
     if (!o.all) {
       // Default view: ROS topics only. Services (rq/rr) and raw DDS topics need --all.
       if (e.ros_topic.empty() || e.dds_topic.rfind("rt/", 0) != 0) {
@@ -231,6 +264,24 @@ Snapshot collect(
   snap.observation_seconds = observation_seconds;
   snap.local_host_id = observer.local_host_id();
   snap.endpoints = std::move(kept);
+  {
+    // Shared memory of this environment; data-sharing history files are attributed to
+    // the discovered writers by name.
+    for (const auto & e : snap.endpoints) {
+      if (e.is_writer) {
+        shm_in.datasharing_writers[fastdds_transport_viz::datasharing_segment_name(e.guid_bytes)] = e.guid;
+      }
+    }
+    shm_in.other_host_participants = other_host_prefixes.size();
+    snap.shm = fastdds_transport_viz::scan_shm(fastdds_transport_viz::kDefaultShmDir, shm_in);
+    for (auto & e : snap.endpoints) {
+      auto it = snap.shm.datasharing_by_writer.find(e.guid);
+      if (it != snap.shm.datasharing_by_writer.end()) {
+        e.datasharing_history_available = true;
+        e.datasharing_history_bytes = it->second;
+      }
+    }
+  }
   snap.topics = fastdds_transport_viz::summarize(snap.endpoints);
   apply_node_filter(snap.topics, o);
   snap.stats = std::move(stats_data);

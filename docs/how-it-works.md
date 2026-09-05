@@ -98,6 +98,45 @@ statistics `PHYSICAL_DATA` topic. Containers with separate network namespaces on
 machine can share a host id while announcing different IP addresses; this is reported as
 the warning `host-id-match-but-ip-differs`.
 
+## Shared memory of the environment
+
+Every run ends with one line about the shared memory of the environment the tool runs
+in, because SHM verdicts depend on it:
+
+```
+shared memory: /dev/shm 396 MB used of 16.7 GB (16.3 GB free) | Fast DDS 63.4 MB in 114 segment(s) (110 stale), 14 port(s) (7 stale), 6 data-sharing histories (6 unmatched)
+  !shm-stale-files: 117 file(s) without a living owner, run 'fastdds shm clean'
+```
+
+- **Capacity** is `statvfs("/dev/shm")`: total, used and free bytes of the tmpfs. Docker
+  gives a container 64 MB unless `--shm-size` or `--ipc=host` is used; Fast DDS needs one
+  segment per participant (512 KB by default, more for large data) and fails to create it
+  when the directory is full.
+- **Fast DDS files** are the `fastrtps_*` (Fast DDS 3.x: `fastdds_*`) and
+  `fast_datasharing_*` entries: one
+  *segment* (`fastrtps_<hex>`) per participant, one *port* ring buffer
+  (`fastrtps_port<N>`) per SHM locator, and one *data-sharing history* per writer that
+  uses zero-copy delivery. Their sizes are summed.
+- **Stale** files are segments and ports whose `_el` lock file exists but nobody holds
+  (the same `flock` probe `fastdds shm clean` uses): their owner died without cleaning
+  up, and they keep consuming `/dev/shm`. The warning `shm-stale-files` suggests
+  `fastdds shm clean`, which removes exactly these.
+  Data-sharing histories have no lock; those that belong to a discovered writer are
+  reported on the writer (`datasharing_history_bytes` in JSON, the web viewer's endpoint
+  details), the rest are counted as *unmatched* (another domain, or a finished writer).
+- **Visibility**: a node in the tool's IPC namespace holds the lock of its SHM port file
+  (`fastrtps_port<N>_el`). When an observed node has another host id, or its port is not
+  held here (or is the tool's own port number, i.e. the same participant id in another
+  network namespace), the node uses another `/dev/shm` and the warning `shm-not-visible`
+  says so: the figures then describe the tool's environment, not the nodes', and SHM
+  between the nodes and this process is impossible. One case escapes the check: same
+  host id but separate IPC namespaces (`network_mode: host` without `ipc: host`), where
+  the tool's own participant opens the announced port here to send to it.
+- `shm-nearly-full` warns at 90 % usage or less than 16 MB free.
+
+The line is omitted where there is no `/dev/shm` (macOS). In JSON the same data is the
+`shm` object; `--watch` refreshes it every frame.
+
 ## Watch mode
 
 `--watch` re-observes and re-renders every `--interval` seconds. On a terminal it uses the
