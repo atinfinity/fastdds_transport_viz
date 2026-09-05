@@ -131,8 +131,9 @@ colcon test && colcon test-result --verbose
 code (docs-only changes skip the job); Rolling may break with upstream changes and does
 not block (`continue-on-error`). Test result XML files and launch logs are uploaded as a
 workflow artifact per distribution. `main` is protected: pull requests merge only when
-the Jazzy and Kilted jobs and the `mkdocs build --strict` job of the Docs workflow have
-passed or were skipped for a change that does not concern them.
+the `CI result` and `Docs result` jobs are green; they succeed when every job of their
+workflow passed or was skipped for a change that does not concern it (Rolling does not
+count).
 
 A second job, `integration`, runs `scripts/integration_test.sh all` on the x86_64 runner
 VM for the merge commit on `main` and on `workflow_dispatch` (not for pull requests, to

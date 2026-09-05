@@ -62,3 +62,13 @@ jobs:
     steps:
       - id: deployment
         uses: actions/deploy-pages@v4
+
+  docs-result:
+    name: Docs result
+    needs: [changes, build]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo "build: ${{ needs.build.result }}"
+          case "${{ needs.build.result }}" in success|skipped) ;; *) exit 1 ;; esac
