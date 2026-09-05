@@ -1,6 +1,6 @@
 # Data-sharing (zero-copy) 配送
 
-> 英語版が正です。この文書は 2026-09-05 時点の英語版に対応しています。
+> 英語版が正です。この文書は 2026-09-06 時点の英語版に対応しています。
 
 writer と reader が同じホストにあり、型が bounded (サイズ上限あり) なら、Fast DDS はすべての
 transport を迂回できます。reader が writer の履歴を直接マップする data-sharing 配送です。
@@ -28,8 +28,8 @@ unbounded な型で writer の作成が失敗します。
 
 ## 確信度
 
-両エンドポイントが data-sharing を広告し、domain id に共通部分があれば、判定は `likely`
-(`DATA_SHARING?`) です。`--stats` を付けると次の 2 通りで `certain` になります。
+両エンドポイントが data-sharing を広告し、domain id に共通部分があれば (または少なくとも片方が
+domain id を広告していなければ)、判定は `likely` (`DATA_SHARING?`) です。`--stats` を付けると次の 2 通りで `certain` になります。
 
 - `HISTORY_LATENCY` が配送を証明し、かつ reader の locator にパケットが 1 つも届いていない
   (`datasharing-confirmed-no-traffic`)。
@@ -51,8 +51,11 @@ unbounded な型で writer の作成が失敗します。
 writer が data-sharing でない reader も相手にしている場合、その `DATA_COUNT` には両方の経路が
 混ざるので判定は `likely` のままです (`datasharing-ambiguous-mixed-readers`)。すべての reader が
 data-sharing なのにカウンタが増える場合、Fast DDS は zero-copy を使っていません。判定は実測された
-transport に変わり、警告 `datasharing-not-used` が付きます。`DATA_COUNT_TOPIC` が無い場合、リンク上
-のトラフィックがあると判定は `likely` のままです (`datasharing-ambiguous-participant-traffic`)。
+transport (reader へのパケットが帰属できなければ `SHM?`) に変わり、理由
+`datasharing-data-submessages-sent` と警告 `datasharing-not-used` が付きます。`DATA_COUNT_TOPIC` が
+無い場合、または `HISTORY_LATENCY` がまだ配送を証明していない場合、リンク上のトラフィックがあると
+判定は `likely` のままです (`datasharing-ambiguous-participant-traffic`)。トラフィックも配送の証明も
+無ければ `datasharing-no-delivery-observed` です。
 JSON の `measured` オブジェクトには `data_submessages` (`DATA_COUNT` の増分。取得できなければ
 `null`) と `delivered_samples` が入ります。
 

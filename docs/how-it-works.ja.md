@@ -1,6 +1,6 @@
 # 仕組み
 
-> 英語版が正です。この文書は 2026-09-05 時点の英語版に対応しています。
+> 英語版が正です。この文書は 2026-09-06 時点の英語版に対応しています。
 
 このツールは Fast DDS 2.14 (ROS 2 Jazzy) と 3.x (Kilted、Rolling) の両方に対してビルドできます。
 API の差分は `include/fastdds_transport_viz/fastdds_compat.hpp` に閉じ込めてあり、以下の判定ルールは
@@ -17,7 +17,8 @@ writer → reader の各ペアで transport を選ぶときと同じルールを
 1. **同じホストか?** Fast DDS は、2 つの participant の GUID プレフィックス先頭 4 バイトが等しい
    とき同じホスト上にあるとみなします。
 2. 同じホストで、両エンドポイントが data-sharing (zero-copy) を広告し、domain id に共通部分がある
-   → `DATA_SHARING` (確信度 `likely`。[data-sharing.ja.md](data-sharing.ja.md) を参照)。
+   か少なくとも片方が domain id を広告していない → `DATA_SHARING` (確信度 `likely`。
+   [data-sharing.ja.md](data-sharing.ja.md) を参照)。広告された domain id が交わらない場合は次へ。
 3. 同じホストで、両方が SHM locator を広告している → `SHM`。このとき Fast DDS はその participant
    間のユーザーデータに共有メモリだけを使います。discovery は引き続き UDP で行われます。
 4. それ以外は、reader が広告するネットワーク locator のうち writer も話せる最初の種類
@@ -111,11 +112,12 @@ shared memory: /dev/shm 396 MB used of 16.7 GB (16.3 GB free) | Fast DDS 63.4 MB
   のエントリです: participant
   ごとの *セグメント* (`fastrtps_<hex>`)、SHM locator ごとの *ポート* のリングバッファ
   (`fastrtps_port<N>`)、zero-copy 配送を使う writer ごとの *data-sharing 履歴*。サイズは
-  合計して表示します。
+  (小さな `sem.fastrtps_*` の mutex ファイルも含めて) 合計して表示します。
 - **stale** なファイルは、`_el` ロックファイルが存在するのに誰も保持していないセグメントと
   ポートです (`fastdds shm clean` と同じ `flock` による判定)。所有プロセスが後始末せずに
   死んだもので、`/dev/shm` を消費し続けます。警告 `shm-stale-files` が `fastdds shm clean` を
-  勧めます。これがまさにそれらを削除します。
+  勧めます。これがまさにそれらを削除します。観測対象ノードがどれもこの IPC 名前空間にいない場合
+  (下の可視性を参照) は、ここにあるものはノードのものではあり得ないので stale の数は報告しません。
   data-sharing 履歴にはロックがありません。発見済みの writer に属するものは writer 側に
   報告し (JSON の `datasharing_history_bytes`、web viewer のエンドポイント詳細)、残りは
   *unmatched* (別ドメイン、または終了した writer) として数えます。
@@ -127,7 +129,7 @@ shared memory: /dev/shm 396 MB used of 16.7 GB (16.3 GB free) | Fast DDS 63.4 MB
   このプロセスの間で SHM は使えません。判定できないケースが 1 つあります: ホスト id は同じで
   IPC 名前空間だけが別 (`ipc: host` の無い `network_mode: host`) の場合、ツール自身の participant
   が送信のためにそのポートをここで開いてしまいます。
-- `shm-nearly-full` は使用率 90 % 以上、または空きが 16 MB 未満で警告します。
+- `shm-nearly-full` は使用率 90 % 以上、または空きが 16 MiB 未満で警告します。
 
 `/dev/shm` が無い環境 (macOS) では行自体を省きます。JSON では同じデータが `shm` オブジェクト
 になり、`--watch` ではフレームごとに更新されます。
@@ -141,19 +143,22 @@ shared memory: /dev/shm 396 MB used of 16.7 GB (16.3 GB free) | Fast DDS 63.4 MB
 |---|---|
 | `+` (緑) | ペアが現れた |
 | `~` (黄) | transport、確信度、実測 transport、警告のいずれかが変わった |
-| `-` (薄い) | ペアが消えた。3 フレーム残してから消す |
+| `-` (薄い) | ペアが消えた。行は薄い表示で残る |
+
+どの印も変化から 3 フレーム残り、その後は通常の行に戻ります (消えたペアの行は削除)。
 
 トピック行にはそのペアの印が付き、表の後に `changes:` の要約行が出ます。新しい
 listener が現れ、UDP の listener が消えた直後の 1 フレーム:
 
 ![watch frame](images/example-watch.svg)
+
 watch 中のキー: `q` 終了、
 `p` 一時停止/再開 (停止中の変化は再開時に強調)、`v` ペア行の切り替え、`e` 理由コード凡例の
-切り替え、`a` `--all` の切り替え。stdout が端末でないときはエスケープシーケンス無しでフレームを
-順に出力します。`--json` では各フレームが 1 つの JSON Lines 文書になり、`changes` オブジェクト
+切り替え、`a` `--all` の切り替え。stdin と stdout の両方が端末でない限り、フレームを順に出力します
+(`--color always` でなければエスケープシーケンス無し)。`--json` では各フレームが 1 つの JSON Lines 文書になり、`changes` オブジェクト
 (`added_pairs`、`removed_pairs`、`from`/`to` 付きの `changed_pairs`) が加わります。
 
-色 (`--color auto|always|never`、既定は `auto`、`NO_COLOR` も尊重) は一回きりの表にも適用されます。
+色 (`--color auto|always|never`、既定は `auto` で、`auto` は `NO_COLOR` を尊重) は一回きりの表にも適用されます。
 transport は web viewer と同じ配色、警告は赤です。
 
 ![colored table](images/example-table.svg)

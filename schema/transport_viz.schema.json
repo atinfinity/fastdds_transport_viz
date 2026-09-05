@@ -460,6 +460,16 @@
               "bytes": {
                 "type": "number",
                 "minimum": 0
+              },
+              "packets_first": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "cumulative RTPS_SENT packets at the first sample of the observation"
+              },
+              "bytes_first": {
+                "type": "number",
+                "minimum": 0,
+                "description": "cumulative RTPS_SENT bytes at the first sample of the observation"
               }
             }
           }

@@ -12,17 +12,20 @@ UDPv6, TCP, shared memory (SHM) or zero-copy data-sharing — **and why**.
 Targets: ROS 2 Jazzy (Fast DDS 2.14) and Kilted / Rolling (Fast DDS 3.x) with `rmw_fastrtps_cpp`.
 
 ```
-$ ros2 transport list -v --stats
-TOPIC     TYPE                 PUBS  SUBS  TRANSPORT         REASON
-/chatter  std_msgs/msg/String  1     2     SHM x1, UDPv4 x1  same-host-guid,...
-    /talker@myhost(136) -> /listener@myhost(135)      SHM    measured=SHM 47pkt    same-host-guid,datasharing-disabled-writer,both-shm-locators,measured-shm-traffic
-    /talker@myhost(136) -> /listener_udp@myhost(134)  UDPv4  measured=UDPv4 49pkt  same-host-guid,datasharing-disabled-writer,reader-no-shm-locator,common-udpv4-locator,measured-udpv4-traffic
+$ ros2 transport list -v --stats --topic '^/(chatter|bounded)$'
+TOPIC     TYPE                 PUBS  SUBS  TRANSPORT         RATE    REASON
+/bounded  std_msgs/msg/Int32   1     1     DATA_SHARING x1   80 B/s  same-host-guid,datasharing-qos-enabled-both,datasharing-domain-ids-match,datasharing-confirmed-no-data-submessages
+    /bounded_pub@57e20ce67dfe(156) -> /bounded_sub@57e20ce67dfe(159)  DATA_SHARING  80 B/s  measured=SHM 2pkt 248 B  same-host-guid,datasharing-qos-enabled-both,datasharing-domain-ids-match,datasharing-confirmed-no-data-submessages
+/chatter  std_msgs/msg/String  1     2     UDPv4 x1, SHM x1  23 B/s  same-host-guid,datasharing-disabled-writer,reader-no-shm-locator,common-udpv4-locator,measured-udpv4-traffic,both-shm-locators,measured-shm-traffic
+    /talker@57e20ce67dfe(157) -> /listener_udp@57e20ce67dfe(158)  UDPv4  23 B/s  measured=UDPv4 10pkt 1.31 kB  same-host-guid,datasharing-disabled-writer,reader-no-shm-locator,common-udpv4-locator,measured-udpv4-traffic
+    /talker@57e20ce67dfe(157) -> /listener@57e20ce67dfe(160)      SHM    23 B/s  measured=SHM 10pkt 1.31 kB    same-host-guid,datasharing-disabled-writer,both-shm-locators,measured-shm-traffic
 
-statistics: 63 samples from 3 participant(s)
-shared memory: /dev/shm 2.19 MB used of 16.7 GB (16.7 GB free) | Fast DDS 2.19 MB in 3 segment(s), 6 port(s), 0 data-sharing histories
+statistics: 562 samples from 6 participant(s)
+
+shared memory: /dev/shm 339 MB used of 16.7 GB (16.3 GB free) | Fast DDS 4.06 MB in 6 segment(s), 14 port(s), 2 data-sharing histories (1 unmatched)
 ```
 
-The same output on a terminal (`--color auto`, default when stdout is a terminal):
+The same capture on a terminal (`--color auto`, default when stdout is a terminal):
 
 ![colored table](docs/images/example-table.svg)
 
@@ -36,7 +39,7 @@ The same output on a terminal (`--color auto`, default when stdout is a terminal
 
 ```
 docker compose build
-docker compose run --rm dev
+docker compose run --rm dev bash
 colcon build --symlink-install && source install/setup.bash
 
 ros2 run demo_nodes_cpp talker &
