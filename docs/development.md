@@ -126,15 +126,19 @@ colcon test && colcon test-result --verbose
 
 ## Continuous integration
 
-`.github/workflows/ci.yml` runs the same steps on every push to `main` and every pull
-request inside `ros:jazzy`, `ros:kilted` and `ros:rolling` containers: `rosdep install`,
-`colcon build`, `colcon test`. Rolling may break with upstream changes and does not block
-(`continue-on-error`). Test result XML files and launch logs are uploaded as a workflow
-artifact per distribution.
+`.github/workflows/ci.yml` runs `rosdep install`, `colcon build`, `colcon test` inside
+`ros:jazzy`, `ros:kilted` and `ros:rolling` containers for every pull request that touches
+code (docs-only changes skip the job); Rolling may break with upstream changes and does
+not block (`continue-on-error`). Test result XML files and launch logs are uploaded as a
+workflow artifact per distribution. `main` is protected: pull requests merge only when
+the Jazzy and Kilted jobs and the `mkdocs build --strict` job of the Docs workflow have
+passed or were skipped for a change that does not concern them.
 
 A second job, `integration`, runs `scripts/integration_test.sh all` on the x86_64 runner
-VM on pushes to `main` and on `workflow_dispatch` (not for pull requests, to keep PR CI
-short); the `transport_viz` JSON of each scenario is uploaded as an artifact.
+VM for the merge commit on `main` and on `workflow_dispatch` (not for pull requests, to
+keep PR CI short); the `transport_viz` JSON of each scenario is uploaded as an artifact.
+The matrix itself does not run again on `main`: each change is built once, in its pull
+request.
 
 ## Verification results
 

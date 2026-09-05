@@ -1,24 +1,39 @@
 name: Docs
 
+# Always triggered (see ci.yml); the build job skips itself unless documentation
+# changed, which still satisfies the required check of main's branch protection.
 on:
   push:
     branches: [main]
-    paths: &docs_paths
-      - 'docs/**'
-      - 'README.md'
-      - 'README.ja.md'
-      - 'mkdocs.yml'
-      - '.github/workflows/docs.yml'
   pull_request:
-    paths: *docs_paths
   workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
+  changes:
+    name: changed paths
+    runs-on: ubuntu-latest
+    outputs:
+      docs: ${{ steps.filter.outputs.docs }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            docs:
+              - 'docs/**'
+              - 'README.md'
+              - 'README.ja.md'
+              - 'mkdocs.yml'
+              - '.github/workflows/docs.yml'
+
   build:
     name: mkdocs build --strict
+    needs: changes
+    if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.docs == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

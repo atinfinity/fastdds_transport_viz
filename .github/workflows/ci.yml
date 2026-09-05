@@ -1,23 +1,41 @@
 name: CI
 
+# Always triggered (path filters in `on:` would leave the required checks of main's
+# branch protection pending); jobs skip themselves for docs-only changes, and a skipped
+# required check counts as passed.
 on:
   push:
     branches: [main]
-    paths-ignore: &docs_paths
-      - 'docs/**'
-      - '**.md'
-      - 'mkdocs.yml'
-      - '.github/workflows/docs.yml'
   pull_request:
-    paths-ignore: *docs_paths
   workflow_dispatch:
 
 jobs:
+  changes:
+    name: changed paths
+    runs-on: ubuntu-latest
+    outputs:
+      code: ${{ steps.filter.outputs.code }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            code:
+              - '**'
+              - '!docs/**'
+              - '!**.md'
+              - '!mkdocs.yml'
+              - '!.github/workflows/docs.yml'
+
   build-and-test:
     name: colcon build & test (ROS 2 ${{ matrix.distro }})
-    # Pull requests validate the code; the merge commit on main only runs the
-    # multi-container job below (avoids running the matrix twice per change).
-    if: github.event_name != 'push'
+    # Pull requests validate the code (required checks of main's protection); the merge
+    # commit on main only runs the multi-container job below. Docs-only changes skip it.
+    needs: changes
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'pull_request' && needs.changes.outputs.code == 'true')
     runs-on: ubuntu-latest
     container: ros:${{ matrix.distro }}
     # Jazzy: Fast DDS 2.14; Kilted: Fast DDS 3.2; Rolling: Fast DDS 3.x head, may break
@@ -69,10 +87,14 @@ jobs:
 
   integration:
     # Multi-container scenarios (scripts/integration_test.sh) on the x86_64 runner VM:
-    # bridged containers => UDPv4, --stats across containers, host network/IPC => SHM.
-    # Skipped for pull requests to keep PR CI short; run it by hand with workflow_dispatch.
+    # bridged containers => UDPv4, --stats across containers, host network/IPC => SHM,
+    # LARGE_DATA => TCPv4, DEFAULTv6 => UDPv6. Runs for the merge commit on main (and
+    # workflow_dispatch), not for pull requests, to keep PR CI short.
     name: multi-container integration (x86_64)
-    if: github.event_name != 'pull_request'
+    needs: changes
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'push' && needs.changes.outputs.code == 'true')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
