@@ -1,5 +1,9 @@
 # How it works
 
+The tool builds against Fast DDS 2.14 (ROS 2 Jazzy) and 3.x (Kilted, Rolling); the
+API differences live in `include/fastdds_transport_viz/fastdds_compat.hpp`. The decision
+rules below are the same in both.
+
 `ros2 topic info -v` cannot tell you the transport: the rmw layer exposes no locator
 information. `transport_viz` therefore creates its own Fast DDS `DomainParticipant` and
 listens to endpoint discovery, which carries every remote writer's/reader's **announced
@@ -65,9 +69,11 @@ see [development.md](development.md#verification-results)):
   `LARGE_DATA` too when using `--stats`: the statistics samples travel over TCP.
 - `UDPv6` / `DEFAULTv6` need an interface with an IPv6 address (Docker's default bridge
   has none); the tool must speak UDPv6 as well to hear the discovery traffic.
-- `ROS_DISCOVERY_SERVER`: a plain client only learns about the endpoints it matches, so
-  the tool makes itself a `SUPER_CLIENT` when the variable is set (a message on stderr
-  says so). An explicit `ROS_SUPER_CLIENT` is respected.
+- `ROS_DISCOVERY_SERVER`: a plain client only learns about the endpoints it matches
+  (Fast DDS 2.14 and 3.2; 3.6 in Rolling relays everything), so the tool makes itself a
+  `SUPER_CLIENT` when the variable is set (a message on stderr says so). An explicit
+  `ROS_SUPER_CLIENT` is respected. The server is `fastdds discovery -i 0 -l <ip> -p <port>`
+  on Jazzy and `fastdds discovery -l <ip> -p <port>` on Kilted / Rolling.
 - `ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST` works unchanged (nodes announce loopback
   locators only). `OFF` limits every participant to itself, so nothing can be observed;
   the tool prints a warning in that case.

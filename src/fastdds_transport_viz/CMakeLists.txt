@@ -12,8 +12,18 @@ endif()
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(std_msgs REQUIRED)
-find_package(fastrtps REQUIRED)
+# Fast DDS 3.x (Kilted / Rolling) exports the `fastdds` package, 2.x (Jazzy) `fastrtps`.
+find_package(fastdds QUIET)
+if(fastdds_FOUND)
+  set(FTV_FASTDDS_TARGET fastdds)
+  set(FTV_FASTDDS_MAJOR 3)
+else()
+  find_package(fastrtps REQUIRED)
+  set(FTV_FASTDDS_TARGET fastrtps)
+  set(FTV_FASTDDS_MAJOR 2)
+endif()
 find_package(fastcdr REQUIRED)
+message(STATUS "fastdds_transport_viz: building against Fast DDS ${FTV_FASTDDS_MAJOR}.x (${FTV_FASTDDS_TARGET})")
 find_package(nlohmann_json REQUIRED)
 
 # --- core library: DDS/ROS independent (model, decision, names) ---------------
@@ -27,13 +37,21 @@ target_include_directories(${PROJECT_NAME}_core PUBLIC
 
 # --- observers + renderers -----------------------------------------------------
 # Generated Fast DDS statistics types (see third_party/fastdds_statistics_types/NOTICE).
-set(STATS_TYPES_DIR ${CMAKE_CURRENT_SOURCE_DIR}/third_party/fastdds_statistics_types)
-add_library(${PROJECT_NAME}_stats_types STATIC
-  ${STATS_TYPES_DIR}/types.cxx
-  ${STATS_TYPES_DIR}/typesv1.cxx
-  ${STATS_TYPES_DIR}/typesPubSubTypes.cxx)
+if(FTV_FASTDDS_MAJOR EQUAL 3)
+  set(STATS_TYPES_DIR ${CMAKE_CURRENT_SOURCE_DIR}/third_party/fastdds_statistics_types_v3)
+  set(STATS_TYPES_SOURCES
+    ${STATS_TYPES_DIR}/typesPubSubTypes.cxx
+    ${STATS_TYPES_DIR}/typesTypeObjectSupport.cxx)
+else()
+  set(STATS_TYPES_DIR ${CMAKE_CURRENT_SOURCE_DIR}/third_party/fastdds_statistics_types)
+  set(STATS_TYPES_SOURCES
+    ${STATS_TYPES_DIR}/types.cxx
+    ${STATS_TYPES_DIR}/typesv1.cxx
+    ${STATS_TYPES_DIR}/typesPubSubTypes.cxx)
+endif()
+add_library(${PROJECT_NAME}_stats_types STATIC ${STATS_TYPES_SOURCES})
 target_include_directories(${PROJECT_NAME}_stats_types PUBLIC ${STATS_TYPES_DIR})
-target_link_libraries(${PROJECT_NAME}_stats_types PUBLIC fastrtps fastcdr)
+target_link_libraries(${PROJECT_NAME}_stats_types PUBLIC ${FTV_FASTDDS_TARGET} fastcdr)
 target_compile_options(${PROJECT_NAME}_stats_types PRIVATE -w)
 set_target_properties(${PROJECT_NAME}_stats_types PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
@@ -47,7 +65,7 @@ target_link_libraries(${PROJECT_NAME}_lib PRIVATE ${PROJECT_NAME}_stats_types)
 target_link_libraries(${PROJECT_NAME}_lib PUBLIC
   ${PROJECT_NAME}_core
   rclcpp::rclcpp
-  fastrtps
+  ${FTV_FASTDDS_TARGET}
   fastcdr
   nlohmann_json::nlohmann_json)
 

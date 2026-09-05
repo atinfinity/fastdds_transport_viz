@@ -15,7 +15,8 @@
 
   <depend>rclcpp</depend>
   <depend>std_msgs</depend>
-  <depend>fastrtps</depend>
+  <depend condition="$ROS_DISTRO == jazzy">fastrtps</depend>
+  <depend condition="$ROS_DISTRO != jazzy">fastdds</depend>
   <depend>fastcdr</depend>
   <depend>nlohmann-json-dev</depend>
 

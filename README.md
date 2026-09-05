@@ -5,7 +5,7 @@
 Shows **which Fast DDS transport each ROS 2 topic is communicated over** — UDPv4,
 UDPv6, TCP, shared memory (SHM) or zero-copy data-sharing — **and why**.
 
-Target: ROS 2 Jazzy with `rmw_fastrtps_cpp` (Fast DDS 2.14).
+Targets: ROS 2 Jazzy (Fast DDS 2.14) and Kilted / Rolling (Fast DDS 3.x) with `rmw_fastrtps_cpp`.
 
 ```
 $ ros2 transport list -v --stats

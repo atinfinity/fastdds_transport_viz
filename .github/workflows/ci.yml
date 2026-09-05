@@ -8,9 +8,16 @@ on:
 
 jobs:
   build-and-test:
-    name: colcon build & test (ROS 2 Jazzy)
+    name: colcon build & test (ROS 2 ${{ matrix.distro }})
     runs-on: ubuntu-latest
-    container: ros:jazzy
+    container: ros:${{ matrix.distro }}
+    # Jazzy: Fast DDS 2.14; Kilted: Fast DDS 3.2; Rolling: Fast DDS 3.x head, may break
+    # with upstream changes, so it does not block PRs.
+    continue-on-error: ${{ matrix.distro == 'rolling' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        distro: [jazzy, kilted, rolling]
     defaults:
       run:
         shell: bash
@@ -24,19 +31,19 @@ jobs:
 
       - name: Install dependencies (rosdep)
         run: |
-          rosdep update --rosdistro jazzy
-          rosdep install --from-paths src --ignore-src --rosdistro jazzy -y
+          rosdep update --rosdistro ${{ matrix.distro }}
+          rosdep install --from-paths src --ignore-src --rosdistro ${{ matrix.distro }} -y
 
       - name: Build
         run: |
-          source /opt/ros/jazzy/setup.bash
+          source /opt/ros/${{ matrix.distro }}/setup.bash
           colcon build --symlink-install --event-handlers console_cohesion+
 
       - name: Test
         env:
           RMW_IMPLEMENTATION: rmw_fastrtps_cpp
         run: |
-          source /opt/ros/jazzy/setup.bash
+          source /opt/ros/${{ matrix.distro }}/setup.bash
           source install/setup.bash
           colcon test --event-handlers console_cohesion+ --return-code-on-test-failure
           colcon test-result --verbose
@@ -45,7 +52,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: test-results
+          name: test-results-${{ matrix.distro }}
           path: |
             build/**/test_results/**/*.xml
             log/latest_test/**/*.log

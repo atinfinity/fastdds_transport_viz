@@ -42,6 +42,9 @@ def node_action(package, executable, name, env_overrides=None, arguments=None):
         env=env, arguments=list(arguments or []))
 
 
+# demo_nodes_cpp publishes std_msgs/String up to Kilted and example_interfaces/String in Rolling
+STRING_TYPES = ('std_msgs/msg/String', 'example_interfaces/msg/String')
+
 STATS_ENV = {
     'FASTDDS_STATISTICS': 'RTPS_SENT_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC;DATA_COUNT_TOPIC',
     # lift the statistics writers' 10-instance resource limit (see docs/statistics.md)

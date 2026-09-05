@@ -3,7 +3,10 @@
 ## Docker environment
 
 The repository ships a `compose.yaml` and `docker/Dockerfile` based on `ros:jazzy`
-(multi-arch: x86_64 and arm64).
+(multi-arch: x86_64 and arm64). `ROS_DISTRO=kilted docker compose build` (or `rolling`)
+builds the same environment on Fast DDS 3.x; the image is tagged
+`fastdds_transport_viz:<distro>` and every `docker compose` command below then needs
+the same `ROS_DISTRO` in the environment.
 
 ```
 docker compose build
@@ -124,8 +127,10 @@ colcon test && colcon test-result --verbose
 ## Continuous integration
 
 `.github/workflows/ci.yml` runs the same steps on every push to `main` and every pull
-request inside a `ros:jazzy` container: `rosdep install`, `colcon build`, `colcon test`.
-Test result XML files and launch logs are uploaded as a workflow artifact.
+request inside `ros:jazzy`, `ros:kilted` and `ros:rolling` containers: `rosdep install`,
+`colcon build`, `colcon test`. Rolling may break with upstream changes and does not block
+(`continue-on-error`). Test result XML files and launch logs are uploaded as a workflow
+artifact per distribution.
 
 A second job, `integration`, runs `scripts/integration_test.sh all` on the x86_64 runner
 VM on pushes to `main` and on `workflow_dispatch` (not for pull requests, to keep PR CI
@@ -146,6 +151,7 @@ short); the `transport_viz` JSON of each scenario is uploaded as an artifact.
 | 2026-09-05 | `ROS_DISCOVERY_SERVER` (fast-discovery-server on 127.0.0.1:11811) | x86_64 | 2.14.6 | `SHM` pair seen as SUPER_CLIENT; a plain CLIENT does not see `/chatter` | `test_discovery_server.py` |
 | 2026-09-05 | `ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST` | x86_64 | 2.14.6 | `SHM`, nodes announce `127.0.0.1` only; `OFF` sees nothing (warning printed) | `test_localhost_range.py` |
 | 2026-09-05 | 2 MB samples over SHM, `--stats` | x86_64 | 2.14.6 | `SHM`, measured `SHM`, bytes consistent with the sample size | `test_large_shm.py` |
+| 2026-09-05 | full launch test suite on Fast DDS 3.x (Kilted 3.2.4, Rolling 3.6.2) | x86_64 | 3.2.4 / 3.6.2 | all pass; Rolling: demo nodes publish `example_interfaces/msg/String`, Discovery Server relays every endpoint to plain clients | `ROS_DISTRO=kilted docker compose build dev` + `colcon test` |
 | 2026-09-05 | two physical hosts on one Wi-Fi LAN: x86_64 Ubuntu (Docker `hostnet`) ↔ macOS arm64 (native RoboStack Jazzy); multicast, static peers, Discovery Server | x86_64 + arm64 | 2.14.6 both | not established: the Mac's Fast DDS stops sending 1.6 s after start (capture), network ruled out ([#15](https://github.com/atinfinity/fastdds_transport_viz/issues/15)) | see "Two physical hosts" |
 
 ## Layout
@@ -168,7 +174,9 @@ src/fastdds_transport_viz/
                                    unicast_discovery.xml
 web/                               static viewer (index.html, app.js), serve.py (transport_viz_web), sample/
 schema/                            JSON Schema for --json output
-  third_party/fastdds_statistics_types/   vendored generated statistics types
+  third_party/fastdds_statistics_types/     vendored generated statistics types (Fast DDS 2.14)
+  third_party/fastdds_statistics_types_v3/  same for Fast DDS 3.x
+  include/.../fastdds_compat.hpp            2.14 / 3.x API differences
   test/                            gtest + launch tests
 ```
 

@@ -13,18 +13,21 @@
 #include <fastdds/dds/subscriber/qos/SubscriberQos.hpp>
 #include <fastdds/dds/topic/TypeSupport.hpp>
 #include <fastdds/dds/topic/qos/TopicQos.hpp>
-#include <fastdds/rtps/common/Guid.h>
-#include <fastdds/rtps/common/Locator.h>
 #include <fastdds/statistics/topic_names.hpp>
 
+#include "fastdds_transport_viz/fastdds_compat.hpp"
 #include "fastdds_transport_viz/fastdds_util.hpp"
+#if FTV_FASTDDS_3
+#include "typesPubSubTypes.hpp"
+#else
 #include "typesPubSubTypes.h"
+#endif
 
 namespace fastdds_transport_viz
 {
 
 namespace dds = eprosima::fastdds::dds;
-namespace rtps = eprosima::fastrtps::rtps;
+namespace rtps = ftv_rtps;
 namespace st = eprosima::fastdds::statistics;
 
 namespace
@@ -134,7 +137,7 @@ void StatsObserver::drain()
   dds::SampleInfo info;
 
   st::Entity2LocatorTraffic traffic;
-  while (rtps_sent_.reader->take_next_sample(&traffic, &info) == ReturnCode_t::RETCODE_OK) {
+  while (retcode_ok(rtps_sent_.reader->take_next_sample(&traffic, &info))) {
     if (!info.valid_data) {continue;}
     ++data_.samples;
     rtps::GUID_t src = to_rtps(traffic.src_guid());
@@ -151,7 +154,7 @@ void StatsObserver::drain()
   }
 
   st::WriterReaderData latency;
-  while (history_latency_.reader->take_next_sample(&latency, &info) == ReturnCode_t::RETCODE_OK) {
+  while (retcode_ok(history_latency_.reader->take_next_sample(&latency, &info))) {
     if (!info.valid_data) {continue;}
     ++data_.samples;
     rtps::GUID_t w = to_rtps(latency.writer_guid());
@@ -161,7 +164,7 @@ void StatsObserver::drain()
   }
 
   st::EntityCount count;
-  while (data_count_.reader->take_next_sample(&count, &info) == ReturnCode_t::RETCODE_OK) {
+  while (retcode_ok(data_count_.reader->take_next_sample(&count, &info))) {
     if (!info.valid_data) {continue;}
     ++data_.samples;
     rtps::GUID_t g = to_rtps(count.guid());
@@ -173,7 +176,7 @@ void StatsObserver::drain()
   }
 
   st::PhysicalData physical;
-  while (physical_data_.reader->take_next_sample(&physical, &info) == ReturnCode_t::RETCODE_OK) {
+  while (retcode_ok(physical_data_.reader->take_next_sample(&physical, &info))) {
     if (!info.valid_data) {continue;}
     ++data_.samples;
     rtps::GUID_t g = to_rtps(physical.participant_guid());
