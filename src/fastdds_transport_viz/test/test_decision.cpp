@@ -496,6 +496,24 @@ TEST(ApplyStats, DataSharingStaysLikelyWithMixedReaders)
   EXPECT_TRUE(ds.verdict.warnings.empty());
 }
 
+TEST(ApplyStats, DeliveredWithoutMeasuredTrafficIsItsOwnWarning)
+{
+  std::vector<Endpoint> eps;
+  eps.push_back(make(true, HOST_A, {shm(7415)}));
+  eps.push_back(make(false, HOST_A, {shm(7413)}));
+  eps[0].participant_guid_prefix = "P1";
+  auto topics = summarize(eps);
+  // traffic only to unrelated locators, but HISTORY_LATENCY proves delivery
+  auto stats = stats_with(eps[0], {TrafficSample{"P1", shm(7001), 3, 300.0}}, true, &eps[1]);
+  apply_stats(topics, stats);
+  const auto & p = topics[0].pairs[0];
+  EXPECT_TRUE(p.measured.delivered);
+  EXPECT_TRUE(p.measured.transports.empty());
+  EXPECT_TRUE(has(p.verdict.warnings, "delivered-without-measured-traffic"));
+  EXPECT_FALSE(has(p.verdict.warnings, "no-traffic-observed"));
+  EXPECT_EQ(p.verdict.confidence, Confidence::Certain);  // nothing measured, prediction stands
+}
+
 TEST(ApplyStats, WriterInstanceLimitSuspectedWhenTenLocatorsReported)
 {
   std::vector<Endpoint> eps;

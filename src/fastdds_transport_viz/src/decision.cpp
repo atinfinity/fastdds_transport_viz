@@ -414,9 +414,13 @@ void apply_stats(std::vector<TopicSummary> & topics, const StatsData & stats)
         continue;
       }
       if (m.transports.empty()) {
+        // Samples proven delivered (HISTORY_LATENCY) but no RTPS_SENT entry for any of the
+        // reader's locators: the statistics did not attribute the packets, which is not
+        // the same as an idle link.
         v.warnings.push_back(
           locators_per_source[src] >= kStatsWriterInstanceLimit ?
-          "stats-writer-instance-limit-suspected" : "no-traffic-observed");
+          "stats-writer-instance-limit-suspected" :
+          m.delivered ? "delivered-without-measured-traffic" : "no-traffic-observed");
         continue;
       }
       bool matches = std::find(m.transports.begin(), m.transports.end(), v.transport) != m.transports.end();
@@ -548,6 +552,10 @@ const std::map<std::string, std::string> & explanations()
       "(one per destination locator), so counters for further locators are never published. "
       "Raise it with an XML profile named after the statistics topic "
       "(_fastdds_statistics_rtps_sent) whose <resourceLimitsQos> sets max_instances to 0."},
+    {"delivered-without-measured-traffic",
+      "HISTORY_LATENCY statistics prove that samples reached the reader, but RTPS_SENT reported no "
+      "packets to any of the reader's locators during the observation, so the transport that "
+      "carried them could not be measured (seen with large samples over SHM on slow machines)."},
     {"no-traffic-observed",
       "The writer's participant publishes statistics but sent no packets to any locator of the "
       "reader during the observation window (idle topic, or a longer --timeout is needed)."},
