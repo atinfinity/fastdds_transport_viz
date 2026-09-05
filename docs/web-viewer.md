@@ -1,5 +1,7 @@
 # Web viewer
 
+English | [日本語](web-viewer.ja.md)
+
 `web/index.html` renders a `transport_viz --json` document as a graph: hosts are columns,
 ROS nodes are boxes, and every writer → reader pair is an arrow colored by transport.
 It is a static page (plain HTML/JS plus a vendored copy of d3) — no build step, no
@@ -43,7 +45,8 @@ subscriptions and unmatched topics.
 The **Table** tab shows one row per pair (sortable by clicking a header).
 
 ![table view](images/web-viewer-table.jpg)
- The filters
+
+The filters
 (topic regex, node regex, transport checkboxes, "hide ROS internal topics" for
 `/parameter_events` and `/rosout`) apply to the graph, the table and the panel. The node
 filter has the semantics of `--node`: pairs whose writer or reader belongs to a matching
