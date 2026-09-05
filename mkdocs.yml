@@ -26,11 +26,13 @@ theme:
 nav:
   - Home: index.md
   - User guide:
+    - Getting started: getting-started.md
     - How it works: how-it-works.md
     - Measured transports (--stats): statistics.md
     - Data-sharing (zero-copy): data-sharing.md
     - Web viewer: web-viewer.md
   - Developer guide:
+    - Architecture: architecture.md
     - Development, verification and tests: development.md
 
 plugins:
@@ -51,11 +53,13 @@ plugins:
           nav_translations:
             Home: ホーム
             User guide: ユーザーガイド
+            Getting started: はじめに
             How it works: 仕組み
             Measured transports (--stats): 実測 transport (--stats)
             Data-sharing (zero-copy): Data-sharing (zero-copy)
             Web viewer: Web viewer
             Developer guide: 開発者ガイド
+            Architecture: Architecture (英語)
             Development, verification and tests: 開発・検証・テスト (英語)
 
 markdown_extensions:

@@ -190,35 +190,15 @@ the script (Docker host) after changing the table layout or the palette and comm
 ## Japanese documentation
 
 `README.ja.md` and `docs/*.ja.md` mirror the English user documentation (README,
-how-it-works, statistics, data-sharing, web-viewer); English is the source of truth and
-tool output stays English. When one of those English files changes, update its `.ja.md`
-and the "as of" date in its header. This file has no translation.
+getting-started, how-it-works, statistics, data-sharing, web-viewer); English is the
+source of truth and tool output stays English. When one of those English files changes,
+update its `.ja.md` and the "as of" date in its header. The developer guide (this file
+and architecture.md) has no translation.
 
 ## Layout
 
-Two packages: `fastdds_transport_viz` (C++, all Fast DDS logic, the `transport_viz`
-binary and `transport_viz_web`) and `ros2transport` (Python ros2cli extension that
-execs the binary: `ros2 transport list`, `ros2 transport codes`).
-
-```
-src/ros2transport/
-  ros2transport/api/               binary lookup, option mirroring, exec
-  ros2transport/command/, verb/    ros2cli entry points (transport; list, codes)
-  test/                            pytest with a fake binary + launch test
-src/fastdds_transport_viz/
-  include/fastdds_transport_viz/   model.hpp, decision.hpp, discovery_observer.hpp,
-                                   ros_graph_resolver.hpp, stats_observer.hpp, render.hpp
-  src/                             implementation + main.cpp
-  src/test_nodes/                  verification nodes
-  config/                          statistics.xml, datasharing_auto.xml, datasharing_auto_stats.xml,
-                                   unicast_discovery.xml
-web/                               static viewer (index.html, app.js), serve.py (transport_viz_web), sample/
-schema/                            JSON Schema for --json output
-  third_party/fastdds_statistics_types/     vendored generated statistics types (Fast DDS 2.14)
-  third_party/fastdds_statistics_types_v3/  same for Fast DDS 3.x
-  include/.../fastdds_compat.hpp            2.14 / 3.x API differences
-  test/                            gtest + launch tests
-```
+See [architecture.md](architecture.md): components, the flow of one run, the data model,
+the Fast DDS 2.14 / 3.x compatibility layer, the repository layout and extension points.
 
 ## Roadmap
 
