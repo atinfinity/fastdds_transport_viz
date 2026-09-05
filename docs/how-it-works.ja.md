@@ -96,7 +96,11 @@ IP アドレスを広告することがあり、警告 `host-id-match-but-ip-dif
 | `~` (黄) | transport、確信度、実測 transport、警告のいずれかが変わった |
 | `-` (薄い) | ペアが消えた。3 フレーム残してから消す |
 
-トピック行にはそのペアの印が付き、表の後に `changes:` の要約行が出ます。watch 中のキー: `q` 終了、
+トピック行にはそのペアの印が付き、表の後に `changes:` の要約行が出ます。新しい
+listener が現れ、UDP の listener が消えた直後の 1 フレーム:
+
+![watch frame](images/example-watch.svg)
+watch 中のキー: `q` 終了、
 `p` 一時停止/再開 (停止中の変化は再開時に強調)、`v` ペア行の切り替え、`e` 理由コード凡例の
 切り替え、`a` `--all` の切り替え。stdout が端末でないときはエスケープシーケンス無しでフレームを
 順に出力します。`--json` では各フレームが 1 つの JSON Lines 文書になり、`changes` オブジェクト
@@ -104,3 +108,8 @@ IP アドレスを広告することがあり、警告 `host-id-match-but-ip-dif
 
 色 (`--color auto|always|never`、既定は `auto`、`NO_COLOR` も尊重) は一回きりの表にも適用されます。
 transport は web viewer と同じ配色、警告は赤です。
+
+![colored table](images/example-table.svg)
+
+どちらの画像も実際の出力です (`scripts/render_examples.sh` が `--color always` で採取し、
+`scripts/ansi2svg.py` が ANSI の色を SVG に変換します)。

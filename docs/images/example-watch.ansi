@@ -1,0 +1,12 @@
+transport_viz  domain 0  2026-09-05T14:27:38Z  refresh 3s  [topic: ^/chatter$]
+
+   TOPIC     TYPE                 PUBS  SUBS  TRANSPORT  REASON
+[32m+[0m  /chatter  std_msgs/msg/String  1     2     [32mSHM[0m x2     same-host-guid,datasharing-disabled-writer,both-shm-locators,measured-udpv4-traffic,measured-shm-traffic
+[32m+[0m      /talker@39dfe6be4e2b(152) -> /listener_new@39dfe6be4e2b(287)  [32mSHM[0m    measured=UDPv4+SHM 61pkt  same-host-guid,datasharing-disabled-writer,both-shm-locators,measured-udpv4-traffic,measured-shm-traffic
+       /talker@39dfe6be4e2b(152) -> /listener@39dfe6be4e2b(150)      [32mSHM[0m    measured=SHM 53pkt        same-host-guid,datasharing-disabled-writer,both-shm-locators,measured-shm-traffic
+[2m-[0m  [2m    /talker@39dfe6be4e2b(152) -> /listener_udp@39dfe6be4e2b(151)[0m  [2mUDPv4[0m                            [2m(removed)[0m
+
+[1mchanges: [0m+1 pair  -1 pair  
+
+statistics: 373 samples from 8 participant(s)
+
