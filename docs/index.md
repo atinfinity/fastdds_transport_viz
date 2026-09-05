@@ -69,10 +69,12 @@ ros2 transport codes
 
 ## Documentation
 
+- [Getting started](getting-started.md) — build (native or Docker), first run, `--stats`, watch mode, web viewer, first checks
 - [How it works](how-it-works.md) — decision rules, reason codes, hosts, where to run it, watch mode
 - [Measured transports (`--stats`)](statistics.md) — statistics topics, enabling them, the 10-instance pitfall
 - [Data-sharing (zero-copy)](data-sharing.md) — why ROS 2 topics show `SHM` by default and how to enable data-sharing
 - [Web viewer](web-viewer.md) — graph/table view of `--json` output in the browser, live mode (`transport_viz_web`), JSON schema
+- [Architecture](architecture.md) — components, the flow of one run, data model, Fast DDS 2.14/3.x layer, extension points
 - [Development, verification and tests](development.md) — Docker environment, packages, verification nodes, multi-container scenarios, tests, verification results, roadmap
 
 ## License
