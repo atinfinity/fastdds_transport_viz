@@ -112,7 +112,8 @@ shared memory: /dev/shm 396 MB used of 16.7 GB (16.3 GB free) | Fast DDS 63.4 MB
   gives a container 64 MB unless `--shm-size` or `--ipc=host` is used; Fast DDS needs one
   segment per participant (512 KB by default, more for large data) and fails to create it
   when the directory is full.
-- **Fast DDS files** are the `fastrtps_*` and `fast_datasharing_*` entries: one
+- **Fast DDS files** are the `fastrtps_*` (Fast DDS 3.x: `fastdds_*`) and
+  `fast_datasharing_*` entries: one
   *segment* (`fastrtps_<hex>`) per participant, one *port* ring buffer
   (`fastrtps_port<N>`) per SHM locator, and one *data-sharing history* per writer that
   uses zero-copy delivery. Their sizes are summed.

@@ -20,8 +20,10 @@ namespace fastdds_transport_viz
 namespace
 {
 
-constexpr const char * kSegmentPrefix = "fastrtps_";
-constexpr const char * kPortPrefix = "fastrtps_port";
+// Fast DDS 2.x names its files fastrtps_*, 3.x fastdds_*; data-sharing files kept their name.
+constexpr const char * kSegmentPrefixes[] = {"fastrtps_", "fastdds_"};
+constexpr const char * kPortPrefixes[] = {"fastrtps_port", "fastdds_port"};
+constexpr const char * kSemPrefixes[] = {"sem.fastrtps_", "sem.fastdds_"};
 constexpr const char * kDataSharingPrefix = "fast_datasharing_";
 constexpr const char * kLockSuffix = "_el";
 constexpr uint64_t kNearlyFullFreeBytes = 16ull * 1024 * 1024;   // one large-data segment
@@ -30,6 +32,16 @@ constexpr double kNearlyFullRatio = 0.9;
 bool starts_with(const std::string & s, const char * prefix)
 {
   return s.rfind(prefix, 0) == 0;
+}
+
+/// The prefix of `s` among `prefixes`, or nullptr.
+template<size_t N>
+const char * prefix_of(const std::string & s, const char * const (& prefixes)[N])
+{
+  for (const char * p : prefixes) {
+    if (starts_with(s, p)) {return p;}
+  }
+  return nullptr;
 }
 
 bool ends_with(const std::string & s, const char * suffix)
@@ -117,8 +129,10 @@ ShmInfo scan_shm(const std::string & path, const ShmScanInput & in)
   std::set<std::string> ports_held;   // port files whose lock a living process holds
   while (struct dirent * ent = ::readdir(dir)) {
     const std::string name = ent->d_name;
-    const bool fastdds_file = starts_with(name, kSegmentPrefix) ||
-      starts_with(name, kDataSharingPrefix) || starts_with(name, "sem.fastrtps_");
+    const char * segment_prefix = prefix_of(name, kSegmentPrefixes);
+    const char * port_prefix = prefix_of(name, kPortPrefixes);
+    const bool fastdds_file = segment_prefix != nullptr ||
+      starts_with(name, kDataSharingPrefix) || prefix_of(name, kSemPrefixes) != nullptr;
     if (!fastdds_file) {continue;}
     const std::string full = path + "/" + name;
     struct stat st {};
@@ -126,15 +140,15 @@ ShmInfo scan_shm(const std::string & path, const ShmScanInput & in)
     info.fastdds_bytes += static_cast<uint64_t>(st.st_size);
     if (ends_with(name, kLockSuffix)) {continue;}
 
-    if (starts_with(name, kPortPrefix)) {
-      const std::string port = name.substr(std::string(kPortPrefix).size());
+    if (port_prefix != nullptr) {
+      const std::string port = name.substr(std::string(port_prefix).size());
       if (!is_digits(port)) {continue;}
       ++info.ports;
       const auto st = probe_lock(full + kLockSuffix);
       if (st == LockState::Free) {++info.stale_ports;}
       if (st == LockState::Held) {ports_held.insert(port);}
-    } else if (starts_with(name, kSegmentPrefix)) {
-      if (!is_hex(name.substr(std::string(kSegmentPrefix).size()))) {continue;}
+    } else if (segment_prefix != nullptr) {
+      if (!is_hex(name.substr(std::string(segment_prefix).size()))) {continue;}
       ++info.segments;
       if (probe_lock(full + kLockSuffix) == LockState::Free) {++info.stale_segments;}
     } else if (starts_with(name, kDataSharingPrefix)) {

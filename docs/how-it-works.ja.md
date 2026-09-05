@@ -107,7 +107,8 @@ shared memory: /dev/shm 396 MB used of 16.7 GB (16.3 GB free) | Fast DDS 63.4 MB
   `--shm-size` や `--ipc=host` を指定しない限りコンテナに 64 MB しか与えません。Fast DDS は
   participant ごとに 1 つのセグメント (既定 512 KB、large data ではより大きい) を必要とし、
   ディレクトリが一杯だと作成に失敗します。
-- **Fast DDS のファイル** は `fastrtps_*` と `fast_datasharing_*` のエントリです: participant
+- **Fast DDS のファイル** は `fastrtps_*` (Fast DDS 3.x では `fastdds_*`) と `fast_datasharing_*`
+  のエントリです: participant
   ごとの *セグメント* (`fastrtps_<hex>`)、SHM locator ごとの *ポート* のリングバッファ
   (`fastrtps_port<N>`)、zero-copy 配送を使う writer ごとの *data-sharing 履歴*。サイズは
   合計して表示します。

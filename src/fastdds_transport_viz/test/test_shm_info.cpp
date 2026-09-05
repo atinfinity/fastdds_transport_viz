@@ -92,27 +92,32 @@ TEST_F(FakeShmDir, CountsSizesAndStaleFilesByLock)
   file("fastrtps_port7000", 500);
   file("fastrtps_port7000_el", 0);         // users died: lock free
   file("fastrtps_port7002", 500);          // released cleanly: no lock file
+  file("fastdds_dddd", 1000);              // Fast DDS 3.x naming
+  file("fastdds_dddd_el", 0);
+  file("fastdds_port7419", 500);
+  locked("fastdds_port7419");
+  file("sem.fastdds_port7419_mutex", 32);
   file("sem.fastrtps_port7411_mutex", 32);
   file("fast_datasharing_01.02.03.04.05.06.07.08.00.00.00.00_0.0.14.3", 200);
   file("fast_datasharing_01.02.03.04.05.06.07.08.00.00.00.00_0.0.15.3", 300);
   file("unrelated", 4096);
 
   ShmScanInput in;
-  in.node_ports = {7411};
+  in.node_ports = {7411, 7419};
   in.datasharing_writers = {{"fast_datasharing_01.02.03.04.05.06.07.08.00.00.00.00_0.0.14.3", "W1"}};
   auto info = scan_shm(dir, in);
   EXPECT_TRUE(info.available);
   EXPECT_GT(info.total_bytes, 0u);
-  EXPECT_EQ(info.fastdds_bytes, 1000u * 3 + 500 * 3 + 32 + 200 + 300);
-  EXPECT_EQ(info.segments, 3u);
-  EXPECT_EQ(info.stale_segments, 1u);
-  EXPECT_EQ(info.ports, 3u);
+  EXPECT_EQ(info.fastdds_bytes, 1000u * 4 + 500 * 4 + 32 * 2 + 200 + 300);
+  EXPECT_EQ(info.segments, 4u);
+  EXPECT_EQ(info.stale_segments, 2u);
+  EXPECT_EQ(info.ports, 4u);
   EXPECT_EQ(info.stale_ports, 1u);
   EXPECT_EQ(info.datasharing_histories, 2u);
   EXPECT_EQ(info.datasharing_unmatched, 1u);
   ASSERT_EQ(info.datasharing_by_writer.count("W1"), 1u);
   EXPECT_EQ(info.datasharing_by_writer.at("W1"), 200u);
-  EXPECT_EQ(info.checked_ports, (std::vector<uint32_t>{7411}));
+  EXPECT_EQ(info.checked_ports, (std::vector<uint32_t>{7411, 7419}));
   EXPECT_TRUE(info.missing_ports.empty());
   EXPECT_TRUE(info.nodes_visible);
   EXPECT_TRUE(has(info.warnings, "shm-stale-files"));
