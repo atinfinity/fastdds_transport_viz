@@ -77,6 +77,12 @@ Things learned while trying this on a Wi-Fi LAN
 - `ROS_AUTOMATIC_DISCOVERY_RANGE=OFF` disables discovery completely (rmw_fastrtps caps
   the participant count at one); `LOCALHOST` makes nodes announce only `127.0.0.1`.
   Neither helps across hosts.
+- On the x86_64 ↔ macOS (native RoboStack) pair, **Discovery Server** does not help
+  either: a root `tcpdump` on the Mac shows its Fast DDS sending for 1.6 s after start
+  and then never reacting to inbound RTPS again, while raw UDP (including IP fragments)
+  flows both ways and Docker Desktop's bridge, macOS's 9216-byte UDP datagram limit and
+  `maxMessageSize` were ruled out. Details and next steps in
+  [#15](https://github.com/atinfinity/fastdds_transport_viz/issues/15).
 
 ## Verification nodes
 
@@ -140,7 +146,7 @@ short); the `transport_viz` JSON of each scenario is uploaded as an artifact.
 | 2026-09-05 | `ROS_DISCOVERY_SERVER` (fast-discovery-server on 127.0.0.1:11811) | x86_64 | 2.14.6 | `SHM` pair seen as SUPER_CLIENT; a plain CLIENT does not see `/chatter` | `test_discovery_server.py` |
 | 2026-09-05 | `ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST` | x86_64 | 2.14.6 | `SHM`, nodes announce `127.0.0.1` only; `OFF` sees nothing (warning printed) | `test_localhost_range.py` |
 | 2026-09-05 | 2 MB samples over SHM, `--stats` | x86_64 | 2.14.6 | `SHM`, measured `SHM`, bytes consistent with the sample size | `test_large_shm.py` |
-| 2026-09-05 | two physical hosts on one Wi-Fi LAN: x86_64 Ubuntu (Docker `hostnet`) ↔ macOS arm64 (native RoboStack Jazzy) | x86_64 + arm64 | 2.14.6 both | discovery not established, remote writer never seen ([#15](https://github.com/atinfinity/fastdds_transport_viz/issues/15)) | see "Two physical hosts" |
+| 2026-09-05 | two physical hosts on one Wi-Fi LAN: x86_64 Ubuntu (Docker `hostnet`) ↔ macOS arm64 (native RoboStack Jazzy); multicast, static peers, Discovery Server | x86_64 + arm64 | 2.14.6 both | not established: the Mac's Fast DDS stops sending 1.6 s after start (capture), network ruled out ([#15](https://github.com/atinfinity/fastdds_transport_viz/issues/15)) | see "Two physical hosts" |
 
 ## Layout
 
