@@ -43,7 +43,7 @@ def node_action(package, executable, name, env_overrides=None, arguments=None):
 
 
 STATS_ENV = {
-    'FASTDDS_STATISTICS': 'RTPS_SENT_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC',
+    'FASTDDS_STATISTICS': 'RTPS_SENT_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC;DATA_COUNT_TOPIC',
     # lift the statistics writers' 10-instance resource limit (see docs/statistics.md)
     'FASTRTPS_DEFAULT_PROFILES_FILE': os.path.join(
         get_package_share_directory('fastdds_transport_viz'), 'config', 'statistics.xml'),

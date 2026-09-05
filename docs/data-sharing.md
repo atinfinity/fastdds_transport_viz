@@ -28,8 +28,30 @@ types such as `/rosout`.
 ## Confidence
 
 The verdict is `likely` (`DATA_SHARING?`) when both endpoints announce data-sharing with
-intersecting domain ids. With `--stats` it becomes `certain` only when `HISTORY_LATENCY`
-proves delivery while no packet at all reached the reader's locators. Reliable
-data-sharing endpoints still exchange heartbeats over SHM and statistics are per
-participant, so traffic on the link does not disprove zero-copy delivery; the reason code
-`datasharing-ambiguous-participant-traffic` says exactly that.
+intersecting domain ids. With `--stats` it becomes `certain` in two ways:
+
+- `HISTORY_LATENCY` proves delivery while no packet at all reached the reader's locators
+  (`datasharing-confirmed-no-traffic`).
+- `HISTORY_LATENCY` proves delivery and the writer's `DATA_COUNT` did not grow during the
+  observation (`datasharing-confirmed-no-data-submessages`). Reliable data-sharing
+  endpoints still exchange heartbeats over SHM, but zero-copy delivery never produces a
+  DATA submessage, so this counter separates the two. It needs `DATA_COUNT_TOPIC` in
+  `FASTDDS_STATISTICS` on the observed nodes:
+
+  ```
+  export FASTRTPS_DEFAULT_PROFILES_FILE=$(ros2 pkg prefix fastdds_transport_viz)/share/fastdds_transport_viz/config/datasharing_auto_stats.xml
+  export RMW_FASTRTPS_USE_QOS_FROM_XML=1
+  export FASTDDS_STATISTICS="RTPS_SENT_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC;DATA_COUNT_TOPIC"
+  ros2 run fastdds_transport_viz bounded_pub &
+  ros2 run fastdds_transport_viz bounded_sub &
+  ros2 transport list -v --stats                      # /bounded -> DATA_SHARING (certain)
+  ```
+
+If the writer also serves readers without data-sharing its `DATA_COUNT` mixes both paths
+and the verdict stays `likely` (`datasharing-ambiguous-mixed-readers`). If every reader
+uses data-sharing and the count still grows, Fast DDS did not use zero-copy: the verdict
+becomes the measured transport with the warning `datasharing-not-used`. Without
+`DATA_COUNT_TOPIC`, traffic on the link leaves the verdict `likely`
+(`datasharing-ambiguous-participant-traffic`). The JSON `measured` object carries
+`data_submessages` (the `DATA_COUNT` delta, `null` when unavailable) and
+`delivered_samples`.

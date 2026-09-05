@@ -344,7 +344,18 @@ void apply_stats(std::vector<TopicSummary> & topics, const StatsData & stats)
       Measurement & m = p.measured;
       const std::string & src = p.writer->participant_guid_prefix;
       m.available = stats.participants_with_stats.count(src) > 0;
-      m.delivered = stats.delivered.count({p.writer->guid, p.reader->guid}) > 0;
+      if (auto d = stats.delivered.find({p.writer->guid, p.reader->guid}); d != stats.delivered.end()) {
+        m.delivered_samples = d->second;
+        m.delivered = d->second > 0;
+      }
+      // DATA_COUNT is published only when the writer actually sends a DATA submessage,
+      // so "the participant has a DATA_COUNT writer but no sample arrived" means zero.
+      if (auto dc = stats.data_count.find(p.writer->guid); dc != stats.data_count.end()) {
+        m.data_count_available = true;
+        m.data_submessages = dc->second.last - dc->second.first;
+      } else if (stats.statistics_writers.count({src, kStatsDataCountTopic})) {
+        m.data_count_available = true;
+      }
       for (const auto & s : stats.traffic) {
         if (s.src_participant_prefix != src || !reader_has_locator(*p.reader, s.dst)) {
           continue;
@@ -371,6 +382,30 @@ void apply_stats(std::vector<TopicSummary> & topics, const StatsData & stats)
         if (m.delivered && m.transports.empty()) {
           v.confidence = Confidence::Certain;
           replace_code(v.reasons, "datasharing-unverified-by-traffic", "datasharing-confirmed-no-traffic");
+        } else if (m.delivered && m.data_count_available) {
+          // Reliable data-sharing endpoints still exchange heartbeats, so traffic on the
+          // link proves nothing; the writer's DATA_COUNT (DATA submessages sent through a
+          // transport) does, as long as every reader of the writer uses data-sharing.
+          const bool all_readers_datasharing = std::all_of(
+            t.pairs.begin(), t.pairs.end(), [&p](const Pair & q) {
+              return q.writer != p.writer || q.verdict.transport == Transport::DataSharing;
+            });
+          if (!all_readers_datasharing) {
+            replace_code(v.reasons, "datasharing-unverified-by-traffic", "datasharing-ambiguous-mixed-readers");
+          } else if (m.data_submessages == 0) {
+            v.confidence = Confidence::Certain;
+            replace_code(v.reasons, "datasharing-unverified-by-traffic", "datasharing-confirmed-no-data-submessages");
+          } else {
+            // DATA left through a transport although only data-sharing readers exist:
+            // Fast DDS did not use zero-copy. Report what was measured.
+            v.transport = m.transports.empty() ? Transport::SHM : m.transports.front();
+            v.confidence = m.transports.empty() ? Confidence::Likely : Confidence::Certain;
+            replace_code(v.reasons, "datasharing-unverified-by-traffic", "datasharing-data-submessages-sent");
+            for (auto tr : m.transports) {
+              v.reasons.push_back(measured_reason(tr));
+            }
+            v.warnings.push_back("datasharing-not-used");
+          }
         } else if (!m.transports.empty()) {
           replace_code(v.reasons, "datasharing-unverified-by-traffic", "datasharing-ambiguous-participant-traffic");
         } else {
@@ -518,10 +553,23 @@ const std::map<std::string, std::string> & explanations()
       "reader during the observation window (idle topic, or a longer --timeout is needed)."},
     {"stats-not-enabled-on-writer",
       "No statistics were received from the writer's participant. Start it with "
-      "FASTDDS_STATISTICS=\"RTPS_SENT_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC\"."},
+      "FASTDDS_STATISTICS=\"RTPS_SENT_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC;DATA_COUNT_TOPIC\"."},
     {"datasharing-confirmed-no-traffic",
       "HISTORY_LATENCY statistics prove samples reached the reader while no RTPS packets went to "
       "any of its locators: zero-copy data-sharing delivery is confirmed."},
+    {"datasharing-confirmed-no-data-submessages",
+      "HISTORY_LATENCY statistics prove samples reached the reader while the writer's DATA_COUNT "
+      "did not grow: no DATA submessage left through a transport, so zero-copy data-sharing "
+      "delivery is confirmed (needs DATA_COUNT_TOPIC on the observed nodes)."},
+    {"datasharing-ambiguous-mixed-readers",
+      "The writer also serves readers without data-sharing, so its DATA_COUNT mixes both delivery "
+      "paths and cannot confirm zero-copy for this pair."},
+    {"datasharing-data-submessages-sent",
+      "Every reader of this writer announces data-sharing, yet the writer sent DATA submessages "
+      "through a transport during the observation: Fast DDS did not use zero-copy delivery."},
+    {"datasharing-not-used",
+      "Data-sharing was announced by both sides but the writer's DATA_COUNT grew while it only had "
+      "data-sharing readers; the verdict shows the transport that was measured instead."},
     {"datasharing-ambiguous-participant-traffic",
       "The writer's participant did send packets to the reader's locators. Statistics are per "
       "participant, and reliable data-sharing endpoints still exchange heartbeats/acknacks over "

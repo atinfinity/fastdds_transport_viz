@@ -85,7 +85,7 @@ void usage()
     "  --json             emit JSON (schema_version 1) instead of a table\n"
     "  --stats            also subscribe to the Fast DDS statistics topics and show the\n"
     "                     transport that actually carried packets; observed nodes must run\n"
-    "                     with FASTDDS_STATISTICS=\"RTPS_SENT_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC\"\n"
+    "                     with FASTDDS_STATISTICS=\"RTPS_SENT_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC;DATA_COUNT_TOPIC\"\n"
     "  --color <mode>     auto|always|never: ANSI colors for transports and warnings\n"
     "                     (default: auto = only when stdout is a terminal; honours NO_COLOR)\n"
     "  --watch            keep observing and re-render every --interval seconds, marking\n"
@@ -195,6 +195,11 @@ Snapshot collect(
     if (phys != stats_data.physical.end()) {
       e.host_name = phys->second.host;
       e.process = phys->second.process;
+    }
+    if (e.is_writer && e.dds_topic.rfind("_fastdds_statistics_", 0) == 0) {
+      // which statistics topics the participant publishes (DATA_COUNT is only sent on
+      // change, so its mere presence matters)
+      stats_data.statistics_writers.insert({e.participant_guid_prefix, e.dds_topic});
     }
     // Our own rclcpp node's endpoints: topic endpoints resolve to our node
     // name, service endpoints live under our node name (services are not

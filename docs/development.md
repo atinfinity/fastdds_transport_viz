@@ -104,7 +104,9 @@ colcon test && colcon test-result --verbose
   interface), `test_localhost_range.py` (`ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST`),
   `test_discovery_server.py` (`fast-discovery-server`, SUPER_CLIENT vs plain client),
   `test_large_data_same_host.py` (`LARGE_DATA`: TCPv4 announced, SHM chosen),
-  `test_large_shm.py` (2 MB samples measured on SHM).
+  `test_large_shm.py` (2 MB samples measured on SHM), `test_datasharing_stats.py`
+  (`bounded_pub`/`bounded_sub` with `datasharing_auto_stats.xml`: `DATA_SHARING` becomes
+  `certain` through `HISTORY_LATENCY` + `DATA_COUNT`).
 - `test_json_schema` / `test_json_schema_live.py`: sample and live `--json` output against
   `schema/transport_viz.schema.json`.
 - `test_web_serve` (pytest, fake `transport_viz`) / `test_web_live.py` (real one): the live
@@ -156,7 +158,8 @@ src/fastdds_transport_viz/
                                    ros_graph_resolver.hpp, stats_observer.hpp, render.hpp
   src/                             implementation + main.cpp
   src/test_nodes/                  verification nodes
-  config/                          statistics.xml, datasharing_auto.xml
+  config/                          statistics.xml, datasharing_auto.xml, datasharing_auto_stats.xml,
+                                   unicast_discovery.xml
 web/                               static viewer (index.html, app.js), serve.py (transport_viz_web), sample/
 schema/                            JSON Schema for --json output
   third_party/fastdds_statistics_types/   vendored generated statistics types

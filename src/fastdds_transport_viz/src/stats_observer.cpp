@@ -55,7 +55,7 @@ rtps::Locator_t to_rtps(const st::detail::Locator_s & l)
 
 std::string StatsObserver::required_env_value()
 {
-  return "RTPS_SENT_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC";
+  return "RTPS_SENT_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC;DATA_COUNT_TOPIC";
 }
 
 StatsObserver::StatsObserver(dds::DomainParticipant * participant)
@@ -71,12 +71,14 @@ StatsObserver::StatsObserver(dds::DomainParticipant * participant)
     st::HISTORY_LATENCY_TOPIC, dds::TypeSupport(new st::WriterReaderDataPubSubType()));
   physical_data_ = create_reader(
     st::PHYSICAL_DATA_TOPIC, dds::TypeSupport(new st::PhysicalDataPubSubType()));
+  data_count_ = create_reader(
+    st::DATA_COUNT_TOPIC, dds::TypeSupport(new st::EntityCountPubSubType()));
   data_.enabled = true;
 }
 
 StatsObserver::~StatsObserver()
 {
-  for (auto * r : {&rtps_sent_, &history_latency_, &physical_data_}) {
+  for (auto * r : {&rtps_sent_, &history_latency_, &physical_data_, &data_count_}) {
     if (r->reader) {subscriber_->delete_datareader(r->reader);}
     if (r->topic && r->owns_topic) {participant_->delete_topic(r->topic);}
   }
@@ -155,7 +157,19 @@ void StatsObserver::drain()
     rtps::GUID_t w = to_rtps(latency.writer_guid());
     rtps::GUID_t r = to_rtps(latency.reader_guid());
     data_.participants_with_stats.insert(prefix_to_string(w.guidPrefix));
-    data_.delivered.insert({guid_to_string(w), guid_to_string(r)});
+    data_.delivered[{guid_to_string(w), guid_to_string(r)}]++;
+  }
+
+  st::EntityCount count;
+  while (data_count_.reader->take_next_sample(&count, &info) == ReturnCode_t::RETCODE_OK) {
+    if (!info.valid_data) {continue;}
+    ++data_.samples;
+    rtps::GUID_t g = to_rtps(count.guid());
+    data_.participants_with_stats.insert(prefix_to_string(g.guidPrefix));
+    auto & d = data_.data_count[guid_to_string(g)];
+    if (d.samples == 0) {d.first = count.count();}    // TRANSIENT_LOCAL: value before we started
+    d.last = count.count();
+    ++d.samples;
   }
 
   st::PhysicalData physical;
