@@ -340,10 +340,22 @@ void apply_stats(std::vector<TopicSummary> & topics, const StatsData & stats)
     locators_per_source[s.src_participant_prefix]++;
   }
   for (auto & t : topics) {
+    t.throughput = 0.0;
+    t.throughput_available = false;
+    for (const auto * w : t.writers) {
+      if (auto th = stats.throughput.find(w->guid); th != stats.throughput.end()) {
+        t.throughput += th->second.mean();
+        t.throughput_available = true;
+      }
+    }
     for (auto & p : t.pairs) {
       Measurement & m = p.measured;
       const std::string & src = p.writer->participant_guid_prefix;
       m.available = stats.participants_with_stats.count(src) > 0;
+      if (auto th = stats.throughput.find(p.writer->guid); th != stats.throughput.end()) {
+        m.throughput_available = true;
+        m.throughput = th->second.mean();
+      }
       if (auto d = stats.delivered.find({p.writer->guid, p.reader->guid}); d != stats.delivered.end()) {
         m.delivered_samples = d->second;
         m.delivered = d->second > 0;
@@ -367,8 +379,12 @@ void apply_stats(std::vector<TopicSummary> & topics, const StatsData & stats)
         if (std::find(m.transports.begin(), m.transports.end(), tr) == m.transports.end()) {
           m.transports.push_back(tr);
         }
-        m.packets += s.packets;
-        m.bytes += s.bytes;
+        // counters are cumulative since the writer's participant started; the
+        // difference to the first sample is what happened during the observation
+        m.packets += s.packets - std::min(s.packets, s.packets_first);
+        m.bytes += std::max(0.0, s.bytes - s.bytes_first);
+        m.packets_total += s.packets;
+        m.bytes_total += s.bytes;
       }
 
       Verdict & v = p.verdict;
@@ -561,7 +577,7 @@ const std::map<std::string, std::string> & explanations()
       "reader during the observation window (idle topic, or a longer --timeout is needed)."},
     {"stats-not-enabled-on-writer",
       "No statistics were received from the writer's participant. Start it with "
-      "FASTDDS_STATISTICS=\"RTPS_SENT_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC;DATA_COUNT_TOPIC\"."},
+      "FASTDDS_STATISTICS=\"RTPS_SENT_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC;DATA_COUNT_TOPIC;PUBLICATION_THROUGHPUT_TOPIC\"."},
     {"datasharing-confirmed-no-traffic",
       "HISTORY_LATENCY statistics prove samples reached the reader while no RTPS packets went to "
       "any of its locators: zero-copy data-sharing delivery is confirmed."},

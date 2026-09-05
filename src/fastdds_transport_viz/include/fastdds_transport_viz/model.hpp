@@ -107,8 +107,12 @@ struct Measurement
 {
   bool available{false};             // writer's participant publishes statistics
   std::vector<Transport> transports; // locator kinds that carried packets to the reader
-  uint64_t packets{0};
+  uint64_t packets{0};               // RTPS packets/bytes to the reader during the observation
   double bytes{0.0};
+  uint64_t packets_total{0};         // ... and since the writer's participant started
+  double bytes_total{0.0};
+  bool throughput_available{false};  // writer publishes PUBLICATION_THROUGHPUT
+  double throughput{0.0};            // payload bytes per second (mean over the observation)
   bool delivered{false};             // HISTORY_LATENCY sample seen for this writer->reader
   size_t delivered_samples{0};       // HISTORY_LATENCY samples seen for this pair
   bool data_count_available{false};  // the writer's participant publishes DATA_COUNT
@@ -134,6 +138,8 @@ struct TopicSummary
   std::vector<const Endpoint *> readers;
   std::vector<Pair> pairs;
   std::vector<std::string> unmatched_reasons;   // e.g. no-matching-reader
+  bool throughput_available{false};  // at least one writer publishes PUBLICATION_THROUGHPUT
+  double throughput{0.0};            // sum of the writers' payload bytes per second
 };
 
 // ---- statistics module data (--stats) ----------------------------------------
@@ -150,8 +156,20 @@ struct TrafficSample
 {
   std::string src_participant_prefix;   // 12-byte prefix, dotted hex
   Locator dst;
-  uint64_t packets{0};
+  uint64_t packets{0};          // cumulative RTPS_SENT counters at the last sample
   double bytes{0.0};
+  uint64_t packets_first{0};    // ... and at the first sample of the observation
+  double bytes_first{0.0};
+  size_t samples{0};
+};
+
+/// PUBLICATION_THROUGHPUT samples of one writer (payload bytes per second).
+struct ThroughputStat
+{
+  double sum{0.0};
+  double last{0.0};
+  size_t samples{0};
+  double mean() const {return samples ? sum / static_cast<double>(samples) : 0.0;}
 };
 
 /// DATA_COUNT samples of one writer: cumulative count at the first and the last sample.
@@ -172,6 +190,7 @@ struct StatsData
   std::vector<TrafficSample> traffic;
   std::map<std::pair<std::string, std::string>, size_t> delivered;  // (writer, reader) guid -> HISTORY_LATENCY samples
   std::map<std::string, DataCountSample> data_count;       // writer guid -> DATA_COUNT
+  std::map<std::string, ThroughputStat> throughput;        // writer guid -> PUBLICATION_THROUGHPUT
   std::set<std::pair<std::string, std::string>> statistics_writers;  // (participant prefix, statistics topic) discovered
   std::set<std::string> participants_with_stats;           // prefixes seen on any stats topic
   size_t samples{0};

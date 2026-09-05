@@ -59,7 +59,7 @@ ros2 transport codes
 |---|---|
 | `-v` | 各トピックの下に writer → reader のペアを展開する |
 | `--explain` | 使われている理由コードの凡例を末尾に付ける |
-| `--stats` | 実測の transport も表示する (観測対象ノードに `FASTDDS_STATISTICS` が必要。[実測 transport](statistics.md)) |
+| `--stats` | 実測の transport と `RATE` 列 (トピック/writer ごとの payload バイト数/秒) も表示する (観測対象ノードに `FASTDDS_STATISTICS` が必要。[実測 transport](statistics.md)) |
 | `--json` | 機械可読な出力 (`schema_version: 1`)。[web viewer](web-viewer.md) で開ける |
 | `--topic REGEX` | 名前が一致するトピックだけ表示する |
 | `--node REGEX` | 完全修飾ノード名が一致するノードが関わるペアだけ表示する (そのノードの未接続エンドポイントも残る) |

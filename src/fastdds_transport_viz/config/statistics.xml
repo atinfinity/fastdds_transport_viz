@@ -9,7 +9,7 @@
      statistics module requires. Profile names must match the aliases passed
      in FASTDDS_STATISTICS. Use with:
        export FASTRTPS_DEFAULT_PROFILES_FILE=$(ros2 pkg prefix fastdds_transport_viz)/share/fastdds_transport_viz/config/statistics.xml
-       export FASTDDS_STATISTICS="RTPS_SENT_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC;DATA_COUNT_TOPIC" -->
+       export FASTDDS_STATISTICS="RTPS_SENT_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC;DATA_COUNT_TOPIC;PUBLICATION_THROUGHPUT_TOPIC" -->
 <dds xmlns="http://www.eprosima.com/XMLSchemas/fastRTPS_Profiles">
   <profiles>
     <data_writer profile_name="RTPS_SENT_TOPIC">
@@ -45,6 +45,22 @@
       </qos>
     </data_writer>
     <data_writer profile_name="DATA_COUNT_TOPIC">
+      <topic>
+        <historyQos><kind>KEEP_LAST</kind><depth>10</depth></historyQos>
+        <resourceLimitsQos>
+          <max_samples>0</max_samples>
+          <max_instances>0</max_instances>
+          <max_samples_per_instance>0</max_samples_per_instance>
+          <allocated_samples>100</allocated_samples>
+        </resourceLimitsQos>
+      </topic>
+      <qos>
+        <durability><kind>TRANSIENT_LOCAL</kind></durability>
+        <reliability><kind>RELIABLE</kind></reliability>
+        <publishMode><kind>ASYNCHRONOUS</kind></publishMode>
+      </qos>
+    </data_writer>
+    <data_writer profile_name="PUBLICATION_THROUGHPUT_TOPIC">
       <topic>
         <historyQos><kind>KEEP_LAST</kind><depth>10</depth></historyQos>
         <resourceLimitsQos>

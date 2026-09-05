@@ -40,6 +40,11 @@ public:
   /// Drain every reader and return a copy of the aggregated data.
   StatsData snapshot();
 
+  /// Drain the readers without copying; call periodically during the observation so
+  /// that the first and the last sample of every counter are both seen (the readers
+  /// keep only the latest sample per instance).
+  void poll();
+
   /// Value for FASTDDS_STATISTICS that monitored nodes need.
   static std::string required_env_value();
 
@@ -60,6 +65,7 @@ private:
   Reader history_latency_;
   Reader physical_data_;
   Reader data_count_;
+  Reader throughput_;
 
   std::mutex mutex_;
   using TrafficKey = std::tuple<std::string, int, std::string, uint32_t>;  // src, kind, addr, port

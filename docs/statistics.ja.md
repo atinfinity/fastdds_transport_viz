@@ -11,6 +11,7 @@ discovery のデータは「こうなる*はず*」を教えてくれます。`-
 | `_fastdds_statistics_rtps_sent` | 各 participant が各宛先 locator に送った RTPS パケット数/バイト数。reader が広告した locator と突き合わせ、実際にパケットを運んだ locator の種類を得ます (`measured=SHM 47pkt`)。予測と食い違えば `!measured-transport-mismatch` を付けます。 |
 | `_fastdds_statistics_history2history_latency` | writer のサンプルが特定の reader に届いたことの証明。RTPS の痕跡を残さない zero-copy data-sharing の確認に使います。 |
 | `_fastdds_statistics_physical_data` | participant ごとのホスト名、ユーザー、プロセス id。`local` / `host:<id>` の代わりに表示します。 |
+| `_fastdds_statistics_publication_throughput` | writer ごとの payload バイト数/秒。`RATE` 列 (トピックは writer の合算) と JSON の `measured.throughput_bytes_per_s` に出ます。transport に依らないので zero-copy の data-sharing も定量化できます。 |
 | `_fastdds_statistics_data_count` | 各 writer が transport 経由で送った DATA/DATA_FRAG サブメッセージ数。zero-copy 配送では増えないので、増えるかどうかで data-sharing が本当に使われたかが決まります ([data-sharing.ja.md](data-sharing.ja.md#確信度) を参照)。 |
 
 ## 観測対象ノードで statistics を有効にする
@@ -18,10 +19,18 @@ discovery のデータは「こうなる*はず*」を教えてくれます。`-
 コードの変更は不要です。Fast DDS は participant 作成時に環境変数を読みます。
 
 ```
-export FASTDDS_STATISTICS="RTPS_SENT_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC;DATA_COUNT_TOPIC"
+export FASTDDS_STATISTICS="RTPS_SENT_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC;DATA_COUNT_TOPIC;PUBLICATION_THROUGHPUT_TOPIC"
 ```
 
 これ無しで起動したノードには警告 `stats-not-enabled-on-writer` が付きます。
+
+## カウンタが表すもの
+
+`RTPS_SENT` のカウンタは writer の participant の起動からの累積です。ツールは観測中ずっと statistics の
+reader を読み続け、最初と最後のサンプルの *差分* を `packets` / `bytes` として表示します
+(`measured=SHM 148pkt 7.63 MB`)。累積値は JSON の `packets_total` / `bytes_total` に残ります。
+`measured` の transport の種類は報告されたすべてのパケットから決めるので、以前は流れていたが観測中は
+静かだったペアは、実測 transport を失わずに `measured=SHM (idle)` と表示されます。
 
 ## 粒度
 
@@ -43,7 +52,7 @@ Fast DDS 2.14 は statistics の DataWriter を既定のリソース上限 (10 �
 
 ```
 export FASTRTPS_DEFAULT_PROFILES_FILE=$(ros2 pkg prefix fastdds_transport_viz)/share/fastdds_transport_viz/config/statistics.xml
-export FASTDDS_STATISTICS="RTPS_SENT_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC;DATA_COUNT_TOPIC"
+export FASTDDS_STATISTICS="RTPS_SENT_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC;DATA_COUNT_TOPIC;PUBLICATION_THROUGHPUT_TOPIC"
 ```
 
 Fast DDS はプロファイルファイルを 1 つしか読みません。data-sharing を `--stats` で観測するときは、

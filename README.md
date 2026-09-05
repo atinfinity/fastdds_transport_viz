@@ -63,7 +63,7 @@ ros2 transport codes
 |---|---|
 | `-v` | expand writer → reader pairs under each topic |
 | `--explain` | append a legend for the reason codes used |
-| `--stats` | also show measured transports (observed nodes need `FASTDDS_STATISTICS`, see [docs/statistics.md](docs/statistics.md)) |
+| `--stats` | also show measured transports and the `RATE` column (payload bytes/s per topic and writer); observed nodes need `FASTDDS_STATISTICS`, see [docs/statistics.md](docs/statistics.md) |
 | `--json` | machine-readable output (`schema_version: 1`, see `schema/`); open it in the [web viewer](docs/web-viewer.md) |
 | `--topic REGEX` | only topics whose name matches |
 | `--node REGEX` | only pairs involving a node whose full name matches (its unpaired endpoints stay visible) |

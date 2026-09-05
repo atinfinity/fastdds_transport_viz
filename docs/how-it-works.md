@@ -31,6 +31,16 @@ together with that node's unpaired endpoints; the other side of a kept pair stay
 visible even if it does not match. Both filters combine with AND. An invalid regex is
 rejected at start-up (exit code 2).
 
+## The RATE column
+
+With `--stats`, `RATE` shows the payload throughput of the topic's writers (sum) and, in
+the pair rows, of that writer: the `PUBLICATION_THROUGHPUT` statistic, averaged over the
+observation, in SI units (`24 B/s`, `1.31 MB/s`). It counts serialized samples handed to
+the writer, so it is independent of the transport and present for zero-copy pairs too.
+Without statistics the column shows `-`. The `measured=` cell of a pair row gives what
+the transport actually carried during the observation (`SHM 148pkt 7.63 MB`, or `(idle)`
+when packets flowed only before the observation).
+
 ## Reason codes
 
 Every verdict carries machine-readable reason codes (`same-host-guid`,

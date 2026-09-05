@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include <algorithm>
+#include <cstdio>
 #include <map>
 #include <set>
 #include <sstream>
@@ -161,6 +162,26 @@ std::string endpoint_label(const Snapshot & snap, const Endpoint & e, const Rend
 namespace
 {
 
+/// 1234 -> "1.23 kB" (SI, 3 significant digits); suffix e.g. "B" or "B/s".
+std::string human_bytes(double v, const char * unit)
+{
+  const char * prefixes[] = {"", "k", "M", "G", "T"};
+  int i = 0;
+  while (v >= 1000.0 && i < 4) {v /= 1000.0; ++i;}
+  char buf[32];
+  if (i == 0) {
+    std::snprintf(buf, sizeof(buf), "%.0f %s%s", v, prefixes[i], unit);
+  } else {
+    std::snprintf(buf, sizeof(buf), v < 10.0 ? "%.2f %s%s" : v < 100.0 ? "%.1f %s%s" : "%.0f %s%s", v, prefixes[i], unit);
+  }
+  return buf;
+}
+
+std::string rate_label(bool available, double bytes_per_s)
+{
+  return available ? human_bytes(bytes_per_s, "B/s") : "-";
+}
+
 std::string measured_label(const Pair & p)
 {
   if (!p.measured.available) {
@@ -174,7 +195,10 @@ std::string measured_label(const Pair & p)
     parts.push_back(to_string(t));
   }
   std::string s = join(parts, "+");
-  s += " " + std::to_string(p.measured.packets) + "pkt";
+  if (p.measured.packets == 0) {
+    return s + " (idle)";   // packets before the observation, none during it
+  }
+  s += " " + std::to_string(p.measured.packets) + "pkt " + human_bytes(p.measured.bytes, "B");
   return s;
 }
 
@@ -243,14 +267,16 @@ std::string render_table(const Snapshot & snap, const RenderOptions & opt)
   const std::string indent = watch ? "     " : "    ";
 
   std::vector<std::vector<std::string>> rows;
-  std::vector<std::string> header = {"TOPIC", "TYPE", "PUBS", "SUBS", "TRANSPORT", "REASON"};
+  std::vector<std::string> header = {"TOPIC", "TYPE", "PUBS", "SUBS", "TRANSPORT", "RATE", "REASON"};
   if (watch) {header.insert(header.begin(), " ");}
   rows.push_back(header);
   for (const auto & t : snap.topics) {
     std::vector<std::string> row = {
       t.display_topic, t.display_type,
       std::to_string(t.writers.size()), std::to_string(t.readers.size()),
-      aggregate_transports(t, color), aggregate_reasons(t, color)};
+      aggregate_transports(t, color),
+      rate_label(snap.stats.enabled && t.throughput_available, t.throughput),
+      aggregate_reasons(t, color)};
     if (watch) {row.insert(row.begin(), mark_cell(topic_mark(t, *watch), color));}
     rows.push_back(row);
   }
@@ -264,7 +290,7 @@ std::string render_table(const Snapshot & snap, const RenderOptions & opt)
     }
     for (const auto * g : orphan_ghosts) {
       rows.push_back({mark_cell('-', color), paint(g->key.topic, DIM, color), paint(g->type, DIM, color),
-          "-", "-", paint(g->transport_label, DIM, color), paint("(removed)", DIM, color)});
+          "-", "-", paint(g->transport_label, DIM, color), "-", paint("(removed)", DIM, color)});
     }
   }
 
@@ -276,7 +302,7 @@ std::string render_table(const Snapshot & snap, const RenderOptions & opt)
         std::vector<std::string> row = {
           mark_cell('-', color),
           paint(indent.substr(1) + g.writer_label + " -> " + g.reader_label, DIM, color),
-          paint(g.transport_label, DIM, color)};
+          paint(g.transport_label, DIM, color), "-"};
         if (snap.stats.enabled) {row.push_back("");}
         row.push_back(paint("(removed)", DIM, color));
         out.push_back(row);
@@ -305,6 +331,7 @@ std::string render_table(const Snapshot & snap, const RenderOptions & opt)
         row.push_back(indent.substr(watch ? 1 : 0) + endpoint_label(snap, *p.writer, opt) + " -> " +
           endpoint_label(snap, *p.reader, opt));
         row.push_back(transport_label(p.verdict, color));
+        row.push_back(rate_label(snap.stats.enabled && p.measured.throughput_available, p.measured.throughput));
         if (snap.stats.enabled) {
           row.push_back("measured=" + measured_label(p));
         }
@@ -328,7 +355,7 @@ std::string render_table(const Snapshot & snap, const RenderOptions & opt)
        << snap.stats.participants_with_stats.size() << " participant(s)";
     if (snap.stats.participants_with_stats.empty()) {
       os << " - start the observed nodes with FASTDDS_STATISTICS=\""
-         << "RTPS_SENT_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC\"";
+         << "RTPS_SENT_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC;DATA_COUNT_TOPIC;PUBLICATION_THROUGHPUT_TOPIC\"";
     }
     os << "\n";
   }

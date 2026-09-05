@@ -1,8 +1,8 @@
-TOPIC     TYPE                 PUBS  SUBS  TRANSPORT         REASON
-/bounded  std_msgs/msg/Int32   1     1     [33mDATA_SHARING[0m x1   same-host-guid,datasharing-qos-enabled-both,datasharing-domain-ids-match,datasharing-confirmed-no-data-submessages
-    /bounded_pub@39dfe6be4e2b(153) -> /bounded_sub@39dfe6be4e2b(154)  [33mDATA_SHARING[0m  measured=SHM 11pkt  same-host-guid,datasharing-qos-enabled-both,datasharing-domain-ids-match,datasharing-confirmed-no-data-submessages
-/chatter  std_msgs/msg/String  1     2     [32mSHM[0m x1, [34mUDPv4[0m x1  same-host-guid,datasharing-disabled-writer,both-shm-locators,measured-shm-traffic,reader-no-shm-locator,common-udpv4-locator,measured-udpv4-traffic
-    /talker@39dfe6be4e2b(152) -> /listener@39dfe6be4e2b(150)      [32mSHM[0m    measured=SHM 34pkt    same-host-guid,datasharing-disabled-writer,both-shm-locators,measured-shm-traffic
-    /talker@39dfe6be4e2b(152) -> /listener_udp@39dfe6be4e2b(151)  [34mUDPv4[0m  measured=UDPv4 35pkt  same-host-guid,datasharing-disabled-writer,reader-no-shm-locator,common-udpv4-locator,measured-udpv4-traffic
+TOPIC     TYPE                 PUBS  SUBS  TRANSPORT         RATE    REASON
+/bounded  std_msgs/msg/Int32   1     1     [33mDATA_SHARING[0m x1   80 B/s  same-host-guid,datasharing-qos-enabled-both,datasharing-domain-ids-match,datasharing-confirmed-no-data-submessages
+    /bounded_pub@b8eb79502344(152) -> /bounded_sub@b8eb79502344(154)  [33mDATA_SHARING[0m  80 B/s  measured=SHM 2pkt 236 B  same-host-guid,datasharing-qos-enabled-both,datasharing-domain-ids-match,datasharing-confirmed-no-data-submessages
+/chatter  std_msgs/msg/String  1     2     [32mSHM[0m x1, [34mUDPv4[0m x1  23 B/s  same-host-guid,datasharing-disabled-writer,both-shm-locators,measured-shm-traffic,reader-no-shm-locator,common-udpv4-locator,measured-udpv4-traffic
+    /talker@b8eb79502344(151) -> /listener@b8eb79502344(150)      [32mSHM[0m    23 B/s  measured=SHM 9pkt 1.19 kB     same-host-guid,datasharing-disabled-writer,both-shm-locators,measured-shm-traffic
+    /talker@b8eb79502344(151) -> /listener_udp@b8eb79502344(153)  [34mUDPv4[0m  23 B/s  measured=UDPv4 10pkt 1.31 kB  same-host-guid,datasharing-disabled-writer,reader-no-shm-locator,common-udpv4-locator,measured-udpv4-traffic
 
-statistics: 152 samples from 6 participant(s)
+statistics: 557 samples from 6 participant(s)

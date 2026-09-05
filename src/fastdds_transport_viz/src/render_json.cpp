@@ -68,6 +68,7 @@ std::string render_json(const Snapshot & snap, const RenderOptions & opt)
     tj["type"] = t.display_type;
     tj["is_ros_topic"] = t.is_ros_topic;
     tj["unmatched_reasons"] = t.unmatched_reasons;
+    tj["throughput_bytes_per_s"] = t.throughput_available ? json(t.throughput) : json(nullptr);
     json writers = json::array();
     for (const auto * w : t.writers) {writers.push_back(endpoint_json(snap, *w, opt));}
     json readers = json::array();
@@ -96,6 +97,10 @@ std::string render_json(const Snapshot & snap, const RenderOptions & opt)
                 }()},
               {"packets", p.measured.packets},
               {"bytes", p.measured.bytes},
+              {"packets_total", p.measured.packets_total},
+              {"bytes_total", p.measured.bytes_total},
+              {"throughput_bytes_per_s", p.measured.throughput_available ?
+                json(p.measured.throughput) : json(nullptr)},
               {"delivered", p.measured.delivered},
               {"delivered_samples", p.measured.delivered_samples},
               {"data_submessages", p.measured.data_count_available ?
@@ -158,6 +163,11 @@ std::string render_json(const Snapshot & snap, const RenderOptions & opt)
       dc[kv.first] = {{"first", kv.second.first}, {"last", kv.second.last}, {"samples", kv.second.samples}};
     }
     stats["data_count"] = dc;   // writer guid -> cumulative DATA_COUNT at first/last sample
+    json th = json::object();
+    for (const auto & kv : snap.stats.throughput) {
+      th[kv.first] = {{"mean", kv.second.mean()}, {"last", kv.second.last}, {"samples", kv.second.samples}};
+    }
+    stats["throughput"] = th;   // writer guid -> PUBLICATION_THROUGHPUT bytes/s
   }
   stats["participants_with_stats"] = snap.stats.participants_with_stats;
   json physical = json::object();
@@ -170,7 +180,8 @@ std::string render_json(const Snapshot & snap, const RenderOptions & opt)
   for (const auto & t : snap.stats.traffic) {
     traffic.push_back({{"src_participant_guid_prefix", t.src_participant_prefix},
         {"dst_locator", {{"kind", to_string(t.dst.kind)}, {"address", t.dst.address}, {"port", t.dst.port}}},
-        {"packets", t.packets}, {"bytes", t.bytes}});
+        {"packets", t.packets}, {"bytes", t.bytes},
+        {"packets_first", t.packets_first}, {"bytes_first", t.bytes_first}});
   }
   stats["traffic"] = traffic;
   root["stats"] = stats;

@@ -85,7 +85,7 @@ void usage()
     "  --json             emit JSON (schema_version 1) instead of a table\n"
     "  --stats            also subscribe to the Fast DDS statistics topics and show the\n"
     "                     transport that actually carried packets; observed nodes must run\n"
-    "                     with FASTDDS_STATISTICS=\"RTPS_SENT_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC;DATA_COUNT_TOPIC\"\n"
+    "                     with FASTDDS_STATISTICS=\"RTPS_SENT_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC;DATA_COUNT_TOPIC;PUBLICATION_THROUGHPUT_TOPIC\"\n"
     "  --color <mode>     auto|always|never: ANSI colors for transports and warnings\n"
     "                     (default: auto = only when stdout is a terminal; honours NO_COLOR)\n"
     "  --watch            keep observing and re-render every --interval seconds, marking\n"
@@ -456,6 +456,7 @@ int main(int argc, char ** argv)
     // Wait until --timeout, or until discovery has been quiet for --quiet
     // seconds (but never less than --quiet seconds in total).
     for (;;) {
+      if (stats) {stats->poll();}
       std::this_thread::sleep_for(50ms);
       auto now = std::chrono::steady_clock::now();
       double elapsed = std::chrono::duration<double>(now - start).count();

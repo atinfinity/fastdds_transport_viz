@@ -40,7 +40,8 @@ open web/index.html            # macOS。あるいはファイルをダブルク
 理由コードとその説明 (文書の `reason_code_descriptions` から)、両エンドポイントの locator と QoS
 です。ノードをクリックすると publisher、subscription、相手のいないトピックが出ます。
 
-**Table** タブはペアごとに 1 行を表示します (見出しをクリックでソート)。
+**Table** タブはペアごとに 1 行を表示します (見出しをクリックでソート)。statistics があれば
+writer の payload レートと観測中に運ばれたバイト数も出ます。
 
 ![table view](images/web-viewer-table.jpg)
 
