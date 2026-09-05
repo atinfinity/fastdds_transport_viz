@@ -80,11 +80,14 @@ Things learned while trying this on a Wi-Fi LAN
 - `ROS_AUTOMATIC_DISCOVERY_RANGE=OFF` disables discovery completely (rmw_fastrtps caps
   the participant count at one); `LOCALHOST` makes nodes announce only `127.0.0.1`.
   Neither helps across hosts.
-- On the x86_64 ↔ macOS (native RoboStack) pair, **Discovery Server** does not help
-  either: a root `tcpdump` on the Mac shows its Fast DDS sending for 1.6 s after start
-  and then never reacting to inbound RTPS again, while raw UDP (including IP fragments)
-  flows both ways and Docker Desktop's bridge, macOS's 9216-byte UDP datagram limit and
-  `maxMessageSize` were ruled out. Details and next steps in
+- On the x86_64 ↔ macOS (native RoboStack) pair, **Discovery Server** on the Linux host
+  is the configuration that worked: the tool reported `UDPv4` / `different-host` for the
+  cross-host pair. It is unreliable on that Mac, though: its Fast DDS `sendto()` calls
+  intermittently return `EHOSTUNREACH` for minutes at a time while plain UDP sockets on
+  the same machine deliver everything (found with a `DYLD_INSERT_LIBRARIES` interposer;
+  `nettop` counts attempted bytes, not delivered ones). Datagram size, interface
+  whitelist, netmask filter, SHM, Docker Desktop's bridge and macOS privacy settings were
+  ruled out. Details and next steps in
   [#15](https://github.com/atinfinity/fastdds_transport_viz/issues/15).
 
 ## Verification nodes
@@ -157,7 +160,7 @@ request.
 | 2026-09-05 | `ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST` | x86_64 | 2.14.6 | `SHM`, nodes announce `127.0.0.1` only; `OFF` sees nothing (warning printed) | `test_localhost_range.py` |
 | 2026-09-05 | 2 MB samples over SHM, `--stats` | x86_64 | 2.14.6 | `SHM`, measured `SHM`, bytes consistent with the sample size | `test_large_shm.py` |
 | 2026-09-05 | full launch test suite on Fast DDS 3.x (Kilted 3.2.4, Rolling 3.6.2) | x86_64 | 3.2.4 / 3.6.2 | all pass; Rolling: demo nodes publish `example_interfaces/msg/String`, Discovery Server relays every endpoint to plain clients | `ROS_DISTRO=kilted docker compose build dev` + `colcon test` |
-| 2026-09-05 | two physical hosts on one Wi-Fi LAN: x86_64 Ubuntu (Docker `hostnet`) ↔ macOS arm64 (native RoboStack Jazzy); multicast, static peers, Discovery Server | x86_64 + arm64 | 2.14.6 both | not established: the Mac's Fast DDS stops sending 1.6 s after start (capture), network ruled out ([#15](https://github.com/atinfinity/fastdds_transport_viz/issues/15)) | see "Two physical hosts" |
+| 2026-09-05 | two physical hosts on one Wi-Fi LAN: x86_64 Ubuntu (Docker `hostnet`) ↔ macOS arm64 (native RoboStack Jazzy), Discovery Server on the x86 host | x86_64 + arm64 | 2.14.6 both | `UDPv4`, `different-host`, `common-udpv4-locator` observed (writer `host:010f0956`, reader on `ubuntu2404-desktop01`); no `--stats` measurement: the Mac's Fast DDS `sendto()` intermittently fails with `EHOSTUNREACH` while plain UDP from the Mac works ([#15](https://github.com/atinfinity/fastdds_transport_viz/issues/15)) | see "Two physical hosts" |
 
 ## Documentation site
 
