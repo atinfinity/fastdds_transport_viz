@@ -1,17 +1,10 @@
 # fastdds_transport_viz
 
-[English](README.md) | 日本語
-
-> 英語版が正です。この文書は 2026-09-05 時点の英語版に対応しています。
-
-[![CI](https://github.com/atinfinity/fastdds_transport_viz/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/atinfinity/fastdds_transport_viz/actions/workflows/ci.yml)
-
-ドキュメントサイト: <https://atinfinity.github.io/fastdds_transport_viz/ja/>
-
 **ROS 2 の各トピックが Fast DDS のどの transport で通信しているか** — UDPv4、UDPv6、TCP、
 共有メモリ (SHM)、zero-copy の data-sharing — を、**その理由とともに**表示します。
 
 対象: ROS 2 Jazzy (Fast DDS 2.14) と Kilted / Rolling (Fast DDS 3.x)、`rmw_fastrtps_cpp`。
+ソースと Issue: [github.com/atinfinity/fastdds_transport_viz](https://github.com/atinfinity/fastdds_transport_viz)。
 
 ```
 $ ros2 transport list -v --stats
@@ -62,8 +55,8 @@ ros2 transport codes
 |---|---|
 | `-v` | 各トピックの下に writer → reader のペアを展開する |
 | `--explain` | 使われている理由コードの凡例を末尾に付ける |
-| `--stats` | 実測の transport も表示する (観測対象ノードに `FASTDDS_STATISTICS` が必要。[docs/statistics.ja.md](docs/statistics.ja.md)) |
-| `--json` | 機械可読な出力 (`schema_version: 1`、`schema/` 参照)。[web viewer](docs/web-viewer.ja.md) で開ける |
+| `--stats` | 実測の transport も表示する (観測対象ノードに `FASTDDS_STATISTICS` が必要。[実測 transport](statistics.md)) |
+| `--json` | 機械可読な出力 (`schema_version: 1`)。[web viewer](web-viewer.md) で開ける |
 | `--topic REGEX` | 名前が一致するトピックだけ表示する |
 | `--node REGEX` | 完全修飾ノード名が一致するノードが関わるペアだけ表示する (そのノードの未接続エンドポイントも残る) |
 | `--all` | サービス/アクションと ROS 以外の DDS トピックも含める |
@@ -72,11 +65,11 @@ ros2 transport codes
 
 ## ドキュメント
 
-- [仕組み](docs/how-it-works.ja.md) — 判定ルール、理由コード、ホスト、実行場所、watch モード
-- [実測 transport (`--stats`)](docs/statistics.ja.md) — statistics トピック、有効化、10 インスタンスの落とし穴
-- [Data-sharing (zero-copy)](docs/data-sharing.ja.md) — ROS 2 トピックが既定で `SHM` になる理由と data-sharing の有効化
-- [Web viewer](docs/web-viewer.ja.md) — `--json` 出力のグラフ/表表示、ライブモード (`transport_viz_web`)、JSON スキーマ
-- [開発・検証・テスト](docs/development.md) (英語) — Docker 環境、パッケージ構成、検証ノード、マルチコンテナのシナリオ、テスト、検証結果、ロードマップ
+- [仕組み](how-it-works.md) — 判定ルール、理由コード、ホスト、実行場所、watch モード
+- [実測 transport (`--stats`)](statistics.md) — statistics トピック、有効化、10 インスタンスの落とし穴
+- [Data-sharing (zero-copy)](data-sharing.md) — ROS 2 トピックが既定で `SHM` になる理由と data-sharing の有効化
+- [Web viewer](web-viewer.md) — `--json` 出力のグラフ/表表示、ライブモード (`transport_viz_web`)、JSON スキーマ
+- [開発・検証・テスト](development.md) (英語) — Docker 環境、パッケージ構成、検証ノード、マルチコンテナのシナリオ、テスト、検証結果、ロードマップ
 
 ## ライセンス
 

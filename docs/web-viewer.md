@@ -1,7 +1,5 @@
 # Web viewer
 
-English | [日本語](web-viewer.ja.md)
-
 `web/index.html` renders a `transport_viz --json` document as a graph: hosts are columns,
 ROS nodes are boxes, and every writer → reader pair is an arrow colored by transport.
 It is a static page (plain HTML/JS plus a vendored copy of d3) — no build step, no

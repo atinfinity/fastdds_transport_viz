@@ -1,0 +1,76 @@
+site_name: fastdds_transport_viz
+site_description: Which Fast DDS transport each ROS 2 topic is communicated over, and why
+site_url: https://atinfinity.github.io/fastdds_transport_viz/
+repo_url: https://github.com/atinfinity/fastdds_transport_viz
+repo_name: atinfinity/fastdds_transport_viz
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  features:
+    - navigation.top
+    - navigation.footer
+    - content.code.copy
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+
+nav:
+  - Home: index.md
+  - User guide:
+    - How it works: how-it-works.md
+    - Measured transports (--stats): statistics.md
+    - Data-sharing (zero-copy): data-sharing.md
+    - Web viewer: web-viewer.md
+  - Developer guide:
+    - Development, verification and tests: development.md
+
+plugins:
+  - search
+  - i18n:
+      docs_structure: suffix
+      fallback_to_default: true
+      reconfigure_material: true
+      reconfigure_search: true
+      languages:
+        - locale: en
+          default: true
+          name: English
+          build: true
+        - locale: ja
+          name: 日本語
+          build: true
+          nav_translations:
+            Home: ホーム
+            User guide: ユーザーガイド
+            How it works: 仕組み
+            Measured transports (--stats): 実測 transport (--stats)
+            Data-sharing (zero-copy): Data-sharing (zero-copy)
+            Web viewer: Web viewer
+            Developer guide: 開発者ガイド
+            Development, verification and tests: 開発・検証・テスト (英語)
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+      slugify: !!python/object/apply:pymdownx.slugs.slugify
+        kwds:
+          case: lower
+  - pymdownx.details
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format

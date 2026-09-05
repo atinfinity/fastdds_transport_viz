@@ -154,6 +154,18 @@ short); the `transport_viz` JSON of each scenario is uploaded as an artifact.
 | 2026-09-05 | full launch test suite on Fast DDS 3.x (Kilted 3.2.4, Rolling 3.6.2) | x86_64 | 3.2.4 / 3.6.2 | all pass; Rolling: demo nodes publish `example_interfaces/msg/String`, Discovery Server relays every endpoint to plain clients | `ROS_DISTRO=kilted docker compose build dev` + `colcon test` |
 | 2026-09-05 | two physical hosts on one Wi-Fi LAN: x86_64 Ubuntu (Docker `hostnet`) ↔ macOS arm64 (native RoboStack Jazzy); multicast, static peers, Discovery Server | x86_64 + arm64 | 2.14.6 both | not established: the Mac's Fast DDS stops sending 1.6 s after start (capture), network ruled out ([#15](https://github.com/atinfinity/fastdds_transport_viz/issues/15)) | see "Two physical hosts" |
 
+## Documentation site
+
+`mkdocs.yml` builds this documentation with Material for MkDocs and `mkdocs-static-i18n`
+(English at `/`, Japanese at `/ja/` from the `*.ja.md` files, English fallback for
+untranslated pages). `.github/workflows/docs.yml` runs `mkdocs build --strict` on every
+pull request and deploys to GitHub Pages on pushes to `main`. Locally:
+
+```
+pip install -r docs/requirements.txt
+mkdocs serve          # http://127.0.0.1:8000/
+```
+
 ## Japanese documentation
 
 `README.ja.md` and `docs/*.ja.md` mirror the English user documentation (README,

@@ -1,7 +1,5 @@
 # 仕組み
 
-[English](how-it-works.md) | 日本語
-
 > 英語版が正です。この文書は 2026-09-05 時点の英語版に対応しています。
 
 このツールは Fast DDS 2.14 (ROS 2 Jazzy) と 3.x (Kilted、Rolling) の両方に対してビルドできます。
