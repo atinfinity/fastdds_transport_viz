@@ -28,7 +28,11 @@ Statistics are per *participant* (one per ROS node), so a measurement applies to
 writer's node → reader's node link. The prediction from discovery is what tells the
 individual pairs apart. `--stats` observes for the full `--timeout` (default 5 s, the
 quiet-period early exit is disabled) so that counters can accumulate; idle topics show
-`!no-traffic-observed`.
+`!no-traffic-observed`. When `HISTORY_LATENCY` proves delivery but `RTPS_SENT` has no entry
+for any of the reader's locators, the warning is `!delivered-without-measured-traffic`
+instead: the samples arrived, the statistics just did not attribute the packets (seen on
+slow machines with 2 MB samples over SHM and the default 512 KB segment; a larger
+`segment_size` in the SHM transport descriptor helps).
 
 ## Pitfall: the 10-instance limit
 
