@@ -19,7 +19,7 @@
   const state = {
     doc: null,
     view: 'graph',
-    filter: { topic: '', transports: new Set(TRANSPORTS), hideInternal: true },
+    filter: { topic: '', node: '', transports: new Set(TRANSPORTS), hideInternal: true },
     selection: null,   // {kind: 'node', id} | {kind: 'edge', id} | {kind: 'pair', id}
     sort: { key: 'topic', asc: true },
   };
@@ -77,16 +77,36 @@
     return { nodes, hosts: hostList, pairs };
   }
 
+  /** RegExp for a filter field, or null when empty or invalid (an invalid pattern filters nothing). */
+  function filterRegex(pattern) {
+    if (!pattern) return null;
+    try { return new RegExp(pattern); } catch (e) { return null; }
+  }
+
+  /** Same semantics as `transport_viz --node`: pairs where the writer's or the reader's node matches. */
   function visiblePairs(model) {
     const f = state.filter;
-    let re = null;
-    if (f.topic) { try { re = new RegExp(f.topic); } catch (e) { re = null; } }
-    return model.pairs.filter(({ topic, pair }) => {
+    const re = filterRegex(f.topic);
+    const nre = filterRegex(f.node);
+    return model.pairs.filter(({ topic, pair, writerNode, readerNode }) => {
       if (f.hideInternal && INTERNAL_TOPICS.has(topic.topic)) return false;
       if (!f.transports.has(pair.transport)) return false;
       if (re && !re.test(topic.topic)) return false;
+      if (nre && !nre.test(writerNode) && !nre.test(readerNode)) return false;
       return true;
     });
+  }
+
+  /** With a node filter: matching nodes (even without visible pairs) plus the partners of visible pairs. */
+  function visibleNodesModel(model, pairs) {
+    const nre = filterRegex(state.filter.node);
+    if (!nre) return { model, matched: () => false };
+    const keep = new Set();
+    for (const n of model.nodes.values()) if (nre.test(n.id)) keep.add(n.id);
+    for (const vp of pairs) { keep.add(vp.writerNode); keep.add(vp.readerNode); }
+    const nodes = new Map([...model.nodes].filter(([id]) => keep.has(id)));
+    const hosts = model.hosts.map(h => ({ ...h, nodes: h.nodes.filter(n => keep.has(n.id)) })).filter(h => h.nodes.length);
+    return { model: { ...model, nodes, hosts }, matched: id => nre.test(id) };
   }
 
   /** Bundle pairs into edges: same writer node, reader node, transport and confidence. */
@@ -161,9 +181,10 @@
        <path d="M0,0 L10,5 L0,10 z" fill="${COLORS[t]}"/></marker>`).join(''));
   svg.call(d3.zoom().scaleExtent([0.2, 3]).on('zoom', (ev) => root.attr('transform', ev.transform)));
 
-  function renderGraph(model) {
-    const pairs = visiblePairs(model);
+  function renderGraph(fullModel) {
+    const pairs = visiblePairs(fullModel);
     const edges = bundle(pairs);
+    const { model, matched } = visibleNodesModel(fullModel, pairs);
     const { pos, hostBoxes } = layout(model);
 
     // parallel-edge index per (source,target) so bundles do not overlap
@@ -206,7 +227,7 @@
 
     const hideInternal = state.filter.hideInternal;
     const unmatchedCount = n => n.unmatched.filter(u => !(hideInternal && INTERNAL_TOPICS.has(u.topic.topic))).length;
-    const nodeData = [...model.nodes.values()].map(n => ({ n, p: pos.get(n.id), unmatched: unmatchedCount(n) }));
+    const nodeData = [...model.nodes.values()].map(n => ({ n, p: pos.get(n.id), unmatched: unmatchedCount(n), matched: matched(n.id) }));
     const nodeSel = root.selectAll('g.node').data(nodeData, d => d.n.id);
     const nodeEnter = nodeSel.enter().append('g').attr('class', 'node');
     nodeEnter.append('rect');
@@ -215,7 +236,7 @@
     nodeEnter.append('text').attr('class', 'unmatched');
     nodeSel.exit().remove();
     const nodesAll = nodeEnter.merge(nodeSel)
-      .attr('class', d => `node ${isSelected('node', d.n.id) ? 'selected' : ''}`)
+      .attr('class', d => `node ${d.matched ? 'matched' : ''} ${isSelected('node', d.n.id) ? 'selected' : ''}`)
       .attr('transform', d => `translate(${d.p.x},${d.p.y})`)
       .on('click', (ev, d) => { ev.stopPropagation(); select({ kind: 'node', id: d.n.id }); });
     nodesAll.select('rect').attr('width', L.nodeW).attr('height', L.nodeH);
@@ -434,7 +455,13 @@
   d3.select('#file').on('change', function () { if (this.files[0]) loadFile(this.files[0]); this.value = ''; });
   d3.select('#load-sample').on('click', () => loadSample());
   d3.selectAll('.tab').on('click', function () { state.view = this.dataset.view; render(); });
-  d3.select('#filter-topic').on('input', function () { state.filter.topic = this.value; render(); });
+  const onFilterInput = (key) => function () {
+    state.filter[key] = this.value;
+    this.classList.toggle('invalid', !!this.value && filterRegex(this.value) === null);
+    render();
+  };
+  d3.select('#filter-topic').on('input', onFilterInput('topic'));
+  d3.select('#filter-node').on('input', onFilterInput('node'));
   d3.select('#filter-internal').on('change', function () { state.filter.hideInternal = this.checked; render(); });
   const overlay = document.getElementById('drop-overlay');
   let dragDepth = 0;

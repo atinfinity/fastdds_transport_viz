@@ -44,8 +44,12 @@ The **Table** tab shows one row per pair (sortable by clicking a header).
 
 ![table view](images/web-viewer-table.jpg)
  The filters
-(topic regex, transport checkboxes, "hide ROS internal topics" for `/parameter_events`
-and `/rosout`) apply to the graph, the table and the panel.
+(topic regex, node regex, transport checkboxes, "hide ROS internal topics" for
+`/parameter_events` and `/rosout`) apply to the graph, the table and the panel. The node
+filter has the semantics of `--node`: pairs whose writer or reader belongs to a matching
+node stay, the graph keeps the matching nodes (highlighted, even without visible pairs)
+and the partner nodes of the remaining pairs, and hides the rest. An invalid regex is
+shown with a red border and filters nothing.
 
 ## Live mode
 
