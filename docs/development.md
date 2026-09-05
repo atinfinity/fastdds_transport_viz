@@ -154,6 +154,13 @@ short); the `transport_viz` JSON of each scenario is uploaded as an artifact.
 | 2026-09-05 | full launch test suite on Fast DDS 3.x (Kilted 3.2.4, Rolling 3.6.2) | x86_64 | 3.2.4 / 3.6.2 | all pass; Rolling: demo nodes publish `example_interfaces/msg/String`, Discovery Server relays every endpoint to plain clients | `ROS_DISTRO=kilted docker compose build dev` + `colcon test` |
 | 2026-09-05 | two physical hosts on one Wi-Fi LAN: x86_64 Ubuntu (Docker `hostnet`) ↔ macOS arm64 (native RoboStack Jazzy); multicast, static peers, Discovery Server | x86_64 + arm64 | 2.14.6 both | not established: the Mac's Fast DDS stops sending 1.6 s after start (capture), network ruled out ([#15](https://github.com/atinfinity/fastdds_transport_viz/issues/15)) | see "Two physical hosts" |
 
+## Japanese documentation
+
+`README.ja.md` and `docs/*.ja.md` mirror the English user documentation (README,
+how-it-works, statistics, data-sharing, web-viewer); English is the source of truth and
+tool output stays English. When one of those English files changes, update its `.ja.md`
+and the "as of" date in its header. This file has no translation.
+
 ## Layout
 
 Two packages: `fastdds_transport_viz` (C++, all Fast DDS logic, the `transport_viz`
@@ -207,11 +214,11 @@ Done:
 - Data-sharing confirmed with `--stats` through `DATA_COUNT` —
   [#9](https://github.com/atinfinity/fastdds_transport_viz/issues/9)
 - Web viewer: node filter — [#18](https://github.com/atinfinity/fastdds_transport_viz/issues/18)
+- Fast DDS 3.x (Kilted / Rolling) next to 2.14 (Jazzy) —
+  [#5](https://github.com/atinfinity/fastdds_transport_viz/issues/5)
+- Japanese README and user docs — [#8](https://github.com/atinfinity/fastdds_transport_viz/issues/8)
 
 Open:
 
-- Fast DDS 3.x (ROS 2 Rolling / Kilted) —
-  [#5](https://github.com/atinfinity/fastdds_transport_viz/issues/5)
-- Japanese README — [#8](https://github.com/atinfinity/fastdds_transport_viz/issues/8)
 - Two physical hosts on a Wi-Fi LAN —
   [#15](https://github.com/atinfinity/fastdds_transport_viz/issues/15)

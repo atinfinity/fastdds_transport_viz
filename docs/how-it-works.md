@@ -1,5 +1,7 @@
 # How it works
 
+English | [日本語](how-it-works.ja.md)
+
 The tool builds against Fast DDS 2.14 (ROS 2 Jazzy) and 3.x (Kilted, Rolling); the
 API differences live in `include/fastdds_transport_viz/fastdds_compat.hpp`. The decision
 rules below are the same in both.

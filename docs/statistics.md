@@ -1,5 +1,7 @@
 # Measured transports (`--stats`)
 
+English | [日本語](statistics.ja.md)
+
 Discovery data tells you what *should* happen. With `--stats` the tool also subscribes to
 the [Fast DDS statistics module](https://fast-dds.docs.eprosima.com/en/2.14.x/fastdds/statistics/statistics.html)
 topics and shows what *did* happen:
