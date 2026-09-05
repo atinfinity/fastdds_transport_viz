@@ -23,6 +23,10 @@ TOPIC     TYPE                 PUBS  SUBS  TRANSPORT         REASON
 statistics: 63 samples from 3 participant(s)
 ```
 
+端末での実際の表示 (`--color auto`、stdout が端末なら既定で有効):
+
+![colored table](docs/images/example-table.svg)
+
 - **予測** は Fast DDS の discovery データ (各エンドポイントが広告する locator (通信先アドレス) と QoS)
   から求めます。観測対象のノードには何も要求しません。
 - `--stats` を付けると、Fast DDS の statistics モジュールから **実測** を取り、実際にパケットを

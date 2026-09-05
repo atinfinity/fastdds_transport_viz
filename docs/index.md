@@ -16,6 +16,10 @@ TOPIC     TYPE                 PUBS  SUBS  TRANSPORT         REASON
 statistics: 63 samples from 3 participant(s)
 ```
 
+The same output on a terminal (`--color auto`, default when stdout is a terminal):
+
+![colored table](images/example-table.svg)
+
 - The **prediction** comes from Fast DDS discovery data (announced locators and QoS) and
   needs nothing from the observed nodes.
 - With `--stats`, the **measurement** comes from the Fast DDS statistics module and shows

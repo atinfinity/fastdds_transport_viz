@@ -101,6 +101,10 @@ width, and highlights what changed since the previously rendered frame:
 | `-` (dim) | pair disappeared; kept for three frames, then dropped |
 
 A topic row carries the mark of its pairs; a `changes:` summary line follows the table.
+One frame, right after a new listener appeared and the UDP listener went away:
+
+![watch frame](images/example-watch.svg)
+
 Keys while watching: `q` quit, `p` pause/resume (changes made while paused are
 highlighted on resume), `v` toggle pair rows, `e` toggle the reason-code legend, `a` toggle
 `--all`. When stdout is not a terminal the frames are printed one after another without
@@ -111,3 +115,8 @@ carries a `changes` object (`added_pairs`, `removed_pairs`, `changed_pairs` with
 Colors (`--color auto|always|never`, default `auto`; `NO_COLOR` is honoured) apply to
 the one-shot table as well: transports use the same palette as the web viewer and
 warnings are red.
+
+![colored table](images/example-table.svg)
+
+Both images are real output (`scripts/render_examples.sh` captures it with
+`--color always` and `scripts/ansi2svg.py` turns the ANSI colors into SVG).

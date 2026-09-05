@@ -174,6 +174,15 @@ pip install -r docs/requirements.txt
 mkdocs serve          # http://127.0.0.1:8000/
 ```
 
+## Colored output examples
+
+`docs/images/example-table.svg` and `example-watch.svg` (used by the README and
+how-it-works) are real output: `scripts/render_examples.sh` starts the demo and
+verification nodes in the dev container, captures `transport_viz --color always` into
+`docs/images/*.ansi`, and `scripts/ansi2svg.py` renders the ANSI colors as SVG. Re-run
+the script (Docker host) after changing the table layout or the palette and commit the
+`.ansi` and `.svg` files; it is not part of CI.
+
 ## Japanese documentation
 
 `README.ja.md` and `docs/*.ja.md` mirror the English user documentation (README,
