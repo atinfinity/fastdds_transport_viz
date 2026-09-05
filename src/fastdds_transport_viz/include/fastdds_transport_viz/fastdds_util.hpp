@@ -8,18 +8,16 @@
 
 #include <string>
 
-#include <fastdds/rtps/common/Guid.h>
-#include <fastdds/rtps/common/Locator.h>
-
+#include "fastdds_transport_viz/fastdds_compat.hpp"
 #include "fastdds_transport_viz/model.hpp"
 
 namespace fastdds_transport_viz
 {
 
 /// "xx.xx.(12 bytes)|xx.xx.xx.xx" - same format everywhere in the tool.
-std::string guid_to_string(const eprosima::fastrtps::rtps::GUID_t & guid);
-std::string prefix_to_string(const eprosima::fastrtps::rtps::GuidPrefix_t & prefix);
-Locator convert_locator(const eprosima::fastrtps::rtps::Locator_t & l);
+std::string guid_to_string(const ftv_rtps::GUID_t & guid);
+std::string prefix_to_string(const ftv_rtps::GuidPrefix_t & prefix);
+Locator convert_locator(const ftv_rtps::Locator_t & l);
 
 }  // namespace fastdds_transport_viz
 

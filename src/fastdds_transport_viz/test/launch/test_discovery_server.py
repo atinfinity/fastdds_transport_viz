@@ -1,10 +1,11 @@
 # Copyright 2026 atinfinity
 # SPDX-License-Identifier: Apache-2.0
-"""ROS_DISCOVERY_SERVER: nodes are clients of fast-discovery-server; the tool observes as
+"""ROS_DISCOVERY_SERVER: nodes are clients of `fastdds discovery`; the tool observes as
 SUPER_CLIENT automatically (a plain CLIENT does not learn about /chatter)."""
 import os
 import subprocess
 import sys
+import unittest
 
 import launch
 import launch_testing
@@ -17,8 +18,10 @@ ENV = {'ROS_DISCOVERY_SERVER': SERVER}
 
 
 def generate_test_description():
+    # Fast DDS 2.14 (Jazzy) requires a server id; the 3.x tool has no -i option.
+    server_id = ['-i', '0'] if os.environ.get('ROS_DISTRO') == 'jazzy' else []
     server = launch.actions.ExecuteProcess(
-        cmd=['fast-discovery-server', '-i', '0', '-l', '127.0.0.1', '-p', '11811'],
+        cmd=['fastdds', 'discovery', *server_id, '-l', '127.0.0.1', '-p', '11811'],
         output='screen')
     nodes = [node_action('demo_nodes_cpp', 'talker', 'talker', ENV),
              node_action('demo_nodes_cpp', 'listener', 'listener', ENV)]
@@ -42,6 +45,9 @@ class TestDiscoveryServer(Base):
         self.assertEqual(pair['transport'], 'SHM', pair)
         self.assertEqual({pair['writer_node'], pair['reader_node']}, {'/talker', '/listener'})
 
+    @unittest.skipUnless(
+        os.environ.get('ROS_DISTRO') in ('jazzy', 'kilted'),
+        'Fast DDS 3.6+ (Rolling) relays every endpoint to plain clients too')
     def test_plain_client_is_blind(self):
         doc = transport_viz_json(env={**ENV, 'ROS_SUPER_CLIENT': 'FALSE'})
         names = [t['topic'] for t in doc['topics']]

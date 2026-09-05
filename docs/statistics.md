@@ -54,7 +54,10 @@ own statistics readers already use unlimited instances.)
 
 - `RTPS_SENT` reports the *participant* GUID as source, and `byte_count` is the plain
   cumulative byte total (`byte_magnitude_order` is only `floor(log10(byte_count))`).
-- The generated type-support code for the statistics topics is vendored under
+- The generated type-support code for the statistics topics is vendored (Apache-2.0)
+  because the ROS distributions ship the compiled types in the Fast DDS library but
+  neither their headers nor `fastddsgen`:
   `src/fastdds_transport_viz/third_party/fastdds_statistics_types/` (Fast DDS 2.14.6,
-  Apache-2.0) because Jazzy ships the compiled types in `libfastrtps` but neither their
-  headers nor `fastddsgen`. Replace that directory when targeting another Fast DDS version.
+  Jazzy) and `.../fastdds_statistics_types_v3/` (Fast DDS 3.2.4, Kilted / Rolling);
+  CMake picks one by the Fast DDS major version. Replace the matching directory when
+  targeting another Fast DDS version.

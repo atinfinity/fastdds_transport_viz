@@ -7,7 +7,7 @@ import sys
 import launch_testing
 
 sys.path.insert(0, os.path.dirname(__file__))
-from _common import Base, description, node_action  # noqa: E402
+from _common import STRING_TYPES, Base, description, node_action  # noqa: E402
 
 
 def generate_test_description():
@@ -21,7 +21,7 @@ class TestSameHostShm(Base):
 
     def test_chatter_uses_shm(self):
         doc, chatter = self.wait_for_topic('/chatter')
-        self.assertEqual(chatter['type'], 'std_msgs/msg/String')
+        self.assertIn(chatter['type'], STRING_TYPES)   # demo_nodes_cpp moved to example_interfaces in Rolling
         self.assertEqual(len(chatter['pairs']), 1, chatter)
         pair = chatter['pairs'][0]
         self.assertEqual(pair['transport'], 'SHM', pair)

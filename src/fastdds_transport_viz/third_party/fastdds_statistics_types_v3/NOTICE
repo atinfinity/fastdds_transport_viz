@@ -1,0 +1,11 @@
+The files in this directory are generated code (fastddsgen) copied verbatim from
+eProsima Fast DDS v3.2.4, path src/cpp/statistics/types/ (source IDL:
+include/fastdds/statistics/types.idl).
+
+Copyright 2016 Proyectos y Sistemas de Mantenimiento SL (eProsima).
+Licensed under the Apache License, Version 2.0 (see LICENSE in this directory).
+
+They are vendored because ROS 2 Kilted / Rolling install the compiled statistics
+types in libfastdds but ship neither their headers nor fastddsgen. This directory is
+used when building against Fast DDS 3.x; ../fastdds_statistics_types/ is the 2.14
+(Jazzy) counterpart. Replace it when targeting another Fast DDS 3 version.

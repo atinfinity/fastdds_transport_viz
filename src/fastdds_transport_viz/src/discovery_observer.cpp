@@ -11,14 +11,8 @@
 #include <fastdds/dds/core/policy/QosPolicies.hpp>
 #include <fastdds/dds/domain/DomainParticipantFactory.hpp>
 #include <fastdds/dds/domain/qos/DomainParticipantQos.hpp>
-#include <fastdds/rtps/common/Guid.h>
-#include <fastdds/rtps/common/Locator.h>
-#include <fastdds/rtps/common/RemoteLocators.hpp>
-#include <fastdds/rtps/participant/ParticipantDiscoveryInfo.h>
-#include <fastdds/rtps/reader/ReaderDiscoveryInfo.h>
-#include <fastdds/rtps/writer/WriterDiscoveryInfo.h>
-#include <fastrtps/utils/IPLocator.h>
 
+#include "fastdds_transport_viz/fastdds_compat.hpp"
 #include "fastdds_transport_viz/fastdds_util.hpp"
 #include "fastdds_transport_viz/ros_names.hpp"
 
@@ -26,7 +20,7 @@ namespace fastdds_transport_viz
 {
 
 namespace dds = eprosima::fastdds::dds;
-namespace rtps = eprosima::fastrtps::rtps;
+namespace rtps = ftv_rtps;
 
 std::string guid_to_string(const rtps::GUID_t & guid)
 {
@@ -129,7 +123,7 @@ Endpoint make_endpoint(const ProxyData & data, bool is_writer)
 {
   Endpoint e;
   e.is_writer = is_writer;
-  const auto & guid = data.guid();
+  const auto & guid = disc_guid(data);
   e.guid = guid_to_string(guid);
   for (int i = 0; i < 12; ++i) {
     e.guid_bytes[i] = guid.guidPrefix.value[i];
@@ -139,17 +133,17 @@ Endpoint make_endpoint(const ProxyData & data, bool is_writer)
     e.host_id[i] = guid.guidPrefix.value[i];
   }
   e.participant_guid_prefix = prefix_to_string(guid.guidPrefix);
-  e.dds_topic = data.topicName().to_string();
-  e.dds_type = data.typeName().to_string();
+  e.dds_topic = disc_topic(data);
+  e.dds_type = disc_type(data);
   auto ros = demangle_topic(e.dds_topic);
   if (ros.kind != RosEntityKind::NotRos) {
     e.ros_topic = ros.name;
   }
   e.ros_type = demangle_type(e.dds_type);
-  fill_locators(data.remote_locators(), e);
-  e.qos.reliability = reliability_str(data.m_qos.m_reliability);
-  e.qos.durability = durability_str(data.m_qos.m_durability);
-  fill_data_sharing(data.m_qos.data_sharing, e.qos);
+  fill_locators(disc_locators(data), e);
+  e.qos.reliability = reliability_str(disc_reliability(data));
+  e.qos.durability = durability_str(disc_durability(data));
+  fill_data_sharing(disc_data_sharing(data), e.qos);
   return e;
 }
 
@@ -230,6 +224,52 @@ void DiscoveryObserver::erase(const std::string & guid)
   touch();
 }
 
+#if FTV_FASTDDS_3
+void DiscoveryObserver::on_participant_discovery(
+  dds::DomainParticipant *, rtps::ParticipantDiscoveryStatus,
+  const rtps::ParticipantBuiltinTopicData &, bool & should_be_ignored)
+{
+  should_be_ignored = false;
+  std::lock_guard<std::mutex> lock(mutex_);
+  touch();
+}
+
+void DiscoveryObserver::on_data_reader_discovery(
+  dds::DomainParticipant *, rtps::ReaderDiscoveryStatus reason,
+  const rtps::SubscriptionBuiltinTopicData & info, bool & should_be_ignored)
+{
+  should_be_ignored = false;
+  switch (reason) {
+    case rtps::ReaderDiscoveryStatus::DISCOVERED_READER:
+    case rtps::ReaderDiscoveryStatus::CHANGED_QOS_READER:
+      upsert(make_endpoint(info, false));
+      break;
+    case rtps::ReaderDiscoveryStatus::REMOVED_READER:
+      erase(guid_to_string(info.guid));
+      break;
+    default:
+      break;
+  }
+}
+
+void DiscoveryObserver::on_data_writer_discovery(
+  dds::DomainParticipant *, rtps::WriterDiscoveryStatus reason,
+  const rtps::PublicationBuiltinTopicData & info, bool & should_be_ignored)
+{
+  should_be_ignored = false;
+  switch (reason) {
+    case rtps::WriterDiscoveryStatus::DISCOVERED_WRITER:
+    case rtps::WriterDiscoveryStatus::CHANGED_QOS_WRITER:
+      upsert(make_endpoint(info, true));
+      break;
+    case rtps::WriterDiscoveryStatus::REMOVED_WRITER:
+      erase(guid_to_string(info.guid));
+      break;
+    default:
+      break;
+  }
+}
+#else
 void DiscoveryObserver::on_participant_discovery(
   dds::DomainParticipant *, rtps::ParticipantDiscoveryInfo &&)
 {
@@ -268,5 +308,7 @@ void DiscoveryObserver::on_publisher_discovery(
       break;
   }
 }
+
+#endif
 
 }  // namespace fastdds_transport_viz

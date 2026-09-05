@@ -17,6 +17,7 @@
 #include <fastdds/dds/domain/DomainParticipant.hpp>
 #include <fastdds/dds/domain/DomainParticipantListener.hpp>
 
+#include "fastdds_transport_viz/fastdds_compat.hpp"
 #include "fastdds_transport_viz/model.hpp"
 
 namespace fastdds_transport_viz
@@ -43,6 +44,25 @@ public:
   /// The underlying participant (used by StatsObserver to add readers).
   eprosima::fastdds::dds::DomainParticipant * participant() const {return participant_;}
 
+#if FTV_FASTDDS_3
+  void on_participant_discovery(
+    eprosima::fastdds::dds::DomainParticipant * participant,
+    eprosima::fastdds::rtps::ParticipantDiscoveryStatus reason,
+    const eprosima::fastdds::rtps::ParticipantBuiltinTopicData & info,
+    bool & should_be_ignored) override;
+
+  void on_data_reader_discovery(
+    eprosima::fastdds::dds::DomainParticipant * participant,
+    eprosima::fastdds::rtps::ReaderDiscoveryStatus reason,
+    const eprosima::fastdds::rtps::SubscriptionBuiltinTopicData & info,
+    bool & should_be_ignored) override;
+
+  void on_data_writer_discovery(
+    eprosima::fastdds::dds::DomainParticipant * participant,
+    eprosima::fastdds::rtps::WriterDiscoveryStatus reason,
+    const eprosima::fastdds::rtps::PublicationBuiltinTopicData & info,
+    bool & should_be_ignored) override;
+#else
   void on_participant_discovery(
     eprosima::fastdds::dds::DomainParticipant * participant,
     eprosima::fastrtps::rtps::ParticipantDiscoveryInfo && info) override;
@@ -54,6 +74,7 @@ public:
   void on_publisher_discovery(
     eprosima::fastdds::dds::DomainParticipant * participant,
     eprosima::fastrtps::rtps::WriterDiscoveryInfo && info) override;
+#endif
 
 private:
   void upsert(Endpoint && e);
