@@ -190,15 +190,14 @@ Done:
 - Transport configurations verified: `LARGE_DATA`/TCPv4, UDPv6, Discovery Server,
   `LOCALHOST`/`OFF`, large SHM samples —
   [#6](https://github.com/atinfinity/fastdds_transport_viz/issues/6)
+- Data-sharing confirmed with `--stats` through `DATA_COUNT` —
+  [#9](https://github.com/atinfinity/fastdds_transport_viz/issues/9)
+- Web viewer: node filter — [#18](https://github.com/atinfinity/fastdds_transport_viz/issues/18)
 
 Open:
 
 - Fast DDS 3.x (ROS 2 Rolling / Kilted) —
   [#5](https://github.com/atinfinity/fastdds_transport_viz/issues/5)
 - Japanese README — [#8](https://github.com/atinfinity/fastdds_transport_viz/issues/8)
-- Data-sharing: stronger confirmation with `--stats` —
-  [#9](https://github.com/atinfinity/fastdds_transport_viz/issues/9)
 - Two physical hosts on a Wi-Fi LAN —
   [#15](https://github.com/atinfinity/fastdds_transport_viz/issues/15)
-- Web viewer: node filter in the UI —
-  [#18](https://github.com/atinfinity/fastdds_transport_viz/issues/18)

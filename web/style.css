@@ -21,6 +21,7 @@ header .live.ended .dot, header .live.reconnecting .dot { background: var(--warn
 .toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; padding: 6px 12px; background: var(--panel); border-bottom: 1px solid var(--line); }
 .toolbar .group { display: flex; align-items: center; gap: 8px; }
 .toolbar input[type=text] { width: 200px; padding: 3px 6px; border: 1px solid var(--line); border-radius: 4px; font: inherit; }
+.toolbar input[type=text].invalid { border-color: var(--warn); }
 .tab { padding: 4px 10px; border: 1px solid var(--line); border-radius: 6px; background: #f6f8fa; cursor: pointer; font: inherit; }
 .tab.active { background: var(--accent); color: #fff; border-color: var(--accent); }
 .legend { margin-left: auto; color: var(--muted); }
@@ -51,6 +52,7 @@ main { display: grid; grid-template-columns: 1fr 380px; height: calc(100% - 84px
 .host rect { fill: #fff; stroke: var(--line); }
 .host text.label { font-weight: 600; fill: var(--muted); }
 .node rect { fill: #f6f8fa; stroke: #8b949e; rx: 6; cursor: pointer; }
+.node.matched rect { stroke: var(--accent); fill: #eef6ff; }
 .node.selected rect { stroke: var(--accent); stroke-width: 2; }
 .node text { pointer-events: none; }
 .node text.proc { fill: var(--muted); font-size: 11px; }
