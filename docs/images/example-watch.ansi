@@ -1,12 +1,14 @@
-transport_viz  domain 0  2026-09-05T14:54:13Z  refresh 3s  [topic: ^/chatter$]
+transport_viz  domain 0  2026-09-05T16:00:50Z  refresh 3s  [topic: ^/chatter$]
 
    TOPIC     TYPE                 PUBS  SUBS  TRANSPORT  RATE    REASON
 [32m+[0m  /chatter  std_msgs/msg/String  1     2     [32mSHM[0m x2     24 B/s  same-host-guid,datasharing-disabled-writer,both-shm-locators,measured-udpv4-traffic,measured-shm-traffic
-[32m+[0m      /talker@b8eb79502344(151) -> /listener_new@b8eb79502344(287)  [32mSHM[0m    24 B/s  measured=UDPv4+SHM 18pkt 2.34 kB  same-host-guid,datasharing-disabled-writer,both-shm-locators,measured-udpv4-traffic,measured-shm-traffic
-       /talker@b8eb79502344(151) -> /listener@b8eb79502344(150)      [32mSHM[0m    24 B/s  measured=SHM 18pkt 2.38 kB        same-host-guid,datasharing-disabled-writer,both-shm-locators,measured-shm-traffic
-[2m-[0m  [2m    /talker@b8eb79502344(151) -> /listener_udp@b8eb79502344(153)[0m  [2mUDPv4[0m  -                                         [2m(removed)[0m
+[32m+[0m      /talker@57e20ce67dfe(157) -> /listener_new@57e20ce67dfe(293)  [32mSHM[0m    24 B/s  measured=UDPv4+SHM 18pkt 2.34 kB  same-host-guid,datasharing-disabled-writer,both-shm-locators,measured-udpv4-traffic,measured-shm-traffic
+       /talker@57e20ce67dfe(157) -> /listener@57e20ce67dfe(160)      [32mSHM[0m    24 B/s  measured=SHM 19pkt 2.50 kB        same-host-guid,datasharing-disabled-writer,both-shm-locators,measured-shm-traffic
+[2m-[0m  [2m    /talker@57e20ce67dfe(157) -> /listener_udp@57e20ce67dfe(158)[0m  [2mUDPv4[0m  -                                         [2m(removed)[0m
 
 [1mchanges: [0m+1 pair  -1 pair  
 
-statistics: 628 samples from 8 participant(s)
+statistics: 648 samples from 8 participant(s)
+
+[1mshared memory: [0m/dev/shm 339 MB used of 16.7 GB (16.3 GB free) | Fast DDS 4.61 MB in 7 segment(s), 14 port(s), 2 data-sharing histories (2 unmatched)
 

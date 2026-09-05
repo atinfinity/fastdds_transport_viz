@@ -93,6 +93,44 @@ transport ごとの注意点 (いずれも launch テストかマルチコンテ
 取ります。1 台のマシン上でネットワーク名前空間の異なるコンテナは、ホスト id が同じなのに異なる
 IP アドレスを広告することがあり、警告 `host-id-match-but-ip-differs` で報告されます。
 
+## 環境の共有メモリ
+
+SHM の判定は環境の共有メモリに依存するので、毎回の出力の末尾に、ツールが動いている環境の
+共有メモリについて 1 行を出します:
+
+```
+shared memory: /dev/shm 396 MB used of 16.7 GB (16.3 GB free) | Fast DDS 63.4 MB in 114 segment(s) (110 stale), 14 port(s) (7 stale), 6 data-sharing histories (6 unmatched)
+  !shm-stale-files: 117 file(s) without a living owner, run 'fastdds shm clean'
+```
+
+- **容量** は `statvfs("/dev/shm")` の値です: tmpfs の合計、使用中、空きバイト数。Docker は
+  `--shm-size` や `--ipc=host` を指定しない限りコンテナに 64 MB しか与えません。Fast DDS は
+  participant ごとに 1 つのセグメント (既定 512 KB、large data ではより大きい) を必要とし、
+  ディレクトリが一杯だと作成に失敗します。
+- **Fast DDS のファイル** は `fastrtps_*` と `fast_datasharing_*` のエントリです: participant
+  ごとの *セグメント* (`fastrtps_<hex>`)、SHM locator ごとの *ポート* のリングバッファ
+  (`fastrtps_port<N>`)、zero-copy 配送を使う writer ごとの *data-sharing 履歴*。サイズは
+  合計して表示します。
+- **stale** なファイルは、`_el` ロックファイルが存在するのに誰も保持していないセグメントと
+  ポートです (`fastdds shm clean` と同じ `flock` による判定)。所有プロセスが後始末せずに
+  死んだもので、`/dev/shm` を消費し続けます。警告 `shm-stale-files` が `fastdds shm clean` を
+  勧めます。これがまさにそれらを削除します。
+  data-sharing 履歴にはロックがありません。発見済みの writer に属するものは writer 側に
+  報告し (JSON の `datasharing_history_bytes`、web viewer のエンドポイント詳細)、残りは
+  *unmatched* (別ドメイン、または終了した writer) として数えます。
+- **可視性**: ツールと同じ IPC 名前空間にいるノードは、自分の SHM ポートファイル
+  (`fastrtps_port<N>_el`) のロックを保持しています。観測対象ノードのホスト id が違う、その
+  ポートがここで保持されていない、またはツール自身のポート番号と同じ (別のネットワーク名前空間で
+  同じ participant id) 場合、ノードは別の `/dev/shm` を使っており、警告 `shm-not-visible` が
+  それを示します。この場合の数値はツールの環境のもので、ノードの環境のものではなく、ノードと
+  このプロセスの間で SHM は使えません。判定できないケースが 1 つあります: ホスト id は同じで
+  IPC 名前空間だけが別 (`ipc: host` の無い `network_mode: host`) の場合、ツール自身の participant
+  が送信のためにそのポートをここで開いてしまいます。
+- `shm-nearly-full` は使用率 90 % 以上、または空きが 16 MB 未満で警告します。
+
+`/dev/shm` が無い環境 (macOS) では行自体を省きます。JSON では同じデータが `shm` オブジェクト
+になり、`--watch` ではフレームごとに更新されます。
+
 ## Watch モード
 
 `--watch` は `--interval` 秒ごとに再観測して再描画します。端末では代替スクリーンバッファを使い

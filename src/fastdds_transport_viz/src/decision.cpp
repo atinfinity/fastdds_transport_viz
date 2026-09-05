@@ -601,6 +601,20 @@ const std::map<std::string, std::string> & explanations()
     {"datasharing-no-delivery-observed",
       "No HISTORY_LATENCY sample for this pair yet (needs HISTORY_LATENCY_TOPIC enabled and at "
       "least one published sample), so data-sharing remains unconfirmed."},
+    {"shm-stale-files",
+      "Fast DDS files in the shared-memory directory whose lock nobody holds: their owner "
+      "process ended without cleaning up (a crash or a kill). They keep consuming /dev/shm; "
+      "remove them with 'fastdds shm clean'."},
+    {"shm-nearly-full",
+      "The shared-memory directory is at least 90% full or has less than 16 MB free. Fast DDS "
+      "cannot create its segment when /dev/shm is full, so participants fail to start or fall "
+      "back to UDP (Docker's default /dev/shm is only 64 MB: use --shm-size or --ipc=host)."},
+    {"shm-not-visible",
+      "Observed nodes announce SHM locators that are not open in this process's shared-memory "
+      "directory (nobody holds the port's lock, the port number collides with the tool's own, "
+      "or the node has another host id): they run in another IPC namespace or on another host, "
+      "so the shared-memory figures describe this environment, not theirs, and SHM cannot be "
+      "used between them and here."},
     {"host-id-match-but-ip-differs",
       "The endpoints share a host id but announce no common IP address (typical for containers "
       "with separate network namespaces on one machine). SHM works only if /dev/shm is shared."},

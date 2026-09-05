@@ -1,8 +1,10 @@
 TOPIC     TYPE                 PUBS  SUBS  TRANSPORT         RATE    REASON
 /bounded  std_msgs/msg/Int32   1     1     [33mDATA_SHARING[0m x1   80 B/s  same-host-guid,datasharing-qos-enabled-both,datasharing-domain-ids-match,datasharing-confirmed-no-data-submessages
-    /bounded_pub@b8eb79502344(152) -> /bounded_sub@b8eb79502344(154)  [33mDATA_SHARING[0m  80 B/s  measured=SHM 2pkt 236 B  same-host-guid,datasharing-qos-enabled-both,datasharing-domain-ids-match,datasharing-confirmed-no-data-submessages
-/chatter  std_msgs/msg/String  1     2     [32mSHM[0m x1, [34mUDPv4[0m x1  23 B/s  same-host-guid,datasharing-disabled-writer,both-shm-locators,measured-shm-traffic,reader-no-shm-locator,common-udpv4-locator,measured-udpv4-traffic
-    /talker@b8eb79502344(151) -> /listener@b8eb79502344(150)      [32mSHM[0m    23 B/s  measured=SHM 9pkt 1.19 kB     same-host-guid,datasharing-disabled-writer,both-shm-locators,measured-shm-traffic
-    /talker@b8eb79502344(151) -> /listener_udp@b8eb79502344(153)  [34mUDPv4[0m  23 B/s  measured=UDPv4 10pkt 1.31 kB  same-host-guid,datasharing-disabled-writer,reader-no-shm-locator,common-udpv4-locator,measured-udpv4-traffic
+    /bounded_pub@57e20ce67dfe(156) -> /bounded_sub@57e20ce67dfe(159)  [33mDATA_SHARING[0m  80 B/s  measured=SHM 2pkt 248 B  same-host-guid,datasharing-qos-enabled-both,datasharing-domain-ids-match,datasharing-confirmed-no-data-submessages
+/chatter  std_msgs/msg/String  1     2     [34mUDPv4[0m x1, [32mSHM[0m x1  23 B/s  same-host-guid,datasharing-disabled-writer,reader-no-shm-locator,common-udpv4-locator,measured-udpv4-traffic,both-shm-locators,measured-shm-traffic
+    /talker@57e20ce67dfe(157) -> /listener_udp@57e20ce67dfe(158)  [34mUDPv4[0m  23 B/s  measured=UDPv4 10pkt 1.31 kB  same-host-guid,datasharing-disabled-writer,reader-no-shm-locator,common-udpv4-locator,measured-udpv4-traffic
+    /talker@57e20ce67dfe(157) -> /listener@57e20ce67dfe(160)      [32mSHM[0m    23 B/s  measured=SHM 10pkt 1.31 kB    same-host-guid,datasharing-disabled-writer,both-shm-locators,measured-shm-traffic
 
-statistics: 557 samples from 6 participant(s)
+statistics: 562 samples from 6 participant(s)
+
+[1mshared memory: [0m/dev/shm 339 MB used of 16.7 GB (16.3 GB free) | Fast DDS 4.06 MB in 6 segment(s), 14 port(s), 2 data-sharing histories (1 unmatched)

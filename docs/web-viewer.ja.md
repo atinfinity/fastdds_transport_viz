@@ -37,8 +37,13 @@ open web/index.html            # macOS。あるいはファイルをダブルク
 | 赤い縁 | 警告が 1 つ以上ある (例: `measured-transport-mismatch`) |
 
 矢印をクリックすると側面パネルにそのペアの一覧が出ます。transport、確信度、実測トラフィック、
-理由コードとその説明 (文書の `reason_code_descriptions` から)、両エンドポイントの locator と QoS
-です。ノードをクリックすると publisher、subscription、相手のいないトピックが出ます。
+理由コードとその説明 (文書の `reason_code_descriptions` から)、両エンドポイントの locator、QoS、
+data-sharing 履歴のサイズです。ノードをクリックすると publisher、subscription、相手のいない
+トピックが出ます。
+
+ヘッダの 2 行目は `transport_viz` が動いた環境の共有メモリの要約です (文書の `shm`
+オブジェクト。[how-it-works.md](how-it-works.md#環境の共有メモリ) 参照): `/dev/shm` の容量、
+Fast DDS が置いているもの、stale なファイル、`shm-*` の警告。
 
 **Table** タブはペアごとに 1 行を表示します (見出しをクリックでソート)。statistics があれば
 writer の payload レートと観測中に運ばれたバイト数も出ます。

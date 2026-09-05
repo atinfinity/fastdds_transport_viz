@@ -41,6 +41,8 @@ json endpoint_json(const Snapshot & snap, const Endpoint & e, const RenderOption
     {"ros_type", e.ros_type},
     {"unicast_locators", locators_json(e.unicast)},
     {"multicast_locators", locators_json(e.multicast)},
+    {"datasharing_history_bytes", e.datasharing_history_available ?
+      json(e.datasharing_history_bytes) : json(nullptr)},
     {"qos", {
         {"reliability", e.qos.reliability},
         {"durability", e.qos.durability},
@@ -123,6 +125,7 @@ std::string render_json(const Snapshot & snap, const RenderOptions & opt)
       for (const auto & w : p.verdict.warnings) {codes.insert(w);}
     }
   }
+  for (const auto & w : snap.shm.warnings) {codes.insert(w);}
   json descriptions = json::object();
   for (const auto & c : codes) {
     descriptions[c] = explain(c);
@@ -185,6 +188,29 @@ std::string render_json(const Snapshot & snap, const RenderOptions & opt)
   }
   stats["traffic"] = traffic;
   root["stats"] = stats;
+
+  // Shared memory of the environment the tool runs in (see docs/how-it-works.md).
+  json shm;
+  shm["available"] = snap.shm.available;
+  shm["path"] = snap.shm.path;
+  if (snap.shm.available) {
+    shm["total_bytes"] = snap.shm.total_bytes;
+    shm["used_bytes"] = snap.shm.used_bytes;
+    shm["free_bytes"] = snap.shm.free_bytes;
+    shm["fastdds_bytes"] = snap.shm.fastdds_bytes;
+    shm["segments"] = snap.shm.segments;
+    shm["stale_segments"] = snap.shm.stale_segments;
+    shm["ports"] = snap.shm.ports;
+    shm["stale_ports"] = snap.shm.stale_ports;
+    shm["datasharing_histories"] = snap.shm.datasharing_histories;
+    shm["datasharing_unmatched"] = snap.shm.datasharing_unmatched;
+    shm["checked_ports"] = snap.shm.checked_ports;
+    shm["missing_ports"] = snap.shm.missing_ports;
+    shm["other_host_participants"] = snap.shm.other_host_participants;
+    shm["nodes_visible"] = snap.shm.nodes_visible;
+  }
+  shm["warnings"] = snap.shm.warnings;
+  root["shm"] = shm;
   return (opt.compact ? root.dump() : root.dump(2)) + "\n";
 }
 

@@ -30,7 +30,8 @@ find_package(nlohmann_json REQUIRED)
 add_library(${PROJECT_NAME}_core
   src/model.cpp
   src/decision.cpp
-  src/ros_names.cpp)
+  src/ros_names.cpp
+  src/shm_info.cpp)
 target_include_directories(${PROJECT_NAME}_core PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>)
@@ -103,6 +104,8 @@ if(BUILD_TESTING)
   find_package(ament_cmake_gtest REQUIRED)
   ament_add_gtest(test_decision test/test_decision.cpp)
   target_link_libraries(test_decision ${PROJECT_NAME}_core)
+  ament_add_gtest(test_shm_info test/test_shm_info.cpp)
+  target_link_libraries(test_shm_info ${PROJECT_NAME}_core)
   ament_add_gtest(test_render test/test_render.cpp)
   target_link_libraries(test_render ${PROJECT_NAME}_lib)
 
@@ -122,6 +125,7 @@ if(BUILD_TESTING)
   add_launch_test(test/launch/test_large_data_same_host.py TIMEOUT 90)
   add_launch_test(test/launch/test_large_shm.py TIMEOUT 120)
   add_launch_test(test/launch/test_datasharing_stats.py TIMEOUT 120)
+  add_launch_test(test/launch/test_shm.py TIMEOUT 90)
 endif()
 
 ament_package()

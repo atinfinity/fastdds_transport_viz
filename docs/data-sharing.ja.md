@@ -55,3 +55,12 @@ transport に変わり、警告 `datasharing-not-used` が付きます。`DATA_C
 のトラフィックがあると判定は `likely` のままです (`datasharing-ambiguous-participant-traffic`)。
 JSON の `measured` オブジェクトには `data_submessages` (`DATA_COUNT` の増分。取得できなければ
 `null`) と `delivered_samples` が入ります。
+
+## 履歴のサイズ
+
+data-sharing の writer は履歴を `/dev/shm` の `fast_datasharing_<writer の GUID>` というファイルに
+置きます。ツールからそのファイルが見える (同じ IPC 名前空間) 場合、そのサイズを writer に紐付けて
+JSON の `datasharing_history_bytes` と web viewer のエンドポイント詳細に出します。環境の共有メモリの
+行はこうした履歴をすべて数えます ([how-it-works.md](how-it-works.md#環境の共有メモリ) 参照)。
+Fast DDS は writer が kill されてもこのファイルを消さないので、終了した writer の履歴は
+`fastdds shm clean` を実行するまで *unmatched* として現れます。

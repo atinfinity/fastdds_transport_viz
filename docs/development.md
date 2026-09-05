@@ -34,9 +34,9 @@ in a third container on the same scope and asserts the verdict:
 
 | Scenario | Containers | Expected |
 |---|---|---|
-| `multi_container` (default) | `talker`, `listener`: separate network and IPC namespaces ⇒ different host ids | `UDPv4`, `different-host` |
+| `multi_container` (default) | `talker`, `listener`: separate network and IPC namespaces ⇒ different host ids | `UDPv4`, `different-host`, `shm-not-visible` |
 | `stats_multi_container` | `talker_stats`, `listener_stats`: as above with `FASTDDS_STATISTICS` | measured `UDPv4`, two different `PHYSICAL_DATA` host names |
-| `hostnet_shm` | two `hostnet` containers: `network_mode: host` + `ipc: host` ⇒ same host id, shared `/dev/shm` | `SHM`, `same-host-guid` |
+| `hostnet_shm` | two `hostnet` containers: `network_mode: host` + `ipc: host` ⇒ same host id, shared `/dev/shm` | `SHM`, `same-host-guid`, the nodes' segments visible in `shm` |
 | `large_data_tcp` | `talker_large_data`, `listener_large_data`: bridged, `FASTDDS_BUILTIN_TRANSPORTS=LARGE_DATA` + statistics | `TCPv4`, `common-tcpv4-locator`, measured `TCPv4` |
 | `udpv6_multi_container` | `talker_udpv6`, `listener_udpv6`: bridged (the project network has IPv6), `DEFAULTv6` | `UDPv6`, `common-udpv6-locator` |
 | `all` | the five above in sequence | |
@@ -108,6 +108,8 @@ colcon test && colcon test-result --verbose
 
 - `test_decision`: gtest over the pure decision logic, the statistics overlay and name
   demangling.
+- `test_shm_info`: gtest over the `/dev/shm` scan on a temporary directory (sizes, stale
+  detection through `flock`, data-sharing file names, IPC-namespace visibility).
 - `test_same_host_shm.py` / `test_same_host_udp.py`: launch_testing against real demo
   nodes (SHM, and UDPv4 fallback via `FASTDDS_BUILTIN_TRANSPORTS=UDPv4`).
 - `test_stats.py`: demo nodes with `FASTDDS_STATISTICS`; asserts measured SHM / UDPv4 and
@@ -118,7 +120,8 @@ colcon test && colcon test-result --verbose
   `test_large_data_same_host.py` (`LARGE_DATA`: TCPv4 announced, SHM chosen),
   `test_large_shm.py` (2 MB samples measured on SHM), `test_datasharing_stats.py`
   (`bounded_pub`/`bounded_sub` with `datasharing_auto_stats.xml`: `DATA_SHARING` becomes
-  `certain` through `HISTORY_LATENCY` + `DATA_COUNT`).
+  `certain` through `HISTORY_LATENCY` + `DATA_COUNT`), `test_shm.py` (the shared-memory
+  report for nodes in the tool's IPC namespace).
 - `test_json_schema` / `test_json_schema_live.py`: sample and live `--json` output against
   `schema/transport_viz.schema.json`.
 - `test_web_serve` (pytest, fake `transport_viz`) / `test_web_live.py` (real one): the live
@@ -159,6 +162,7 @@ request.
 | 2026-09-05 | `ROS_DISCOVERY_SERVER` (fast-discovery-server on 127.0.0.1:11811) | x86_64 | 2.14.6 | `SHM` pair seen as SUPER_CLIENT; a plain CLIENT does not see `/chatter` | `test_discovery_server.py` |
 | 2026-09-05 | `ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST` | x86_64 | 2.14.6 | `SHM`, nodes announce `127.0.0.1` only; `OFF` sees nothing (warning printed) | `test_localhost_range.py` |
 | 2026-09-05 | 2 MB samples over SHM, `--stats` | x86_64 | 2.14.6 | `SHM`, measured `SHM`, bytes consistent with the sample size | `test_large_shm.py` |
+| 2026-09-06 | shared-memory line: nodes in the tool's IPC namespace visible (`hostnet_shm`), bridged containers reported `shm-not-visible` (`multi_container`) | x86_64 | 2.14.6 | as expected | `scripts/integration_test.sh multi_container`, `hostnet_shm`, `test_shm.py` |
 | 2026-09-05 | full launch test suite on Fast DDS 3.x (Kilted 3.2.4, Rolling 3.6.2) | x86_64 | 3.2.4 / 3.6.2 | all pass; Rolling: demo nodes publish `example_interfaces/msg/String`, Discovery Server relays every endpoint to plain clients | `ROS_DISTRO=kilted docker compose build dev` + `colcon test` |
 | 2026-09-05 | two physical hosts on one Wi-Fi LAN: x86_64 Ubuntu (Docker `hostnet`) ↔ macOS arm64 (native RoboStack Jazzy), Discovery Server on the x86 host | x86_64 + arm64 | 2.14.6 both | `UDPv4`, `different-host`, `common-udpv4-locator` observed (writer `host:010f0956`, reader on `ubuntu2404-desktop01`); no `--stats` measurement: the Mac's Fast DDS `sendto()` intermittently fails with `EHOSTUNREACH` while plain UDP from the Mac works ([#15](https://github.com/atinfinity/fastdds_transport_viz/issues/15)) | see "Two physical hosts" |
 
@@ -218,7 +222,7 @@ schema/                            JSON Schema for --json output
 
 ## Roadmap
 
-As of 2026-09-05. The [issue tracker](https://github.com/atinfinity/fastdds_transport_viz/issues)
+As of 2026-09-06. The [issue tracker](https://github.com/atinfinity/fastdds_transport_viz/issues)
 is the source of truth; update this list when closing an issue.
 
 Done:
@@ -246,6 +250,8 @@ Done:
 - Fast DDS 3.x (Kilted / Rolling) next to 2.14 (Jazzy) —
   [#5](https://github.com/atinfinity/fastdds_transport_viz/issues/5)
 - Japanese README and user docs — [#8](https://github.com/atinfinity/fastdds_transport_viz/issues/8)
+- `RATE` column (payload throughput) and the shared-memory line (`/dev/shm` capacity,
+  Fast DDS files, stale files, IPC-namespace visibility)
 
 Open:
 
