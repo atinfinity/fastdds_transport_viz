@@ -73,6 +73,12 @@ own statistics readers already use unlimited instances.)
 
 - `RTPS_SENT` reports the *participant* GUID as source, and `byte_count` is the plain
   cumulative byte total (`byte_magnitude_order` is only `floor(log10(byte_count))`).
+- Fast DDS shows the tool the locators of participants on its own host as `127.0.0.1`
+  (its localhost transformation), while a writer on another host reports `RTPS_SENT`
+  traffic to that participant's real address. The overlay therefore treats a loopback
+  reader locator as equal to any address of the tool's host with the same port; without
+  this, a cross-host pair whose reader sits next to the tool showed
+  `delivered-without-measured-traffic`.
 - The generated type-support code for the statistics topics is vendored (Apache-2.0)
   because the ROS distributions ship the compiled types in the Fast DDS library but
   neither their headers nor `fastddsgen`:

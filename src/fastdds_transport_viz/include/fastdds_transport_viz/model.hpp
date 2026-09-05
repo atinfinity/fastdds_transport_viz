@@ -195,6 +195,10 @@ struct StatsData
   std::map<std::string, ThroughputStat> throughput;        // writer guid -> PUBLICATION_THROUGHPUT
   std::set<std::pair<std::string, std::string>> statistics_writers;  // (participant prefix, statistics topic) discovered
   std::set<std::string> participants_with_stats;           // prefixes seen on any stats topic
+  /// IP addresses of the tool's own host. Fast DDS shows the locators of participants on
+  /// the same host as 127.0.0.1 / ::1, while a remote writer's RTPS_SENT names the real
+  /// address, so both spellings must match.
+  std::set<std::string> local_addresses;
   size_t samples{0};
 };
 
