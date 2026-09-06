@@ -78,6 +78,8 @@ std::string render_json(const Snapshot & snap, const RenderOptions & opt)
     tj["unmatched_reasons"] = t.unmatched_reasons;
     tj["throughput_bytes_per_s"] = t.throughput_available ? json(t.throughput) : json(nullptr);
     tj["latency_s"] = t.latency_available ? json(t.latency) : json(nullptr);   // slowest pair's mean
+    tj["lost_packets"] = t.reliability_available ? json(t.lost_packets) : json(nullptr);
+    tj["resent_datas"] = t.reliability_available ? json(t.resent) : json(nullptr);
     json writers = json::array();
     for (const auto * w : t.writers) {writers.push_back(endpoint_json(snap, *w, opt));}
     json readers = json::array();
@@ -114,6 +116,13 @@ std::string render_json(const Snapshot & snap, const RenderOptions & opt)
                   {"mean", p.measured.latency.mean()}, {"min", p.measured.latency.min},
                   {"max", p.measured.latency.max}, {"last", p.measured.latency.last},
                   {"samples", p.measured.latency.samples}} : json(nullptr)},
+              {"reliability", p.measured.reliability.available ? json{
+                  {"lost_packets", p.measured.reliability.lost_packets},
+                  {"resent_datas", p.measured.reliability.resent},
+                  {"heartbeats", p.measured.reliability.heartbeats},
+                  {"gaps", p.measured.reliability.gaps},
+                  {"acknacks", p.measured.reliability.acknacks},
+                  {"nackfrags", p.measured.reliability.nackfrags}} : json(nullptr)},
               {"delivered", p.measured.delivered},
               {"delivered_samples", p.measured.delivered_samples},
               {"data_submessages", p.measured.data_count_available ?
@@ -207,6 +216,14 @@ std::string render_json(const Snapshot & snap, const RenderOptions & opt)
         {"packets_first", t.packets_first}, {"bytes_first", t.bytes_first}});
   }
   stats["traffic"] = traffic;
+  json lost = json::array();
+  for (const auto & t : snap.stats.lost) {
+    lost.push_back({{"receiver_participant_guid_prefix", t.src_participant_prefix},
+        {"from_locator", {{"kind", to_string(t.dst.kind)}, {"address", t.dst.address}, {"port", t.dst.port}}},
+        {"packets", t.packets}, {"bytes", t.bytes},
+        {"packets_first", t.packets_first}, {"bytes_first", t.bytes_first}});
+  }
+  stats["lost"] = lost;   // RTPS_LOST: what each participant missed, per source locator
   root["stats"] = stats;
 
   // Shared memory of the environment the tool runs in (see docs/how-it-works.md).

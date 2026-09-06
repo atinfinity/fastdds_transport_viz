@@ -41,7 +41,7 @@ publisher だけ、または subscription だけのトピックは `-` と理由
 ともに残します。残ったペアの相手側は一致しなくても表示されます。2 つのフィルタは AND です。
 不正な正規表現は起動時に拒否されます (終了コード 2)。
 
-## RATE 列と LATENCY 列
+## RATE 列、LATENCY 列、LOSS 列
 
 `--stats` を付けると `RATE` 列に、トピックの writer の payload スループット (合算) と、ペア行では
 その writer の値が出ます。statistics の `PUBLICATION_THROUGHPUT` を観測窓で平均した値で、SI 単位
@@ -50,7 +50,11 @@ zero-copy のペアでも出ます。`LATENCY` は statistics の `HISTORY_LATEN
 reader への通知までの時間をペアごとに観測期間の平均と最大で示します (`420 µs (max 1.30 ms)`)。
 トピック行には最も遅いペアの平均が出ます。2 台のホストのクロックで測るのでマシン間ではその
 ずれが含まれ (平均が負なら `latency-clock-skew-suspected` を警告)、同一ホストでは正確です。
-statistics が無ければどちらの列も `-` です。ペア行の `measured=` は観測中に transport が
+`LOSS` は観測期間中のペアの信頼性カウンタの合計です。`lost` は reader の participant が writer の
+locator から取りこぼしたと報告した数 (`RTPS_LOST`、シーケンス番号の欠落。警告 `rtps-packets-lost`)、
+`resent` は writer が再送した DATA の数 (`RESENT_DATAS`)。どちらも 0 なら `0` です。heartbeat、
+gap、acknack、nackfrag は JSON の `measured.reliability` と web viewer のペアカードに出ます。
+statistics が無ければ 3 つの列とも `-` です。ペア行の `measured=` は観測中に transport が
 実際に運んだ量 (`SHM 148pkt 7.63 MB`。観測前にしか流れていなければ `(idle)`) です。
 
 ## 理由コード

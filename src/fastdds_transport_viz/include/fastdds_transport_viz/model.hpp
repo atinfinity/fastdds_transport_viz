@@ -129,6 +129,18 @@ struct LatencyStat
   }
 };
 
+/// Reliability counters of a pair over the observation (window deltas).
+struct Reliability
+{
+  bool available{false};        // at least one of the counters below was reported
+  uint64_t lost_packets{0};     // RTPS_LOST: packets from the writer's locators the reader's participant missed
+  uint64_t resent{0};           // RESENT_DATAS of the writer
+  uint64_t heartbeats{0};       // HEARTBEAT_COUNT of the writer
+  uint64_t gaps{0};             // GAP_COUNT of the writer
+  uint64_t acknacks{0};         // ACKNACK_COUNT of the reader
+  uint64_t nackfrags{0};        // NACKFRAG_COUNT of the reader
+};
+
 /// What the Fast DDS statistics module actually observed for a pair.
 struct Measurement
 {
@@ -144,6 +156,7 @@ struct Measurement
   LatencyStat latency;               // write-to-notification latency (seconds) over the observation
   bool delivered{false};             // HISTORY_LATENCY sample seen for this writer->reader
   size_t delivered_samples{0};       // HISTORY_LATENCY samples seen for this pair
+  Reliability reliability;           // losses, resends, heartbeats, acknacks (window deltas)
   bool data_count_available{false};  // the writer's participant publishes DATA_COUNT
   uint64_t data_submessages{0};      // DATA/DATA_FRAG the writer sent through a transport
                                      // during the observation (DATA_COUNT delta)
@@ -171,6 +184,9 @@ struct TopicSummary
   double throughput{0.0};            // sum of the writers' payload bytes per second
   bool latency_available{false};     // at least one pair has HISTORY_LATENCY values
   double latency{0.0};               // the slowest pair: max of the pairs' mean latency (seconds)
+  bool reliability_available{false}; // at least one pair has reliability counters
+  uint64_t lost_packets{0};          // sum over the pairs
+  uint64_t resent{0};
 };
 
 // ---- statistics module data (--stats) ----------------------------------------
@@ -222,6 +238,12 @@ struct StatsData
   std::map<std::pair<std::string, std::string>, size_t> delivered;  // (writer, reader) guid -> HISTORY_LATENCY samples
   std::map<std::pair<std::string, std::string>, LatencyStat> latency;  // (writer, reader) guid -> HISTORY_LATENCY values
   std::map<std::string, DataCountSample> data_count;       // writer guid -> DATA_COUNT
+  std::vector<TrafficSample> lost;                         // RTPS_LOST: src = receiving participant, dst = the sender's locator
+  std::map<std::string, DataCountSample> resent_datas;     // writer guid -> RESENT_DATAS
+  std::map<std::string, DataCountSample> heartbeats;       // writer guid -> HEARTBEAT_COUNT
+  std::map<std::string, DataCountSample> gaps;             // writer guid -> GAP_COUNT
+  std::map<std::string, DataCountSample> acknacks;         // reader guid -> ACKNACK_COUNT
+  std::map<std::string, DataCountSample> nackfrags;        // reader guid -> NACKFRAG_COUNT
   std::map<std::string, ThroughputStat> throughput;        // writer guid -> PUBLICATION_THROUGHPUT
   std::set<std::pair<std::string, std::string>> statistics_writers;  // (participant prefix, statistics topic) discovered
   std::set<std::string> participants_with_stats;           // prefixes seen on any stats topic

@@ -299,7 +299,7 @@ TEST(RenderTable, LatencyColumn)
   opt.verbose = true;
   auto s = stats_snapshot();
   auto out = render_table(s, opt);
-  EXPECT_NE(out.find("RATE  LATENCY  REASON"), std::string::npos);
+  EXPECT_NE(out.find("RATE  LATENCY  LOSS  REASON"), std::string::npos);
   EXPECT_NE(out.find("  -  -  "), std::string::npos) << "no values: dashes";
   only_pair(s).measured.latency_available = true;
   only_pair(s).measured.latency.add(0.0004);
@@ -318,4 +318,26 @@ TEST(RenderTable, LatencyColumn)
   only_pair(s).measured.latency.add(-15e-9);
   out = render_table(s, opt);
   EXPECT_NE(out.find("-15.0 ns (max -15.0 ns)"), std::string::npos) << out;
+}
+
+TEST(RenderTable, LossColumn)
+{
+  RenderOptions opt;
+  opt.verbose = true;
+  auto s = stats_snapshot();
+  auto out = render_table(s, opt);
+  EXPECT_NE(out.find("LATENCY  LOSS  REASON"), std::string::npos);
+  only_pair(s).measured.reliability.available = true;
+  s.topics[0].reliability_available = true;
+  out = render_table(s, opt);
+  EXPECT_NE(out.find("  0  "), std::string::npos) << out;           // counters present, nothing lost
+  only_pair(s).measured.reliability.lost_packets = 3;
+  only_pair(s).measured.reliability.resent = 2;
+  s.topics[0].lost_packets = 3;
+  out = render_table(s, opt);
+  EXPECT_NE(out.find("3 lost, 2 resent"), std::string::npos) << out;
+  EXPECT_NE(out.find("  3 lost  "), std::string::npos) << out;      // topic row: sums
+  only_pair(s).measured.reliability.lost_packets = 0;
+  out = render_table(s, opt);
+  EXPECT_NE(out.find("  2 resent  "), std::string::npos) << out;
 }
