@@ -35,9 +35,9 @@ shared memory: /dev/shm 371 MB used of 16.7 GB (16.3 GB free) | Fast DDS 6.36 MB
 
 ![colored table](images/example-table.svg)
 
-同じ実行結果を [web viewer](web-viewer.md) で開いたところ (グラフビュー):
+同じ実行結果を [web viewer](web-viewer.md) で開いたところ (テーブルビュー):
 
-![graph view](images/web-viewer-graph.jpg)
+![table view](images/web-viewer-table.jpg)
 
 - **予測** は Fast DDS の discovery データ (各エンドポイントが広告する locator (通信先アドレス) と QoS)
   から求めます。観測対象のノードには何も要求しません。
