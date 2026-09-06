@@ -123,7 +123,10 @@ std::string aggregate_transports(const TopicSummary & t, bool color)
   std::map<std::string, std::string> painted;
   for (const auto & p : t.pairs) {
     auto label = transport_label(p.verdict);
-    if (!counts.count(label)) {order.push_back(label); painted[label] = transport_label(p.verdict, color);}
+    if (!counts.count(label)) {
+      order.push_back(label);
+      painted[label] = transport_label(p.verdict, color);
+    }
     counts[label]++;
   }
   std::vector<std::string> parts;
@@ -140,10 +143,16 @@ std::string aggregate_reasons(const TopicSummary & t, bool color)
   auto add = [&](const std::string & c) {
       if (seen.insert(c).second) {out.push_back(c);}
     };
-  for (const auto & r : t.unmatched_reasons) {add(r);}
+  for (const auto & r : t.unmatched_reasons) {
+    add(r);
+  }
   for (const auto & p : t.pairs) {
-    for (const auto & r : p.verdict.reasons) {add(r);}
-    for (const auto & w : p.verdict.warnings) {add(paint("!" + w, RED, color));}
+    for (const auto & r : p.verdict.reasons) {
+      add(r);
+    }
+    for (const auto & w : p.verdict.warnings) {
+      add(paint("!" + w, RED, color));
+    }
   }
   return join(out, ",");
 }
@@ -173,7 +182,9 @@ std::string human_bytes(double v, const char * unit)
   if (i == 0) {
     std::snprintf(buf, sizeof(buf), "%.0f %s%s", v, prefixes[i], unit);
   } else {
-    std::snprintf(buf, sizeof(buf), v < 10.0 ? "%.2f %s%s" : v < 100.0 ? "%.1f %s%s" : "%.0f %s%s", v, prefixes[i], unit);
+    std::snprintf(
+      buf, sizeof(buf), v < 10.0 ? "%.2f %s%s" : v < 100.0 ? "%.1f %s%s" : "%.0f %s%s",
+      v, prefixes[i], unit);
   }
   return buf;
 }
@@ -191,7 +202,8 @@ std::string human_seconds(double seconds)
   int i = 0;
   while (v >= 1000.0 && i < 3) {v /= 1000.0; ++i;}
   char buf[32];
-  std::snprintf(buf, sizeof(buf), v < 10.0 ? "%s%.2f %s" : v < 100.0 ? "%s%.1f %s" : "%s%.0f %s",
+  std::snprintf(
+    buf, sizeof(buf), v < 10.0 ? "%s%.2f %s" : v < 100.0 ? "%s%.1f %s" : "%s%.0f %s",
     seconds < 0.0 ? "-" : "", v, units[i]);
   return buf;
 }
@@ -247,7 +259,8 @@ std::vector<size_t> column_widths(const std::vector<std::vector<std::string>> & 
   return widths;
 }
 
-void emit_row(std::ostringstream & os, const std::vector<std::string> & r,
+void emit_row(
+  std::ostringstream & os, const std::vector<std::string> & r,
   const std::vector<size_t> & widths, size_t max_width)
 {
   std::string line;
@@ -261,11 +274,14 @@ void emit_row(std::ostringstream & os, const std::vector<std::string> & r,
   os << truncate_visible(line, max_width) << '\n';
 }
 
-void print_rows(std::ostringstream & os, const std::vector<std::vector<std::string>> & rows,
+void print_rows(
+  std::ostringstream & os, const std::vector<std::vector<std::string>> & rows,
   size_t max_width = 0)
 {
   auto widths = column_widths(rows);
-  for (const auto & r : rows) {emit_row(os, r, widths, max_width);}
+  for (const auto & r : rows) {
+    emit_row(os, r, widths, max_width);
+  }
 }
 
 /// Mark column for --watch: "+" / "~" / "-" painted, or a space.
@@ -311,7 +327,8 @@ std::string render_table(const Snapshot & snap, const RenderOptions & opt)
   const std::string indent = watch ? "     " : "    ";
 
   std::vector<std::vector<std::string>> rows;
-  std::vector<std::string> header = {"TOPIC", "TYPE", "PUBS", "SUBS", "TRANSPORT", "RATE", "LATENCY", "LOSS", "REASON"};
+  std::vector<std::string> header = {
+    "TOPIC", "TYPE", "PUBS", "SUBS", "TRANSPORT", "RATE", "LATENCY", "LOSS", "REASON"};
   if (watch) {header.insert(header.begin(), " ");}
   rows.push_back(header);
   for (const auto & t : snap.topics) {
@@ -330,12 +347,15 @@ std::string render_table(const Snapshot & snap, const RenderOptions & opt)
   std::vector<const GhostPair *> orphan_ghosts;
   if (watch) {
     for (const auto & g : watch->ghosts) {
-      bool found = std::any_of(snap.topics.begin(), snap.topics.end(),
-          [&](const TopicSummary & t) {return t.display_topic == g.key.topic;});
+      bool found = std::any_of(
+        snap.topics.begin(), snap.topics.end(),
+        [&](const TopicSummary & t) {return t.display_topic == g.key.topic;});
       if (!found) {orphan_ghosts.push_back(&g);}
     }
     for (const auto * g : orphan_ghosts) {
-      rows.push_back({mark_cell('-', color), paint(g->key.topic, DIM, color), paint(g->type, DIM, color),
+      rows.push_back(
+        {
+          mark_cell('-', color), paint(g->key.topic, DIM, color), paint(g->type, DIM, color),
           "-", "-", paint(g->transport_label, DIM, color), "-", paint("(removed)", DIM, color)});
     }
   }
@@ -368,30 +388,42 @@ std::string render_table(const Snapshot & snap, const RenderOptions & opt)
       std::vector<std::vector<std::string>> pair_rows;
       for (const auto & p : t.pairs) {
         std::string reasons = join(p.verdict.reasons, ",");
-        for (const auto & w : p.verdict.warnings) {reasons += "," + paint("!" + w, RED, color);}
+        for (const auto & w : p.verdict.warnings) {
+          reasons += "," + paint("!" + w, RED, color);
+        }
         std::vector<std::string> row;
         if (watch) {
           auto it = watch->marks.find(pair_key(t, p));
           row.push_back(mark_cell(it == watch->marks.end() ? ' ' : it->second, color));
         }
-        row.push_back(indent.substr(watch ? 1 : 0) + endpoint_label(snap, *p.writer, opt) + " -> " +
+        row.push_back(
+          indent.substr(watch ? 1 : 0) + endpoint_label(snap, *p.writer, opt) + " -> " +
           endpoint_label(snap, *p.reader, opt));
         row.push_back(transport_label(p.verdict, color));
-        row.push_back(rate_label(snap.stats.enabled && p.measured.throughput_available, p.measured.throughput));
-        row.push_back(latency_label(snap.stats.enabled && p.measured.latency_available,
-          p.measured.latency.mean(), p.measured.latency.max, true));
-        row.push_back(loss_label(snap.stats.enabled && p.measured.reliability.available,
-          p.measured.reliability.lost_packets, p.measured.reliability.resent));
+        row.push_back(
+          rate_label(snap.stats.enabled && p.measured.throughput_available, p.measured.throughput));
+        row.push_back(
+          latency_label(
+            snap.stats.enabled && p.measured.latency_available,
+            p.measured.latency.mean(), p.measured.latency.max, true));
+        row.push_back(
+          loss_label(
+            snap.stats.enabled && p.measured.reliability.available,
+            p.measured.reliability.lost_packets, p.measured.reliability.resent));
         if (snap.stats.enabled) {
           row.push_back("measured=" + measured_label(p));
         }
         row.push_back(reasons);
         pair_rows.push_back(row);
       }
-      for (auto & g : ghost_rows_for(t.display_topic)) {pair_rows.push_back(g);}
+      for (auto & g : ghost_rows_for(t.display_topic)) {
+        pair_rows.push_back(g);
+      }
       print_rows(os, pair_rows, opt.max_width);
     }
-    for (; idx < rows.size(); ++idx) {emit_row(os, rows[idx], widths, opt.max_width);}
+    for (; idx < rows.size(); ++idx) {
+      emit_row(os, rows[idx], widths, opt.max_width);
+    }
   }
   if (watch && !watch->summary.empty()) {
     os << "\n" << paint("changes: ", BOLD, color) << watch->summary << "\n";
@@ -405,7 +437,9 @@ std::string render_table(const Snapshot & snap, const RenderOptions & opt)
        << snap.stats.participants_with_stats.size() << " participant(s)";
     if (snap.stats.participants_with_stats.empty()) {
       os << " - start the observed nodes with FASTDDS_STATISTICS=\""
-         << "RTPS_SENT_TOPIC;RTPS_LOST_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC;DATA_COUNT_TOPIC;PUBLICATION_THROUGHPUT_TOPIC;RESENT_DATAS_TOPIC;HEARTBEAT_COUNT_TOPIC;ACKNACK_COUNT_TOPIC;NACKFRAG_COUNT_TOPIC;GAP_COUNT_TOPIC\"";
+         << "RTPS_SENT_TOPIC;RTPS_LOST_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC;"
+         << "DATA_COUNT_TOPIC;PUBLICATION_THROUGHPUT_TOPIC;RESENT_DATAS_TOPIC;"
+         << "HEARTBEAT_COUNT_TOPIC;ACKNACK_COUNT_TOPIC;NACKFRAG_COUNT_TOPIC;GAP_COUNT_TOPIC\"";
     }
     os << "\n";
   }
@@ -421,7 +455,8 @@ std::string render_table(const Snapshot & snap, const RenderOptions & opt)
     if (shm.stale_segments) {os << " (" << shm.stale_segments << " stale)";}
     os << ", " << shm.ports << " port(s)";
     if (shm.stale_ports) {os << " (" << shm.stale_ports << " stale)";}
-    os << ", " << shm.datasharing_histories << " data-sharing histor" << (shm.datasharing_histories == 1 ? "y" : "ies");
+    os << ", " << shm.datasharing_histories << " data-sharing histor" <<
+      (shm.datasharing_histories == 1 ? "y" : "ies");
     if (shm.datasharing_unmatched) {os << " (" << shm.datasharing_unmatched << " unmatched)";}
     os << "\n";
     for (const auto & w : shm.warnings) {
@@ -448,12 +483,20 @@ std::string render_table(const Snapshot & snap, const RenderOptions & opt)
 
   if (opt.explain) {
     std::set<std::string> used;
-    for (const auto & w : snap.shm.warnings) {used.insert(w);}
+    for (const auto & w : snap.shm.warnings) {
+      used.insert(w);
+    }
     for (const auto & t : snap.topics) {
-      for (const auto & r : t.unmatched_reasons) {used.insert(r);}
+      for (const auto & r : t.unmatched_reasons) {
+        used.insert(r);
+      }
       for (const auto & p : t.pairs) {
-        for (const auto & r : p.verdict.reasons) {used.insert(r);}
-        for (const auto & w : p.verdict.warnings) {used.insert(w);}
+        for (const auto & r : p.verdict.reasons) {
+          used.insert(r);
+        }
+        for (const auto & w : p.verdict.warnings) {
+          used.insert(w);
+        }
       }
     }
     if (!used.empty()) {

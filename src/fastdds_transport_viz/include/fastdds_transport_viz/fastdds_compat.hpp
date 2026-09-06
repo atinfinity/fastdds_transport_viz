@@ -33,12 +33,12 @@
 #else
 #include <fastdds/rtps/common/Guid.h>
 #include <fastdds/rtps/common/Locator.h>
-#include <fastdds/rtps/common/RemoteLocators.hpp>
 #include <fastdds/rtps/participant/ParticipantDiscoveryInfo.h>
 #include <fastdds/rtps/reader/ReaderDiscoveryInfo.h>
 #include <fastdds/rtps/writer/WriterDiscoveryInfo.h>
 #include <fastrtps/types/TypesBase.h>   // ReturnCode_t
 #include <fastrtps/utils/IPLocator.h>
+#include <fastdds/rtps/common/RemoteLocators.hpp>
 #endif
 
 /// Fast DDS 3.x always ships the statistics module; 2.x only when built with
@@ -51,7 +51,8 @@
 
 /// Fast DDS below 2.10 delivers only the SHM locator of a participant on the same host
 /// (its UDP locators are filtered out of the discovery data the tool receives).
-#if !FTV_FASTDDS_3 && (FASTRTPS_VERSION_MAJOR < 2 || (FASTRTPS_VERSION_MAJOR == 2 && FASTRTPS_VERSION_MINOR < 10))
+#if !FTV_FASTDDS_3 && (FASTRTPS_VERSION_MAJOR < 2 || \
+  (FASTRTPS_VERSION_MAJOR == 2 && FASTRTPS_VERSION_MINOR < 10))
 #define FTV_SAME_HOST_LOCATORS_FILTERED 1
 #else
 #define FTV_SAME_HOST_LOCATORS_FILTERED 0

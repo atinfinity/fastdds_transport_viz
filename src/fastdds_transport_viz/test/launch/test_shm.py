@@ -1,14 +1,18 @@
 # Copyright 2026 atinfinity
 # SPDX-License-Identifier: Apache-2.0
-"""Shared-memory report: talker + listener in the tool's IPC namespace => /dev/shm is
-visible, their segments are not stale, the JSON `shm` object is complete."""
+"""
+Shared-memory report.
+
+talker + listener in the tool's IPC namespace => /dev/shm is visible, their
+segments are not stale, the JSON `shm` object is complete.
+"""
 import os
 import sys
 
-import launch_testing
-
 sys.path.insert(0, os.path.dirname(__file__))
 from _common import Base, description, node_action  # noqa: E402
+
+import launch_testing  # noqa: E402
 
 
 def generate_test_description():
@@ -46,7 +50,8 @@ class TestShm(Base):
     def test_table_footer(self):
         import subprocess
         out = subprocess.run(
-            ['ros2', 'run', 'fastdds_transport_viz', 'transport_viz', '--timeout', '3', '--quiet', '0'],
+            ['ros2', 'run', 'fastdds_transport_viz', 'transport_viz',
+             '--timeout', '3', '--quiet', '0'],
             check=True, capture_output=True, text=True, timeout=30).stdout
         self.assertIn('shared memory: /dev/shm', out)
         self.assertIn('segment(s)', out)

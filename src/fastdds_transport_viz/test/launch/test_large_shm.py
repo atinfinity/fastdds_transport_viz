@@ -4,16 +4,20 @@
 import os
 import sys
 
-import launch_testing
-
 sys.path.insert(0, os.path.dirname(__file__))
-from _common import Base, description, node_action, pair_of, skip_without_statistics, STATS_ENV, transport_viz_json  # noqa: E402
+from _common import (  # noqa: E402
+    Base, description, node_action, pair_of, skip_without_statistics, STATS_ENV,
+    transport_viz_json)
+
+import launch_testing  # noqa: E402
 
 SIZE_KB = 2048
 # statistics.xml + a 16 MB SHM segment (issue #33: on slow runners the default 512 KB
 # segment left the writer's RTPS_SENT without an entry for the reader's SHM port)
-ENV = {**STATS_ENV,
-       'FASTRTPS_DEFAULT_PROFILES_FILE': os.path.join(os.path.dirname(__file__), 'large_shm_stats.xml')}
+ENV = {
+    **STATS_ENV,
+    'FASTRTPS_DEFAULT_PROFILES_FILE': os.path.join(
+        os.path.dirname(__file__), 'large_shm_stats.xml')}
 
 
 def generate_test_description():
@@ -43,7 +47,8 @@ class TestLargeShm(Base):
         self.assertEqual(pair['transport'], 'SHM', pair)
         self.assertNotIn('measured-transport-mismatch', pair['warnings'])
         if pair['measured']['transports']:
-            self.assertEqual(pair['measured']['transports'], ['SHM'], (pair, sent, doc['stats']['samples']))
+            self.assertEqual(
+                pair['measured']['transports'], ['SHM'], (pair, sent, doc['stats']['samples']))
             # at least a few samples of SIZE_KB were carried during the observation
             self.assertGreater(pair['measured']['bytes'], 3 * SIZE_KB * 1024, pair['measured'])
         else:

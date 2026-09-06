@@ -53,7 +53,9 @@ PairState pair_state(const Pair & pair);
 std::map<PairKey, PairState> pair_states(const Snapshot & snap);
 
 /// Pairs added / removed / changed between two frames. Pure function.
-Changes diff(const std::map<PairKey, PairState> & previous, const std::map<PairKey, PairState> & current);
+Changes diff(
+  const std::map<PairKey, PairState> & previous,
+  const std::map<PairKey, PairState> & current);
 
 /// Human readable explanation for a reason / warning code (English).
 std::string explain(const std::string & code);

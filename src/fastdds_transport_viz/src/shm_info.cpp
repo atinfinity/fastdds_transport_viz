@@ -36,7 +36,7 @@ bool starts_with(const std::string & s, const char * prefix)
 
 /// The prefix of `s` among `prefixes`, or nullptr.
 template<size_t N>
-const char * prefix_of(const std::string & s, const char * const (& prefixes)[N])
+const char * prefix_of(const std::string & s, const char * const (&prefixes)[N])
 {
   for (const char * p : prefixes) {
     if (starts_with(s, p)) {return p;}
@@ -194,7 +194,8 @@ void add_capacity_warning(ShmInfo & info)
 {
   if (info.total_bytes > 0 &&
     (info.free_bytes < kNearlyFullFreeBytes ||
-    static_cast<double>(info.used_bytes) >= kNearlyFullRatio * static_cast<double>(info.total_bytes)))
+    static_cast<double>(info.used_bytes) >=
+    kNearlyFullRatio * static_cast<double>(info.total_bytes)))
   {
     info.warnings.push_back("shm-nearly-full");
   }

@@ -55,7 +55,8 @@ struct EndpointQos
   std::vector<uint64_t> data_sharing_domains;   // effective domain ids announced
   // Request/offer policies Fast DDS checks when matching (infinite = no limit)
   double deadline_s{std::numeric_limits<double>::infinity()};
-  std::string liveliness{"AUTOMATIC"};          // "AUTOMATIC" / "MANUAL_BY_PARTICIPANT" / "MANUAL_BY_TOPIC"
+  // "AUTOMATIC" / "MANUAL_BY_PARTICIPANT" / "MANUAL_BY_TOPIC"
+  std::string liveliness{"AUTOMATIC"};
   double liveliness_lease_s{std::numeric_limits<double>::infinity()};
   std::string ownership{"SHARED"};              // "SHARED" / "EXCLUSIVE"
   std::vector<std::string> partitions;          // empty = the default partition
@@ -82,8 +83,10 @@ struct Endpoint
   std::vector<Locator> unicast;
   std::vector<Locator> multicast;
   EndpointQos qos;
-  bool same_host_locators_filtered{false};     // Fast DDS < 2.10: only the SHM locator of a same-host peer is visible
-  bool datasharing_history_available{false};   // a data-sharing history file of this writer exists in /dev/shm
+  // Fast DDS < 2.10: only the SHM locator of a same-host peer is visible
+  bool same_host_locators_filtered{false};
+  // a data-sharing history file of this writer exists in /dev/shm
+  bool datasharing_history_available{false};
   uint64_t datasharing_history_bytes{0};
 };
 
@@ -133,7 +136,8 @@ struct LatencyStat
 struct Reliability
 {
   bool available{false};        // at least one of the counters below was reported
-  uint64_t lost_packets{0};     // RTPS_LOST: packets from the writer's locators the reader's participant missed
+  // RTPS_LOST: packets from the writer's locators the reader's participant missed
+  uint64_t lost_packets{0};
   uint64_t resent{0};           // RESENT_DATAS of the writer
   uint64_t heartbeats{0};       // HEARTBEAT_COUNT of the writer
   uint64_t gaps{0};             // GAP_COUNT of the writer
@@ -145,7 +149,7 @@ struct Reliability
 struct Measurement
 {
   bool available{false};             // writer's participant publishes statistics
-  std::vector<Transport> transports; // locator kinds that carried packets to the reader
+  std::vector<Transport> transports;  // locator kinds that carried packets to the reader
   uint64_t packets{0};               // RTPS packets/bytes to the reader during the observation
   double bytes{0.0};
   uint64_t packets_total{0};         // ... and since the writer's participant started
@@ -184,7 +188,7 @@ struct TopicSummary
   double throughput{0.0};            // sum of the writers' payload bytes per second
   bool latency_available{false};     // at least one pair has HISTORY_LATENCY values
   double latency{0.0};               // the slowest pair: max of the pairs' mean latency (seconds)
-  bool reliability_available{false}; // at least one pair has reliability counters
+  bool reliability_available{false};  // at least one pair has reliability counters
   uint64_t lost_packets{0};          // sum over the pairs
   uint64_t resent{0};
 };
@@ -233,19 +237,23 @@ inline constexpr const char * kStatsDataCountTopic = "_fastdds_statistics_data_c
 struct StatsData
 {
   bool enabled{false};
-  std::map<std::string, HostInfo> physical;               // participant prefix -> host info
+  std::map<std::string, HostInfo> physical;   // participant prefix -> host info
   std::vector<TrafficSample> traffic;
-  std::map<std::pair<std::string, std::string>, size_t> delivered;  // (writer, reader) guid -> HISTORY_LATENCY samples
-  std::map<std::pair<std::string, std::string>, LatencyStat> latency;  // (writer, reader) guid -> HISTORY_LATENCY values
+  // (writer, reader) guid -> HISTORY_LATENCY samples
+  std::map<std::pair<std::string, std::string>, size_t> delivered;
+  // (writer, reader) guid -> HISTORY_LATENCY values
+  std::map<std::pair<std::string, std::string>, LatencyStat> latency;
   std::map<std::string, DataCountSample> data_count;       // writer guid -> DATA_COUNT
-  std::vector<TrafficSample> lost;                         // RTPS_LOST: src = receiving participant, dst = the sender's locator
+  // RTPS_LOST: src = receiving participant, dst = the sender's locator
+  std::vector<TrafficSample> lost;
   std::map<std::string, DataCountSample> resent_datas;     // writer guid -> RESENT_DATAS
   std::map<std::string, DataCountSample> heartbeats;       // writer guid -> HEARTBEAT_COUNT
   std::map<std::string, DataCountSample> gaps;             // writer guid -> GAP_COUNT
   std::map<std::string, DataCountSample> acknacks;         // reader guid -> ACKNACK_COUNT
   std::map<std::string, DataCountSample> nackfrags;        // reader guid -> NACKFRAG_COUNT
   std::map<std::string, ThroughputStat> throughput;        // writer guid -> PUBLICATION_THROUGHPUT
-  std::set<std::pair<std::string, std::string>> statistics_writers;  // (participant prefix, statistics topic) discovered
+  // (participant prefix, statistics topic) discovered
+  std::set<std::pair<std::string, std::string>> statistics_writers;
   std::set<std::string> participants_with_stats;           // prefixes seen on any stats topic
   /// IP addresses of the tool's own host. Fast DDS shows the locators of participants on
   /// the same host as 127.0.0.1 / ::1, while a remote writer's RTPS_SENT names the real
@@ -273,9 +281,9 @@ struct ShmInfo
   size_t datasharing_unmatched{0};   // ... not belonging to a discovered writer
   std::vector<uint32_t> checked_ports;   // SHM ports of observed nodes with the tool's host id
   std::vector<uint32_t> missing_ports;   // ... not held by a living process here, or the tool's own
-  size_t other_host_participants{0}; // observed participants with another host id
+  size_t other_host_participants{0};  // observed participants with another host id
   bool nodes_visible{true};          // missing_ports.empty() && other_host_participants == 0
-  std::vector<std::string> warnings; // shm-stale-files, shm-nearly-full, shm-not-visible
+  std::vector<std::string> warnings;  // shm-stale-files, shm-nearly-full, shm-not-visible
   std::map<std::string, uint64_t> datasharing_by_writer;   // writer guid -> history bytes
 };
 
@@ -288,7 +296,8 @@ struct PairKey
   std::string reader_guid;
   bool operator<(const PairKey & o) const
   {
-    return std::tie(topic, writer_guid, reader_guid) < std::tie(o.topic, o.writer_guid, o.reader_guid);
+    return std::tie(topic, writer_guid, reader_guid) <
+           std::tie(o.topic, o.writer_guid, o.reader_guid);
   }
   bool operator==(const PairKey & o) const
   {

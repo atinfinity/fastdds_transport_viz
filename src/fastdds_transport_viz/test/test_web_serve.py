@@ -1,8 +1,7 @@
 # Copyright 2026 atinfinity
 # SPDX-License-Identifier: Apache-2.0
-"""web/serve.py with a fake transport_viz: framing, /latest.json, SSE, shutdown on producer exit."""
+"""web/serve.py with a fake transport_viz: framing, /latest.json, SSE, shutdown on exit."""
 import json
-import os
 import pathlib
 import re
 import subprocess
@@ -15,7 +14,7 @@ REPO = pathlib.Path(__file__).resolve().parents[3]
 SERVE = REPO / 'web' / 'serve.py'
 SAMPLE = REPO / 'web' / 'sample' / 'sample.json'
 
-FAKE = textwrap.dedent('''\
+FAKE = textwrap.dedent("""\
     #!/usr/bin/env python3
     import json, sys, time
     assert sys.argv[1:3] == ['--watch', '--json'], sys.argv
@@ -26,7 +25,7 @@ FAKE = textwrap.dedent('''\
         time.sleep(0.2)
     print('garbage that is not json', flush=True)
     sys.exit(0)
-''')
+""")
 
 
 def start(tmp_path):

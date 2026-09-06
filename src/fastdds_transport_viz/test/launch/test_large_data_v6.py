@@ -1,16 +1,20 @@
 # Copyright 2026 atinfinity
 # SPDX-License-Identifier: Apache-2.0
-"""FASTDDS_BUILTIN_TRANSPORTS=LARGE_DATAv6 on one host: TCPv6 (and UDPv6) locators are
-announced, SHM is still chosen. Skipped without an IPv6 interface."""
+"""
+LARGE_DATAv6 on one host.
+
+FASTDDS_BUILTIN_TRANSPORTS=LARGE_DATAv6 on one host: TCPv6 (and UDPv6) locators are
+announced, SHM is still chosen. Skipped without an IPv6 interface.
+"""
 import os
 import sys
 import unittest
 
-import launch
-import launch_testing
-
 sys.path.insert(0, os.path.dirname(__file__))
-from _common import Base, description, node_action, pair_of, transport_viz_json, skip_without_builtin_transports  # noqa: E402
+from _common import (  # noqa: E402
+    Base, description, node_action, pair_of, skip_without_builtin_transports, transport_viz_json)
+import launch  # noqa: E402
+import launch_testing  # noqa: E402
 from test_udpv6 import has_ipv6_interface  # noqa: E402
 
 ENV = {'FASTDDS_BUILTIN_TRANSPORTS': 'LARGE_DATAv6'}
@@ -36,7 +40,9 @@ class TestLargeDataV6(Base):
             if any(t['topic'] == '/chatter' and t['pairs'] for t in doc['topics']):
                 break
         topic, pair = pair_of(doc, '/chatter')
-        kinds = {l['kind'] for ep in topic['writers'] + topic['readers'] for l in ep['unicast_locators']}
+        kinds = {
+            loc['kind'] for ep in topic['writers'] + topic['readers']
+            for loc in ep['unicast_locators']}
         self.assertIn('TCPv6', kinds, kinds)
         self.assertIn('SHM', kinds, kinds)
         self.assertEqual(pair['transport'], 'SHM', pair)

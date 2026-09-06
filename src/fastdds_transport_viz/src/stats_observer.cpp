@@ -58,7 +58,9 @@ rtps::Locator_t to_rtps(const st::detail::Locator_s & l)
 
 std::string StatsObserver::required_env_value()
 {
-  return "RTPS_SENT_TOPIC;RTPS_LOST_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC;DATA_COUNT_TOPIC;PUBLICATION_THROUGHPUT_TOPIC;RESENT_DATAS_TOPIC;HEARTBEAT_COUNT_TOPIC;ACKNACK_COUNT_TOPIC;NACKFRAG_COUNT_TOPIC;GAP_COUNT_TOPIC";
+  return "RTPS_SENT_TOPIC;RTPS_LOST_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC;"
+         "DATA_COUNT_TOPIC;PUBLICATION_THROUGHPUT_TOPIC;RESENT_DATAS_TOPIC;"
+         "HEARTBEAT_COUNT_TOPIC;ACKNACK_COUNT_TOPIC;NACKFRAG_COUNT_TOPIC;GAP_COUNT_TOPIC";
 }
 
 StatsObserver::StatsObserver(dds::DomainParticipant * participant)
@@ -96,7 +98,8 @@ StatsObserver::StatsObserver(dds::DomainParticipant * participant)
 StatsObserver::~StatsObserver()
 {
   for (auto * r : {&rtps_sent_, &history_latency_, &physical_data_, &data_count_, &throughput_,
-      &rtps_lost_, &resent_datas_, &heartbeat_count_, &gap_count_, &acknack_count_, &nackfrag_count_})
+      &rtps_lost_, &resent_datas_, &heartbeat_count_, &gap_count_, &acknack_count_,
+      &nackfrag_count_})
   {
     if (r->reader) {subscriber_->delete_datareader(r->reader);}
     if (r->topic && r->owns_topic) {participant_->delete_topic(r->topic);}
@@ -166,7 +169,8 @@ void StatsObserver::drain()
     // floor(log10(byte_count)) (see StatisticsParticipantImpl::on_rtps_sent).
     s.bytes = static_cast<double>(traffic.byte_count());
     data_.participants_with_stats.insert(s.src_participant_prefix);
-    auto & slot = traffic_[TrafficKey{s.src_participant_prefix, static_cast<int>(dst.kind), dst.address, dst.port}];
+    auto & slot = traffic_[
+      TrafficKey{s.src_participant_prefix, static_cast<int>(dst.kind), dst.address, dst.port}];
     if (slot.samples == 0) {   // TRANSIENT_LOCAL: the first sample is the value before we started
       s.packets_first = s.packets;
       s.bytes_first = s.bytes;
@@ -199,7 +203,8 @@ void StatsObserver::drain()
     data_.participants_with_stats.insert(prefix_to_string(w.guidPrefix));
     data_.delivered[{guid_to_string(w), guid_to_string(r)}]++;
     // write-to-notification latency, nanoseconds as float
-    data_.latency[{guid_to_string(w), guid_to_string(r)}].add(static_cast<double>(latency.data()) * 1e-9);
+    data_.latency[{guid_to_string(w), guid_to_string(r)}].add(
+      static_cast<double>(latency.data()) * 1e-9);
   }
 
   // Cumulative per-entity counters: DATA_COUNT and the reliability counters. The first
@@ -238,7 +243,8 @@ void StatsObserver::drain()
     s.packets = lost.packet_count();
     s.bytes = static_cast<double>(lost.byte_count());
     data_.participants_with_stats.insert(s.src_participant_prefix);
-    auto & slot = lost_[TrafficKey{s.src_participant_prefix, static_cast<int>(from.kind), from.address, from.port}];
+    auto & slot = lost_[
+      TrafficKey{s.src_participant_prefix, static_cast<int>(from.kind), from.address, from.port}];
     if (slot.samples == 0) {
       s.packets_first = s.packets;
       s.bytes_first = s.bytes;

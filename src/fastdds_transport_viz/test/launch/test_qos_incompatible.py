@@ -1,15 +1,19 @@
 # Copyright 2026 atinfinity
 # SPDX-License-Identifier: Apache-2.0
-"""QoS request/offer: a BEST_EFFORT writer never matches a RELIABLE reader, and a VOLATILE
-writer never matches a TRANSIENT_LOCAL reader; the tool shows those pairs as NONE with
-qos-incompatible-* reasons, and the compatible pair stays SHM."""
+"""
+QoS request/offer compatibility.
+
+A BEST_EFFORT writer never matches a RELIABLE reader, and a VOLATILE writer never
+matches a TRANSIENT_LOCAL reader; the tool shows those pairs as NONE with
+qos-incompatible-* reasons, and the compatible pair stays SHM.
+"""
 import os
 import sys
 
-import launch_testing
-
 sys.path.insert(0, os.path.dirname(__file__))
 from _common import Base, description, node_action  # noqa: E402
+
+import launch_testing  # noqa: E402
 
 PKG = 'fastdds_transport_viz'
 
@@ -51,7 +55,8 @@ class TestQosIncompatible(Base):
 
         both = pairs[('/pub_be', '/sub_tl')]
         self.assertEqual(both['transport'], 'NONE', both)
-        self.assertEqual(both['reasons'], ['qos-incompatible-reliability', 'qos-incompatible-durability'], both)
+        self.assertEqual(
+            both['reasons'], ['qos-incompatible-reliability', 'qos-incompatible-durability'], both)
 
     def test_announced_qos_in_json(self):
         _, topic = self.wait_for_topic('/unbounded')

@@ -27,10 +27,12 @@ std::string guid_to_string(const rtps::GUID_t & guid)
   char buf[64];
   int n = 0;
   for (int i = 0; i < 12; ++i) {
-    n += std::snprintf(buf + n, sizeof(buf) - n, "%02x%s", guid.guidPrefix.value[i], i < 11 ? "." : "|");
+    n += std::snprintf(
+      buf + n, sizeof(buf) - n, "%02x%s", guid.guidPrefix.value[i], i < 11 ? "." : "|");
   }
   for (int i = 0; i < 4; ++i) {
-    n += std::snprintf(buf + n, sizeof(buf) - n, "%02x%s", guid.entityId.value[i], i < 3 ? "." : "");
+    n += std::snprintf(
+      buf + n, sizeof(buf) - n, "%02x%s", guid.entityId.value[i], i < 3 ? "." : "");
   }
   return buf;
 }
