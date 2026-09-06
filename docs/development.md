@@ -118,7 +118,12 @@ colcon test && colcon test-result --verbose
 - `test_decision`: gtest over the pure decision logic, the statistics overlay and name
   demangling.
 - `test_render`: gtest over the table renderer (visible width, truncation, colors, watch
-  marks and ghost rows).
+  marks and ghost rows, every `measured=` cell value, the statistics and shared-memory
+  footers, the `--explain` legend, host labels).
+- `test_render_json`: gtest over the JSON renderer (every documented key, the `stats` and
+  `shm` objects, the `--watch` `changes` object, JSON Lines mode).
+- `test_cli_args` (pytest, no DDS): `--help`, `--list-codes`, unknown options, missing
+  values, invalid regexes and color modes exit with the documented codes and messages.
 - `test_shm_info`: gtest over the `/dev/shm` scan on a temporary directory (sizes, stale
   detection through `flock`, data-sharing file names, IPC-namespace visibility).
 - `test_same_host_shm.py` / `test_same_host_udp.py`: launch_testing against real demo
@@ -131,8 +136,12 @@ colcon test && colcon test-result --verbose
   `test_large_data_same_host.py` (`LARGE_DATA`: TCPv4 announced, SHM chosen),
   `test_large_shm.py` (2 MB samples measured on SHM), `test_datasharing_stats.py`
   (`bounded_pub`/`bounded_sub` with `datasharing_auto_stats.xml`: `DATA_SHARING` becomes
-  `certain` through `HISTORY_LATENCY` + `DATA_COUNT`), `test_shm.py` (the shared-memory
-  report for nodes in the tool's IPC namespace).
+  `certain` through `HISTORY_LATENCY` + `DATA_COUNT`), `test_unbounded_vs_bounded.py`
+  (`datasharing_auto.xml`: the bounded pair is `DATA_SHARING?`, the `unbounded_pub` String
+  writer resolves to `OFF` and stays on `SHM`), `test_shm.py` (the shared-memory report for
+  nodes in the tool's IPC namespace), `test_watch.py` (`--watch` without a terminal: a pair
+  appears and disappears while watching, `+`/`-` marks, ghost rows, the `changes` object
+  in `--watch --json`).
 - `test_json_schema` / `test_json_schema_live.py`: sample and live `--json` output against
   `schema/transport_viz.schema.json`.
 - `test_web_serve` (pytest, fake `transport_viz`) / `test_web_live.py` (real one): the live
@@ -140,6 +149,13 @@ colcon test && colcon test-result --verbose
 - `ros2transport/test/test_cli.py` (pytest, fake `transport_viz`): argument translation of
   `ros2 transport list`, parity with the binary's `--help`, `codes`, missing binary.
   `test_list_live.py`: `ros2 transport list --json` against real demo nodes.
+
+Line coverage of the C++ sources, measured with `scripts/coverage.sh` inside the dev
+container (a `--coverage` build in `build_cov/`, the whole test suite, then `gcovr`):
+93 % as of 2026-09-06 (`decision.cpp` 94 %, `render_table.cpp` 97 %, `render_json.cpp`
+99 %, `shm_info.cpp` 98 %, `main.cpp` 86 %; what is left is the interactive terminal
+path of `--watch` and error branches of the observers). The web viewer's JavaScript has
+no unit tests; it is exercised through `test_web_live.py` and the schema tests only.
 
 ## Continuous integration
 

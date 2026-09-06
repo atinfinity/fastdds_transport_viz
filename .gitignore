@@ -1,6 +1,8 @@
 build/
 install/
 log/
+build_cov/
+install_cov/
 *.pyc
 __pycache__/
 .cache/

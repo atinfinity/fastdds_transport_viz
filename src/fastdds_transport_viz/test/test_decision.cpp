@@ -654,3 +654,177 @@ TEST(Diff, PairStatesFromSnapshot)
   EXPECT_EQ(states.begin()->first.topic, "/chatter");
   EXPECT_EQ(states.begin()->second.transport, Transport::SHM);
 }
+
+// ---- coverage of the remaining branches -----------------------------------------
+
+namespace
+{
+Locator tcp4(const std::string & ip, uint32_t port = 7411) {return Locator{LocatorKind::TCPv4, ip, port};}
+Locator tcp6(const std::string & ip, uint32_t port = 7411) {return Locator{LocatorKind::TCPv6, ip, port};}
+Locator udp6(const std::string & ip, uint32_t port = 7411) {return Locator{LocatorKind::UDPv6, ip, port};}
+}  // namespace
+
+TEST(Decision, CrossHostTcpAndUdp6Locators)
+{
+  auto w4 = make(true, HOST_A, {tcp4("10.0.0.1"), shm()});
+  auto r4 = make(false, HOST_B, {tcp4("10.0.0.2"), shm()});
+  auto v = decide(w4, r4);
+  EXPECT_EQ(v.transport, Transport::TCPv4);
+  EXPECT_TRUE(has(v.reasons, "different-host"));
+  EXPECT_TRUE(has(v.reasons, "common-tcpv4-locator"));
+  EXPECT_TRUE(has(v.reasons, "shm-locators-ignored-across-hosts"));
+
+  auto w6 = make(true, HOST_A, {tcp6("fd00::1")});
+  auto r6 = make(false, HOST_B, {tcp6("fd00::2")});
+  EXPECT_EQ(decide(w6, r6).transport, Transport::TCPv6);
+  EXPECT_TRUE(has(decide(w6, r6).reasons, "common-tcpv6-locator"));
+
+  auto wu6 = make(true, HOST_A, {udp6("fd00::1")});
+  auto ru6 = make(false, HOST_B, {udp6("fd00::2")});
+  EXPECT_EQ(decide(wu6, ru6).transport, Transport::UDPv6);
+  EXPECT_TRUE(has(decide(wu6, ru6).reasons, "common-udpv6-locator"));
+}
+
+TEST(Decision, NoCommonTransportGivesNone)
+{
+  auto w = make(true, HOST_A, {udp4("10.0.0.1")});
+  auto r = make(false, HOST_B, {tcp4("10.0.0.2")});
+  auto v = decide(w, r);
+  EXPECT_EQ(v.transport, Transport::None);
+  EXPECT_TRUE(has(v.reasons, "no-common-transport"));
+}
+
+TEST(Decision, DataSharingQosBranches)
+{
+  // reader disabled
+  auto w = make(true, HOST_A, {shm()}, DataSharingKind::Auto, {1});
+  auto r = make(false, HOST_A, {shm()}, DataSharingKind::Off);
+  EXPECT_TRUE(has(decide(w, r).reasons, "datasharing-disabled-reader"));
+  EXPECT_EQ(decide(w, r).transport, Transport::SHM);
+  // unknown on one side
+  auto ru = make(false, HOST_A, {shm()}, DataSharingKind::Unknown);
+  EXPECT_TRUE(has(decide(w, ru).reasons, "datasharing-qos-unknown"));
+  // domain ids announced but disjoint: falls through to SHM
+  auto rd = make(false, HOST_A, {shm()}, DataSharingKind::On, {2});
+  auto v = decide(w, rd);
+  EXPECT_EQ(v.transport, Transport::SHM);
+  EXPECT_TRUE(has(v.reasons, "datasharing-domain-ids-mismatch"));
+  // one side without ids: still data-sharing, likely
+  auto rn = make(false, HOST_A, {shm()}, DataSharingKind::On, {});
+  auto vn = decide(w, rn);
+  EXPECT_EQ(vn.transport, Transport::DataSharing);
+  EXPECT_EQ(vn.confidence, Confidence::Likely);
+  EXPECT_TRUE(has(vn.reasons, "datasharing-domain-ids-unknown"));
+}
+
+TEST(Decision, WriterWithoutShmLocatorOnSameHost)
+{
+  auto w = make(true, HOST_A, {udp4("10.0.0.1")});
+  auto r = make(false, HOST_A, {udp4("10.0.0.1", 7413), shm(7413)});
+  auto v = decide(w, r);
+  EXPECT_EQ(v.transport, Transport::UDPv4);
+  EXPECT_TRUE(has(v.reasons, "writer-no-shm-locator"));
+}
+
+TEST(Model, ToStringCoversEveryValue)
+{
+  EXPECT_EQ(to_string(LocatorKind::TCPv4), "TCPv4");
+  EXPECT_EQ(to_string(LocatorKind::TCPv6), "TCPv6");
+  EXPECT_EQ(to_string(LocatorKind::UDPv6), "UDPv6");
+  EXPECT_EQ(to_string(LocatorKind::Invalid), "INVALID");
+  EXPECT_EQ(to_string(Transport::TCPv4), "TCPv4");
+  EXPECT_EQ(to_string(Transport::TCPv6), "TCPv6");
+  EXPECT_EQ(to_string(Transport::UDPv6), "UDPv6");
+  EXPECT_EQ(to_string(Transport::DataSharing), "DATA_SHARING");
+  EXPECT_EQ(to_string(Transport::None), "NONE");
+  EXPECT_EQ(to_string(Confidence::Likely), "likely");
+  EXPECT_EQ(to_string(DataSharingKind::On), "ON");
+  EXPECT_EQ(to_string(DataSharingKind::Auto), "AUTO");
+  EXPECT_EQ(to_string(DataSharingKind::Unknown), "UNKNOWN");
+  EXPECT_EQ(host_id_hex(HostId{0x01, 0x0f, 0xaa, 0xbb}), "010faabb");
+}
+
+TEST(Codes, EveryKnownCodeHasADescriptionAndUnknownDoesNot)
+{
+  auto codes = known_codes();
+  EXPECT_GT(codes.size(), 40u);
+  for (const auto & c : codes) {
+    EXPECT_NE(explain(c), "(no description)") << c;
+  }
+  EXPECT_EQ(explain("not-a-code"), "(no description)");
+}
+
+TEST(Diff, AddedRemovedChanged)
+{
+  std::vector<Endpoint> eps;
+  eps.push_back(make(true, HOST_A, {udp4("10.0.0.1"), shm(7415)}));
+  eps.push_back(make(false, HOST_A, {udp4("10.0.0.1", 7413), shm(7413)}));
+  eps[0].participant_guid_prefix = "P1";
+  Snapshot a;
+  a.endpoints = eps;
+  a.topics = summarize(a.endpoints);
+  auto before = pair_states(a);
+  ASSERT_EQ(before.size(), 1u);
+
+  // same pair measured on UDPv4 => changed; a second reader => added
+  Snapshot b = a;
+  b.endpoints.push_back(make(false, HOST_A, {udp4("10.0.0.1", 7417)}));
+  b.topics = summarize(b.endpoints);
+  auto stats = stats_with(b.endpoints[0], {TrafficSample{"P1", udp4("10.0.0.1", 7413), 5, 500.0}});
+  apply_stats(b.topics, stats);
+  auto after = pair_states(b);
+  ASSERT_EQ(after.size(), 2u);
+  auto c = diff(before, after);
+  EXPECT_EQ(c.added.size(), 1u);
+  EXPECT_EQ(c.changed.size(), 1u);
+  EXPECT_TRUE(c.removed.empty());
+  EXPECT_FALSE(c.empty());
+  EXPECT_EQ(c.changed[0].from.measured.size(), 0u);
+  EXPECT_EQ(c.changed[0].to.measured.size(), 1u);
+  EXPECT_TRUE(has(c.changed[0].to.warnings, "measured-transport-mismatch"));
+
+  auto back = diff(after, before);
+  EXPECT_EQ(back.removed.size(), 1u);
+  EXPECT_EQ(back.changed.size(), 1u);
+  EXPECT_TRUE(diff(after, after).empty());
+}
+
+TEST(ApplyStats, DataSharingNoDeliveryAndAmbiguousTraffic)
+{
+  std::vector<Endpoint> eps;
+  eps.push_back(make(true, HOST_A, {shm(7415)}, DataSharingKind::On, {1}));
+  eps.push_back(make(false, HOST_A, {shm(7413)}, DataSharingKind::On, {1}));
+  eps[0].participant_guid_prefix = "P1";
+  auto topics = summarize(eps);
+  ASSERT_EQ(topics[0].pairs[0].verdict.transport, Transport::DataSharing);
+  // statistics available, nothing delivered, no traffic
+  auto stats = stats_with(eps[0], {});
+  apply_stats(topics, stats);
+  EXPECT_TRUE(has(topics[0].pairs[0].verdict.reasons, "datasharing-no-delivery-observed"));
+  EXPECT_EQ(topics[0].pairs[0].verdict.confidence, Confidence::Likely);
+  // traffic on the link but no delivery proof and no DATA_COUNT
+  topics = summarize(eps);
+  stats = stats_with(eps[0], {TrafficSample{"P1", shm(7413), 4, 400.0}});
+  apply_stats(topics, stats);
+  EXPECT_TRUE(has(topics[0].pairs[0].verdict.reasons, "datasharing-ambiguous-participant-traffic"));
+  EXPECT_EQ(topics[0].pairs[0].verdict.transport, Transport::DataSharing);
+}
+
+TEST(ApplyStats, MeasuredTcpReasonAndDeliveredWithoutTraffic)
+{
+  std::vector<Endpoint> eps;
+  eps.push_back(make(true, HOST_A, {tcp4("10.0.0.1")}));
+  eps.push_back(make(false, HOST_B, {tcp4("10.0.0.2", 7413)}));
+  eps[0].participant_guid_prefix = "P1";
+  auto topics = summarize(eps);
+  auto stats = stats_with(eps[0], {TrafficSample{"P1", tcp4("10.0.0.2", 7413), 3, 300.0}});
+  apply_stats(topics, stats);
+  EXPECT_TRUE(has(topics[0].pairs[0].verdict.reasons, "measured-tcpv4-traffic"));
+  EXPECT_EQ(topics[0].pairs[0].verdict.confidence, Confidence::Certain);
+
+  topics = summarize(eps);
+  stats = stats_with(eps[0], {}, true, &eps[1]);
+  apply_stats(topics, stats);
+  EXPECT_TRUE(has(topics[0].pairs[0].verdict.warnings, "delivered-without-measured-traffic"));
+  EXPECT_TRUE(topics[0].pairs[0].measured.delivered);
+}
