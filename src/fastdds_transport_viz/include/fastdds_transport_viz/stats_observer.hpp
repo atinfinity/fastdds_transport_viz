@@ -6,6 +6,8 @@
 //   RTPS_SENT        -> bytes/packets per (source participant, destination locator)
 //   HISTORY_LATENCY  -> proof that a writer's samples reached a reader
 //   PHYSICAL_DATA    -> participant -> host / user / process
+//   DATA_COUNT, PUBLICATION_THROUGHPUT, HISTORY_LATENCY values, and the reliability
+//   counters RTPS_LOST, RESENT_DATAS, HEARTBEAT_COUNT, GAP_COUNT, ACKNACK_COUNT, NACKFRAG_COUNT
 
 #ifndef FASTDDS_TRANSPORT_VIZ__STATS_OBSERVER_HPP_
 #define FASTDDS_TRANSPORT_VIZ__STATS_OBSERVER_HPP_
@@ -66,10 +68,17 @@ private:
   Reader physical_data_;
   Reader data_count_;
   Reader throughput_;
+  Reader rtps_lost_;
+  Reader resent_datas_;
+  Reader heartbeat_count_;
+  Reader gap_count_;
+  Reader acknack_count_;
+  Reader nackfrag_count_;
 
   std::mutex mutex_;
   using TrafficKey = std::tuple<std::string, int, std::string, uint32_t>;  // src, kind, addr, port
   std::map<TrafficKey, TrafficSample> traffic_;
+  std::map<TrafficKey, TrafficSample> lost_;
   StatsData data_;
 };
 

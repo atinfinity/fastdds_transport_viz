@@ -1,15 +1,15 @@
-transport_viz  domain 0  2026-09-06T03:40:08Z  refresh 3s  [topic: ^/chatter$]
+transport_viz  domain 0  2026-09-06T05:00:34Z  refresh 3s  [topic: ^/chatter$]
 
-   TOPIC     TYPE                 PUBS  SUBS  TRANSPORT  RATE    LATENCY  REASON
-[32m+[0m  /chatter  std_msgs/msg/String  1     2     [32mSHM[0m x2     24 B/s  217 µs   same-host-guid,datasharing-disabled-writer,both-shm-locators,measured-udpv4-traffic,measured-shm-traffic
-[32m+[0m      /talker@e43a92af8497(178) -> /listener_new@e43a92af8497(311)  [32mSHM[0m    24 B/s  89.4 µs (max 89.4 µs)  measured=UDPv4+SHM 16pkt 2.11 kB  same-host-guid,datasharing-disabled-writer,both-shm-locators,measured-udpv4-traffic,measured-shm-traffic
-       /talker@e43a92af8497(178) -> /listener@e43a92af8497(177)      [32mSHM[0m    24 B/s  217 µs (max 284 µs)    measured=SHM 18pkt 2.38 kB        same-host-guid,datasharing-disabled-writer,both-shm-locators,measured-shm-traffic
-[2m-[0m  [2m    /talker@e43a92af8497(178) -> /listener_udp@e43a92af8497(175)[0m  [2mUDPv4[0m  -       -                                                        [2m(removed)[0m
+   TOPIC     TYPE                 PUBS  SUBS  TRANSPORT  RATE    LATENCY  LOSS  REASON
+[32m+[0m  /chatter  std_msgs/msg/String  1     2     [32mSHM[0m x2     24 B/s  227 µs   0     same-host-guid,datasharing-disabled-writer,both-shm-locators,measured-udpv4-traffic,measured-shm-traffic
+[32m+[0m      /talker@36d321fbf863(175) -> /listener_new@36d321fbf863(311)  [32mSHM[0m    24 B/s  126 µs (max 126 µs)  0  measured=UDPv4+SHM 18pkt 2.34 kB  same-host-guid,datasharing-disabled-writer,both-shm-locators,measured-udpv4-traffic,measured-shm-traffic
+       /talker@36d321fbf863(175) -> /listener@36d321fbf863(177)      [32mSHM[0m    24 B/s  227 µs (max 321 µs)  0  measured=SHM 18pkt 2.38 kB        same-host-guid,datasharing-disabled-writer,both-shm-locators,measured-shm-traffic
+[2m-[0m  [2m    /talker@36d321fbf863(175) -> /listener_udp@36d321fbf863(176)[0m  [2mUDPv4[0m  -       -                    -                                    [2m(removed)[0m
 
 [1mchanges: [0m+1 pair  -1 pair  
 
-statistics: 629 samples from 8 participant(s)
+statistics: 756 samples from 8 participant(s)
 
-[1mshared memory: [0m/dev/shm 349 MB used of 16.7 GB (16.3 GB free) | Fast DDS 6.91 MB in 11 segment(s) (4 stale), 16 port(s), 2 data-sharing histories (2 unmatched)
+[1mshared memory: [0m/dev/shm 372 MB used of 16.7 GB (16.3 GB free) | Fast DDS 6.91 MB in 11 segment(s) (4 stale), 16 port(s), 2 data-sharing histories (2 unmatched)
   [31m!shm-stale-files[0m: 4 file(s) without a living owner, run 'fastdds shm clean'
 

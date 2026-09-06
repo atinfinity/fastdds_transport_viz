@@ -41,7 +41,7 @@ together with that node's unpaired endpoints; the other side of a kept pair stay
 visible even if it does not match. Both filters combine with AND. An invalid regex is
 rejected at start-up (exit code 2).
 
-## The RATE and LATENCY columns
+## The RATE, LATENCY and LOSS columns
 
 With `--stats`, `RATE` shows the payload throughput of the topic's writers (sum) and, in
 the pair rows, of that writer: the `PUBLICATION_THROUGHPUT` statistic, averaged over the
@@ -51,8 +51,13 @@ the writer, so it is independent of the transport and present for zero-copy pair
 notification of the reader, per pair, as mean and maximum over the observation (`420 µs
 (max 1.30 ms)`); the topic row shows the mean of its slowest pair. It is measured with
 the clocks of the two hosts, so between machines it includes their offset (a negative
-mean is flagged `latency-clock-skew-suspected`); on one host it is exact. Without
-statistics both columns show `-`. The `measured=` cell of a pair row gives what
+mean is flagged `latency-clock-skew-suspected`); on one host it is exact. `LOSS` sums
+the reliability counters of the pair during the observation: `lost` is what the reader's
+participant reported missing from the writer's locators (`RTPS_LOST`, sequence-number
+gaps; warning `rtps-packets-lost`), `resent` the DATA submessages the writer sent again
+(`RESENT_DATAS`); `0` when nothing was lost or resent. Heartbeats, gaps, acknacks and
+nackfrags are in the JSON `measured.reliability` object and the web viewer's pair card.
+Without statistics the three columns show `-`. The `measured=` cell of a pair row gives what
 the transport actually carried during the observation (`SHM 148pkt 7.63 MB`, or `(idle)`
 when packets flowed only before the observation).
 

@@ -43,7 +43,7 @@ domain id を広告していなければ)、判定は `likely` (`DATA_SHARING?`)
   ```
   export FASTRTPS_DEFAULT_PROFILES_FILE=$(ros2 pkg prefix fastdds_transport_viz)/share/fastdds_transport_viz/config/datasharing_auto_stats.xml
   export RMW_FASTRTPS_USE_QOS_FROM_XML=1
-  export FASTDDS_STATISTICS="RTPS_SENT_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC;DATA_COUNT_TOPIC;PUBLICATION_THROUGHPUT_TOPIC"
+  export FASTDDS_STATISTICS="RTPS_SENT_TOPIC;RTPS_LOST_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC;DATA_COUNT_TOPIC;PUBLICATION_THROUGHPUT_TOPIC;RESENT_DATAS_TOPIC;HEARTBEAT_COUNT_TOPIC;ACKNACK_COUNT_TOPIC;NACKFRAG_COUNT_TOPIC;GAP_COUNT_TOPIC"
   ros2 run fastdds_transport_viz bounded_pub &
   ros2 run fastdds_transport_viz bounded_sub &
   ros2 transport list -v --stats                      # /bounded -> DATA_SHARING (certain)

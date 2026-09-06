@@ -148,6 +148,17 @@
     return `${seconds < 0 ? '-' : ''}${v.toFixed(digits)} ${units[i]}`;
   }
 
+  /** "3 lost, 2 resent" / "0" from measured.reliability, '' without counters. */
+  function lossText(m) {
+    if (!m || !m.reliability) return '';
+    const r = m.reliability;
+    if (!r.lost_packets && !r.resent_datas) return '0';
+    const parts = [];
+    if (r.lost_packets) parts.push(`${r.lost_packets} lost`);
+    if (r.resent_datas) parts.push(`${r.resent_datas} resent`);
+    return parts.join(', ');
+  }
+
   /** "0.42 ms (max 1.30 ms)" from measured.latency_s, '' without values. */
   function latencyText(m) {
     if (!m || !m.latency_s || typeof m.latency_s.mean !== 'number') return '';
@@ -168,5 +179,5 @@
       (warnings ? ` ${warnings}` : '');
   }
 
-  return { TRANSPORTS, INTERNAL_TOPICS, buildModel, filterRegex, visiblePairs, visibleNodesModel, bundle, humanBytes, humanSeconds, measuredText, rateText, latencyText, escapeHtml, shmText };
+  return { TRANSPORTS, INTERNAL_TOPICS, buildModel, filterRegex, visiblePairs, visibleNodesModel, bundle, humanBytes, humanSeconds, measuredText, rateText, latencyText, lossText, escapeHtml, shmText };
 });

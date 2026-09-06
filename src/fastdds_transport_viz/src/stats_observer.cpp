@@ -58,7 +58,7 @@ rtps::Locator_t to_rtps(const st::detail::Locator_s & l)
 
 std::string StatsObserver::required_env_value()
 {
-  return "RTPS_SENT_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC;DATA_COUNT_TOPIC;PUBLICATION_THROUGHPUT_TOPIC";
+  return "RTPS_SENT_TOPIC;RTPS_LOST_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC;DATA_COUNT_TOPIC;PUBLICATION_THROUGHPUT_TOPIC;RESENT_DATAS_TOPIC;HEARTBEAT_COUNT_TOPIC;ACKNACK_COUNT_TOPIC;NACKFRAG_COUNT_TOPIC;GAP_COUNT_TOPIC";
 }
 
 StatsObserver::StatsObserver(dds::DomainParticipant * participant)
@@ -78,12 +78,26 @@ StatsObserver::StatsObserver(dds::DomainParticipant * participant)
     st::DATA_COUNT_TOPIC, dds::TypeSupport(new st::EntityCountPubSubType()));
   throughput_ = create_reader(
     st::PUBLICATION_THROUGHPUT_TOPIC, dds::TypeSupport(new st::EntityDataPubSubType()));
+  rtps_lost_ = create_reader(
+    st::RTPS_LOST_TOPIC, dds::TypeSupport(new st::Entity2LocatorTrafficPubSubType()));
+  resent_datas_ = create_reader(
+    st::RESENT_DATAS_TOPIC, dds::TypeSupport(new st::EntityCountPubSubType()));
+  heartbeat_count_ = create_reader(
+    st::HEARTBEAT_COUNT_TOPIC, dds::TypeSupport(new st::EntityCountPubSubType()));
+  gap_count_ = create_reader(
+    st::GAP_COUNT_TOPIC, dds::TypeSupport(new st::EntityCountPubSubType()));
+  acknack_count_ = create_reader(
+    st::ACKNACK_COUNT_TOPIC, dds::TypeSupport(new st::EntityCountPubSubType()));
+  nackfrag_count_ = create_reader(
+    st::NACKFRAG_COUNT_TOPIC, dds::TypeSupport(new st::EntityCountPubSubType()));
   data_.enabled = true;
 }
 
 StatsObserver::~StatsObserver()
 {
-  for (auto * r : {&rtps_sent_, &history_latency_, &physical_data_, &data_count_, &throughput_}) {
+  for (auto * r : {&rtps_sent_, &history_latency_, &physical_data_, &data_count_, &throughput_,
+      &rtps_lost_, &resent_datas_, &heartbeat_count_, &gap_count_, &acknack_count_, &nackfrag_count_})
+  {
     if (r->reader) {subscriber_->delete_datareader(r->reader);}
     if (r->topic && r->owns_topic) {participant_->delete_topic(r->topic);}
   }
@@ -188,16 +202,52 @@ void StatsObserver::drain()
     data_.latency[{guid_to_string(w), guid_to_string(r)}].add(static_cast<double>(latency.data()) * 1e-9);
   }
 
-  st::EntityCount count;
-  while (retcode_ok(data_count_.reader->take_next_sample(&count, &info))) {
+  // Cumulative per-entity counters: DATA_COUNT and the reliability counters. The first
+  // sample (TRANSIENT_LOCAL) is the value before we started.
+  auto drain_counter = [&](Reader & reader, std::map<std::string, DataCountSample> & into) {
+      st::EntityCount count;
+      while (retcode_ok(reader.reader->take_next_sample(&count, &info))) {
+        if (!info.valid_data) {continue;}
+        ++data_.samples;
+        rtps::GUID_t g = to_rtps(count.guid());
+        data_.participants_with_stats.insert(prefix_to_string(g.guidPrefix));
+        auto & d = into[guid_to_string(g)];
+        if (d.samples == 0) {d.first = count.count();}
+        d.last = count.count();
+        ++d.samples;
+      }
+    };
+  drain_counter(data_count_, data_.data_count);
+  drain_counter(resent_datas_, data_.resent_datas);
+  drain_counter(heartbeat_count_, data_.heartbeats);
+  drain_counter(gap_count_, data_.gaps);
+  drain_counter(acknack_count_, data_.acknacks);
+  drain_counter(nackfrag_count_, data_.nackfrags);
+
+  // RTPS_LOST: the receiving participant reports, per source locator, the packets it
+  // missed (sequence-number gaps). Same shape as RTPS_SENT, opposite direction.
+  st::Entity2LocatorTraffic lost;
+  while (retcode_ok(rtps_lost_.reader->take_next_sample(&lost, &info))) {
     if (!info.valid_data) {continue;}
     ++data_.samples;
-    rtps::GUID_t g = to_rtps(count.guid());
-    data_.participants_with_stats.insert(prefix_to_string(g.guidPrefix));
-    auto & d = data_.data_count[guid_to_string(g)];
-    if (d.samples == 0) {d.first = count.count();}    // TRANSIENT_LOCAL: value before we started
-    d.last = count.count();
-    ++d.samples;
+    rtps::GUID_t src = to_rtps(lost.src_guid());
+    Locator from = convert_locator(to_rtps(lost.dst_locator()));
+    TrafficSample s;
+    s.src_participant_prefix = prefix_to_string(src.guidPrefix);
+    s.dst = from;
+    s.packets = lost.packet_count();
+    s.bytes = static_cast<double>(lost.byte_count());
+    data_.participants_with_stats.insert(s.src_participant_prefix);
+    auto & slot = lost_[TrafficKey{s.src_participant_prefix, static_cast<int>(from.kind), from.address, from.port}];
+    if (slot.samples == 0) {
+      s.packets_first = s.packets;
+      s.bytes_first = s.bytes;
+    } else {
+      s.packets_first = slot.packets_first;
+      s.bytes_first = slot.bytes_first;
+    }
+    s.samples = slot.samples + 1;
+    slot = s;
   }
 
   st::PhysicalData physical;
@@ -225,6 +275,10 @@ StatsData StatsObserver::snapshot()
   out.traffic.clear();
   for (const auto & kv : traffic_) {
     out.traffic.push_back(kv.second);
+  }
+  out.lost.clear();
+  for (const auto & kv : lost_) {
+    out.lost.push_back(kv.second);
   }
   return out;
 }
