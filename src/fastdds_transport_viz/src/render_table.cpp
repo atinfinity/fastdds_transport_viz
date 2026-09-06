@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include <algorithm>
+#include <cmath>
 #include <cstdio>
 #include <map>
 #include <set>
@@ -182,6 +183,28 @@ std::string rate_label(bool available, double bytes_per_s)
   return available ? human_bytes(bytes_per_s, "B/s") : "-";
 }
 
+/// Seconds with 3 significant digits in ns / µs / ms / s (sign kept).
+std::string human_seconds(double seconds)
+{
+  const char * units[] = {"ns", "µs", "ms", "s"};
+  double v = std::fabs(seconds) * 1e9;
+  int i = 0;
+  while (v >= 1000.0 && i < 3) {v /= 1000.0; ++i;}
+  char buf[32];
+  std::snprintf(buf, sizeof(buf), v < 10.0 ? "%s%.2f %s" : v < 100.0 ? "%s%.1f %s" : "%s%.0f %s",
+    seconds < 0.0 ? "-" : "", v, units[i]);
+  return buf;
+}
+
+/// "0.42 ms (max 1.30 ms)" for a pair, "0.42 ms" for a topic (the slowest pair's mean).
+std::string latency_label(bool available, double mean, double max, bool with_max)
+{
+  if (!available) {return "-";}
+  std::string s = human_seconds(mean);
+  if (with_max) {s += " (max " + human_seconds(max) + ")";}
+  return s;
+}
+
 std::string measured_label(const Pair & p)
 {
   if (!p.measured.available) {
@@ -277,7 +300,7 @@ std::string render_table(const Snapshot & snap, const RenderOptions & opt)
   const std::string indent = watch ? "     " : "    ";
 
   std::vector<std::vector<std::string>> rows;
-  std::vector<std::string> header = {"TOPIC", "TYPE", "PUBS", "SUBS", "TRANSPORT", "RATE", "REASON"};
+  std::vector<std::string> header = {"TOPIC", "TYPE", "PUBS", "SUBS", "TRANSPORT", "RATE", "LATENCY", "REASON"};
   if (watch) {header.insert(header.begin(), " ");}
   rows.push_back(header);
   for (const auto & t : snap.topics) {
@@ -286,6 +309,7 @@ std::string render_table(const Snapshot & snap, const RenderOptions & opt)
       std::to_string(t.writers.size()), std::to_string(t.readers.size()),
       aggregate_transports(t, color),
       rate_label(snap.stats.enabled && t.throughput_available, t.throughput),
+      latency_label(snap.stats.enabled && t.latency_available, t.latency, t.latency, false),
       aggregate_reasons(t, color)};
     if (watch) {row.insert(row.begin(), mark_cell(topic_mark(t, *watch), color));}
     rows.push_back(row);
@@ -312,7 +336,7 @@ std::string render_table(const Snapshot & snap, const RenderOptions & opt)
         std::vector<std::string> row = {
           mark_cell('-', color),
           paint(indent.substr(1) + g.writer_label + " -> " + g.reader_label, DIM, color),
-          paint(g.transport_label, DIM, color), "-"};
+          paint(g.transport_label, DIM, color), "-", "-"};
         if (snap.stats.enabled) {row.push_back("");}
         row.push_back(paint("(removed)", DIM, color));
         out.push_back(row);
@@ -342,6 +366,8 @@ std::string render_table(const Snapshot & snap, const RenderOptions & opt)
           endpoint_label(snap, *p.reader, opt));
         row.push_back(transport_label(p.verdict, color));
         row.push_back(rate_label(snap.stats.enabled && p.measured.throughput_available, p.measured.throughput));
+        row.push_back(latency_label(snap.stats.enabled && p.measured.latency_available,
+          p.measured.latency.mean(), p.measured.latency.max, true));
         if (snap.stats.enabled) {
           row.push_back("measured=" + measured_label(p));
         }

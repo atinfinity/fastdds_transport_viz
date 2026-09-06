@@ -990,3 +990,40 @@ TEST(ApplyStats, IncompatiblePairDeliveredIsReported)
   apply_stats(topics, stats);
   EXPECT_TRUE(has(topics[0].pairs[0].verdict.warnings, "qos-incompatible-but-delivered"));
 }
+
+TEST(ApplyStats, LatencyPerPairTopicMaxAndClockSkew)
+{
+  std::vector<Endpoint> eps;
+  eps.push_back(make(true, HOST_A, {udp4("10.0.0.1"), shm(7415)}));
+  eps.push_back(make(false, HOST_A, {udp4("10.0.0.1", 7413), shm(7413)}));
+  eps.push_back(make(false, HOST_A, {udp4("10.0.0.1", 7417), shm(7417)}));
+  eps[0].participant_guid_prefix = "P1";
+  auto topics = summarize(eps);
+  ASSERT_EQ(topics[0].pairs.size(), 2u);
+  auto stats = stats_with(eps[0], {TrafficSample{"P1", shm(7413), 3, 300.0}, TrafficSample{"P1", shm(7417), 3, 300.0}});
+  LatencyStat a;
+  a.add(0.0004); a.add(0.0006); a.add(0.0013);
+  stats.latency[{eps[0].guid, eps[1].guid}] = a;
+  stats.delivered[{eps[0].guid, eps[1].guid}] = 3;
+  LatencyStat b;
+  b.add(-0.002); b.add(-0.001);      // reader clock behind the writer's
+  stats.latency[{eps[0].guid, eps[2].guid}] = b;
+  apply_stats(topics, stats);
+  const auto & p0 = topics[0].pairs[0];
+  ASSERT_TRUE(p0.measured.latency_available);
+  EXPECT_NEAR(p0.measured.latency.mean(), 0.0007666, 1e-6);
+  EXPECT_DOUBLE_EQ(p0.measured.latency.max, 0.0013);
+  EXPECT_DOUBLE_EQ(p0.measured.latency.min, 0.0004);
+  EXPECT_DOUBLE_EQ(p0.measured.latency.last, 0.0013);
+  EXPECT_EQ(p0.measured.latency.samples, 3u);
+  EXPECT_FALSE(has(p0.verdict.warnings, "latency-clock-skew-suspected"));
+  const auto & p1 = topics[0].pairs[1];
+  EXPECT_TRUE(has(p1.verdict.warnings, "latency-clock-skew-suspected"));
+  EXPECT_TRUE(topics[0].latency_available);
+  EXPECT_NEAR(topics[0].latency, 0.0007666, 1e-6);   // the slowest pair's mean
+  // no latency samples at all
+  topics = summarize(eps);
+  apply_stats(topics, stats_with(eps[0], {}));
+  EXPECT_FALSE(topics[0].pairs[0].measured.latency_available);
+  EXPECT_FALSE(topics[0].latency_available);
+}

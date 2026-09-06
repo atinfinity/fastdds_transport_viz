@@ -9,7 +9,7 @@ discovery のデータは「こうなる*はず*」を教えてくれます。`-
 | トピック | 用途 |
 |---|---|
 | `_fastdds_statistics_rtps_sent` | 各 participant が各宛先 locator に送った RTPS パケット数/バイト数。reader が広告した locator と突き合わせ、実際にパケットを運んだ locator の種類を得ます (`measured=SHM 47pkt`)。予測と食い違えば `!measured-transport-mismatch` を付けます。 |
-| `_fastdds_statistics_history2history_latency` | writer のサンプルが特定の reader に届いたことの証明。RTPS の痕跡を残さない zero-copy data-sharing の確認に使います。 |
+| `_fastdds_statistics_history2history_latency` (LATENCY 列: write-to-notification 遅延の平均と最大、JSON の `measured.latency_s` とトピックの `latency_s`。ホスト間ではクロックのずれを含む) | writer のサンプルが特定の reader に届いたことの証明。RTPS の痕跡を残さない zero-copy data-sharing の確認に使います。 |
 | `_fastdds_statistics_physical_data` | participant ごとのホスト名、ユーザー、プロセス id。`local` / `host:<id>` の代わりに表示します。 |
 | `_fastdds_statistics_publication_throughput` | writer ごとの payload バイト数/秒。`RATE` 列 (トピックは writer の合算) と JSON (ペアの `measured.throughput_bytes_per_s`、トピックの `topics[].throughput_bytes_per_s`) に出ます。transport に依らないので zero-copy の data-sharing も定量化できます。 |
 | `_fastdds_statistics_data_count` | 各 writer が transport 経由で送った DATA/DATA_FRAG サブメッセージ数。zero-copy 配送では増えないので、増えるかどうかで data-sharing が本当に使われたかが決まります ([data-sharing.ja.md](data-sharing.ja.md#確信度) を参照)。 |

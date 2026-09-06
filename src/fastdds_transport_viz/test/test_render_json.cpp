@@ -61,6 +61,9 @@ Snapshot snapshot()
   s.stats.traffic.push_back(TrafficSample{"P1", Locator{LocatorKind::SHM, "", 7411}, 10, 1000.0, 4, 400.0, 3});
   s.stats.data_count["W1"] = DataCountSample{2, 5, 2};
   s.stats.throughput["W1"] = ThroughputStat{60.0, 20.0, 3};
+  LatencyStat lat;
+  lat.add(0.001); lat.add(0.003);
+  s.stats.latency[{"W1", "R1"}] = lat;
   apply_stats(s.topics, s.stats);
   s.shm.available = true;
   s.shm.path = "/dev/shm";
@@ -99,6 +102,11 @@ TEST(RenderJson, DocumentKeys)
   EXPECT_EQ(p["measured"]["packets_total"], 10);
   EXPECT_EQ(p["measured"]["throughput_bytes_per_s"], 20.0);
   EXPECT_EQ(p["measured"]["data_submessages"], 3);
+  EXPECT_EQ(p["measured"]["latency_s"]["mean"], 0.002);
+  EXPECT_EQ(p["measured"]["latency_s"]["max"], 0.003);
+  EXPECT_EQ(p["measured"]["latency_s"]["min"], 0.001);
+  EXPECT_EQ(p["measured"]["latency_s"]["samples"], 2);
+  EXPECT_EQ(t["latency_s"], 0.002);
   EXPECT_FALSE(doc.contains("changes"));
   // statistics block
   EXPECT_EQ(doc["stats"]["samples"], 5);
@@ -122,6 +130,13 @@ TEST(RenderJson, ShmUnavailableOmitsSizes)
   s.shm.path = "/dev/shm";
   auto doc = json::parse(render_json(s, RenderOptions{}));
   EXPECT_EQ(doc["shm"]["available"], false);
+  EXPECT_TRUE(doc["topics"][0]["pairs"][0]["measured"]["latency_s"].is_object());
+  s.stats.latency.clear();
+  s.topics = summarize(s.endpoints);
+  apply_stats(s.topics, s.stats);
+  doc = json::parse(render_json(s, RenderOptions{}));
+  EXPECT_TRUE(doc["topics"][0]["pairs"][0]["measured"]["latency_s"].is_null());
+  EXPECT_TRUE(doc["topics"][0]["latency_s"].is_null());
   EXPECT_FALSE(doc["shm"].contains("total_bytes"));
   EXPECT_EQ(doc["shm"]["warnings"], json::array());
 }

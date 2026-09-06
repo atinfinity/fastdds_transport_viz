@@ -15,16 +15,17 @@
 
 ```
 $ ros2 transport list -v --stats --topic '^/(chatter|bounded)$'
-TOPIC     TYPE                 PUBS  SUBS  TRANSPORT         RATE    REASON
-/bounded  std_msgs/msg/Int32   1     1     DATA_SHARING x1   80 B/s  same-host-guid,datasharing-qos-enabled-both,datasharing-domain-ids-match,datasharing-confirmed-no-data-submessages
-    /bounded_pub@57e20ce67dfe(156) -> /bounded_sub@57e20ce67dfe(159)  DATA_SHARING  80 B/s  measured=SHM 2pkt 248 B  same-host-guid,datasharing-qos-enabled-both,datasharing-domain-ids-match,datasharing-confirmed-no-data-submessages
-/chatter  std_msgs/msg/String  1     2     UDPv4 x1, SHM x1  23 B/s  same-host-guid,datasharing-disabled-writer,reader-no-shm-locator,common-udpv4-locator,measured-udpv4-traffic,both-shm-locators,measured-shm-traffic
-    /talker@57e20ce67dfe(157) -> /listener_udp@57e20ce67dfe(158)  UDPv4  23 B/s  measured=UDPv4 10pkt 1.31 kB  same-host-guid,datasharing-disabled-writer,reader-no-shm-locator,common-udpv4-locator,measured-udpv4-traffic
-    /talker@57e20ce67dfe(157) -> /listener@57e20ce67dfe(160)      SHM    23 B/s  measured=SHM 10pkt 1.31 kB    same-host-guid,datasharing-disabled-writer,both-shm-locators,measured-shm-traffic
+TOPIC     TYPE                 PUBS  SUBS  TRANSPORT         RATE    LATENCY  REASON
+/bounded  std_msgs/msg/Int32   1     1     DATA_SHARING x1   80 B/s  104 µs   same-host-guid,datasharing-qos-enabled-both,datasharing-domain-ids-match,datasharing-confirmed-no-data-submessages
+    /bounded_pub@e43a92af8497(174) -> /bounded_sub@e43a92af8497(176)  DATA_SHARING  80 B/s  104 µs (max 165 µs)  measured=SHM 2pkt 248 B  same-host-guid,datasharing-qos-enabled-both,datasharing-domain-ids-match,datasharing-confirmed-no-data-submessages
+/chatter  std_msgs/msg/String  1     2     UDPv4 x1, SHM x1  23 B/s  198 µs   same-host-guid,datasharing-disabled-writer,reader-no-shm-locator,common-udpv4-locator,measured-udpv4-traffic,both-shm-locators,measured-shm-traffic
+    /talker@e43a92af8497(178) -> /listener_udp@e43a92af8497(175)  UDPv4  23 B/s  174 µs (max 223 µs)  measured=UDPv4 10pkt 1.31 kB  same-host-guid,datasharing-disabled-writer,reader-no-shm-locator,common-udpv4-locator,measured-udpv4-traffic
+    /talker@e43a92af8497(178) -> /listener@e43a92af8497(177)      SHM    23 B/s  198 µs (max 264 µs)  measured=SHM 9pkt 1.19 kB     same-host-guid,datasharing-disabled-writer,both-shm-locators,measured-shm-traffic
 
-statistics: 562 samples from 6 participant(s)
+statistics: 577 samples from 6 participant(s)
 
-shared memory: /dev/shm 339 MB used of 16.7 GB (16.3 GB free) | Fast DDS 4.06 MB in 6 segment(s), 14 port(s), 2 data-sharing histories (1 unmatched)
+shared memory: /dev/shm 348 MB used of 16.7 GB (16.3 GB free) | Fast DDS 6.31 MB in 10 segment(s) (4 stale), 15 port(s), 2 data-sharing histories (1 unmatched)
+  !shm-stale-files: 4 file(s) without a living owner, run 'fastdds shm clean'
 ```
 
 同じキャプチャの端末での表示 (`--color auto`、stdout が端末なら既定で有効):
@@ -44,7 +45,8 @@ shared memory: /dev/shm 339 MB used of 16.7 GB (16.3 GB free) | Fast DDS 4.06 MB
   付けます。観測対象のノードに変更は不要です。QoS が合わないペア (reliability、durability、
   deadline、liveliness、ownership、partition) は `NONE` と、合わないポリシー名で示します。
 - **`--stats` で実測。** Fast DDS の statistics モジュールから、locator ごとに実際に流れた
-  パケット数とバイト数、payload レート (`RATE`)、ホスト名とプロセス id、zero-copy data-sharing の
+  パケット数とバイト数、payload レート (`RATE`)、write-to-notification 遅延 (`LATENCY`)、ホスト名と
+  プロセス id、zero-copy data-sharing の
   証明を取り、予測と食い違う実測は警告します。
 - **複数のフロントエンド。** 色付きの表、`--watch` (変化を強調するライブ表示)、スキーマ付きの
   `--json`、`ros2 transport` コマンド、web viewer (グラフと表、`transport_viz_web` によるライブ更新)。
@@ -121,8 +123,10 @@ ros2 transport codes
   プロファイルも必要です。
 - **statistics は participant 単位** (ROS ノードごとに 1 つ) なので、同じ 2 ノード間の複数トピックは
   1 つの測定値を共有します。
-- **帯域や遅延の測定ツールではありません。** `RATE` は Fast DDS 自身の `PUBLICATION_THROUGHPUT` の
-  値で、遅延は表示しません。
+- **ベンチマークではありません。** `RATE` と `LATENCY` は Fast DDS 自身の statistics
+  (`PUBLICATION_THROUGHPUT`、`HISTORY_LATENCY`: 2 つの履歴間の write-to-notification) を短い観測の
+  間にサンプリングした値で、負荷試験やエンドツーエンドの測定の代わりにはなりません。ホスト間では
+  遅延にクロックのずれが含まれます。
 - **DDS Security (SROS2) は未対応** で未検証です。ツールの participant にはセキュリティ設定が無いので、
   secure enclave 内の participant は発見できません。
 - **ツール自身の痕跡。** ツールはドメインに自身の participant を 2 つ追加します (出力からは除外)。

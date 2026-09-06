@@ -111,6 +111,23 @@ struct Verdict
   std::vector<std::string> warnings;   // machine-readable warning codes
 };
 
+/// HISTORY_LATENCY samples of one writer -> reader pair (write-to-notification, seconds).
+struct LatencyStat
+{
+  double sum{0.0};
+  double min{std::numeric_limits<double>::infinity()};
+  double max{-std::numeric_limits<double>::infinity()};
+  double last{0.0};
+  size_t samples{0};
+  double mean() const {return samples ? sum / static_cast<double>(samples) : 0.0;}
+  void add(double v)
+  {
+    sum += v; last = v; ++samples;
+    if (v < min) {min = v;}
+    if (v > max) {max = v;}
+  }
+};
+
 /// What the Fast DDS statistics module actually observed for a pair.
 struct Measurement
 {
@@ -122,6 +139,8 @@ struct Measurement
   double bytes_total{0.0};
   bool throughput_available{false};  // writer publishes PUBLICATION_THROUGHPUT
   double throughput{0.0};            // payload bytes per second (mean over the observation)
+  bool latency_available{false};     // HISTORY_LATENCY values seen for this pair
+  LatencyStat latency;               // write-to-notification latency (seconds) over the observation
   bool delivered{false};             // HISTORY_LATENCY sample seen for this writer->reader
   size_t delivered_samples{0};       // HISTORY_LATENCY samples seen for this pair
   bool data_count_available{false};  // the writer's participant publishes DATA_COUNT
@@ -149,6 +168,8 @@ struct TopicSummary
   std::vector<std::string> unmatched_reasons;   // e.g. no-matching-reader
   bool throughput_available{false};  // at least one writer publishes PUBLICATION_THROUGHPUT
   double throughput{0.0};            // sum of the writers' payload bytes per second
+  bool latency_available{false};     // at least one pair has HISTORY_LATENCY values
+  double latency{0.0};               // the slowest pair: max of the pairs' mean latency (seconds)
 };
 
 // ---- statistics module data (--stats) ----------------------------------------
@@ -198,6 +219,7 @@ struct StatsData
   std::map<std::string, HostInfo> physical;               // participant prefix -> host info
   std::vector<TrafficSample> traffic;
   std::map<std::pair<std::string, std::string>, size_t> delivered;  // (writer, reader) guid -> HISTORY_LATENCY samples
+  std::map<std::pair<std::string, std::string>, LatencyStat> latency;  // (writer, reader) guid -> HISTORY_LATENCY values
   std::map<std::string, DataCountSample> data_count;       // writer guid -> DATA_COUNT
   std::map<std::string, ThroughputStat> throughput;        // writer guid -> PUBLICATION_THROUGHPUT
   std::set<std::pair<std::string, std::string>> statistics_writers;  // (participant prefix, statistics topic) discovered

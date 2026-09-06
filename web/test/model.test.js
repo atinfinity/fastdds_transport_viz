@@ -160,3 +160,14 @@ test('shmText: summary line, stale count, visibility and warnings with descripti
   shm.datasharing_histories = 2; shm.stale_segments = 0; shm.stale_ports = 0; shm.nodes_visible = true; shm.warnings = [];
   assert.equal(M.shmText(shm), 'shared memory: /dev/shm 396 MB used of 16.7 GB · Fast DDS 63.4 MB in 114 segment(s), 14 port(s), 2 data-sharing histories');
 });
+
+test('humanSeconds / latencyText', () => {
+  assert.equal(M.humanSeconds(0.00042), '420 µs');
+  assert.equal(M.humanSeconds(0.0013), '1.30 ms');
+  assert.equal(M.humanSeconds(2.5), '2.50 s');
+  assert.equal(M.humanSeconds(15e-9), '15.0 ns');
+  assert.equal(M.humanSeconds(-0.002), '-2.00 ms');
+  assert.equal(M.latencyText({ latency_s: { mean: 0.00042, max: 0.0013 } }), '420 µs (max 1.30 ms)');
+  assert.equal(M.latencyText({ latency_s: null }), '');
+  assert.equal(M.latencyText(null), '');
+});

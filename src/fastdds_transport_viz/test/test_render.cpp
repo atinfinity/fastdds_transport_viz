@@ -292,3 +292,30 @@ TEST(RenderTable, TransportColorsLikelyMarkAndTopicMarkPriority)
   topic_row = out.substr(out.find("\n", out.find("TOPIC")) + 1);
   EXPECT_EQ(topic_row.find("\033[32m+\033[0m"), 0u);
 }
+
+TEST(RenderTable, LatencyColumn)
+{
+  RenderOptions opt;
+  opt.verbose = true;
+  auto s = stats_snapshot();
+  auto out = render_table(s, opt);
+  EXPECT_NE(out.find("RATE  LATENCY  REASON"), std::string::npos);
+  EXPECT_NE(out.find("  -  -  "), std::string::npos) << "no values: dashes";
+  only_pair(s).measured.latency_available = true;
+  only_pair(s).measured.latency.add(0.0004);
+  only_pair(s).measured.latency.add(0.0013);
+  s.topics[0].latency_available = true;
+  s.topics[0].latency = 0.00085;
+  out = render_table(s, opt);
+  EXPECT_NE(out.find("850 µs"), std::string::npos) << out;               // topic: slowest pair's mean
+  EXPECT_NE(out.find("850 µs (max 1.30 ms)"), std::string::npos) << out;  // pair: mean (max)
+  only_pair(s).measured.latency = LatencyStat{};
+  only_pair(s).measured.latency.add(-0.002);
+  only_pair(s).measured.latency.add(2.5);
+  out = render_table(s, opt);
+  EXPECT_NE(out.find("1.25 s (max 2.50 s)"), std::string::npos) << out;
+  only_pair(s).measured.latency = LatencyStat{};
+  only_pair(s).measured.latency.add(-15e-9);
+  out = render_table(s, opt);
+  EXPECT_NE(out.find("-15.0 ns (max -15.0 ns)"), std::string::npos) << out;
+}

@@ -77,6 +77,7 @@ std::string render_json(const Snapshot & snap, const RenderOptions & opt)
     tj["is_ros_topic"] = t.is_ros_topic;
     tj["unmatched_reasons"] = t.unmatched_reasons;
     tj["throughput_bytes_per_s"] = t.throughput_available ? json(t.throughput) : json(nullptr);
+    tj["latency_s"] = t.latency_available ? json(t.latency) : json(nullptr);   // slowest pair's mean
     json writers = json::array();
     for (const auto * w : t.writers) {writers.push_back(endpoint_json(snap, *w, opt));}
     json readers = json::array();
@@ -109,6 +110,10 @@ std::string render_json(const Snapshot & snap, const RenderOptions & opt)
               {"bytes_total", p.measured.bytes_total},
               {"throughput_bytes_per_s", p.measured.throughput_available ?
                 json(p.measured.throughput) : json(nullptr)},
+              {"latency_s", p.measured.latency_available ? json{
+                  {"mean", p.measured.latency.mean()}, {"min", p.measured.latency.min},
+                  {"max", p.measured.latency.max}, {"last", p.measured.latency.last},
+                  {"samples", p.measured.latency.samples}} : json(nullptr)},
               {"delivered", p.measured.delivered},
               {"delivered_samples", p.measured.delivered_samples},
               {"data_submessages", p.measured.data_count_available ?
