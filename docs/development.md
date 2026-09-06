@@ -306,7 +306,7 @@ Done:
 
 Open, in priority order (labels `priority/1-high` … `priority/3-low` on the issues):
 
-1. Distribution: CHANGELOG, ament lint, bloom release —
+1. Distribution: CHANGELOG, ament lint, bloom release for Jazzy/Kilted/Humble —
    [#50](https://github.com/atinfinity/fastdds_transport_viz/issues/50).
 2. DDS Security (SROS2) — [#49](https://github.com/atinfinity/fastdds_transport_viz/issues/49).
 3. Same host id, separate IPC namespace in the shared-memory line —
