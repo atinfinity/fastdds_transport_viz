@@ -91,7 +91,8 @@ void usage()
     "  --json             emit JSON (schema_version 1) instead of a table\n"
     "  --stats            also subscribe to the Fast DDS statistics topics and show the\n"
     "                     transport that actually carried packets; observed nodes must run\n"
-    "                     with FASTDDS_STATISTICS=\"RTPS_SENT_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC;DATA_COUNT_TOPIC;PUBLICATION_THROUGHPUT_TOPIC\"\n"
+    "                     with FASTDDS_STATISTICS=\"RTPS_SENT_TOPIC;HISTORY_LATENCY_TOPIC;"
+    "PHYSICAL_DATA_TOPIC;DATA_COUNT_TOPIC;PUBLICATION_THROUGHPUT_TOPIC\"\n"
     "  --color <mode>     auto|always|never: ANSI colors for transports and warnings\n"
     "                     (default: auto = only when stdout is a terminal; honours NO_COLOR)\n"
     "  --watch            keep observing and re-render every --interval seconds, marking\n"
@@ -120,7 +121,9 @@ bool parse(int argc, char ** argv, Options & o)
       o.topic_regex = need(i, "--topic");
     } else if (a == "--node") {
       o.node_regex = need(i, "--node");
-    } else if (a == "--interval") {o.interval = std::atof(need(i, "--interval"));} else if (a == "--color") {
+    } else if (a == "--interval") {
+      o.interval = std::atof(need(i, "--interval"));
+    } else if (a == "--color") {
       std::string m = need(i, "--color");
       if (m == "auto") {o.color = Options::Color::Auto;} else if (m == "always") {
         o.color = Options::Color::Always;
@@ -132,11 +135,17 @@ bool parse(int argc, char ** argv, Options & o)
       o.all = true;
     } else if (a == "-v" || a == "--verbose") {o.verbose = true;} else if (a == "--explain") {
       o.explain = true;
-    } else if (a == "--json") {o.json = true;} else if (a == "--stats") {o.stats = true;} else if (a == "--watch") {o.watch = true;} else if (a ==
-      "--list-codes")
-    {
+    } else if (a == "--json") {
+      o.json = true;
+    } else if (a == "--stats") {
+      o.stats = true;
+    } else if (a == "--watch") {
+      o.watch = true;
+    } else if (a == "--list-codes") {
       o.list_codes = true;
-    } else if (a == "-h" || a == "--help") {usage(); std::exit(0);} else if (a == "--ros-args") {
+    } else if (a == "-h" || a == "--help") {
+      usage(); std::exit(0);
+    } else if (a == "--ros-args") {
       break;   // leave ROS args to rclcpp
     } else {
       std::cerr << "unknown option: " << a << "\n";
@@ -144,7 +153,8 @@ bool parse(int argc, char ** argv, Options & o)
       return false;
     }
   }
-  for (const auto & [name, pattern] : {std::pair<const char *, const std::string *>{"--topic", &o.topic_regex},
+  for (const auto & [name, pattern] : {
+      std::pair<const char *, const std::string *>{"--topic", &o.topic_regex},
       std::pair<const char *, const std::string *>{"--node", &o.node_regex}})
   {
     if (pattern->empty()) {continue;}
@@ -201,7 +211,7 @@ Snapshot collect(
   fastdds_transport_viz::DiscoveryObserver & observer,
   fastdds_transport_viz::RosGraphResolver & resolver,
   fastdds_transport_viz::StatsObserver * stats,
-  const Options & o, int domain, double observation_seconds)   // NOLINT(readability-function-size)
+  const Options & o, int domain, double observation_seconds)
 {
   fastdds_transport_viz::StatsData stats_data;
   if (stats != nullptr) {
@@ -236,7 +246,9 @@ Snapshot collect(
   }
   for (auto & e : endpoints) {
     e.node_name = resolver.node_for_guid(e.guid_bytes);
-    if (e.node_name == own || e.ros_topic.rfind(own + "/", 0) == 0) {own_prefixes.insert(e.participant_guid_prefix);}
+    if (e.node_name == own || e.ros_topic.rfind(own + "/", 0) == 0) {
+      own_prefixes.insert(e.participant_guid_prefix);
+    }
   }
   for (auto & e : endpoints) {
     auto phys = stats_data.physical.find(e.participant_guid_prefix);
@@ -294,7 +306,8 @@ Snapshot collect(
     // the discovered writers by name.
     for (const auto & e : snap.endpoints) {
       if (e.is_writer) {
-        shm_in.datasharing_writers[fastdds_transport_viz::datasharing_segment_name(e.guid_bytes)] = e.guid;
+        shm_in.datasharing_writers[
+          fastdds_transport_viz::datasharing_segment_name(e.guid_bytes)] = e.guid;
       }
     }
     shm_in.other_host_participants = other_host_prefixes.size();
@@ -407,22 +420,28 @@ struct WatchState
       snap.changes = fastdds_transport_viz::diff(last_rendered, current);
     }
     // age existing marks / ghosts
-    for (auto it = mark_ttl.begin(); it != mark_ttl.end();) {
+    for (auto it = mark_ttl.begin(); it != mark_ttl.end(); ) {
       if (--it->second <= 0) {deco.marks.erase(it->first); it = mark_ttl.erase(it);} else {++it;}
     }
-    for (auto it = ghost_ttl.begin(); it != ghost_ttl.end();) {
+    for (auto it = ghost_ttl.begin(); it != ghost_ttl.end(); ) {
       if (--it->second <= 0) {
         auto & g = deco.ghosts;
-        g.erase(std::remove_if(g.begin(), g.end(), [&](const GhostPair & x) {return x.key == it->first;}), g.end());
+        g.erase(
+          std::remove_if(
+            g.begin(), g.end(), [&](const GhostPair & x) {return x.key == it->first;}),
+          g.end());
         it = ghost_ttl.erase(it);
       } else {++it;}
     }
     for (const auto & k : snap.changes.added) {deco.marks[k] = '+'; mark_ttl[k] = kHoldFrames;}
-    for (const auto & c : snap.changes.changed) {deco.marks[c.key] = '~'; mark_ttl[c.key] = kHoldFrames;}
+    for (const auto & c : snap.changes.changed) {
+      deco.marks[c.key] = '~';
+      mark_ttl[c.key] = kHoldFrames;
+    }
     for (const auto & k : snap.changes.removed) {
       // a pair that came back is no ghost any more
       deco.ghosts.erase(std::remove_if(deco.ghosts.begin(), deco.ghosts.end(),
-          [&](const GhostPair & x) {return x.key == k;}), deco.ghosts.end());
+        [&](const GhostPair & x) {return x.key == k;}), deco.ghosts.end());
       for (const auto & t : last_snapshot.topics) {
         for (const auto & p : t.pairs) {
           if (fastdds_transport_viz::pair_key(t, p) == k) {
@@ -438,7 +457,7 @@ struct WatchState
     }
     for (const auto & k : snap.changes.added) {
       deco.ghosts.erase(std::remove_if(deco.ghosts.begin(), deco.ghosts.end(),
-          [&](const GhostPair & x) {return x.key == k;}), deco.ghosts.end());
+        [&](const GhostPair & x) {return x.key == k;}), deco.ghosts.end());
       ghost_ttl.erase(k);
     }
     const auto & c = snap.changes;
@@ -448,8 +467,12 @@ struct WatchState
       deco.summary = "none";
     } else {
       std::ostringstream os;
-      if (!c.added.empty()) {os << "+" << c.added.size() << (c.added.size() == 1 ? " pair  " : " pairs  ");}
-      if (!c.removed.empty()) {os << "-" << c.removed.size() << (c.removed.size() == 1 ? " pair  " : " pairs  ");}
+      if (!c.added.empty()) {
+        os << "+" << c.added.size() << (c.added.size() == 1 ? " pair  " : " pairs  ");
+      }
+      if (!c.removed.empty()) {
+        os << "-" << c.removed.size() << (c.removed.size() == 1 ? " pair  " : " pairs  ");
+      }
       if (!c.changed.empty()) {os << "~" << c.changed.size() << " changed";}
       deco.summary = os.str();
     }
@@ -539,12 +562,13 @@ int main(int argc, char ** argv)
     ropt.explain = o.explain;
     ropt.compact = o.json && o.watch;   // JSON Lines: one document per line
     ropt.color = o.color == Options::Color::Always ||
-      (o.color == Options::Color::Auto && isatty(STDOUT_FILENO) && std::getenv("NO_COLOR") == nullptr);
+      (o.color == Options::Color::Auto && isatty(STDOUT_FILENO) &&
+      std::getenv("NO_COLOR") == nullptr);
 
     const auto start = std::chrono::steady_clock::now();
     // Wait until --timeout, or until discovery has been quiet for --quiet
     // seconds (but never less than --quiet seconds in total).
-    for (;;) {
+    for (;; ) {
       if (stats) {stats->poll();}
       std::this_thread::sleep_for(50ms);
       auto now = std::chrono::steady_clock::now();
@@ -557,10 +581,11 @@ int main(int argc, char ** argv)
     }
 
     if (!o.watch) {
-      double elapsed = std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
+      double elapsed =
+        std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
       Snapshot snap = collect(observer, resolver, stats.get(), o, domain, elapsed);
       std::cout << (o.json ? fastdds_transport_viz::render_json(snap, ropt) :
-        fastdds_transport_viz::render_table(snap, ropt)) << std::flush;
+      fastdds_transport_viz::render_table(snap, ropt)) << std::flush;
     } else {
       Terminal term(!o.json);
       WatchState ws;
@@ -571,9 +596,11 @@ int main(int argc, char ** argv)
       while (rclcpp::ok() && !quit) {
         if (force || (!paused && std::chrono::steady_clock::now() >= next_frame)) {
           force = false;
-          next_frame = std::chrono::steady_clock::now() + std::chrono::duration_cast<std::chrono::milliseconds>(
+          next_frame = std::chrono::steady_clock::now() +
+            std::chrono::duration_cast<std::chrono::milliseconds>(
             std::chrono::duration<double>(o.interval));
-          double elapsed = std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
+          double elapsed =
+            std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
           Snapshot snap = collect(observer, resolver, stats.get(), o, domain, elapsed);
           ropt.verbose = o.verbose;
           ropt.explain = o.explain;
@@ -595,7 +622,8 @@ int main(int argc, char ** argv)
             frame << fastdds_transport_viz::truncate_visible(header.str(), cols) << "\n\n";
             frame << fastdds_transport_viz::render_table(snap, ropt);
             if (term.enabled()) {
-              frame << "\n q quit   p " << (paused ? "resume" : "pause") << "   v pairs   e legend   a all\n";
+              frame << "\n q quit   p " << (paused ? "resume" : "pause") <<
+                "   v pairs   e legend   a all\n";
               term.paint(frame.str(), rows);
             } else {
               std::cout << frame.str() << "\n" << std::flush;

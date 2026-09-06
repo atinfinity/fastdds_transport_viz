@@ -58,7 +58,8 @@ rtps::Locator_t to_rtps(const st::detail::Locator_s & l)
 
 std::string StatsObserver::required_env_value()
 {
-  return "RTPS_SENT_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC;DATA_COUNT_TOPIC;PUBLICATION_THROUGHPUT_TOPIC";
+  return "RTPS_SENT_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC;"
+         "DATA_COUNT_TOPIC;PUBLICATION_THROUGHPUT_TOPIC";
 }
 
 StatsObserver::StatsObserver(dds::DomainParticipant * participant)
@@ -152,7 +153,8 @@ void StatsObserver::drain()
     // floor(log10(byte_count)) (see StatisticsParticipantImpl::on_rtps_sent).
     s.bytes = static_cast<double>(traffic.byte_count());
     data_.participants_with_stats.insert(s.src_participant_prefix);
-    auto & slot = traffic_[TrafficKey{s.src_participant_prefix, static_cast<int>(dst.kind), dst.address, dst.port}];
+    auto & slot = traffic_[
+      TrafficKey{s.src_participant_prefix, static_cast<int>(dst.kind), dst.address, dst.port}];
     if (slot.samples == 0) {   // TRANSIENT_LOCAL: the first sample is the value before we started
       s.packets_first = s.packets;
       s.bytes_first = s.bytes;
@@ -185,7 +187,8 @@ void StatsObserver::drain()
     data_.participants_with_stats.insert(prefix_to_string(w.guidPrefix));
     data_.delivered[{guid_to_string(w), guid_to_string(r)}]++;
     // write-to-notification latency, nanoseconds as float
-    data_.latency[{guid_to_string(w), guid_to_string(r)}].add(static_cast<double>(latency.data()) * 1e-9);
+    data_.latency[{guid_to_string(w), guid_to_string(r)}].add(
+      static_cast<double>(latency.data()) * 1e-9);
   }
 
   st::EntityCount count;

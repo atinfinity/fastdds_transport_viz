@@ -108,6 +108,16 @@ install(DIRECTORY config DESTINATION share/${PROJECT_NAME})
 
 # --- tests -------------------------------------------------------------------------
 if(BUILD_TESTING)
+  # SPDX-License-Identifier headers (not ament_copyright's full-boilerplate template) on
+  # our own files; third_party/ is vendored and keeps its own upstream style.
+  set(AMENT_LINT_AUTO_EXCLUDE ament_cmake_copyright)
+  # ament_cpplint/ament_uncrustify match EXCLUDE via a non-recursive glob.glob() against
+  # each already-discovered file's path, so a bare directory name does not prune it;
+  # third_party/<vendored package>/<file> is exactly two path segments deep.
+  set(AMENT_LINT_AUTO_FILE_EXCLUDE third_party/*/*)
+  find_package(ament_lint_auto REQUIRED)
+  ament_lint_auto_find_test_dependencies()
+
   find_package(ament_cmake_gtest REQUIRED)
   ament_add_gtest(test_decision test/test_decision.cpp)
   target_link_libraries(test_decision ${PROJECT_NAME}_core)

@@ -4,10 +4,10 @@
 import os
 import sys
 
-import launch_testing
-
 sys.path.insert(0, os.path.dirname(__file__))
-from _common import STRING_TYPES, Base, description, node_action, transport_viz_json  # noqa: E402
+from _common import Base, description, node_action, STRING_TYPES, transport_viz_json  # noqa: E402
+
+import launch_testing  # noqa: E402
 
 
 def generate_test_description():
@@ -21,7 +21,8 @@ class TestSameHostShm(Base):
 
     def test_chatter_uses_shm(self):
         doc, chatter = self.wait_for_topic('/chatter')
-        self.assertIn(chatter['type'], STRING_TYPES)   # demo_nodes_cpp moved to example_interfaces in Rolling
+        # demo_nodes_cpp moved to example_interfaces in Rolling
+        self.assertIn(chatter['type'], STRING_TYPES)
         self.assertEqual(len(chatter['pairs']), 1, chatter)
         pair = chatter['pairs'][0]
         self.assertEqual(pair['transport'], 'SHM', pair)
@@ -36,7 +37,6 @@ class TestSameHostShm(Base):
             for ep in t['writers'] + t['readers']:
                 self.assertFalse(ep['node'].startswith('/_transport_viz'), ep)
 
-
     def test_node_filter(self):
         self.wait_for_topic('/chatter')
         doc = transport_viz_json(['--node', '^/listener$'])
@@ -44,7 +44,8 @@ class TestSameHostShm(Base):
         self.assertIn('/chatter', names)
         for t in doc['topics']:
             for p in t['pairs']:
-                self.assertTrue(p['writer_node'] == '/listener' or p['reader_node'] == '/listener', p)
+                self.assertTrue(
+                    p['writer_node'] == '/listener' or p['reader_node'] == '/listener', p)
         doc = transport_viz_json(['--node', 'no-such-node'])
         self.assertEqual(doc['topics'], [], doc['topics'])
 

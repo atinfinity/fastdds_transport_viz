@@ -21,7 +21,8 @@ int main(int argc, char ** argv)
   auto pub = node->create_publisher<std_msgs::msg::UInt8MultiArray>("large_array", 10);
   std_msgs::msg::UInt8MultiArray m;
   m.data.assign(kb * 1024, 0x5a);
-  auto timer = node->create_wall_timer(std::chrono::milliseconds(period_ms), [&]() {pub->publish(m);});
+  auto timer = node->create_wall_timer(
+    std::chrono::milliseconds(period_ms), [&]() {pub->publish(m);});
   rclcpp::spin(node);
   rclcpp::shutdown();
   return 0;

@@ -51,7 +51,8 @@ json endpoint_json(const Snapshot & snap, const Endpoint & e, const RenderOption
         {"data_sharing_domain_ids", e.qos.data_sharing_domains},
         {"deadline_s", std::isinf(e.qos.deadline_s) ? json(nullptr) : json(e.qos.deadline_s)},
         {"liveliness", e.qos.liveliness},
-        {"liveliness_lease_s", std::isinf(e.qos.liveliness_lease_s) ? json(nullptr) : json(e.qos.liveliness_lease_s)},
+        {"liveliness_lease_s",
+          std::isinf(e.qos.liveliness_lease_s) ? json(nullptr) : json(e.qos.liveliness_lease_s)},
         {"ownership", e.qos.ownership},
         {"partitions", e.qos.partitions},
       }},
@@ -77,11 +78,16 @@ std::string render_json(const Snapshot & snap, const RenderOptions & opt)
     tj["is_ros_topic"] = t.is_ros_topic;
     tj["unmatched_reasons"] = t.unmatched_reasons;
     tj["throughput_bytes_per_s"] = t.throughput_available ? json(t.throughput) : json(nullptr);
-    tj["latency_s"] = t.latency_available ? json(t.latency) : json(nullptr);   // slowest pair's mean
+    // slowest pair's mean
+    tj["latency_s"] = t.latency_available ? json(t.latency) : json(nullptr);
     json writers = json::array();
-    for (const auto * w : t.writers) {writers.push_back(endpoint_json(snap, *w, opt));}
+    for (const auto * w : t.writers) {
+      writers.push_back(endpoint_json(snap, *w, opt));
+    }
     json readers = json::array();
-    for (const auto * r : t.readers) {readers.push_back(endpoint_json(snap, *r, opt));}
+    for (const auto * r : t.readers) {
+      readers.push_back(endpoint_json(snap, *r, opt));
+    }
     tj["writers"] = writers;
     tj["readers"] = readers;
     json pairs = json::array();
@@ -101,7 +107,9 @@ std::string render_json(const Snapshot & snap, const RenderOptions & opt)
               {"available", p.measured.available},
               {"transports", [&]() {
                   json arr = json::array();
-                  for (auto t : p.measured.transports) {arr.push_back(to_string(t));}
+                  for (auto t : p.measured.transports) {
+                    arr.push_back(to_string(t));
+                  }
                   return arr;
                 }()},
               {"packets", p.measured.packets},
@@ -130,13 +138,21 @@ std::string render_json(const Snapshot & snap, const RenderOptions & opt)
   // so that front-ends never have to duplicate the texts.
   std::set<std::string> codes;
   for (const auto & t : snap.topics) {
-    for (const auto & r : t.unmatched_reasons) {codes.insert(r);}
+    for (const auto & r : t.unmatched_reasons) {
+      codes.insert(r);
+    }
     for (const auto & p : t.pairs) {
-      for (const auto & r : p.verdict.reasons) {codes.insert(r);}
-      for (const auto & w : p.verdict.warnings) {codes.insert(w);}
+      for (const auto & r : p.verdict.reasons) {
+        codes.insert(r);
+      }
+      for (const auto & w : p.verdict.warnings) {
+        codes.insert(w);
+      }
     }
   }
-  for (const auto & w : snap.shm.warnings) {codes.insert(w);}
+  for (const auto & w : snap.shm.warnings) {
+    codes.insert(w);
+  }
   json descriptions = json::object();
   for (const auto & c : codes) {
     descriptions[c] = explain(c);
@@ -145,19 +161,27 @@ std::string render_json(const Snapshot & snap, const RenderOptions & opt)
 
   if (snap.has_changes) {
     auto key_json = [](const PairKey & k) {
-        return json{{"topic", k.topic}, {"writer_guid", k.writer_guid}, {"reader_guid", k.reader_guid}};
+        return json{
+        {"topic", k.topic}, {"writer_guid", k.writer_guid}, {"reader_guid", k.reader_guid}};
       };
     auto state_json = [](const PairState & st) {
         json measured = json::array();
-        for (auto t : st.measured) {measured.push_back(to_string(t));}
-        return json{{"transport", to_string(st.transport)}, {"confidence", to_string(st.confidence)},
-          {"measured", measured}, {"warnings", st.warnings}};
+        for (auto t : st.measured) {
+          measured.push_back(to_string(t));
+        }
+        return json{
+        {"transport", to_string(st.transport)}, {"confidence", to_string(st.confidence)},
+        {"measured", measured}, {"warnings", st.warnings}};
       };
     json changes;
     changes["added_pairs"] = json::array();
-    for (const auto & k : snap.changes.added) {changes["added_pairs"].push_back(key_json(k));}
+    for (const auto & k : snap.changes.added) {
+      changes["added_pairs"].push_back(key_json(k));
+    }
     changes["removed_pairs"] = json::array();
-    for (const auto & k : snap.changes.removed) {changes["removed_pairs"].push_back(key_json(k));}
+    for (const auto & k : snap.changes.removed) {
+      changes["removed_pairs"].push_back(key_json(k));
+    }
     changes["changed_pairs"] = json::array();
     for (const auto & c : snap.changes.changed) {
       json cj = key_json(c.key);
@@ -174,12 +198,14 @@ std::string render_json(const Snapshot & snap, const RenderOptions & opt)
   {
     json dc = json::object();
     for (const auto & kv : snap.stats.data_count) {
-      dc[kv.first] = {{"first", kv.second.first}, {"last", kv.second.last}, {"samples", kv.second.samples}};
+      dc[kv.first] = {
+        {"first", kv.second.first}, {"last", kv.second.last}, {"samples", kv.second.samples}};
     }
     stats["data_count"] = dc;   // writer guid -> cumulative DATA_COUNT at first/last sample
     json th = json::object();
     for (const auto & kv : snap.stats.throughput) {
-      th[kv.first] = {{"mean", kv.second.mean()}, {"last", kv.second.last}, {"samples", kv.second.samples}};
+      th[kv.first] = {
+        {"mean", kv.second.mean()}, {"last", kv.second.last}, {"samples", kv.second.samples}};
     }
     stats["throughput"] = th;   // writer guid -> PUBLICATION_THROUGHPUT bytes/s
   }
@@ -202,7 +228,8 @@ std::string render_json(const Snapshot & snap, const RenderOptions & opt)
   json traffic = json::array();
   for (const auto & t : snap.stats.traffic) {
     traffic.push_back({{"src_participant_guid_prefix", t.src_participant_prefix},
-        {"dst_locator", {{"kind", to_string(t.dst.kind)}, {"address", t.dst.address}, {"port", t.dst.port}}},
+        {"dst_locator",
+          {{"kind", to_string(t.dst.kind)}, {"address", t.dst.address}, {"port", t.dst.port}}},
         {"packets", t.packets}, {"bytes", t.bytes},
         {"packets_first", t.packets_first}, {"bytes_first", t.bytes_first}});
   }

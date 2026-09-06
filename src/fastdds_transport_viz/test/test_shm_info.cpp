@@ -5,13 +5,13 @@
 #include <sys/file.h>
 #include <unistd.h>
 
+#include <gtest/gtest.h>
+
 #include <algorithm>
 #include <cstdlib>
 #include <fstream>
 #include <string>
 #include <vector>
-
-#include <gtest/gtest.h>
 
 #include "fastdds_transport_viz/decision.hpp"
 #include "fastdds_transport_viz/shm_info.hpp"
@@ -67,10 +67,13 @@ TEST(DataSharingName, MatchesFastDdsFormat)
 {
   // fast_datasharing_01.0f.40.ec.26.00.af.24.00.00.00.00_0.0.14.3 for GUID
   // 01.0f.40.ec.26.00.af.24.00.00.00.00|00.00.14.03 (entity id bytes in hex, unpadded)
-  std::array<uint8_t, 16> g{0x01, 0x0f, 0x40, 0xec, 0x26, 0x00, 0xaf, 0x24, 0, 0, 0, 0, 0x00, 0x00, 0x14, 0x03};
-  EXPECT_EQ(datasharing_segment_name(g), "fast_datasharing_01.0f.40.ec.26.00.af.24.00.00.00.00_0.0.14.3");
+  std::array<uint8_t, 16> g{
+    0x01, 0x0f, 0x40, 0xec, 0x26, 0x00, 0xaf, 0x24, 0, 0, 0, 0, 0x00, 0x00, 0x14, 0x03};
+  EXPECT_EQ(
+    datasharing_segment_name(g), "fast_datasharing_01.0f.40.ec.26.00.af.24.00.00.00.00_0.0.14.3");
   g[13] = 0x0a;
-  EXPECT_EQ(datasharing_segment_name(g), "fast_datasharing_01.0f.40.ec.26.00.af.24.00.00.00.00_0.a.14.3");
+  EXPECT_EQ(
+    datasharing_segment_name(g), "fast_datasharing_01.0f.40.ec.26.00.af.24.00.00.00.00_0.a.14.3");
 }
 
 TEST(ScanShm, MissingDirectoryIsNotAvailable)
@@ -86,7 +89,8 @@ TEST_F(FakeShmDir, CountsSizesAndStaleFilesByLock)
   locked("fastrtps_aaaa");                 // living participant
   file("fastrtps_bbbb", 1000);
   file("fastrtps_bbbb_el", 0);             // owner died: lock free
-  file("fastrtps_cccc", 1000);             // no lock file: not a zombie for 'fastdds shm clean' either
+  // no lock file: not a zombie for 'fastdds shm clean' either
+  file("fastrtps_cccc", 1000);
   file("fastrtps_port7411", 500);
   locked("fastrtps_port7411");             // port in use
   file("fastrtps_port7000", 500);
@@ -104,7 +108,8 @@ TEST_F(FakeShmDir, CountsSizesAndStaleFilesByLock)
 
   ShmScanInput in;
   in.node_ports = {7411, 7419};
-  in.datasharing_writers = {{"fast_datasharing_01.02.03.04.05.06.07.08.00.00.00.00_0.0.14.3", "W1"}};
+  in.datasharing_writers = {
+    {"fast_datasharing_01.02.03.04.05.06.07.08.00.00.00.00_0.0.14.3", "W1"}};
   auto info = scan_shm(dir, in);
   EXPECT_TRUE(info.available);
   EXPECT_GT(info.total_bytes, 0u);
@@ -209,7 +214,10 @@ TEST(ScanShm, CapacityWarning)
   add_capacity_warning(info);
   EXPECT_TRUE(has(info.warnings, "shm-nearly-full"));
   info.warnings.clear();
-  info.total_bytes = 16ull << 30; info.used_bytes = 15ull << 30; info.free_bytes = 1ull << 30;   // 93 % used
+  // 93 % used
+  info.total_bytes = 16ull << 30;
+  info.used_bytes = 15ull << 30;
+  info.free_bytes = 1ull << 30;
   add_capacity_warning(info);
   EXPECT_TRUE(has(info.warnings, "shm-nearly-full"));
   info.warnings.clear();

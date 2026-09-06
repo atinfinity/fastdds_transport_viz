@@ -4,10 +4,11 @@
 // render_json(): every documented key, the --watch `changes` object, the `shm` object and
 // the compact (JSON Lines) mode. The schema itself is checked by test_json_schema*.
 
+#include <gtest/gtest.h>
+
 #include <string>
 #include <vector>
 
-#include <gtest/gtest.h>
 #include <nlohmann/json.hpp>
 
 #include "fastdds_transport_viz/decision.hpp"
@@ -58,7 +59,8 @@ Snapshot snapshot()
   s.stats.samples = 5;
   s.stats.participants_with_stats = {"P1"};
   s.stats.physical["P1"] = HostInfo{"robot:1", "user", "42"};
-  s.stats.traffic.push_back(TrafficSample{"P1", Locator{LocatorKind::SHM, "", 7411}, 10, 1000.0, 4, 400.0, 3});
+  s.stats.traffic.push_back(
+    TrafficSample{"P1", Locator{LocatorKind::SHM, "", 7411}, 10, 1000.0, 4, 400.0, 3});
   s.stats.data_count["W1"] = DataCountSample{2, 5, 2};
   s.stats.throughput["W1"] = ThroughputStat{60.0, 20.0, 3};
   LatencyStat lat;
@@ -172,6 +174,8 @@ TEST(RenderJson, ChangesObjectAndCompactMode)
 
 TEST(StatsObserver, RequiredEnvValueIsTheDocumentedFiveTopicList)
 {
-  EXPECT_EQ(StatsObserver::required_env_value(),
-    "RTPS_SENT_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC;DATA_COUNT_TOPIC;PUBLICATION_THROUGHPUT_TOPIC");
+  EXPECT_EQ(
+    StatsObserver::required_env_value(),
+    "RTPS_SENT_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC;"
+    "DATA_COUNT_TOPIC;PUBLICATION_THROUGHPUT_TOPIC");
 }

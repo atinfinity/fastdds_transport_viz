@@ -12,7 +12,8 @@ int main(int argc, char ** argv)
   auto sub = node->create_subscription<std_msgs::msg::UInt8MultiArray>(
     "large_array", 10, [&](const std_msgs::msg::UInt8MultiArray & m) {
       if (++received % 10 == 1) {
-        RCLCPP_INFO(node->get_logger(), "received %zu samples, last %zu bytes", received, m.data.size());
+        RCLCPP_INFO(
+          node->get_logger(), "received %zu samples, last %zu bytes", received, m.data.size());
       }
     });
   rclcpp::spin(node);

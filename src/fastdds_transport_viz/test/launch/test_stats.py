@@ -4,15 +4,18 @@
 import os
 import sys
 
-import launch_testing
-
 sys.path.insert(0, os.path.dirname(__file__))
-from _common import Base, description, node_action, skip_without_statistics, topic, transport_viz_json, udpv4_only_env  # noqa: E402
+from _common import (  # noqa: E402
+    Base, description, node_action, skip_without_statistics, topic, transport_viz_json,
+    udpv4_only_env)
 
 from ament_index_python.packages import get_package_share_directory  # noqa: E402
+import launch_testing  # noqa: E402
 
 STATS_ENV = {
-    'FASTDDS_STATISTICS': 'RTPS_SENT_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC;DATA_COUNT_TOPIC;PUBLICATION_THROUGHPUT_TOPIC',
+    'FASTDDS_STATISTICS': (
+        'RTPS_SENT_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC;'
+        'DATA_COUNT_TOPIC;PUBLICATION_THROUGHPUT_TOPIC'),
     # lift the statistics writers' 10-instance resource limit (see README)
     'FASTRTPS_DEFAULT_PROFILES_FILE': os.path.join(
         get_package_share_directory('fastdds_transport_viz'), 'config', 'statistics.xml'),
@@ -36,7 +39,8 @@ class TestStats(Base):
         for _ in range(4):
             doc = transport_viz_json(['--stats'], timeout=6.0)
             chatter = topic(doc, '/chatter')
-            if len(chatter['pairs']) == 2 and all(p['measured']['transports'] for p in chatter['pairs']):
+            all_measured = all(p['measured']['transports'] for p in chatter['pairs'])
+            if len(chatter['pairs']) == 2 and all_measured:
                 break
         self.assertTrue(doc['stats']['enabled'])
         self.assertGreater(doc['stats']['samples'], 0, doc['stats'])
@@ -70,7 +74,6 @@ class TestStats(Base):
         # table/JSON host label is the hostname part of "<hostname>:<numeric id>"
         self.assertEqual(shm['writer_host'], writer['host_name'].split(':')[0])
 
-
     def test_latency_values(self):
         doc = transport_viz_json(['--stats'], timeout=6.0)
         chatter = topic(doc, '/chatter')
@@ -86,9 +89,13 @@ class TestStats(Base):
         self.assertNotIn('latency-clock-skew-suspected', pair['warnings'])
 
     def test_tool_with_statistics_in_its_own_environment(self):
-        """FASTDDS_STATISTICS set for the tool too (the nodes' environment): the tool must
+        """
+        Statistics enabled for the tool's own environment too.
+
+        FASTDDS_STATISTICS set for the tool too (the nodes' environment): the tool must
         drop it for its own participants, otherwise Fast DDS 2.14 deadlocks in
-        on_rtps_sent() and this call never returns."""
+        on_rtps_sent() and this call never returns.
+        """
         doc = transport_viz_json(['--stats'], timeout=6.0, env=STATS_ENV)
         self.assertTrue(doc['stats']['enabled'])
         chatter = topic(doc, '/chatter')

@@ -1,13 +1,13 @@
 // Copyright 2026 atinfinity
 // SPDX-License-Identifier: Apache-2.0
 
+#include <gtest/gtest.h>
+
 #include <algorithm>
 #include <functional>
 #include <tuple>
 #include <string>
 #include <vector>
-
-#include <gtest/gtest.h>
 
 #include "fastdds_transport_viz/decision.hpp"
 #include "fastdds_transport_viz/model.hpp"
@@ -291,7 +291,8 @@ TEST(RosNames, DemangleTypes)
 
 namespace
 {
-StatsData stats_with(const Endpoint & w, std::vector<TrafficSample> traffic, bool delivered_to = false,
+StatsData stats_with(
+  const Endpoint & w, std::vector<TrafficSample> traffic, bool delivered_to = false,
   const Endpoint * r = nullptr)
 {
   StatsData s;
@@ -377,8 +378,8 @@ TEST(ApplyStats, TrafficToOtherLocatorsIsIgnored)
   auto topics = summarize(eps);
   // metatraffic port 7412 is not a locator of the reader; different source participant too
   auto stats = stats_with(eps[0], {
-      TrafficSample{"P1", udp4("10.0.0.1", 7412), 5, 500.0},
-      TrafficSample{"P9", shm(7413), 5, 500.0}});
+    TrafficSample{"P1", udp4("10.0.0.1", 7412), 5, 500.0},
+    TrafficSample{"P9", shm(7413), 5, 500.0}});
   apply_stats(topics, stats);
   const auto & p = topics[0].pairs[0];
   EXPECT_TRUE(p.measured.transports.empty());
@@ -661,9 +662,18 @@ TEST(Diff, PairStatesFromSnapshot)
 
 namespace
 {
-Locator tcp4(const std::string & ip, uint32_t port = 7411) {return Locator{LocatorKind::TCPv4, ip, port};}
-Locator tcp6(const std::string & ip, uint32_t port = 7411) {return Locator{LocatorKind::TCPv6, ip, port};}
-Locator udp6(const std::string & ip, uint32_t port = 7411) {return Locator{LocatorKind::UDPv6, ip, port};}
+Locator tcp4(const std::string & ip, uint32_t port = 7411)
+{
+  return Locator{LocatorKind::TCPv4, ip, port};
+}
+Locator tcp6(const std::string & ip, uint32_t port = 7411)
+{
+  return Locator{LocatorKind::TCPv6, ip, port};
+}
+Locator udp6(const std::string & ip, uint32_t port = 7411)
+{
+  return Locator{LocatorKind::UDPv6, ip, port};
+}
 }  // namespace
 
 TEST(Decision, CrossHostTcpAndUdp6Locators)
@@ -833,9 +843,12 @@ TEST(ApplyStats, MeasuredTcpReasonAndDeliveredWithoutTraffic)
 
 TEST(ApplyStats, MeasuredUdp6Tcp6AndUnknownLocatorKinds)
 {
-  for (auto [mk, code, tr] : std::vector<std::tuple<std::function<Locator(const std::string &, uint32_t)>, std::string, Transport>>{
-      {[](const std::string & ip, uint32_t port) {return udp6(ip, port);}, "measured-udpv6-traffic", Transport::UDPv6},
-      {[](const std::string & ip, uint32_t port) {return tcp6(ip, port);}, "measured-tcpv6-traffic", Transport::TCPv6}})
+  using MakerT = std::function<Locator(const std::string &, uint32_t)>;
+  for (auto [mk, code, tr] : std::vector<std::tuple<MakerT, std::string, Transport>>{
+    {[](const std::string & ip, uint32_t port) {return udp6(ip, port);},
+      "measured-udpv6-traffic", Transport::UDPv6},
+    {[](const std::string & ip, uint32_t port) {return tcp6(ip, port);},
+      "measured-tcpv6-traffic", Transport::TCPv6}})
   {
     std::vector<Endpoint> eps;
     eps.push_back(make(true, HOST_A, {mk("fd00::1", 7411)}));
@@ -967,7 +980,9 @@ TEST(QosMatching, DeadlineLivelinessOwnershipPartition)
   r.qos.durability = "TRANSIENT_LOCAL";
   r.qos.ownership = "EXCLUSIVE";
   auto v = decide(w, r);
-  EXPECT_EQ(v.reasons, (std::vector<std::string>{"qos-incompatible-reliability", "qos-incompatible-durability", "qos-incompatible-ownership"}));
+  EXPECT_EQ(
+    v.reasons, (std::vector<std::string>{
+    "qos-incompatible-reliability", "qos-incompatible-durability", "qos-incompatible-ownership"}));
 }
 
 TEST(ApplyStats, IncompatiblePairDeliveredIsReported)
@@ -1000,7 +1015,8 @@ TEST(ApplyStats, LatencyPerPairTopicMaxAndClockSkew)
   eps[0].participant_guid_prefix = "P1";
   auto topics = summarize(eps);
   ASSERT_EQ(topics[0].pairs.size(), 2u);
-  auto stats = stats_with(eps[0], {TrafficSample{"P1", shm(7413), 3, 300.0}, TrafficSample{"P1", shm(7417), 3, 300.0}});
+  auto stats = stats_with(
+    eps[0], {TrafficSample{"P1", shm(7413), 3, 300.0}, TrafficSample{"P1", shm(7417), 3, 300.0}});
   LatencyStat a;
   a.add(0.0004); a.add(0.0006); a.add(0.0013);
   stats.latency[{eps[0].guid, eps[1].guid}] = a;
@@ -1030,7 +1046,8 @@ TEST(ApplyStats, LatencyPerPairTopicMaxAndClockSkew)
 
 TEST(Decision, SameHostLocatorsHiddenOnOldFastDds)
 {
-  auto w = make(true, HOST_A, {shm(7411)});                  // what Fast DDS 2.6 shows of a same-host writer
+  // what Fast DDS 2.6 shows of a same-host writer
+  auto w = make(true, HOST_A, {shm(7411)});
   auto r = make(false, HOST_A, {udp4("127.0.0.1", 7413)});   // a UDP-only reader
   EXPECT_EQ(decide(w, r).transport, Transport::None);        // without the flag: no common kind
   w.same_host_locators_filtered = true;

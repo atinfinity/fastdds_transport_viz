@@ -6,6 +6,7 @@
 
 #include <map>
 #include <string>
+#include <vector>
 
 #include "fastdds_transport_viz/model.hpp"
 

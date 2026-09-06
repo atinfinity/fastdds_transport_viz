@@ -9,10 +9,10 @@ import sys
 import time
 import urllib.request
 
-import launch_testing
-
 sys.path.insert(0, os.path.dirname(__file__))
 from _common import Base, description, node_action, topic  # noqa: E402
+
+import launch_testing  # noqa: E402
 
 
 def generate_test_description():
@@ -26,7 +26,8 @@ class TestWebLive(Base):
 
     def test_live_stream(self):
         proc = subprocess.Popen(
-            ['ros2', 'run', 'fastdds_transport_viz', 'transport_viz_web', '--port', '0', '--interval', '1', '--timeout', '3'],
+            ['ros2', 'run', 'fastdds_transport_viz', 'transport_viz_web',
+             '--port', '0', '--interval', '1', '--timeout', '3'],
             stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         try:
             line = proc.stdout.readline()

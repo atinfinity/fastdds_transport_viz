@@ -67,7 +67,9 @@ def test_color_modes_are_accepted_and_always_paints_without_a_terminal():
     # a table with no endpoints still carries the bold "shared memory:" label
     r = run('--color', 'always', '--timeout', '0.5', '--quiet', '0')
     assert r.returncode == 0, r
-    assert '\033[1mshared memory: \033[0m' in r.stdout or '(no endpoints discovered' in r.stdout, r.stdout
+    assert (
+        '\033[1mshared memory: \033[0m' in r.stdout or '(no endpoints discovered' in r.stdout
+    ), r.stdout
     assert '\033[' in r.stdout
 
 
@@ -87,8 +89,9 @@ def test_explain_ros_args_and_default_timeout():
 
 def test_discovery_range_off_prints_a_warning():
     env = dict(os.environ, ROS_AUTOMATIC_DISCOVERY_RANGE='OFF')
-    r = subprocess.run([BINARY, '--timeout', '0.5', '--quiet', '0'], capture_output=True, text=True,
-                       timeout=30, env=env)
+    r = subprocess.run(
+        [BINARY, '--timeout', '0.5', '--quiet', '0'], capture_output=True, text=True,
+        timeout=30, env=env)
     assert r.returncode == 0, r
     assert 'ROS_AUTOMATIC_DISCOVERY_RANGE=OFF disables discovery' in r.stderr
 

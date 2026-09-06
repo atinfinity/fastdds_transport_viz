@@ -1,15 +1,19 @@
 # Copyright 2026 atinfinity
 # SPDX-License-Identifier: Apache-2.0
-"""With datasharing_auto.xml, the bounded pair is predicted DATA_SHARING (likely) while the
-unbounded String writer resolves to OFF and stays on SHM."""
+"""
+Data-sharing: bounded vs unbounded.
+
+With datasharing_auto.xml, the bounded pair is predicted DATA_SHARING (likely) while
+the unbounded String writer resolves to OFF and stays on SHM.
+"""
 import os
 import sys
 
-import launch_testing
-from ament_index_python.packages import get_package_share_directory
-
 sys.path.insert(0, os.path.dirname(__file__))
 from _common import Base, description, node_action, pair_of  # noqa: E402
+
+from ament_index_python.packages import get_package_share_directory  # noqa: E402
+import launch_testing  # noqa: E402
 
 ENV = {
     'FASTRTPS_DEFAULT_PROFILES_FILE': os.path.join(

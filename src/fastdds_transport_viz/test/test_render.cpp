@@ -1,10 +1,10 @@
 // Copyright 2026 atinfinity
 // SPDX-License-Identifier: Apache-2.0
 
+#include <gtest/gtest.h>
+
 #include <string>
 #include <vector>
-
-#include <gtest/gtest.h>
 
 #include "fastdds_transport_viz/decision.hpp"
 #include "fastdds_transport_viz/model.hpp"
@@ -198,11 +198,26 @@ TEST(RenderTable, SharedMemoryFooterAndWarnings)
   opt.color = true;
   opt.explain = true;
   auto out = render_table(s, opt);
-  EXPECT_NE(out.find("shared memory: \033[0m/dev/shm 396 MB used of 16.7 GB (16.3 GB free)"), std::string::npos);
-  EXPECT_NE(out.find("63.4 MB in 114 segment(s) (110 stale), 14 port(s) (7 stale), 1 data-sharing history (1 unmatched)"), std::string::npos);
-  EXPECT_NE(out.find("\033[31m!shm-stale-files\033[0m: 117 file(s) without a living owner, run 'fastdds shm clean'"), std::string::npos);
-  EXPECT_NE(out.find("!shm-not-visible\033[0m: 1 of 2 SHM port(s) of the nodes not open here (other IPC namespace), 2 participant(s) on another host id"), std::string::npos);
-  EXPECT_NE(out.find("!shm-nearly-full\033[0m: Fast DDS cannot create segments when /dev/shm is full"), std::string::npos);
+  EXPECT_NE(
+    out.find("shared memory: \033[0m/dev/shm 396 MB used of 16.7 GB (16.3 GB free)"),
+    std::string::npos);
+  EXPECT_NE(
+    out.find(
+      "63.4 MB in 114 segment(s) (110 stale), 14 port(s) (7 stale), "
+      "1 data-sharing history (1 unmatched)"),
+    std::string::npos);
+  EXPECT_NE(
+    out.find("\033[31m!shm-stale-files\033[0m: 117 file(s) without a living owner, "
+    "run 'fastdds shm clean'"),
+    std::string::npos);
+  EXPECT_NE(
+    out.find(
+      "!shm-not-visible\033[0m: 1 of 2 SHM port(s) of the nodes not open here "
+      "(other IPC namespace), 2 participant(s) on another host id"),
+    std::string::npos);
+  EXPECT_NE(
+    out.find("!shm-nearly-full\033[0m: Fast DDS cannot create segments when /dev/shm is full"),
+    std::string::npos);
   // the legend lists the shm warnings and the pair's reason codes
   EXPECT_NE(out.find("Reason codes:"), std::string::npos);
   EXPECT_NE(out.find("  shm-stale-files\n"), std::string::npos);
@@ -228,7 +243,9 @@ TEST(RenderTable, GhostRowsCarryStatsCellAndEmptyTopicsMessage)
 
   Snapshot empty;
   empty.domain = 7;
-  EXPECT_NE(render_table(empty, RenderOptions{}).find("(no endpoints discovered in domain 7)"), std::string::npos);
+  EXPECT_NE(
+    render_table(empty, RenderOptions{}).find("(no endpoints discovered in domain 7)"),
+    std::string::npos);
 }
 
 TEST(RenderTable, HostLabelsAndWarningsInColor)
@@ -247,7 +264,8 @@ TEST(RenderTable, HostLabelsAndWarningsInColor)
   auto out = render_table(s, opt);
   EXPECT_NE(out.find("/listener@robot(42)"), std::string::npos);
   EXPECT_NE(out.find("/talker@host:05050505"), std::string::npos);
-  EXPECT_NE(out.find("\033[31m!some-warning\033[0m"), std::string::npos) << "a warning painted red";
+  EXPECT_NE(out.find("\033[31m!some-warning\033[0m"), std::string::npos) <<
+    "a warning painted red";
   opt.host_labels["05050505"] = "named-host";
   EXPECT_NE(render_table(s, opt).find("/talker@named-host"), std::string::npos);
 }
@@ -307,7 +325,8 @@ TEST(RenderTable, LatencyColumn)
   s.topics[0].latency_available = true;
   s.topics[0].latency = 0.00085;
   out = render_table(s, opt);
-  EXPECT_NE(out.find("850 µs"), std::string::npos) << out;               // topic: slowest pair's mean
+  // topic: slowest pair's mean
+  EXPECT_NE(out.find("850 µs"), std::string::npos) << out;
   EXPECT_NE(out.find("850 µs (max 1.30 ms)"), std::string::npos) << out;  // pair: mean (max)
   only_pair(s).measured.latency = LatencyStat{};
   only_pair(s).measured.latency.add(-0.002);

@@ -121,7 +121,9 @@ bool partitions_match(const std::vector<std::string> & w, const std::vector<std:
   const auto & rs = r.empty() ? empty : r;
   for (const auto & a : ws) {
     for (const auto & b : rs) {
-      if (a == b || ::fnmatch(a.c_str(), b.c_str(), 0) == 0 || ::fnmatch(b.c_str(), a.c_str(), 0) == 0) {
+      if (a == b || ::fnmatch(a.c_str(), b.c_str(), 0) == 0 ||
+        ::fnmatch(b.c_str(), a.c_str(), 0) == 0)
+      {
         return true;
       }
     }
@@ -143,7 +145,8 @@ std::vector<std::string> qos_incompatibilities(const Endpoint & writer, const En
   {
     out.push_back("durability");
   }
-  if (w.deadline_s > r.deadline_s) {           // the writer must promise at least the requested rate
+  // the writer must promise at least the requested rate
+  if (w.deadline_s > r.deadline_s) {
     out.push_back("deadline");
   }
   if ((liveliness_rank(w.liveliness) >= 0 && liveliness_rank(r.liveliness) >= 0 &&
@@ -242,12 +245,13 @@ Verdict decide(const Endpoint & writer, const Endpoint & reader)
   }
 
   LocatorKind kind;
+  const bool same_host_locators_hidden =
+    same_host && (writer.same_host_locators_filtered || reader.same_host_locators_filtered) &&
+    (w_shm != r_shm);
   if (pick_network_kind(writer, reader, kind)) {
     v.transport = transport_for(kind);
     v.reasons.push_back(reason_for(kind));
-  } else if (same_host && (writer.same_host_locators_filtered || reader.same_host_locators_filtered) &&
-    (w_shm != r_shm))
-  {
+  } else if (same_host_locators_hidden) {
     // Fast DDS < 2.10 shows the tool only the SHM locator of a same-host participant; the
     // side without SHM is UDP-only, and the SHM side has the builtin UDP transport as
     // well, so Fast DDS falls back to UDPv4 between them.
@@ -367,7 +371,8 @@ namespace
 
 bool same_locator(const Locator & a, const Locator & b)
 {
-  return a.kind == b.kind && a.port == b.port && (a.kind == LocatorKind::SHM || a.address == b.address);
+  return a.kind == b.kind && a.port == b.port &&
+         (a.kind == LocatorKind::SHM || a.address == b.address);
 }
 
 bool is_loopback(const std::string & address)
@@ -387,7 +392,8 @@ bool same_locator_local(const Locator & a, const Locator & b, const std::set<std
          (is_loopback(b.address) && local.count(a.address));
 }
 
-bool reader_has_locator(const Endpoint & reader, const Locator & l, const std::set<std::string> & local)
+bool reader_has_locator(
+  const Endpoint & reader, const Locator & l, const std::set<std::string> & local)
 {
   for (const auto * list : {&reader.unicast, &reader.multicast}) {
     for (const auto & rl : *list) {
@@ -423,7 +429,8 @@ std::string measured_reason(Transport t)
 
 constexpr size_t kStatsWriterInstanceLimit = 10;   // Fast DDS default resource_limits.max_instances
 
-void replace_code(std::vector<std::string> & codes, const std::string & from, const std::string & to)
+void replace_code(
+  std::vector<std::string> & codes, const std::string & from, const std::string & to)
 {
   for (auto & c : codes) {
     if (c == from) {c = to; return;}
@@ -465,7 +472,9 @@ void apply_stats(std::vector<TopicSummary> & topics, const StatsData & stats)
         m.throughput_available = true;
         m.throughput = th->second.mean();
       }
-      if (auto d = stats.delivered.find({p.writer->guid, p.reader->guid}); d != stats.delivered.end()) {
+      if (auto d = stats.delivered.find({p.writer->guid, p.reader->guid});
+        d != stats.delivered.end())
+      {
         m.delivered_samples = d->second;
         m.delivered = d->second > 0;
       }
@@ -490,7 +499,9 @@ void apply_stats(std::vector<TopicSummary> & topics, const StatsData & stats)
         m.data_count_available = true;
       }
       for (const auto & s : stats.traffic) {
-        if (s.src_participant_prefix != src || !reader_has_locator(*p.reader, s.dst, stats.local_addresses)) {
+        if (s.src_participant_prefix != src ||
+          !reader_has_locator(*p.reader, s.dst, stats.local_addresses))
+        {
           continue;
         }
         if (s.packets == 0) {
@@ -526,7 +537,8 @@ void apply_stats(std::vector<TopicSummary> & topics, const StatsData & stats)
         // HISTORY_LATENCY plus silence on every locator of the reader => certain.
         if (m.delivered && m.transports.empty()) {
           v.confidence = Confidence::Certain;
-          replace_code(v.reasons, "datasharing-unverified-by-traffic", "datasharing-confirmed-no-traffic");
+          replace_code(
+            v.reasons, "datasharing-unverified-by-traffic", "datasharing-confirmed-no-traffic");
         } else if (m.delivered && m.data_count_available) {
           // Reliable data-sharing endpoints still exchange heartbeats, so traffic on the
           // link proves nothing; the writer's DATA_COUNT (DATA submessages sent through a
@@ -536,25 +548,34 @@ void apply_stats(std::vector<TopicSummary> & topics, const StatsData & stats)
               return q.writer != p.writer || q.verdict.transport == Transport::DataSharing;
             });
           if (!all_readers_datasharing) {
-            replace_code(v.reasons, "datasharing-unverified-by-traffic", "datasharing-ambiguous-mixed-readers");
+            replace_code(
+              v.reasons, "datasharing-unverified-by-traffic",
+              "datasharing-ambiguous-mixed-readers");
           } else if (m.data_submessages == 0) {
             v.confidence = Confidence::Certain;
-            replace_code(v.reasons, "datasharing-unverified-by-traffic", "datasharing-confirmed-no-data-submessages");
+            replace_code(
+              v.reasons, "datasharing-unverified-by-traffic",
+              "datasharing-confirmed-no-data-submessages");
           } else {
             // DATA left through a transport although only data-sharing readers exist:
             // Fast DDS did not use zero-copy. Report what was measured.
             v.transport = m.transports.empty() ? Transport::SHM : m.transports.front();
             v.confidence = m.transports.empty() ? Confidence::Likely : Confidence::Certain;
-            replace_code(v.reasons, "datasharing-unverified-by-traffic", "datasharing-data-submessages-sent");
+            replace_code(
+              v.reasons, "datasharing-unverified-by-traffic",
+              "datasharing-data-submessages-sent");
             for (auto tr : m.transports) {
               v.reasons.push_back(measured_reason(tr));
             }
             v.warnings.push_back("datasharing-not-used");
           }
         } else if (!m.transports.empty()) {
-          replace_code(v.reasons, "datasharing-unverified-by-traffic", "datasharing-ambiguous-participant-traffic");
+          replace_code(
+            v.reasons, "datasharing-unverified-by-traffic",
+            "datasharing-ambiguous-participant-traffic");
         } else {
-          replace_code(v.reasons, "datasharing-unverified-by-traffic", "datasharing-no-delivery-observed");
+          replace_code(
+            v.reasons, "datasharing-unverified-by-traffic", "datasharing-no-delivery-observed");
         }
         continue;
       }
@@ -568,7 +589,8 @@ void apply_stats(std::vector<TopicSummary> & topics, const StatsData & stats)
           m.delivered ? "delivered-without-measured-traffic" : "no-traffic-observed");
         continue;
       }
-      bool matches = std::find(m.transports.begin(), m.transports.end(), v.transport) != m.transports.end();
+      bool matches =
+        std::find(m.transports.begin(), m.transports.end(), v.transport) != m.transports.end();
       for (auto tr : m.transports) {
         v.reasons.push_back(measured_reason(tr));
       }
@@ -607,7 +629,8 @@ std::map<PairKey, PairState> pair_states(const Snapshot & snap)
   return out;
 }
 
-Changes diff(const std::map<PairKey, PairState> & previous, const std::map<PairKey, PairState> & current)
+Changes diff(
+  const std::map<PairKey, PairState> & previous, const std::map<PairKey, PairState> & current)
 {
   Changes c;
   for (const auto & kv : current) {
@@ -679,7 +702,8 @@ const std::map<std::string, std::string> & explanations()
       "Zero-copy delivery produces no RTPS traffic; run with --stats to confirm that no user "
       "data is sent over a transport for this pair."},
     {"qos-incompatible-reliability",
-      "The writer offers BEST_EFFORT while the reader requests RELIABLE; Fast DDS does not match them."},
+      "The writer offers BEST_EFFORT while the reader requests RELIABLE; Fast DDS does not "
+      "match them."},
     {"qos-incompatible-durability",
       "The writer offers a weaker durability (VOLATILE < TRANSIENT_LOCAL < TRANSIENT < PERSISTENT) "
       "than the reader requests; Fast DDS does not match them."},
@@ -687,7 +711,8 @@ const std::map<std::string, std::string> & explanations()
       "The writer's deadline period is longer than the one the reader requests; Fast DDS does not "
       "match them."},
     {"qos-incompatible-liveliness",
-      "The writer's liveliness kind is weaker (AUTOMATIC < MANUAL_BY_PARTICIPANT < MANUAL_BY_TOPIC) "
+      "The writer's liveliness kind is weaker "
+      "(AUTOMATIC < MANUAL_BY_PARTICIPANT < MANUAL_BY_TOPIC) "
       "or its lease duration longer than the reader requests; Fast DDS does not match them."},
     {"qos-incompatible-ownership",
       "Writer and reader announce different ownership kinds (SHARED / EXCLUSIVE); Fast DDS does "
@@ -716,11 +741,21 @@ const std::map<std::string, std::string> & explanations()
     {"no-matching-reader", "No subscription was discovered for this topic."},
     {"type-name-mismatch",
       "A writer and a reader on this topic announce different type names, so they do not match."},
-    {"measured-udpv4-traffic", "Statistics show RTPS packets from the writer's participant to the reader's UDPv4 locator."},
-    {"measured-udpv6-traffic", "Statistics show RTPS packets from the writer's participant to the reader's UDPv6 locator."},
-    {"measured-tcpv4-traffic", "Statistics show RTPS packets from the writer's participant to the reader's TCPv4 locator."},
-    {"measured-tcpv6-traffic", "Statistics show RTPS packets from the writer's participant to the reader's TCPv6 locator."},
-    {"measured-shm-traffic", "Statistics show RTPS packets from the writer's participant to the reader's SHM locator."},
+    {"measured-udpv4-traffic",
+      "Statistics show RTPS packets from the writer's participant to the reader's UDPv4 "
+      "locator."},
+    {"measured-udpv6-traffic",
+      "Statistics show RTPS packets from the writer's participant to the reader's UDPv6 "
+      "locator."},
+    {"measured-tcpv4-traffic",
+      "Statistics show RTPS packets from the writer's participant to the reader's TCPv4 "
+      "locator."},
+    {"measured-tcpv6-traffic",
+      "Statistics show RTPS packets from the writer's participant to the reader's TCPv6 "
+      "locator."},
+    {"measured-shm-traffic",
+      "Statistics show RTPS packets from the writer's participant to the reader's SHM "
+      "locator."},
     {"measured-unknown-traffic", "Statistics show RTPS packets to a locator of unknown kind."},
     {"measured-transport-mismatch",
       "The transport predicted from discovery data differs from the locator kind(s) that actually "
@@ -741,7 +776,8 @@ const std::map<std::string, std::string> & explanations()
       "reader during the observation window (idle topic, or a longer --timeout is needed)."},
     {"stats-not-enabled-on-writer",
       "No statistics were received from the writer's participant. Start it with "
-      "FASTDDS_STATISTICS=\"RTPS_SENT_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC;DATA_COUNT_TOPIC;PUBLICATION_THROUGHPUT_TOPIC\"."},
+      "FASTDDS_STATISTICS=\"RTPS_SENT_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC;"
+      "DATA_COUNT_TOPIC;PUBLICATION_THROUGHPUT_TOPIC\"."},
     {"datasharing-confirmed-no-traffic",
       "HISTORY_LATENCY statistics prove samples reached the reader while no RTPS packets went to "
       "any of its locators: zero-copy data-sharing delivery is confirmed."},

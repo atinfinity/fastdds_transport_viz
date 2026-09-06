@@ -1,7 +1,11 @@
 # Copyright 2026 atinfinity
 # SPDX-License-Identifier: Apache-2.0
-"""--watch without a terminal: frames are printed one after another with change marks
-(a pair appears, then disappears); --watch --json carries the `changes` object."""
+"""
+--watch without a terminal.
+
+Frames are printed one after another with change marks (a pair appears, then
+disappears); --watch --json carries the `changes` object.
+"""
 import json
 import os
 import signal
@@ -9,11 +13,11 @@ import subprocess
 import sys
 import time
 
-import launch_testing
-from ament_index_python.packages import get_package_prefix
-
 sys.path.insert(0, os.path.dirname(__file__))
 from _common import Base, description, node_action, udpv4_only_env  # noqa: E402
+
+from ament_index_python.packages import get_package_prefix  # noqa: E402
+import launch_testing  # noqa: E402
 
 # the binary itself: `ros2 run` would not forward the signal that ends the watch loop
 BIN = [os.path.join(get_package_prefix('fastdds_transport_viz'), 'lib', 'fastdds_transport_viz',
@@ -45,7 +49,8 @@ def run_watch(extra, seconds, action_at, action):
     return out, handle
 
 
-LISTENER = os.path.join(get_package_prefix('demo_nodes_cpp'), 'lib', 'demo_nodes_cpp', 'listener')
+LISTENER = os.path.join(
+    get_package_prefix('demo_nodes_cpp'), 'lib', 'demo_nodes_cpp', 'listener')
 _udp_children = []
 
 
@@ -59,7 +64,7 @@ def start_udp_listener():
 
 
 def stop_node(proc):
-    """SIGINT so that the participant unregisters itself (a kill would leave it to lease expiry)."""
+    """SIGINT so the participant unregisters itself (a kill would leave it to lease expiry)."""
     proc.send_signal(signal.SIGINT)
     try:
         proc.wait(timeout=10)

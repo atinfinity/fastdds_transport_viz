@@ -15,11 +15,11 @@ from ros2transport.api import BINARY_ENV
 from ros2transport.api import find_binary
 from ros2transport.api import list_argv
 
-FAKE = '''#!/usr/bin/env python3
+FAKE = """#!/usr/bin/env python3
 import json, sys
 print(json.dumps(sys.argv[1:]))
 sys.exit(3)
-'''
+"""
 
 
 @pytest.fixture

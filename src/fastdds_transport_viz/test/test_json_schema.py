@@ -5,12 +5,13 @@ import json
 import pathlib
 
 import jsonschema
+import pytest
 
 # Draft 2020-12 where available (Jazzy+); Humble's jsonschema 3.2 validates the same
 # schema with its newest draft (the schema only uses $defs, $ref, enum, type, const).
-VALIDATOR = getattr(jsonschema, 'Draft202012Validator', None) or jsonschema.validators.validator_for(
-    {'$schema': 'http://json-schema.org/draft-07/schema#'})
-import pytest
+VALIDATOR = (
+    getattr(jsonschema, 'Draft202012Validator', None) or
+    jsonschema.validators.validator_for({'$schema': 'http://json-schema.org/draft-07/schema#'}))
 
 REPO = pathlib.Path(__file__).resolve().parents[3]
 SCHEMA = REPO / 'schema' / 'transport_viz.schema.json'

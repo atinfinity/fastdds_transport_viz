@@ -1,7 +1,11 @@
 # Copyright 2026 atinfinity
 # SPDX-License-Identifier: Apache-2.0
-"""--watch on a pseudo terminal: alternate screen, in-place painting, the key bindings,
-width truncation and Ctrl-C."""
+"""
+--watch on a pseudo terminal.
+
+Alternate screen, in-place painting, the key bindings, width truncation and
+Ctrl-C.
+"""
 import fcntl
 import os
 import pty
@@ -13,14 +17,14 @@ import sys
 import termios
 import time
 
-import launch_testing
-from ament_index_python.packages import get_package_prefix
-
 sys.path.insert(0, os.path.dirname(__file__))
 from _common import Base, description, node_action  # noqa: E402
 
-BINARY = os.path.join(get_package_prefix('fastdds_transport_viz'), 'lib', 'fastdds_transport_viz',
-                      'transport_viz')
+from ament_index_python.packages import get_package_prefix  # noqa: E402
+import launch_testing  # noqa: E402
+
+BINARY = os.path.join(
+    get_package_prefix('fastdds_transport_viz'), 'lib', 'fastdds_transport_viz', 'transport_viz')
 
 
 def generate_test_description():
@@ -44,8 +48,9 @@ class Tty:
             os.dup2(slave, 1)
             os.dup2(slave, 2)
             try:
-                os.execv(BINARY, [BINARY, '--watch', '--interval', '1', '--timeout', '1', '--quiet', '0',
-                                  '--topic', '^/chatter$', *extra])
+                os.execv(BINARY, [
+                    BINARY, '--watch', '--interval', '1', '--timeout', '1', '--quiet', '0',
+                    '--topic', '^/chatter$', *extra])
             finally:
                 os._exit(127)
         os.close(slave)

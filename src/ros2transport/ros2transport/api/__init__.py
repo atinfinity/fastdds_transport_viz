@@ -1,6 +1,7 @@
 # Copyright 2026 atinfinity
 # SPDX-License-Identifier: Apache-2.0
-"""Locate and run the transport_viz binary of fastdds_transport_viz.
+"""
+Locate and run the transport_viz binary of fastdds_transport_viz.
 
 The C++ binary keeps all Fast DDS logic and rendering; this package only translates
 ros2cli arguments and replaces the current process with the binary, so tables, colors,
@@ -51,7 +52,8 @@ def add_list_arguments(parser):
         '--stats', action='store_true',
         help='also subscribe to the Fast DDS statistics topics and show the transport that '
              'actually carried packets; observed nodes must run with '
-             'FASTDDS_STATISTICS="RTPS_SENT_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC;DATA_COUNT_TOPIC;PUBLICATION_THROUGHPUT_TOPIC"')
+             'FASTDDS_STATISTICS="RTPS_SENT_TOPIC;HISTORY_LATENCY_TOPIC;'
+             'PHYSICAL_DATA_TOPIC;DATA_COUNT_TOPIC;PUBLICATION_THROUGHPUT_TOPIC"')
     parser.add_argument(
         '--color', choices=['auto', 'always', 'never'], metavar='MODE',
         help='auto|always|never: ANSI colors for transports and warnings '

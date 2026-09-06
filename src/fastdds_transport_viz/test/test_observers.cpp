@@ -6,14 +6,14 @@
 
 #include <unistd.h>
 
+#include <gtest/gtest.h>
+
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <stdexcept>
 #include <string>
-
-#include <gtest/gtest.h>
 
 #include "fastdds_transport_viz/fastdds_compat.hpp"
 
@@ -80,10 +80,10 @@ TEST(FastDdsUtil, QosMapping)
 
   fdds::DurabilityQosPolicy dur;
   for (auto [kind, text] : {
-      std::pair{fdds::VOLATILE_DURABILITY_QOS, "VOLATILE"},
-      std::pair{fdds::TRANSIENT_LOCAL_DURABILITY_QOS, "TRANSIENT_LOCAL"},
-      std::pair{fdds::TRANSIENT_DURABILITY_QOS, "TRANSIENT"},
-      std::pair{fdds::PERSISTENT_DURABILITY_QOS, "PERSISTENT"}})
+    std::pair{fdds::VOLATILE_DURABILITY_QOS, "VOLATILE"},
+    std::pair{fdds::TRANSIENT_LOCAL_DURABILITY_QOS, "TRANSIENT_LOCAL"},
+    std::pair{fdds::TRANSIENT_DURABILITY_QOS, "TRANSIENT"},
+    std::pair{fdds::PERSISTENT_DURABILITY_QOS, "PERSISTENT"}})
   {
     dur.kind = kind;
     EXPECT_EQ(durability_to_string(dur), text);
@@ -108,8 +108,13 @@ TEST(FastDdsUtil, QosMapping)
 TEST(FastDdsUtil, GuidStrings)
 {
   ftv_rtps::GUID_t g;
-  for (int i = 0; i < 12; ++i) {g.guidPrefix.value[i] = static_cast<uint8_t>(i);}
-  g.entityId.value[0] = 0; g.entityId.value[1] = 0; g.entityId.value[2] = 0x14; g.entityId.value[3] = 0x03;
+  for (int i = 0; i < 12; ++i) {
+    g.guidPrefix.value[i] = static_cast<uint8_t>(i);
+  }
+  g.entityId.value[0] = 0;
+  g.entityId.value[1] = 0;
+  g.entityId.value[2] = 0x14;
+  g.entityId.value[3] = 0x03;
   EXPECT_EQ(guid_to_string(g), "00.01.02.03.04.05.06.07.08.09.0a.0b|00.00.14.03");
   EXPECT_EQ(prefix_to_string(g.guidPrefix), "00.01.02.03.04.05.06.07.08.09.0a.0b");
 }
@@ -122,35 +127,37 @@ TEST(DiscoveryObserver, ParticipantCreationFailureThrows)
   // child process.
   ::testing::FLAGS_gtest_death_test_style = "fast";   // no participant exists yet: fork is safe
   EXPECT_EXIT({
-      char path[] = "/tmp/ftv_broken_XXXXXX.xml";
-      int fd = ::mkstemps(path, 4);
-      const char * xml =
-        "<?xml version=\"1.0\" encoding=\"UTF-8\" ?>\n"
-        "<dds xmlns=\"http://www.eprosima.com/XMLSchemas/fastRTPS_Profiles\"><profiles>\n"
-        "<participant profile_name=\"broken\" is_default_profile=\"true\"><rtps><builtin>\n"
-        "<discovery_config><leaseDuration><sec>1</sec></leaseDuration>\n"
-        "<leaseAnnouncement><sec>5</sec></leaseAnnouncement></discovery_config>\n"
-        "</builtin></rtps></participant>\n"
-        "</profiles></dds>\n";
-      (void)!::write(fd, xml, std::strlen(xml));
-      ::close(fd);
-      ::setenv("FASTRTPS_DEFAULT_PROFILES_FILE", path, 1);
-      auto * factory = fdds::DomainParticipantFactory::get_instance();
-      factory->load_XML_profiles_file(path);
-      fdds::DomainParticipantQos broken;
-      factory->get_participant_qos_from_profile("broken", broken);
-      factory->set_default_participant_qos(broken);   // what the observer uses
-      const auto lease = factory->get_default_participant_qos().wire_protocol().builtin.discovery_config.leaseDuration;
-      std::fprintf(stderr, "child: default lease %d s\n", static_cast<int>(lease.seconds));
-      try {
-        DiscoveryObserver obs(202);
-      } catch (const std::runtime_error & e) {
-        std::fprintf(stderr, "caught: %s\n", e.what());
-        ::unlink(path);
-        std::exit(7);
-      }
+    char path[] = "/tmp/ftv_broken_XXXXXX.xml";
+    int fd = ::mkstemps(path, 4);
+    const char * xml =
+    "<?xml version=\"1.0\" encoding=\"UTF-8\" ?>\n"
+    "<dds xmlns=\"http://www.eprosima.com/XMLSchemas/fastRTPS_Profiles\"><profiles>\n"
+    "<participant profile_name=\"broken\" is_default_profile=\"true\"><rtps><builtin>\n"
+    "<discovery_config><leaseDuration><sec>1</sec></leaseDuration>\n"
+    "<leaseAnnouncement><sec>5</sec></leaseAnnouncement></discovery_config>\n"
+    "</builtin></rtps></participant>\n"
+    "</profiles></dds>\n";
+    (void)!::write(fd, xml, std::strlen(xml));
+    ::close(fd);
+    ::setenv("FASTRTPS_DEFAULT_PROFILES_FILE", path, 1);
+    auto * factory = fdds::DomainParticipantFactory::get_instance();
+    factory->load_XML_profiles_file(path);
+    fdds::DomainParticipantQos broken;
+    factory->get_participant_qos_from_profile("broken", broken);
+    factory->set_default_participant_qos(broken);     // what the observer uses
+    const auto lease =
+    factory->get_default_participant_qos().wire_protocol().builtin.discovery_config
+    .leaseDuration;
+    std::fprintf(stderr, "child: default lease %d s\n", static_cast<int>(lease.seconds));
+    try {
+      DiscoveryObserver obs(202);
+    } catch (const std::runtime_error & e) {
+      std::fprintf(stderr, "caught: %s\n", e.what());
       ::unlink(path);
-      std::exit(0);
+      std::exit(7);
+    }
+    ::unlink(path);
+    std::exit(0);
     }, ::testing::ExitedWithCode(7), "failed to create Fast DDS DomainParticipant");
 }
 
@@ -174,7 +181,8 @@ TEST(StatsObserver, ReusesAnExistingTopicAndRejectsANonTopicDescription)
 
   // A topic of the right type already exists (what Fast DDS does with FASTDDS_STATISTICS
   // set in the tool's environment): the observer must reuse it.
-  fdds::TypeSupport traffic_type(new eprosima::fastdds::statistics::Entity2LocatorTrafficPubSubType());
+  fdds::TypeSupport traffic_type(
+    new eprosima::fastdds::statistics::Entity2LocatorTrafficPubSubType());
   traffic_type.register_type(participant);
   auto * existing = participant->create_topic(
     "_fastdds_statistics_rtps_sent", traffic_type.get_type_name(), fdds::TOPIC_QOS_DEFAULT);
@@ -188,7 +196,8 @@ TEST(StatsObserver, ReusesAnExistingTopicAndRejectsANonTopicDescription)
   EXPECT_NE(participant->lookup_topicdescription("_fastdds_statistics_rtps_sent"), nullptr);
 
   // A description with a statistics topic name that is not a Topic: creation fails.
-  auto * base = participant->create_topic("some_base", traffic_type.get_type_name(), fdds::TOPIC_QOS_DEFAULT);
+  auto * base = participant->create_topic(
+    "some_base", traffic_type.get_type_name(), fdds::TOPIC_QOS_DEFAULT);
   ASSERT_NE(base, nullptr);
   auto * filtered = participant->create_contentfilteredtopic(
     "_fastdds_statistics_history2history_latency", base, "", {});

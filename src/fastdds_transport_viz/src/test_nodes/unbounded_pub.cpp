@@ -14,13 +14,19 @@ int main(int argc, char ** argv)
   rclcpp::QoS qos(10);
   for (int i = 1; i < argc; ++i) {
     const std::string a = argv[i];
-    if (a == "--best-effort") {qos.best_effort();} else if (a == "--transient-local") {qos.transient_local();}
+    if (a == "--best-effort") {
+      qos.best_effort();
+    } else if (a == "--transient-local") {
+      qos.transient_local();
+    }
   }
   auto node = std::make_shared<rclcpp::Node>("unbounded_pub");
   auto pub = node->create_publisher<std_msgs::msg::String>("unbounded", qos);
   int i = 0;
   auto timer = node->create_wall_timer(100ms, [&]() {
-      std_msgs::msg::String m; m.data = "hello " + std::to_string(i++); pub->publish(m);
+        std_msgs::msg::String m;
+        m.data = "hello " + std::to_string(i++);
+        pub->publish(m);
     });
   rclcpp::spin(node);
   rclcpp::shutdown();

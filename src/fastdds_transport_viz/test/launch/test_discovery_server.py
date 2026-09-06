@@ -1,17 +1,20 @@
 # Copyright 2026 atinfinity
 # SPDX-License-Identifier: Apache-2.0
-"""ROS_DISCOVERY_SERVER: nodes are clients of `fastdds discovery`; the tool observes as
-SUPER_CLIENT automatically (a plain CLIENT does not learn about /chatter)."""
+"""
+ROS_DISCOVERY_SERVER: SUPER_CLIENT vs CLIENT.
+
+Nodes are clients of `fastdds discovery`; the tool observes as SUPER_CLIENT
+automatically (a plain CLIENT does not learn about /chatter).
+"""
 import os
-import subprocess
 import sys
 import unittest
 
-import launch
-import launch_testing
-
 sys.path.insert(0, os.path.dirname(__file__))
 from _common import Base, node_action, pair_of, transport_viz_json  # noqa: E402
+
+import launch  # noqa: E402
+import launch_testing  # noqa: E402
 
 SERVER = '127.0.0.1:11811'
 ENV = {'ROS_DISCOVERY_SERVER': SERVER}
@@ -25,7 +28,8 @@ def generate_test_description():
         cmd = ['fast-discovery-server', '-i', '0']
     else:
         cmd = ['fastdds', 'discovery', *(['-i', '0'] if distro == 'jazzy' else [])]
-    server = launch.actions.ExecuteProcess(cmd=[*cmd, '-l', '127.0.0.1', '-p', '11811'], output='screen')
+    server = launch.actions.ExecuteProcess(
+        cmd=[*cmd, '-l', '127.0.0.1', '-p', '11811'], output='screen')
     nodes = [node_action('demo_nodes_cpp', 'talker', 'talker', ENV),
              node_action('demo_nodes_cpp', 'listener', 'listener', ENV)]
     return launch.LaunchDescription([

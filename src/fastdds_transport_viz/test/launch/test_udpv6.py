@@ -1,20 +1,21 @@
 # Copyright 2026 atinfinity
 # SPDX-License-Identifier: Apache-2.0
-"""FASTDDS_BUILTIN_TRANSPORTS=UDPv6 on nodes and tool => UDPv6 (skipped without an IPv6 interface)."""
+"""FASTDDS_BUILTIN_TRANSPORTS=UDPv6 on nodes and tool => UDPv6 (skipped without IPv6)."""
 import os
 import sys
 
-import launch
-import launch_testing
-
 sys.path.insert(0, os.path.dirname(__file__))
-from _common import Base, description, node_action, pair_of, transport_viz_json, skip_without_builtin_transports  # noqa: E402
+from _common import (  # noqa: E402
+    Base, description, node_action, pair_of, skip_without_builtin_transports, transport_viz_json)
+
+import launch  # noqa: E402
+import launch_testing  # noqa: E402
 
 ENV = {'FASTDDS_BUILTIN_TRANSPORTS': 'UDPv6'}
 
 
 def has_ipv6_interface():
-    """An IPv6 address on a non-loopback interface: Fast DDS UDPv6 multicast needs one."""
+    """Return whether a non-loopback interface has an IPv6 address (needed for UDPv6)."""
     try:
         with open('/proc/net/if_inet6') as f:
             return any(line.split()[-1] != 'lo' for line in f)

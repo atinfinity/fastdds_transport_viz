@@ -4,10 +4,10 @@
 import os
 import sys
 
-import launch_testing
-
 sys.path.insert(0, os.path.dirname(__file__))
-from _common import FASTDDS_26, Base, description, node_action, udpv4_only_env  # noqa: E402
+from _common import Base, description, FASTDDS_26, node_action, udpv4_only_env  # noqa: E402
+
+import launch_testing  # noqa: E402
 
 
 def generate_test_description():
@@ -34,7 +34,8 @@ class TestSameHostUdp(Base):
         else:
             self.assertIn('common-udpv4-locator', pair['reasons'])
         reader = chatter['readers'][0]
-        self.assertFalse(any(l['kind'] == 'SHM' for l in reader['unicast_locators']), reader)
+        self.assertFalse(
+            any(loc['kind'] == 'SHM' for loc in reader['unicast_locators']), reader)
 
 
 @launch_testing.post_shutdown_test()

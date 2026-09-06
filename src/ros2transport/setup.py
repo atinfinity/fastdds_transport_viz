@@ -20,7 +20,8 @@ setup(
     description='ros2 transport: which Fast DDS transport each ROS 2 topic uses.',
     license='Apache-2.0',
     tests_require=['pytest'],
-    extras_require={'test': ['pytest']},   # setuptools on Python 3.14 drops tests_require; colcon looks here
+    # setuptools on Python 3.14 drops tests_require; colcon looks here instead.
+    extras_require={'test': ['pytest']},
     entry_points={
         'ros2cli.command': [
             'transport = ros2transport.command.transport:TransportCommand',

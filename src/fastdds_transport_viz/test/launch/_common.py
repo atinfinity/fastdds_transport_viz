@@ -7,11 +7,10 @@ import subprocess
 import time
 import unittest
 
+from ament_index_python.packages import get_package_share_directory
 import launch
 import launch_ros.actions
 import launch_testing.actions
-
-from ament_index_python.packages import get_package_share_directory
 
 
 def transport_viz_json(extra_args=(), timeout=6.0, env=None):
@@ -52,7 +51,8 @@ FASTDDS_26 = os.environ.get('ROS_DISTRO') == 'humble'
 HAS_STATISTICS = not FASTDDS_26
 HAS_BUILTIN_TRANSPORTS_ENV = not FASTDDS_26
 HAS_DISCOVERY_RANGE = not FASTDDS_26
-skip_without_statistics = unittest.skipUnless(HAS_STATISTICS, 'Fast DDS built without the statistics module')
+skip_without_statistics = unittest.skipUnless(
+    HAS_STATISTICS, 'Fast DDS built without the statistics module')
 skip_without_builtin_transports = unittest.skipUnless(
     HAS_BUILTIN_TRANSPORTS_ENV, 'FASTDDS_BUILTIN_TRANSPORTS needs Fast DDS >= 2.12')
 skip_without_discovery_range = unittest.skipUnless(
@@ -63,10 +63,15 @@ def udpv4_only_env():
     """Environment that makes a node's participant UDPv4-only (no SHM)."""
     if HAS_BUILTIN_TRANSPORTS_ENV:
         return {'FASTDDS_BUILTIN_TRANSPORTS': 'UDPv4'}
-    return {'FASTRTPS_DEFAULT_PROFILES_FILE': os.path.join(os.path.dirname(__file__), 'udpv4_only.xml')}
+    return {
+        'FASTRTPS_DEFAULT_PROFILES_FILE': os.path.join(
+            os.path.dirname(__file__), 'udpv4_only.xml')}
+
 
 STATS_ENV = {
-    'FASTDDS_STATISTICS': 'RTPS_SENT_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC;DATA_COUNT_TOPIC;PUBLICATION_THROUGHPUT_TOPIC',
+    'FASTDDS_STATISTICS': (
+        'RTPS_SENT_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC;'
+        'DATA_COUNT_TOPIC;PUBLICATION_THROUGHPUT_TOPIC'),
     # lift the statistics writers' 10-instance resource limit (see docs/statistics.md)
     'FASTRTPS_DEFAULT_PROFILES_FILE': os.path.join(
         get_package_share_directory('fastdds_transport_viz'), 'config', 'statistics.xml'),
@@ -74,7 +79,7 @@ STATS_ENV = {
 
 
 def pair_of(doc, name, reader_node=None):
-    """The single pair of topic `name` (or the one whose reader is `reader_node`)."""
+    """Return the single pair of topic `name` (or the one whose reader is `reader_node`)."""
     t = topic(doc, name)
     pairs = [p for p in t['pairs'] if reader_node is None or p['reader_node'] == reader_node]
     assert len(pairs) == 1, t

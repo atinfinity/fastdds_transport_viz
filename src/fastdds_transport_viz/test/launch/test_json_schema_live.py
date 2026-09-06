@@ -8,20 +8,21 @@ import signal
 import subprocess
 import sys
 
-import jsonschema
-
-# Draft 2020-12 where available (Jazzy+); Humble's jsonschema 3.2 validates the same
-# schema with its newest draft (the schema only uses $defs, $ref, enum, type, const).
-VALIDATOR = getattr(jsonschema, 'Draft202012Validator', None) or jsonschema.validators.validator_for(
-    {'$schema': 'http://json-schema.org/draft-07/schema#'})
-import launch_testing
-from ament_index_python.packages import get_package_prefix
-
 sys.path.insert(0, os.path.dirname(__file__))
 from _common import Base, description, node_action, transport_viz_json  # noqa: E402
 
+from ament_index_python.packages import get_package_prefix  # noqa: E402
+import jsonschema  # noqa: E402
+import launch_testing  # noqa: E402
+
 SCHEMA = pathlib.Path(__file__).resolve().parents[4] / 'schema' / 'transport_viz.schema.json'
 STATS_ENV = {'FASTDDS_STATISTICS': 'RTPS_SENT_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC'}
+
+# Draft 2020-12 where available (Jazzy+); Humble's jsonschema 3.2 validates the same
+# schema with its newest draft (the schema only uses $defs, $ref, enum, type, const).
+VALIDATOR = (
+    getattr(jsonschema, 'Draft202012Validator', None) or
+    jsonschema.validators.validator_for({'$schema': 'http://json-schema.org/draft-07/schema#'}))
 
 
 def generate_test_description():
@@ -68,7 +69,8 @@ class TestJsonSchemaLive(Base):
         for doc in docs:
             validator.validate(doc)
             self.assertIn('changes', doc)
-        self.assertEqual(docs[0]['changes'], {'added_pairs': [], 'removed_pairs': [], 'changed_pairs': []})
+        self.assertEqual(
+            docs[0]['changes'], {'added_pairs': [], 'removed_pairs': [], 'changed_pairs': []})
 
 
 @launch_testing.post_shutdown_test()

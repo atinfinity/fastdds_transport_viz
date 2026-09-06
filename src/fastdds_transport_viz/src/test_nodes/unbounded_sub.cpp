@@ -12,7 +12,11 @@ int main(int argc, char ** argv)
   rclcpp::QoS qos(10);
   for (int i = 1; i < argc; ++i) {
     const std::string a = argv[i];
-    if (a == "--best-effort") {qos.best_effort();} else if (a == "--transient-local") {qos.transient_local();}
+    if (a == "--best-effort") {
+      qos.best_effort();
+    } else if (a == "--transient-local") {
+      qos.transient_local();
+    }
   }
   auto node = std::make_shared<rclcpp::Node>("unbounded_sub");
   auto sub = node->create_subscription<std_msgs::msg::String>(

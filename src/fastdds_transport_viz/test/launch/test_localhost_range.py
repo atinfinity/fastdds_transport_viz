@@ -4,10 +4,11 @@
 import os
 import sys
 
-import launch_testing
-
 sys.path.insert(0, os.path.dirname(__file__))
-from _common import Base, description, node_action, pair_of, transport_viz_json, skip_without_discovery_range  # noqa: E402
+from _common import (  # noqa: E402
+    Base, description, node_action, pair_of, skip_without_discovery_range, transport_viz_json)
+
+import launch_testing  # noqa: E402
 
 ENV = {'ROS_AUTOMATIC_DISCOVERY_RANGE': 'LOCALHOST'}
 
@@ -34,7 +35,7 @@ class TestLocalhostRange(Base):
         self.assertIn('both-shm-locators', pair['reasons'])
         # LOCALHOST mode announces loopback only
         for ep in topic['writers'] + topic['readers']:
-            addrs = {l['address'] for l in ep['unicast_locators'] if l['kind'] == 'UDPv4'}
+            addrs = {loc['address'] for loc in ep['unicast_locators'] if loc['kind'] == 'UDPv4'}
             self.assertEqual(addrs, {'127.0.0.1'}, ep)
 
 
