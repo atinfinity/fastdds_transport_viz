@@ -289,6 +289,21 @@ Done:
 - Two physical hosts on a Wi-Fi LAN (x86_64 ↔ Jetson Orin NX), prediction and `--stats`
   in both directions — [#15](https://github.com/atinfinity/fastdds_transport_viz/issues/15)
 
-Open:
+Open, in priority order (labels `priority/1-high` … `priority/3-low` on the issues):
 
-- (nothing at the moment)
+1. QoS-incompatible pairs shown as communicating (reliability, durability) —
+   [#45](https://github.com/atinfinity/fastdds_transport_viz/issues/45): a correctness gap
+   in the table.
+2. `LATENCY` column from `HISTORY_LATENCY` —
+   [#46](https://github.com/atinfinity/fastdds_transport_viz/issues/46): the data is already
+   received.
+3. Humble (Fast DDS 2.6) support —
+   [#48](https://github.com/atinfinity/fastdds_transport_viz/issues/48): the largest user
+   base.
+4. Reliability health (resends, gaps, lost samples) —
+   [#47](https://github.com/atinfinity/fastdds_transport_viz/issues/47).
+5. Distribution: CHANGELOG, ament lint, bloom release —
+   [#50](https://github.com/atinfinity/fastdds_transport_viz/issues/50).
+6. DDS Security (SROS2) — [#49](https://github.com/atinfinity/fastdds_transport_viz/issues/49).
+7. Same host id, separate IPC namespace in the shared-memory line —
+   [#51](https://github.com/atinfinity/fastdds_transport_viz/issues/51).

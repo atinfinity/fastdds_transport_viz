@@ -56,27 +56,6 @@ shared memory: /dev/shm 339 MB used of 16.7 GB (16.3 GB free) | Fast DDS 4.06 MB
   サンプル、zero-copy data-sharing、2 台の物理ホスト (x86_64 ↔ Jetson Orin NX、Wi-Fi 経由、両方向の
   予測と実測)。
 
-## 制限事項
-
-- **`rmw_fastrtps_cpp` 専用。** CycloneDDS、Connext、`rmw_fastrtps_dynamic_cpp` のノードは対象外です。
-  ROS ノードでない Fast DDS participant は `--all` でのみ表示されます。
-- **Linux 専用。** macOS には `/dev/shm` が無く、Docker Desktop からホスト上のノードは観測できません。
-- **ノードと同じ場所で実行する必要があります。** 同じドメイン、同じ環境変数と XML プロファイル、
-  同じネットワーク/IPC 名前空間。`ROS_AUTOMATIC_DISCOVERY_RANGE=OFF` では何も見えません。
-- **予測はモデルです。** 判定は Fast DDS の選択規則を写したもので、`--stats` で確認するまで
-  `likely` (`?` 付き) のままの状況があります。実測には観測対象ノードの *起動前* に
-  `FASTDDS_STATISTICS` を設定する必要があり、10 を超える locator と通信するノードには同梱の
-  プロファイルも必要です。
-- **statistics は participant 単位** (ROS ノードごとに 1 つ) なので、同じ 2 ノード間の複数トピックは
-  1 つの測定値を共有します。
-- **帯域や遅延の測定ツールではありません。** `RATE` は Fast DDS 自身の `PUBLICATION_THROUGHPUT` の
-  値で、遅延は表示しません。
-- **DDS Security (SROS2) は未対応** で未検証です。ツールの participant にはセキュリティ設定が無いので、
-  secure enclave 内の participant は発見できません。
-- **ツール自身の痕跡。** ツールはドメインに自身の participant を 2 つ追加します (出力からは除外)。
-- **検出できないケース。** ホスト id が同じで IPC 名前空間だけが別のノードは `shm-not-visible` に
-  なりません。
-
 ## クイックスタート
 
 ```
@@ -127,6 +106,27 @@ ros2 transport codes
 - [Web viewer](docs/web-viewer.ja.md) — `--json` 出力のグラフ/表表示、ライブモード (`transport_viz_web`)、JSON スキーマ
 - [Architecture](docs/architecture.md) (英語) — コンポーネント、1 回の実行の流れ、データモデル、Fast DDS 2.14/3.x の互換層、拡張ポイント
 - [開発・検証・テスト](docs/development.md) (英語) — Docker 環境、パッケージ構成、検証ノード、マルチコンテナのシナリオ、テスト、検証結果、ロードマップ
+
+## 制限事項
+
+- **`rmw_fastrtps_cpp` 専用。** CycloneDDS、Connext、`rmw_fastrtps_dynamic_cpp` のノードは対象外です。
+  ROS ノードでない Fast DDS participant は `--all` でのみ表示されます。
+- **Linux 専用。** macOS には `/dev/shm` が無く、Docker Desktop からホスト上のノードは観測できません。
+- **ノードと同じ場所で実行する必要があります。** 同じドメイン、同じ環境変数と XML プロファイル、
+  同じネットワーク/IPC 名前空間。`ROS_AUTOMATIC_DISCOVERY_RANGE=OFF` では何も見えません。
+- **予測はモデルです。** 判定は Fast DDS の選択規則を写したもので、`--stats` で確認するまで
+  `likely` (`?` 付き) のままの状況があります。実測には観測対象ノードの *起動前* に
+  `FASTDDS_STATISTICS` を設定する必要があり、10 を超える locator と通信するノードには同梱の
+  プロファイルも必要です。
+- **statistics は participant 単位** (ROS ノードごとに 1 つ) なので、同じ 2 ノード間の複数トピックは
+  1 つの測定値を共有します。
+- **帯域や遅延の測定ツールではありません。** `RATE` は Fast DDS 自身の `PUBLICATION_THROUGHPUT` の
+  値で、遅延は表示しません。
+- **DDS Security (SROS2) は未対応** で未検証です。ツールの participant にはセキュリティ設定が無いので、
+  secure enclave 内の participant は発見できません。
+- **ツール自身の痕跡。** ツールはドメインに自身の participant を 2 つ追加します (出力からは除外)。
+- **検出できないケース。** ホスト id が同じで IPC 名前空間だけが別のノードは `shm-not-visible` に
+  なりません。
 
 ## ライセンス
 
