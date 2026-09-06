@@ -14,11 +14,17 @@
 
 #include <gtest/gtest.h>
 
+#include "fastdds_transport_viz/fastdds_compat.hpp"
+
 #include <fastdds/dds/domain/DomainParticipant.hpp>
 #include <fastdds/dds/domain/DomainParticipantFactory.hpp>
 #include <fastdds/dds/topic/TypeSupport.hpp>
 
-#include "typesPubSubTypes.h"   // vendored statistics types
+#if FTV_FASTDDS_3
+#include "typesPubSubTypes.hpp"   // vendored statistics types (Fast DDS 3.x)
+#else
+#include "typesPubSubTypes.h"     // vendored statistics types (Fast DDS 2.14)
+#endif
 
 #include "fastdds_transport_viz/discovery_observer.hpp"
 #include "fastdds_transport_viz/fastdds_util.hpp"

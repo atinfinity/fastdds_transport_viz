@@ -2,6 +2,8 @@ build/
 install/
 log/
 build_cov/
+build_k/
+install_k/
 install_cov/
 *.pyc
 __pycache__/
