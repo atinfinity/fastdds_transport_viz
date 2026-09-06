@@ -5,28 +5,39 @@
 **ROS 2 の各トピックが Fast DDS のどの transport で通信しているか** — UDPv4、UDPv6、TCP、
 共有メモリ (SHM)、zero-copy の data-sharing — を、**その理由とともに**表示します。
 
-対象: ROS 2 Jazzy (Fast DDS 2.14) と Kilted / Rolling (Fast DDS 3.x)、`rmw_fastrtps_cpp`。Humble
-(Fast DDS 2.6) は予測のみ (バイナリに statistics モジュールが無い)。
+いずれも `rmw_fastrtps_cpp` を使用します:
+
+| ROS 2 ディストリ | Fast DDS | 備考 |
+|---|---|---|
+| Humble | 2.6 | 予測のみ (バイナリに statistics モジュールが無い) |
+| Jazzy | 2.14 | 予測 + `--stats` による実測 |
+| Kilted | 3.2 | 予測 + `--stats` による実測 |
+| Rolling | 3.x (head) | Fast DDS の main を追従。CI では best-effort 扱いで必須チェックではない |
+
 ソースと Issue: [github.com/atinfinity/fastdds_transport_viz](https://github.com/atinfinity/fastdds_transport_viz)。
 
 ```
 $ ros2 transport list -v --stats --topic '^/(chatter|bounded)$'
-TOPIC     TYPE                 PUBS  SUBS  TRANSPORT         RATE    LATENCY  REASON
-/bounded  std_msgs/msg/Int32   1     1     DATA_SHARING x1   80 B/s  104 µs   same-host-guid,datasharing-qos-enabled-both,datasharing-domain-ids-match,datasharing-confirmed-no-data-submessages
-    /bounded_pub@e43a92af8497(174) -> /bounded_sub@e43a92af8497(176)  DATA_SHARING  80 B/s  104 µs (max 165 µs)  measured=SHM 2pkt 248 B  same-host-guid,datasharing-qos-enabled-both,datasharing-domain-ids-match,datasharing-confirmed-no-data-submessages
-/chatter  std_msgs/msg/String  1     2     UDPv4 x1, SHM x1  23 B/s  198 µs   same-host-guid,datasharing-disabled-writer,reader-no-shm-locator,common-udpv4-locator,measured-udpv4-traffic,both-shm-locators,measured-shm-traffic
-    /talker@e43a92af8497(178) -> /listener_udp@e43a92af8497(175)  UDPv4  23 B/s  174 µs (max 223 µs)  measured=UDPv4 10pkt 1.31 kB  same-host-guid,datasharing-disabled-writer,reader-no-shm-locator,common-udpv4-locator,measured-udpv4-traffic
-    /talker@e43a92af8497(178) -> /listener@e43a92af8497(177)      SHM    23 B/s  198 µs (max 264 µs)  measured=SHM 9pkt 1.19 kB     same-host-guid,datasharing-disabled-writer,both-shm-locators,measured-shm-traffic
+TOPIC     TYPE                 PUBS  SUBS  TRANSPORT         RATE    LATENCY  LOSS  REASON
+/bounded  std_msgs/msg/Int32   1     1     DATA_SHARING x1   80 B/s  119 µs   0     same-host-guid,datasharing-qos-enabled-both,datasharing-domain-ids-match,datasharing-confirmed-no-data-submessages
+    /bounded_pub@36d321fbf863(174) -> /bounded_sub@36d321fbf863(184)  DATA_SHARING  80 B/s  119 µs (max 164 µs)  0  measured=SHM (idle)  same-host-guid,datasharing-qos-enabled-both,datasharing-domain-ids-match,datasharing-confirmed-no-data-submessages
+/chatter  std_msgs/msg/String  1     2     UDPv4 x1, SHM x1  23 B/s  168 µs   0     same-host-guid,datasharing-disabled-writer,reader-no-shm-locator,common-udpv4-locator,measured-udpv4-traffic,both-shm-locators,measured-shm-traffic
+    /talker@36d321fbf863(175) -> /listener_udp@36d321fbf863(176)  UDPv4  23 B/s  164 µs (max 233 µs)  0  measured=UDPv4 10pkt 1.31 kB  same-host-guid,datasharing-disabled-writer,reader-no-shm-locator,common-udpv4-locator,measured-udpv4-traffic
+    /talker@36d321fbf863(175) -> /listener@36d321fbf863(177)      SHM    23 B/s  168 µs (max 250 µs)  0  measured=SHM 9pkt 1.19 kB     same-host-guid,datasharing-disabled-writer,both-shm-locators,measured-shm-traffic
 
-statistics: 577 samples from 6 participant(s)
+statistics: 644 samples from 6 participant(s)
 
-shared memory: /dev/shm 348 MB used of 16.7 GB (16.3 GB free) | Fast DDS 6.31 MB in 10 segment(s) (4 stale), 15 port(s), 2 data-sharing histories (1 unmatched)
+shared memory: /dev/shm 371 MB used of 16.7 GB (16.3 GB free) | Fast DDS 6.36 MB in 10 segment(s) (4 stale), 16 port(s), 2 data-sharing histories (1 unmatched)
   !shm-stale-files: 4 file(s) without a living owner, run 'fastdds shm clean'
 ```
 
 同じキャプチャの端末での表示 (`--color auto`、stdout が端末なら既定で有効):
 
 ![colored table](images/example-table.svg)
+
+同じ実行結果を [web viewer](web-viewer.md) で開いたところ (グラフビュー):
+
+![graph view](images/web-viewer-graph.jpg)
 
 - **予測** は Fast DDS の discovery データ (各エンドポイントが広告する locator (通信先アドレス) と QoS)
   から求めます。観測対象のノードには何も要求しません。
@@ -41,8 +52,8 @@ shared memory: /dev/shm 348 MB used of 16.7 GB (16.3 GB free) | Fast DDS 6.31 MB
   付けます。観測対象のノードに変更は不要です。QoS が合わないペア (reliability、durability、
   deadline、liveliness、ownership、partition) は `NONE` と、合わないポリシー名で示します。
 - **`--stats` で実測。** Fast DDS の statistics モジュールから、locator ごとに実際に流れた
-  パケット数とバイト数、payload レート (`RATE`)、write-to-notification 遅延 (`LATENCY`)、ホスト名と
-  プロセス id、zero-copy data-sharing の
+  パケット数とバイト数、payload レート (`RATE`)、write-to-notification 遅延 (`LATENCY`)、欠落と再送
+  (`LOSS`)、ホスト名とプロセス id、zero-copy data-sharing の
   証明を取り、予測と食い違う実測は警告します。
 - **複数のフロントエンド。** 色付きの表、`--watch` (変化を強調するライブ表示)、スキーマ付きの
   `--json`、`ros2 transport` コマンド、web viewer (グラフと表、`transport_viz_web` によるライブ更新)。

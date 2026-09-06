@@ -14,8 +14,9 @@ import launch_testing  # noqa: E402
 
 STATS_ENV = {
     'FASTDDS_STATISTICS': (
-        'RTPS_SENT_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC;'
-        'DATA_COUNT_TOPIC;PUBLICATION_THROUGHPUT_TOPIC'),
+        'RTPS_SENT_TOPIC;RTPS_LOST_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC;'
+        'DATA_COUNT_TOPIC;PUBLICATION_THROUGHPUT_TOPIC;RESENT_DATAS_TOPIC;'
+        'HEARTBEAT_COUNT_TOPIC;ACKNACK_COUNT_TOPIC;NACKFRAG_COUNT_TOPIC;GAP_COUNT_TOPIC'),
     # lift the statistics writers' 10-instance resource limit (see README)
     'FASTRTPS_DEFAULT_PROFILES_FILE': os.path.join(
         get_package_share_directory('fastdds_transport_viz'), 'config', 'statistics.xml'),
@@ -87,6 +88,20 @@ class TestStats(Base):
         self.assertLessEqual(lat['mean'], lat['max'])
         self.assertIsNotNone(chatter['latency_s'])
         self.assertNotIn('latency-clock-skew-suspected', pair['warnings'])
+
+    def test_reliability_counters(self):
+        doc = transport_viz_json(['--stats'], timeout=6.0)
+        chatter = topic(doc, '/chatter')
+        for pair in chatter['pairs']:
+            rel = pair['measured']['reliability']
+            self.assertIsNotNone(rel, pair)
+            self.assertEqual(rel['lost_packets'], 0, pair)          # one host: nothing lost
+            self.assertNotIn('rtps-packets-lost', pair['warnings'])
+            for key in ('resent_datas', 'heartbeats', 'gaps', 'acknacks', 'nackfrags'):
+                self.assertGreaterEqual(rel[key], 0, (key, rel))
+        self.assertEqual(chatter['lost_packets'], 0, chatter)
+        self.assertIsInstance(chatter['resent_datas'], int)
+        self.assertIsInstance(doc['stats']['lost'], list)
 
     def test_tool_with_statistics_in_its_own_environment(self):
         """

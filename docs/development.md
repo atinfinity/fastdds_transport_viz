@@ -135,7 +135,7 @@ colcon test && colcon test-result --verbose
 - `test_same_host_shm.py` / `test_same_host_udp.py`: launch_testing against real demo
   nodes (SHM, and UDPv4 fallback via `FASTDDS_BUILTIN_TRANSPORTS=UDPv4`).
 - `test_stats.py`: demo nodes with `FASTDDS_STATISTICS`; asserts measured SHM / UDPv4,
-  host names and the `LATENCY` values.
+  host names, the `LATENCY` values and the reliability counters (no loss on one host).
 - Humble: tests that need the statistics module, `FASTDDS_BUILTIN_TRANSPORTS` or
   `ROS_AUTOMATIC_DISCOVERY_RANGE` skip themselves (`skip_without_*` in `_common.py`);
   UDPv4-only participants come from `udpv4_only.xml` instead of the environment variable.
@@ -218,6 +218,7 @@ request.
 | 2026-09-05 | `ROS_DISCOVERY_SERVER` (`fastdds discovery` server on 127.0.0.1:11811) | x86_64 | 2.14.6 | `SHM` pair seen as SUPER_CLIENT; a plain CLIENT does not see `/chatter` | `test_discovery_server.py` |
 | 2026-09-05 | `ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST` | x86_64 | 2.14.6 | `SHM`, nodes announce `127.0.0.1` only; `OFF` sees nothing (warning printed) | `test_localhost_range.py` |
 | 2026-09-05 | 2 MB samples over SHM, `--stats` | x86_64 | 2.14.6 | `SHM`, measured `SHM`, bytes consistent with the sample size | `test_large_shm.py` |
+| 2026-09-06 | reliability counters over Wi-Fi: x86_64 ↔ Jetson Orin NX (Docker `hostnet`, both directions, `--stats` with all 11 aliases) | x86_64 + arm64 | 2.14.6 both | `LOSS` `0` (no `RTPS_LOST`, no resends at 1 Hz), 3–4 heartbeats and acknacks per 10 s observation, `LATENCY` ≈ 46 ms mean / 93 ms max (includes the clock offset of the two hosts) | "Two physical hosts" |
 | 2026-09-06 | shared-memory line: nodes in the tool's IPC namespace visible (`hostnet_shm`), bridged containers reported `shm-not-visible` (`multi_container`) | x86_64 | 2.14.6 | as expected | `scripts/integration_test.sh multi_container`, `hostnet_shm`, `test_shm.py` |
 | 2026-09-05 | full launch test suite on Fast DDS 3.x (Kilted 3.2.4, Rolling 3.6.2) | x86_64 | 3.2.4 / 3.6.2 | all pass; Rolling: demo nodes publish `example_interfaces/msg/String`, Discovery Server relays every endpoint to plain clients | `ROS_DISTRO=kilted docker compose build dev` + `colcon test` |
 | 2026-09-06 | two physical hosts on one Wi-Fi LAN: x86_64 Ubuntu 24.04 (Docker `hostnet`) ↔ Jetson Orin NX, JetPack 6 / Ubuntu 22.04 arm64 (Docker `hostnet`, Jazzy image), plain multicast discovery, `--stats` on both nodes, tool on the x86 host | x86_64 + arm64 | 2.14.6 both | both directions: `UDPv4`, `different-host`, `certain`, measured `UDPv4` (`measured=UDPv4 7pkt 1.06 kB` Jetson → x86, `8pkt 1.16 kB` x86 → Jetson), hosts `jetson-orin-nx01` / `ubuntu2404-desktop01` from `PHYSICAL_DATA`, `RATE` 24 B/s. Found and fixed: a reader on the tool's host is announced as `127.0.0.1`, so the remote writer's `RTPS_SENT` did not match (`delivered-without-measured-traffic`) | "Two physical hosts" below |
@@ -300,13 +301,13 @@ Done:
   [#45](https://github.com/atinfinity/fastdds_transport_viz/issues/45)
 - `LATENCY` column from `HISTORY_LATENCY` —
   [#46](https://github.com/atinfinity/fastdds_transport_viz/issues/46)
+- `LOSS` column and reliability counters (`RTPS_LOST`, resends, heartbeats, acknacks) —
+  [#47](https://github.com/atinfinity/fastdds_transport_viz/issues/47)
 
 Open, in priority order (labels `priority/1-high` … `priority/3-low` on the issues):
 
-1. Reliability health (resends, gaps, lost samples) —
-   [#47](https://github.com/atinfinity/fastdds_transport_viz/issues/47).
-2. Distribution: CHANGELOG, ament lint, bloom release —
+1. Distribution: CHANGELOG, ament lint, bloom release —
    [#50](https://github.com/atinfinity/fastdds_transport_viz/issues/50).
-3. DDS Security (SROS2) — [#49](https://github.com/atinfinity/fastdds_transport_viz/issues/49).
-4. Same host id, separate IPC namespace in the shared-memory line —
+2. DDS Security (SROS2) — [#49](https://github.com/atinfinity/fastdds_transport_viz/issues/49).
+3. Same host id, separate IPC namespace in the shared-memory line —
    [#51](https://github.com/atinfinity/fastdds_transport_viz/issues/51).

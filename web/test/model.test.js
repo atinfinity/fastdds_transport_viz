@@ -171,3 +171,11 @@ test('humanSeconds / latencyText', () => {
   assert.equal(M.latencyText({ latency_s: null }), '');
   assert.equal(M.latencyText(null), '');
 });
+
+test('lossText', () => {
+  assert.equal(M.lossText(null), '');
+  assert.equal(M.lossText({ reliability: null }), '');
+  assert.equal(M.lossText({ reliability: { lost_packets: 0, resent_datas: 0 } }), '0');
+  assert.equal(M.lossText({ reliability: { lost_packets: 3, resent_datas: 2 } }), '3 lost, 2 resent');
+  assert.equal(M.lossText({ reliability: { lost_packets: 0, resent_datas: 5 } }), '5 resent');
+});

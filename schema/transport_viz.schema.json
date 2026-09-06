@@ -328,6 +328,39 @@
               "minimum": 0
             }
           }
+        },
+        "reliability": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "description": "reliability counters over the observation (window deltas); null without counters",
+          "properties": {
+            "lost_packets": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "resent_datas": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "heartbeats": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "gaps": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "acknacks": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "nackfrags": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
         }
       }
     },
@@ -451,6 +484,22 @@
             "null"
           ],
           "description": "mean write-to-notification latency of the slowest pair (HISTORY_LATENCY, seconds); null without values"
+        },
+        "lost_packets": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "description": "sum of the pairs' RTPS_LOST packets during the observation; null without counters"
+        },
+        "resent_datas": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "description": "sum of the pairs' RESENT_DATAS during the observation; null without counters"
         }
       }
     },
@@ -594,6 +643,37 @@
               },
               "topic": {
                 "type": "string"
+              }
+            }
+          }
+        },
+        "lost": {
+          "type": "array",
+          "description": "RTPS_LOST: packets each participant missed per source locator (cumulative, with the first sample of the observation)",
+          "items": {
+            "type": "object",
+            "properties": {
+              "receiver_participant_guid_prefix": {
+                "type": "string"
+              },
+              "from_locator": {
+                "$ref": "#/$defs/locator"
+              },
+              "packets": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "bytes": {
+                "type": "number",
+                "minimum": 0
+              },
+              "packets_first": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "bytes_first": {
+                "type": "number",
+                "minimum": 0
               }
             }
           }

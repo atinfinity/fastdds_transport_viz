@@ -66,9 +66,9 @@ ros2 transport list -v --explain
 ```
 
 ```
-TOPIC     TYPE                 PUBS  SUBS  TRANSPORT  RATE  LATENCY  REASON
-/chatter  std_msgs/msg/String  1     1     SHM x1     -     -        same-host-guid,datasharing-disabled-writer,both-shm-locators
-    /talker@local -> /listener@local  SHM  -  -  same-host-guid,datasharing-disabled-writer,both-shm-locators
+TOPIC     TYPE                 PUBS  SUBS  TRANSPORT  RATE  LATENCY  LOSS  REASON
+/chatter  std_msgs/msg/String  1     1     SHM x1     -     -        -     same-host-guid,datasharing-disabled-writer,both-shm-locators
+    /talker@local -> /listener@local  SHM  -  -  -  same-host-guid,datasharing-disabled-writer,both-shm-locators
 
 shared memory: /dev/shm 2.19 MB used of 16.7 GB (16.7 GB free) | Fast DDS 2.19 MB in 3 segment(s), 6 port(s), 0 data-sharing histories
 
@@ -106,7 +106,7 @@ ros2 transport list -v                 # 2 つ目のペア: UDPv4, reader-no-shm
 環境変数で有効にしておく必要があります:
 
 ```
-export FASTDDS_STATISTICS="RTPS_SENT_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC;DATA_COUNT_TOPIC;PUBLICATION_THROUGHPUT_TOPIC"
+export FASTDDS_STATISTICS="RTPS_SENT_TOPIC;RTPS_LOST_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC;DATA_COUNT_TOPIC;PUBLICATION_THROUGHPUT_TOPIC;RESENT_DATAS_TOPIC;HEARTBEAT_COUNT_TOPIC;ACKNACK_COUNT_TOPIC;NACKFRAG_COUNT_TOPIC;GAP_COUNT_TOPIC"
 export FASTRTPS_DEFAULT_PROFILES_FILE=$(ros2 pkg prefix fastdds_transport_viz)/share/fastdds_transport_viz/config/statistics.xml
 ros2 run demo_nodes_cpp talker &
 ros2 run demo_nodes_cpp listener &
@@ -114,7 +114,8 @@ ros2 transport list -v --stats
 ```
 
 ペアの行に `measured=SHM 47pkt 3.20 kB` が付き、`RATE` 列に payload のスループット、`LATENCY` 列に
-そのペアの write-to-notification 遅延 (平均と最大) が出て、ホストは名前とプロセス id で表示されます。プロファイルファイルは statistics writer の
+そのペアの write-to-notification 遅延 (平均と最大)、`LOSS` 列に欠落と再送が出て、ホストは名前と
+プロセス id で表示されます。プロファイルファイルは statistics writer の
 リソース制限を外すためのものです。トピックの説明と回避する落とし穴は
 [statistics.ja.md](statistics.ja.md) を参照してください。
 

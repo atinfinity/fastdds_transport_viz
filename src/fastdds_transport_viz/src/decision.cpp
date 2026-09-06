@@ -458,6 +458,9 @@ void apply_stats(std::vector<TopicSummary> & topics, const StatsData & stats)
     t.throughput_available = false;
     t.latency = 0.0;
     t.latency_available = false;
+    t.reliability_available = false;
+    t.lost_packets = 0;
+    t.resent = 0;
     for (const auto * w : t.writers) {
       if (auto th = stats.throughput.find(w->guid); th != stats.throughput.end()) {
         t.throughput += th->second.mean();
@@ -477,6 +480,39 @@ void apply_stats(std::vector<TopicSummary> & topics, const StatsData & stats)
       {
         m.delivered_samples = d->second;
         m.delivered = d->second > 0;
+      }
+      {
+        // Reliability: RTPS_LOST reported by the reader's participant for the writer's
+        // locators, plus the per-entity counters of writer and reader (window deltas).
+        Reliability & rel = m.reliability;
+        auto delta = [](
+          const std::map<std::string, DataCountSample> & map, const std::string & guid,
+          uint64_t & out) {
+            auto it = map.find(guid);
+            if (it == map.end()) {return false;}
+            out = it->second.last - std::min(it->second.last, it->second.first);
+            return true;
+          };
+        rel.available |= delta(stats.resent_datas, p.writer->guid, rel.resent);
+        rel.available |= delta(stats.heartbeats, p.writer->guid, rel.heartbeats);
+        rel.available |= delta(stats.gaps, p.writer->guid, rel.gaps);
+        rel.available |= delta(stats.acknacks, p.reader->guid, rel.acknacks);
+        rel.available |= delta(stats.nackfrags, p.reader->guid, rel.nackfrags);
+        for (const auto & s : stats.lost) {
+          if (s.src_participant_prefix != p.reader->participant_guid_prefix ||
+            !reader_has_locator(*p.writer, s.dst, stats.local_addresses))
+          {
+            continue;
+          }
+          rel.available = true;
+          rel.lost_packets += s.packets - std::min(s.packets, s.packets_first);
+        }
+        if (rel.available) {
+          t.reliability_available = true;
+          t.lost_packets += rel.lost_packets;
+          t.resent += rel.resent;
+          if (rel.lost_packets > 0) {p.verdict.warnings.push_back("rtps-packets-lost");}
+        }
       }
       if (auto l = stats.latency.find({p.writer->guid, p.reader->guid});
         l != stats.latency.end() && l->second.samples > 0)
@@ -737,6 +773,10 @@ const std::map<std::string, std::string> & explanations()
       "same host to this tool, so the network locators of one side are not visible. The other "
       "side has no SHM locator, and both keep the builtin UDPv4 transport, so Fast DDS falls "
       "back to UDPv4 between them; the tool cannot see it in discovery data."},
+    {"rtps-packets-lost",
+      "The reader's participant reported RTPS packets from the writer's locators as lost "
+      "(RTPS_LOST, sequence-number gaps) during the observation: the link drops packets. "
+      "Reliable pairs recover them by resends (RESENT_DATAS), best-effort pairs lose the samples."},
     {"no-matching-writer", "No publisher was discovered for this topic."},
     {"no-matching-reader", "No subscription was discovered for this topic."},
     {"type-name-mismatch",
@@ -776,8 +816,9 @@ const std::map<std::string, std::string> & explanations()
       "reader during the observation window (idle topic, or a longer --timeout is needed)."},
     {"stats-not-enabled-on-writer",
       "No statistics were received from the writer's participant. Start it with "
-      "FASTDDS_STATISTICS=\"RTPS_SENT_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC;"
-      "DATA_COUNT_TOPIC;PUBLICATION_THROUGHPUT_TOPIC\"."},
+      "FASTDDS_STATISTICS=\"RTPS_SENT_TOPIC;RTPS_LOST_TOPIC;HISTORY_LATENCY_TOPIC;"
+      "PHYSICAL_DATA_TOPIC;DATA_COUNT_TOPIC;PUBLICATION_THROUGHPUT_TOPIC;RESENT_DATAS_TOPIC;"
+      "HEARTBEAT_COUNT_TOPIC;ACKNACK_COUNT_TOPIC;NACKFRAG_COUNT_TOPIC;GAP_COUNT_TOPIC\"."},
     {"datasharing-confirmed-no-traffic",
       "HISTORY_LATENCY statistics prove samples reached the reader while no RTPS packets went to "
       "any of its locators: zero-copy data-sharing delivery is confirmed."},

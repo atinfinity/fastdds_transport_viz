@@ -89,5 +89,101 @@
         <publishMode><kind>ASYNCHRONOUS</kind></publishMode>
       </qos>
     </data_writer>
+    <data_writer profile_name="RTPS_LOST_TOPIC">
+      <topic>
+        <historyQos><kind>KEEP_LAST</kind><depth>10</depth></historyQos>
+        <resourceLimitsQos>
+          <max_samples>0</max_samples>
+          <max_instances>0</max_instances>
+          <max_samples_per_instance>0</max_samples_per_instance>
+          <allocated_samples>100</allocated_samples>
+        </resourceLimitsQos>
+      </topic>
+      <qos>
+        <durability><kind>TRANSIENT_LOCAL</kind></durability>
+        <reliability><kind>RELIABLE</kind></reliability>
+        <publishMode><kind>ASYNCHRONOUS</kind></publishMode>
+      </qos>
+    </data_writer>
+    <data_writer profile_name="RESENT_DATAS_TOPIC">
+      <topic>
+        <historyQos><kind>KEEP_LAST</kind><depth>10</depth></historyQos>
+        <resourceLimitsQos>
+          <max_samples>0</max_samples>
+          <max_instances>0</max_instances>
+          <max_samples_per_instance>0</max_samples_per_instance>
+          <allocated_samples>100</allocated_samples>
+        </resourceLimitsQos>
+      </topic>
+      <qos>
+        <durability><kind>TRANSIENT_LOCAL</kind></durability>
+        <reliability><kind>RELIABLE</kind></reliability>
+        <publishMode><kind>ASYNCHRONOUS</kind></publishMode>
+      </qos>
+    </data_writer>
+    <data_writer profile_name="HEARTBEAT_COUNT_TOPIC">
+      <topic>
+        <historyQos><kind>KEEP_LAST</kind><depth>10</depth></historyQos>
+        <resourceLimitsQos>
+          <max_samples>0</max_samples>
+          <max_instances>0</max_instances>
+          <max_samples_per_instance>0</max_samples_per_instance>
+          <allocated_samples>100</allocated_samples>
+        </resourceLimitsQos>
+      </topic>
+      <qos>
+        <durability><kind>TRANSIENT_LOCAL</kind></durability>
+        <reliability><kind>RELIABLE</kind></reliability>
+        <publishMode><kind>ASYNCHRONOUS</kind></publishMode>
+      </qos>
+    </data_writer>
+    <data_writer profile_name="ACKNACK_COUNT_TOPIC">
+      <topic>
+        <historyQos><kind>KEEP_LAST</kind><depth>10</depth></historyQos>
+        <resourceLimitsQos>
+          <max_samples>0</max_samples>
+          <max_instances>0</max_instances>
+          <max_samples_per_instance>0</max_samples_per_instance>
+          <allocated_samples>100</allocated_samples>
+        </resourceLimitsQos>
+      </topic>
+      <qos>
+        <durability><kind>TRANSIENT_LOCAL</kind></durability>
+        <reliability><kind>RELIABLE</kind></reliability>
+        <publishMode><kind>ASYNCHRONOUS</kind></publishMode>
+      </qos>
+    </data_writer>
+    <data_writer profile_name="NACKFRAG_COUNT_TOPIC">
+      <topic>
+        <historyQos><kind>KEEP_LAST</kind><depth>10</depth></historyQos>
+        <resourceLimitsQos>
+          <max_samples>0</max_samples>
+          <max_instances>0</max_instances>
+          <max_samples_per_instance>0</max_samples_per_instance>
+          <allocated_samples>100</allocated_samples>
+        </resourceLimitsQos>
+      </topic>
+      <qos>
+        <durability><kind>TRANSIENT_LOCAL</kind></durability>
+        <reliability><kind>RELIABLE</kind></reliability>
+        <publishMode><kind>ASYNCHRONOUS</kind></publishMode>
+      </qos>
+    </data_writer>
+    <data_writer profile_name="GAP_COUNT_TOPIC">
+      <topic>
+        <historyQos><kind>KEEP_LAST</kind><depth>10</depth></historyQos>
+        <resourceLimitsQos>
+          <max_samples>0</max_samples>
+          <max_instances>0</max_instances>
+          <max_samples_per_instance>0</max_samples_per_instance>
+          <allocated_samples>100</allocated_samples>
+        </resourceLimitsQos>
+      </topic>
+      <qos>
+        <durability><kind>TRANSIENT_LOCAL</kind></durability>
+        <reliability><kind>RELIABLE</kind></reliability>
+        <publishMode><kind>ASYNCHRONOUS</kind></publishMode>
+      </qos>
+    </data_writer>
   </profiles>
 </dds>

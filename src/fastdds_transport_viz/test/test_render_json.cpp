@@ -66,6 +66,11 @@ Snapshot snapshot()
   LatencyStat lat;
   lat.add(0.001); lat.add(0.003);
   s.stats.latency[{"W1", "R1"}] = lat;
+  s.stats.resent_datas["W1"] = DataCountSample{1, 3, 2};
+  s.stats.acknacks["R1"] = DataCountSample{0, 4, 2};
+  TrafficSample lost{"P2", Locator{LocatorKind::UDPv4, "10.0.0.1", 7411}, 5, 500.0};
+  lost.packets_first = 5;
+  s.stats.lost.push_back(lost);
   apply_stats(s.topics, s.stats);
   s.shm.available = true;
   s.shm.path = "/dev/shm";
@@ -109,6 +114,13 @@ TEST(RenderJson, DocumentKeys)
   EXPECT_EQ(p["measured"]["latency_s"]["min"], 0.001);
   EXPECT_EQ(p["measured"]["latency_s"]["samples"], 2);
   EXPECT_EQ(t["latency_s"], 0.002);
+  EXPECT_EQ(p["measured"]["reliability"]["resent_datas"], 2);
+  EXPECT_EQ(p["measured"]["reliability"]["acknacks"], 4);
+  EXPECT_EQ(p["measured"]["reliability"]["lost_packets"], 0);
+  EXPECT_EQ(t["lost_packets"], 0);
+  EXPECT_EQ(t["resent_datas"], 2);
+  EXPECT_EQ(doc["stats"]["lost"][0]["receiver_participant_guid_prefix"], "P2");
+  EXPECT_EQ(doc["stats"]["lost"][0]["from_locator"]["port"], 7411);
   EXPECT_FALSE(doc.contains("changes"));
   // statistics block
   EXPECT_EQ(doc["stats"]["samples"], 5);
@@ -139,6 +151,12 @@ TEST(RenderJson, ShmUnavailableOmitsSizes)
   doc = json::parse(render_json(s, RenderOptions{}));
   EXPECT_TRUE(doc["topics"][0]["pairs"][0]["measured"]["latency_s"].is_null());
   EXPECT_TRUE(doc["topics"][0]["latency_s"].is_null());
+  s.stats.resent_datas.clear(); s.stats.acknacks.clear(); s.stats.lost.clear();
+  s.topics = summarize(s.endpoints);
+  apply_stats(s.topics, s.stats);
+  doc = json::parse(render_json(s, RenderOptions{}));
+  EXPECT_TRUE(doc["topics"][0]["pairs"][0]["measured"]["reliability"].is_null());
+  EXPECT_TRUE(doc["topics"][0]["lost_packets"].is_null());
   EXPECT_FALSE(doc["shm"].contains("total_bytes"));
   EXPECT_EQ(doc["shm"]["warnings"], json::array());
 }
@@ -176,6 +194,7 @@ TEST(StatsObserver, RequiredEnvValueIsTheDocumentedFiveTopicList)
 {
   EXPECT_EQ(
     StatsObserver::required_env_value(),
-    "RTPS_SENT_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC;"
-    "DATA_COUNT_TOPIC;PUBLICATION_THROUGHPUT_TOPIC");
+    "RTPS_SENT_TOPIC;RTPS_LOST_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC;"
+    "DATA_COUNT_TOPIC;PUBLICATION_THROUGHPUT_TOPIC;RESENT_DATAS_TOPIC;"
+    "HEARTBEAT_COUNT_TOPIC;ACKNACK_COUNT_TOPIC;NACKFRAG_COUNT_TOPIC;GAP_COUNT_TOPIC");
 }
