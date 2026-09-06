@@ -3,8 +3,15 @@
 Shows **which Fast DDS transport each ROS 2 topic is communicated over** — UDPv4,
 UDPv6, TCP, shared memory (SHM) or zero-copy data-sharing — **and why**.
 
-Targets: ROS 2 Jazzy (Fast DDS 2.14) and Kilted / Rolling (Fast DDS 3.x) with `rmw_fastrtps_cpp`;
-Humble (Fast DDS 2.6) for the prediction only (its binary has no statistics module).
+All distros below use `rmw_fastrtps_cpp`:
+
+| ROS 2 distro | Fast DDS | Notes |
+|---|---|---|
+| Humble | 2.6 | Prediction only — the binary has no statistics module |
+| Jazzy | 2.14 | Prediction + `--stats` measurement |
+| Kilted | 3.2 | Prediction + `--stats` measurement |
+| Rolling | 3.x (head) | Tracks Fast DDS main; best-effort in CI, not a required check |
+
 Source and issues: [github.com/atinfinity/fastdds_transport_viz](https://github.com/atinfinity/fastdds_transport_viz).
 
 ```
@@ -25,6 +32,10 @@ shared memory: /dev/shm 348 MB used of 16.7 GB (16.3 GB free) | Fast DDS 6.31 MB
 The same capture on a terminal (`--color auto`, default when stdout is a terminal):
 
 ![colored table](images/example-table.svg)
+
+The same run opened in the [web viewer](web-viewer.md) (graph view):
+
+![graph view](images/web-viewer-graph.jpg)
 
 - The **prediction** comes from Fast DDS discovery data (announced locators and QoS) and
   needs nothing from the observed nodes.

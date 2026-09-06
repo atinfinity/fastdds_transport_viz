@@ -5,8 +5,15 @@
 **ROS 2 の各トピックが Fast DDS のどの transport で通信しているか** — UDPv4、UDPv6、TCP、
 共有メモリ (SHM)、zero-copy の data-sharing — を、**その理由とともに**表示します。
 
-対象: ROS 2 Jazzy (Fast DDS 2.14) と Kilted / Rolling (Fast DDS 3.x)、`rmw_fastrtps_cpp`。Humble
-(Fast DDS 2.6) は予測のみ (バイナリに statistics モジュールが無い)。
+いずれも `rmw_fastrtps_cpp` を使用します:
+
+| ROS 2 ディストリ | Fast DDS | 備考 |
+|---|---|---|
+| Humble | 2.6 | 予測のみ (バイナリに statistics モジュールが無い) |
+| Jazzy | 2.14 | 予測 + `--stats` による実測 |
+| Kilted | 3.2 | 予測 + `--stats` による実測 |
+| Rolling | 3.x (head) | Fast DDS の main を追従。CI では best-effort 扱いで必須チェックではない |
+
 ソースと Issue: [github.com/atinfinity/fastdds_transport_viz](https://github.com/atinfinity/fastdds_transport_viz)。
 
 ```
@@ -27,6 +34,10 @@ shared memory: /dev/shm 348 MB used of 16.7 GB (16.3 GB free) | Fast DDS 6.31 MB
 同じキャプチャの端末での表示 (`--color auto`、stdout が端末なら既定で有効):
 
 ![colored table](images/example-table.svg)
+
+同じ実行結果を [web viewer](web-viewer.md) で開いたところ (グラフビュー):
+
+![graph view](images/web-viewer-graph.jpg)
 
 - **予測** は Fast DDS の discovery データ (各エンドポイントが広告する locator (通信先アドレス) と QoS)
   から求めます。観測対象のノードには何も要求しません。
