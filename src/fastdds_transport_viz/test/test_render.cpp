@@ -79,9 +79,11 @@ TEST(RenderTable, WatchMarksGhostsAndSummary)
   auto snap = snapshot();
   WatchDecorations w;
   w.marks[pair_key(snap.topics[0], snap.topics[0].pairs[0])] = '+';
-  w.ghosts.push_back(GhostPair{PairKey{"/chatter", "W1", "R9"}, "std_msgs/msg/String",
+  w.ghosts.push_back(
+    GhostPair{PairKey{"/chatter", "W1", "R9"}, "std_msgs/msg/String",
       "/talker@local", "/old_listener@local", "UDPv4"});
-  w.ghosts.push_back(GhostPair{PairKey{"/gone", "W5", "R5"}, "std_msgs/msg/Int32",
+  w.ghosts.push_back(
+    GhostPair{PairKey{"/gone", "W5", "R5"}, "std_msgs/msg/Int32",
       "/a@local", "/b@local", "SHM"});
   w.summary = "+1 pair  -2 pairs";
   RenderOptions opt;
@@ -207,8 +209,9 @@ TEST(RenderTable, SharedMemoryFooterAndWarnings)
       "1 data-sharing history (1 unmatched)"),
     std::string::npos);
   EXPECT_NE(
-    out.find("\033[31m!shm-stale-files\033[0m: 117 file(s) without a living owner, "
-    "run 'fastdds shm clean'"),
+    out.find(
+      "\033[31m!shm-stale-files\033[0m: 117 file(s) without a living owner, "
+      "run 'fastdds shm clean'"),
     std::string::npos);
   EXPECT_NE(
     out.find(
@@ -232,7 +235,8 @@ TEST(RenderTable, GhostRowsCarryStatsCellAndEmptyTopicsMessage)
 {
   auto s = stats_snapshot();
   WatchDecorations w;
-  w.ghosts.push_back(GhostPair{PairKey{"/chatter", "W1", "R9"}, "std_msgs/msg/String",
+  w.ghosts.push_back(
+    GhostPair{PairKey{"/chatter", "W1", "R9"}, "std_msgs/msg/String",
       "/talker@local", "/old@local", "SHM"});
   RenderOptions opt;
   opt.verbose = true;

@@ -126,7 +126,8 @@ TEST(DiscoveryObserver, ParticipantCreationFailureThrows)
   // profile is read by the DomainParticipantFactory once per process, so this runs in a
   // child process.
   ::testing::FLAGS_gtest_death_test_style = "fast";   // no participant exists yet: fork is safe
-  EXPECT_EXIT({
+  EXPECT_EXIT(
+  {
     char path[] = "/tmp/ftv_broken_XXXXXX.xml";
     int fd = ::mkstemps(path, 4);
     const char * xml =
@@ -158,7 +159,7 @@ TEST(DiscoveryObserver, ParticipantCreationFailureThrows)
     }
     ::unlink(path);
     std::exit(0);
-    }, ::testing::ExitedWithCode(7), "failed to create Fast DDS DomainParticipant");
+  }, ::testing::ExitedWithCode(7), "failed to create Fast DDS DomainParticipant");
 }
 
 TEST(DiscoveryObserver, ValidDomainStartsEmpty)

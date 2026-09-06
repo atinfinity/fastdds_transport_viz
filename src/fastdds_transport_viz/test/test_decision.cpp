@@ -377,7 +377,8 @@ TEST(ApplyStats, TrafficToOtherLocatorsIsIgnored)
   eps[0].participant_guid_prefix = "P1";
   auto topics = summarize(eps);
   // metatraffic port 7412 is not a locator of the reader; different source participant too
-  auto stats = stats_with(eps[0], {
+  auto stats = stats_with(
+    eps[0], {
     TrafficSample{"P1", udp4("10.0.0.1", 7412), 5, 500.0},
     TrafficSample{"P9", shm(7413), 5, 500.0}});
   apply_stats(topics, stats);
@@ -518,8 +519,9 @@ TEST(ApplyStats, DataSharingStaysLikelyWithMixedReaders)
   stats.data_count[eps[0].guid] = DataCountSample{5, 25, 6};   // DATA for the SHM reader
   stats.statistics_writers.insert({"P1", kStatsDataCountTopic});
   apply_stats(topics, stats);
-  const auto & ds = *std::find_if(topics[0].pairs.begin(), topics[0].pairs.end(),
-      [&](const Pair & q) {return q.reader == &eps[1];});
+  const auto & ds = *std::find_if(
+    topics[0].pairs.begin(), topics[0].pairs.end(),
+    [&](const Pair & q) {return q.reader == &eps[1];});
   EXPECT_EQ(ds.verdict.transport, Transport::DataSharing);
   EXPECT_EQ(ds.verdict.confidence, Confidence::Likely);
   EXPECT_TRUE(has(ds.verdict.reasons, "datasharing-ambiguous-mixed-readers"));
@@ -567,8 +569,9 @@ TEST(ApplyStats, ThroughputPerWriterAndPerTopicAndWindowDeltas)
   const auto & topic = topics[0];
   EXPECT_TRUE(topic.throughput_available);
   EXPECT_DOUBLE_EQ(topic.throughput, 150.0);
-  const auto & p = *std::find_if(topic.pairs.begin(), topic.pairs.end(),
-      [&](const Pair & q) {return q.writer == &eps[0];});
+  const auto & p = *std::find_if(
+    topic.pairs.begin(), topic.pairs.end(),
+    [&](const Pair & q) {return q.writer == &eps[0];});
   EXPECT_TRUE(p.measured.throughput_available);
   EXPECT_DOUBLE_EQ(p.measured.throughput, 100.0);
   EXPECT_EQ(p.measured.packets, 30u);            // during the observation

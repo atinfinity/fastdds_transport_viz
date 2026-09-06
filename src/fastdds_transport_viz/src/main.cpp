@@ -442,14 +442,17 @@ struct WatchState
     }
     for (const auto & k : snap.changes.removed) {
       // a pair that came back is no ghost any more
-      deco.ghosts.erase(std::remove_if(deco.ghosts.begin(), deco.ghosts.end(),
-        [&](const GhostPair & x) {return x.key == k;}), deco.ghosts.end());
+      deco.ghosts.erase(
+        std::remove_if(
+          deco.ghosts.begin(), deco.ghosts.end(),
+          [&](const GhostPair & x) {return x.key == k;}), deco.ghosts.end());
       for (const auto & t : last_snapshot.topics) {
         for (const auto & p : t.pairs) {
           if (fastdds_transport_viz::pair_key(t, p) == k) {
             std::string label = fastdds_transport_viz::to_string(p.verdict.transport) +
               (p.verdict.confidence == fastdds_transport_viz::Confidence::Likely ? "?" : "");
-            deco.ghosts.push_back(GhostPair{k, t.display_type,
+            deco.ghosts.push_back(
+              GhostPair{k, t.display_type,
                 fastdds_transport_viz::endpoint_label(last_snapshot, *p.writer, ropt),
                 fastdds_transport_viz::endpoint_label(last_snapshot, *p.reader, ropt), label});
             ghost_ttl[k] = kHoldFrames;
@@ -458,8 +461,10 @@ struct WatchState
       }
     }
     for (const auto & k : snap.changes.added) {
-      deco.ghosts.erase(std::remove_if(deco.ghosts.begin(), deco.ghosts.end(),
-        [&](const GhostPair & x) {return x.key == k;}), deco.ghosts.end());
+      deco.ghosts.erase(
+        std::remove_if(
+          deco.ghosts.begin(), deco.ghosts.end(),
+          [&](const GhostPair & x) {return x.key == k;}), deco.ghosts.end());
       ghost_ttl.erase(k);
     }
     const auto & c = snap.changes;

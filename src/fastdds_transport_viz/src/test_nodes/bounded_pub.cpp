@@ -12,8 +12,9 @@ int main(int argc, char ** argv)
   auto node = std::make_shared<rclcpp::Node>("bounded_pub");
   auto pub = node->create_publisher<std_msgs::msg::Int32>("bounded", 10);
   int32_t i = 0;
-  auto timer = node->create_wall_timer(100ms, [&]() {
-        std_msgs::msg::Int32 m; m.data = i++; pub->publish(m);
+  auto timer = node->create_wall_timer(
+    100ms, [&]() {
+      std_msgs::msg::Int32 m; m.data = i++; pub->publish(m);
     });
   rclcpp::spin(node);
   rclcpp::shutdown();

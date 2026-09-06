@@ -188,9 +188,10 @@ Verdict decide(const Endpoint & writer, const Endpoint & reader)
     const auto wip = ip_addresses(writer);
     const auto rip = ip_addresses(reader);
     if (!wip.empty() && !rip.empty()) {
-      bool common = std::any_of(wip.begin(), wip.end(), [&](const std::string & a) {
-            return rip.count(a) > 0;
-          });
+      bool common = std::any_of(
+        wip.begin(), wip.end(), [&](const std::string & a) {
+          return rip.count(a) > 0;
+        });
       if (!common) {
         v.warnings.push_back("host-id-match-but-ip-differs");
       }
@@ -308,7 +309,8 @@ std::vector<TopicSummary> summarize(const std::vector<Endpoint> & endpoints)
     }
     out.push_back(std::move(t));
   }
-  std::sort(out.begin(), out.end(), [](const TopicSummary & a, const TopicSummary & b) {
+  std::sort(
+    out.begin(), out.end(), [](const TopicSummary & a, const TopicSummary & b) {
       return a.display_topic < b.display_topic;
     });
   return out;

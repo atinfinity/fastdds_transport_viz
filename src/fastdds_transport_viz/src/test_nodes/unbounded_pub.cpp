@@ -23,10 +23,11 @@ int main(int argc, char ** argv)
   auto node = std::make_shared<rclcpp::Node>("unbounded_pub");
   auto pub = node->create_publisher<std_msgs::msg::String>("unbounded", qos);
   int i = 0;
-  auto timer = node->create_wall_timer(100ms, [&]() {
-        std_msgs::msg::String m;
-        m.data = "hello " + std::to_string(i++);
-        pub->publish(m);
+  auto timer = node->create_wall_timer(
+    100ms, [&]() {
+      std_msgs::msg::String m;
+      m.data = "hello " + std::to_string(i++);
+      pub->publish(m);
     });
   rclcpp::spin(node);
   rclcpp::shutdown();

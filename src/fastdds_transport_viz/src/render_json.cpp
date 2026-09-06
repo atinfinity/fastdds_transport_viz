@@ -94,7 +94,8 @@ std::string render_json(const Snapshot & snap, const RenderOptions & opt)
     tj["readers"] = readers;
     json pairs = json::array();
     for (const auto & p : t.pairs) {
-      pairs.push_back({
+      pairs.push_back(
+        {
           {"writer_guid", p.writer->guid},
           {"reader_guid", p.reader->guid},
           {"writer_node", p.writer->node_name},
@@ -236,7 +237,8 @@ std::string render_json(const Snapshot & snap, const RenderOptions & opt)
   stats["physical"] = physical;
   json traffic = json::array();
   for (const auto & t : snap.stats.traffic) {
-    traffic.push_back({{"src_participant_guid_prefix", t.src_participant_prefix},
+    traffic.push_back(
+      {{"src_participant_guid_prefix", t.src_participant_prefix},
         {"dst_locator",
           {{"kind", to_string(t.dst.kind)}, {"address", t.dst.address}, {"port", t.dst.port}}},
         {"packets", t.packets}, {"bytes", t.bytes},
@@ -245,7 +247,8 @@ std::string render_json(const Snapshot & snap, const RenderOptions & opt)
   stats["traffic"] = traffic;
   json lost = json::array();
   for (const auto & t : snap.stats.lost) {
-    lost.push_back({{"receiver_participant_guid_prefix", t.src_participant_prefix},
+    lost.push_back(
+      {{"receiver_participant_guid_prefix", t.src_participant_prefix},
         {"from_locator",
           {{"kind", to_string(t.dst.kind)}, {"address", t.dst.address}, {"port", t.dst.port}}},
         {"packets", t.packets}, {"bytes", t.bytes},

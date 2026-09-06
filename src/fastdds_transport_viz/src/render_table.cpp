@@ -202,7 +202,8 @@ std::string human_seconds(double seconds)
   int i = 0;
   while (v >= 1000.0 && i < 3) {v /= 1000.0; ++i;}
   char buf[32];
-  std::snprintf(buf, sizeof(buf), v < 10.0 ? "%s%.2f %s" : v < 100.0 ? "%s%.1f %s" : "%s%.0f %s",
+  std::snprintf(
+    buf, sizeof(buf), v < 10.0 ? "%s%.2f %s" : v < 100.0 ? "%s%.1f %s" : "%s%.0f %s",
     seconds < 0.0 ? "-" : "", v, units[i]);
   return buf;
 }
@@ -346,12 +347,14 @@ std::string render_table(const Snapshot & snap, const RenderOptions & opt)
   std::vector<const GhostPair *> orphan_ghosts;
   if (watch) {
     for (const auto & g : watch->ghosts) {
-      bool found = std::any_of(snap.topics.begin(), snap.topics.end(),
-          [&](const TopicSummary & t) {return t.display_topic == g.key.topic;});
+      bool found = std::any_of(
+        snap.topics.begin(), snap.topics.end(),
+        [&](const TopicSummary & t) {return t.display_topic == g.key.topic;});
       if (!found) {orphan_ghosts.push_back(&g);}
     }
     for (const auto * g : orphan_ghosts) {
-      rows.push_back({
+      rows.push_back(
+        {
           mark_cell('-', color), paint(g->key.topic, DIM, color), paint(g->type, DIM, color),
           "-", "-", paint(g->transport_label, DIM, color), "-", paint("(removed)", DIM, color)});
     }
@@ -393,15 +396,20 @@ std::string render_table(const Snapshot & snap, const RenderOptions & opt)
           auto it = watch->marks.find(pair_key(t, p));
           row.push_back(mark_cell(it == watch->marks.end() ? ' ' : it->second, color));
         }
-        row.push_back(indent.substr(watch ? 1 : 0) + endpoint_label(snap, *p.writer, opt) + " -> " +
+        row.push_back(
+          indent.substr(watch ? 1 : 0) + endpoint_label(snap, *p.writer, opt) + " -> " +
           endpoint_label(snap, *p.reader, opt));
         row.push_back(transport_label(p.verdict, color));
         row.push_back(
           rate_label(snap.stats.enabled && p.measured.throughput_available, p.measured.throughput));
-        row.push_back(latency_label(snap.stats.enabled && p.measured.latency_available,
-          p.measured.latency.mean(), p.measured.latency.max, true));
-        row.push_back(loss_label(snap.stats.enabled && p.measured.reliability.available,
-          p.measured.reliability.lost_packets, p.measured.reliability.resent));
+        row.push_back(
+          latency_label(
+            snap.stats.enabled && p.measured.latency_available,
+            p.measured.latency.mean(), p.measured.latency.max, true));
+        row.push_back(
+          loss_label(
+            snap.stats.enabled && p.measured.reliability.available,
+            p.measured.reliability.lost_packets, p.measured.reliability.resent));
         if (snap.stats.enabled) {
           row.push_back("measured=" + measured_label(p));
         }
