@@ -71,6 +71,11 @@ Fast DDS はプロファイルファイルを 1 つしか読みません。data-
 
 - `RTPS_SENT` の送信元は *participant* の GUID で、`byte_count` は単純な累積バイト数です
   (`byte_magnitude_order` は `floor(log10(byte_count))` にすぎません)。
+- Fast DDS はツールと同じホストにいる participant の locator を `127.0.0.1` に変換して見せます
+  (localhost 変換) が、別ホストの writer の `RTPS_SENT` はその participant の実アドレス宛ての
+  トラフィックを報告します。そのため重ね合わせでは、loopback の reader locator を同じポートの
+  ツールのホストの任意のアドレスと同一視します。これが無いと、reader がツールと同じホストにいる
+  ホスト間ペアは `delivered-without-measured-traffic` になっていました。
 - statistics トピックの型サポート生成コードは同梱しています (Apache-2.0)。ROS ディストリビューション
   はコンパイル済みの型を Fast DDS ライブラリに含めていますが、ヘッダも `fastddsgen` も配布して
   いないためです。`src/fastdds_transport_viz/third_party/fastdds_statistics_types/` (Fast DDS

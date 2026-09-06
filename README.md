@@ -54,7 +54,8 @@ The same capture on a terminal (`--color auto`, default when stdout is a termina
   share it at all.
 - **Verified on** Jazzy (Fast DDS 2.14) and Kilted / Rolling (Fast DDS 3.x), x86_64 and
   arm64, with Discovery Server, `LARGE_DATA` (TCP), `UDPv6`, `LOCALHOST` discovery range,
-  large SHM samples and zero-copy data-sharing.
+  large SHM samples, zero-copy data-sharing, and two physical hosts (x86_64 ↔ Jetson Orin
+  NX over Wi-Fi, prediction and measurement in both directions).
 
 ## Limitations
 
@@ -78,8 +79,6 @@ The same capture on a terminal (`--color auto`, default when stdout is a termina
   the output).
 - **Blind spot.** Nodes with the same host id but a separate IPC namespace are not
   reported as `shm-not-visible`.
-- **Two physical hosts** are verified for the prediction only; the measured path is still
-  open ([#15](https://github.com/atinfinity/fastdds_transport_viz/issues/15)).
 
 ## Quick start
 

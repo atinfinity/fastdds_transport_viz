@@ -3,6 +3,8 @@
 //
 // transport_viz: show which Fast DDS transport each ROS 2 topic uses and why.
 
+#include <arpa/inet.h>
+#include <ifaddrs.h>
 #include <poll.h>
 #include <sys/ioctl.h>
 #include <termios.h>
@@ -173,6 +175,27 @@ void apply_node_filter(std::vector<fastdds_transport_viz::TopicSummary> & topics
     });
 }
 
+/// Textual IPv4 / IPv6 addresses of every interface of this host.
+std::set<std::string> local_ip_addresses()
+{
+  std::set<std::string> out;
+  struct ifaddrs * ifs = nullptr;
+  if (::getifaddrs(&ifs) != 0) {return out;}
+  for (auto * ifa = ifs; ifa != nullptr; ifa = ifa->ifa_next) {
+    if (ifa->ifa_addr == nullptr) {continue;}
+    char buf[INET6_ADDRSTRLEN] = {};
+    if (ifa->ifa_addr->sa_family == AF_INET) {
+      auto * sin = reinterpret_cast<struct sockaddr_in *>(ifa->ifa_addr);
+      if (::inet_ntop(AF_INET, &sin->sin_addr, buf, sizeof(buf))) {out.insert(buf);}
+    } else if (ifa->ifa_addr->sa_family == AF_INET6) {
+      auto * sin6 = reinterpret_cast<struct sockaddr_in6 *>(ifa->ifa_addr);
+      if (::inet_ntop(AF_INET6, &sin6->sin6_addr, buf, sizeof(buf))) {out.insert(buf);}
+    }
+  }
+  ::freeifaddrs(ifs);
+  return out;
+}
+
 Snapshot collect(
   fastdds_transport_viz::DiscoveryObserver & observer,
   fastdds_transport_viz::RosGraphResolver & resolver,
@@ -182,6 +205,7 @@ Snapshot collect(
   fastdds_transport_viz::StatsData stats_data;
   if (stats != nullptr) {
     stats_data = stats->snapshot();
+    stats_data.local_addresses = local_ip_addresses();
   }
   resolver.refresh();
   const std::string own = resolver.own_node_name();

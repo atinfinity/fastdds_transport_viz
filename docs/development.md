@@ -62,8 +62,17 @@ Expected: `/chatter` = `UDPv4`, `different-host`, hosts `local` and `host:<id>`.
 `--stats` with `FASTDDS_STATISTICS` on the nodes to see the two host names and measured
 `UDPv4`.
 
-Things learned while trying this on a Wi-Fi LAN
-([#15](https://github.com/atinfinity/fastdds_transport_viz/issues/15), still open):
+Verified on 2026-09-06 with a Jetson Orin NX (JetPack 6, Ubuntu 22.04, Wi-Fi) as host B
+and the x86_64 desktop as host A, both through the `hostnet` service; multicast discovery
+worked without any peer configuration and the `--stats` row came out in both directions
+(see the results table). Jetson specifics: Docker on JetPack cannot create bridge
+networks (`iptables: can't initialize iptables table 'raw'`), so build the image with
+`docker build --network=host --build-arg ROS_DISTRO=jazzy -t fastdds_transport_viz:jazzy
+-f docker/Dockerfile .` instead of `docker compose build`; `hostnet` itself needs no
+bridge. The image build takes about 10 minutes on the Orin NX.
+
+Things learned while trying this on a Wi-Fi LAN with a Mac as host B
+([#15](https://github.com/atinfinity/fastdds_transport_viz/issues/15)):
 
 - **Docker Desktop on macOS cannot be one of the hosts.** Its "host network" is the
   Linux VM's: the participant announces `192.168.65.x` / `192.168.64.x` / `172.17.0.1`
@@ -166,6 +175,7 @@ request.
 | 2026-09-05 | 2 MB samples over SHM, `--stats` | x86_64 | 2.14.6 | `SHM`, measured `SHM`, bytes consistent with the sample size | `test_large_shm.py` |
 | 2026-09-06 | shared-memory line: nodes in the tool's IPC namespace visible (`hostnet_shm`), bridged containers reported `shm-not-visible` (`multi_container`) | x86_64 | 2.14.6 | as expected | `scripts/integration_test.sh multi_container`, `hostnet_shm`, `test_shm.py` |
 | 2026-09-05 | full launch test suite on Fast DDS 3.x (Kilted 3.2.4, Rolling 3.6.2) | x86_64 | 3.2.4 / 3.6.2 | all pass; Rolling: demo nodes publish `example_interfaces/msg/String`, Discovery Server relays every endpoint to plain clients | `ROS_DISTRO=kilted docker compose build dev` + `colcon test` |
+| 2026-09-06 | two physical hosts on one Wi-Fi LAN: x86_64 Ubuntu 24.04 (Docker `hostnet`) ↔ Jetson Orin NX, JetPack 6 / Ubuntu 22.04 arm64 (Docker `hostnet`, Jazzy image), plain multicast discovery, `--stats` on both nodes, tool on the x86 host | x86_64 + arm64 | 2.14.6 both | both directions: `UDPv4`, `different-host`, `certain`, measured `UDPv4` (`measured=UDPv4 7pkt 1.06 kB` Jetson → x86, `8pkt 1.16 kB` x86 → Jetson), hosts `jetson-orin-nx01` / `ubuntu2404-desktop01` from `PHYSICAL_DATA`, `RATE` 24 B/s. Found and fixed: a reader on the tool's host is announced as `127.0.0.1`, so the remote writer's `RTPS_SENT` did not match (`delivered-without-measured-traffic`) | "Two physical hosts" below |
 | 2026-09-05 | two physical hosts on one Wi-Fi LAN: x86_64 Ubuntu (Docker `hostnet`) ↔ macOS arm64 (native RoboStack Jazzy), Discovery Server on the x86 host | x86_64 + arm64 | 2.14.6 both | `UDPv4`, `different-host`, `common-udpv4-locator` observed (writer `host:010f0956`, reader on `ubuntu2404-desktop01`); no `--stats` measurement: the Mac's Fast DDS `sendto()` intermittently fails with `EHOSTUNREACH` while plain UDP from the Mac works ([#15](https://github.com/atinfinity/fastdds_transport_viz/issues/15)) | see "Two physical hosts" |
 
 ## Documentation site
@@ -237,7 +247,9 @@ Done:
 - `RATE` column (payload throughput) and the shared-memory line (`/dev/shm` capacity,
   Fast DDS files, stale files, IPC-namespace visibility)
 
+- Two physical hosts on a Wi-Fi LAN (x86_64 ↔ Jetson Orin NX), prediction and `--stats`
+  in both directions — [#15](https://github.com/atinfinity/fastdds_transport_viz/issues/15)
+
 Open:
 
-- Two physical hosts on a Wi-Fi LAN —
-  [#15](https://github.com/atinfinity/fastdds_transport_viz/issues/15)
+- (nothing at the moment)

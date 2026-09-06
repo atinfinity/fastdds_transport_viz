@@ -280,11 +280,28 @@ bool same_locator(const Locator & a, const Locator & b)
   return a.kind == b.kind && a.port == b.port && (a.kind == LocatorKind::SHM || a.address == b.address);
 }
 
-bool reader_has_locator(const Endpoint & reader, const Locator & l)
+bool is_loopback(const std::string & address)
+{
+  return address == "127.0.0.1" || address == "::1";
+}
+
+/// same_locator() plus the localhost transformation: Fast DDS rewrites the locators of a
+/// participant on the tool's host to 127.0.0.1 / ::1 in the discovery data the tool
+/// receives, while a writer on another host reports its traffic to that participant's
+/// real address. A loopback locator therefore also matches any address of this host.
+bool same_locator_local(const Locator & a, const Locator & b, const std::set<std::string> & local)
+{
+  if (same_locator(a, b)) {return true;}
+  if (a.kind != b.kind || a.port != b.port) {return false;}
+  return (is_loopback(a.address) && local.count(b.address)) ||
+         (is_loopback(b.address) && local.count(a.address));
+}
+
+bool reader_has_locator(const Endpoint & reader, const Locator & l, const std::set<std::string> & local)
 {
   for (const auto * list : {&reader.unicast, &reader.multicast}) {
     for (const auto & rl : *list) {
-      if (same_locator(rl, l)) {return true;}
+      if (same_locator_local(rl, l, local)) {return true;}
     }
   }
   return false;
@@ -369,7 +386,7 @@ void apply_stats(std::vector<TopicSummary> & topics, const StatsData & stats)
         m.data_count_available = true;
       }
       for (const auto & s : stats.traffic) {
-        if (s.src_participant_prefix != src || !reader_has_locator(*p.reader, s.dst)) {
+        if (s.src_participant_prefix != src || !reader_has_locator(*p.reader, s.dst, stats.local_addresses)) {
           continue;
         }
         if (s.packets == 0) {

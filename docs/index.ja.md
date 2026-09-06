@@ -48,7 +48,8 @@ shared memory: /dev/shm 339 MB used of 16.7 GB (16.3 GB free) | Fast DDS 4.06 MB
   履歴、残骸 (stale)、観測対象ノードがそれを共有しているかどうか。
 - **検証済みの環境:** Jazzy (Fast DDS 2.14) と Kilted / Rolling (Fast DDS 3.x)、x86_64 と arm64、
   Discovery Server、`LARGE_DATA` (TCP)、`UDPv6`、`LOCALHOST` の discovery range、大きな SHM
-  サンプル、zero-copy data-sharing。
+  サンプル、zero-copy data-sharing、2 台の物理ホスト (x86_64 ↔ Jetson Orin NX、Wi-Fi 経由、両方向の
+  予測と実測)。
 
 ## 制限事項
 
@@ -70,8 +71,6 @@ shared memory: /dev/shm 339 MB used of 16.7 GB (16.3 GB free) | Fast DDS 4.06 MB
 - **ツール自身の痕跡。** ツールはドメインに自身の participant を 2 つ追加します (出力からは除外)。
 - **検出できないケース。** ホスト id が同じで IPC 名前空間だけが別のノードは `shm-not-visible` に
   なりません。
-- **2 台の物理ホスト** は予測のみ検証済みで、実測はまだです
-  ([#15](https://github.com/atinfinity/fastdds_transport_viz/issues/15))。
 
 ## クイックスタート
 

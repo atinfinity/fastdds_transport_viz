@@ -323,6 +323,33 @@ TEST(ApplyStats, MeasuredShmConfirmsPrediction)
   EXPECT_TRUE(p.verdict.warnings.empty());
 }
 
+TEST(ApplyStats, LoopbackReaderLocatorMatchesTrafficToLocalAddress)
+{
+  // A reader on the tool's host is announced with 127.0.0.1 (Fast DDS's localhost
+  // transformation) while the remote writer's RTPS_SENT names the host's real address.
+  std::vector<Endpoint> eps;
+  eps.push_back(make(true, HOST_B, {udp4("192.168.1.6")}));
+  eps.push_back(make(false, HOST_A, {udp4("127.0.0.1", 7413), shm(7413)}));
+  eps[0].participant_guid_prefix = "P1";
+  auto topics = summarize(eps);
+  ASSERT_EQ(topics[0].pairs.size(), 1u);
+  auto stats = stats_with(eps[0], {TrafficSample{"P1", udp4("192.168.1.8", 7413), 7, 700.0}});
+  apply_stats(topics, stats);   // without the host's addresses: nothing matches
+  EXPECT_TRUE(topics[0].pairs[0].measured.transports.empty());
+  EXPECT_TRUE(has(topics[0].pairs[0].verdict.warnings, "no-traffic-observed"));
+
+  topics = summarize(eps);
+  stats.local_addresses = {"192.168.1.8", "172.17.0.1"};
+  apply_stats(topics, stats);
+  const auto & p = topics[0].pairs[0];
+  EXPECT_EQ(p.verdict.transport, Transport::UDPv4);
+  ASSERT_EQ(p.measured.transports.size(), 1u);
+  EXPECT_EQ(p.measured.transports[0], Transport::UDPv4);
+  EXPECT_EQ(p.measured.packets, 7u);
+  EXPECT_TRUE(has(p.verdict.reasons, "measured-udpv4-traffic"));
+  EXPECT_FALSE(has(p.verdict.warnings, "no-traffic-observed"));
+}
+
 TEST(ApplyStats, MismatchWarnsWhenPacketsWentElsewhere)
 {
   std::vector<Endpoint> eps;
