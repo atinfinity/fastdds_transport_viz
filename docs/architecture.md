@@ -246,7 +246,7 @@ src/fastdds_transport_viz/
                                    ros_graph_resolver.hpp, stats_observer.hpp, shm_info.hpp,
                                    render.hpp, ros_names.hpp, fastdds_compat.hpp, fastdds_util.hpp
   src/                             implementation + main.cpp
-  src/test_nodes/                  verification nodes (bounded_pub, large_array_pub, ...)
+  src/test_nodes/                  verification nodes (bounded_pub/sub, unbounded_pub/sub, large_array_pub/sub)
   config/                          statistics.xml, datasharing_auto.xml, datasharing_auto_stats.xml,
                                    unicast_discovery.xml
   third_party/fastdds_statistics_types/     vendored generated statistics types (Fast DDS 2.14)

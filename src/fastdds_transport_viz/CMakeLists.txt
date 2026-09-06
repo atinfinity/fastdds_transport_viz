@@ -74,13 +74,13 @@ add_executable(transport_viz src/main.cpp)
 target_link_libraries(transport_viz PRIVATE ${PROJECT_NAME}_lib)
 
 # --- verification nodes ---------------------------------------------------------
-foreach(node bounded_pub bounded_sub unbounded_pub large_array_pub large_array_sub)
+foreach(node bounded_pub bounded_sub unbounded_pub unbounded_sub large_array_pub large_array_sub)
   add_executable(${node} src/test_nodes/${node}.cpp)
   target_link_libraries(${node} PRIVATE rclcpp::rclcpp ${std_msgs_TARGETS})
 endforeach()
 
 install(TARGETS
-  transport_viz bounded_pub bounded_sub unbounded_pub large_array_pub large_array_sub
+  transport_viz bounded_pub bounded_sub unbounded_pub unbounded_sub large_array_pub large_array_sub
   DESTINATION lib/${PROJECT_NAME})
 install(TARGETS ${PROJECT_NAME}_core ${PROJECT_NAME}_lib ${PROJECT_NAME}_stats_types
   ARCHIVE DESTINATION lib

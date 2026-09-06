@@ -23,9 +23,7 @@ def generate_test_description():
         node_action('fastdds_transport_viz', 'bounded_pub', 'bounded_pub', ENV),
         node_action('fastdds_transport_viz', 'bounded_sub', 'bounded_sub', ENV),
         node_action('fastdds_transport_viz', 'unbounded_pub', 'unbounded_pub', ENV),
-        # a String subscriber for /unbounded (the demo listener, remapped)
-        node_action('demo_nodes_cpp', 'listener', 'unbounded_sub', ENV,
-                    arguments=['--ros-args', '-r', 'chatter:=unbounded']),
+        node_action('fastdds_transport_viz', 'unbounded_sub', 'unbounded_sub', ENV),
     ]), {}
 
 

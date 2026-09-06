@@ -106,7 +106,7 @@ Shipped with the package for reproducing the scenarios in the docs:
 | Executable | Purpose |
 |---|---|
 | `bounded_pub` / `bounded_sub` | `std_msgs/Int32`, data-sharing eligible |
-| `unbounded_pub` | `std_msgs/String`, never data-sharing |
+| `unbounded_pub` / `unbounded_sub` | `std_msgs/String`, never data-sharing |
 | `large_array_pub --size-kb N [--period-ms M]` / `large_array_sub` | large `std_msgs/UInt8MultiArray` samples (default 200 ms period) |
 
 ## Tests
