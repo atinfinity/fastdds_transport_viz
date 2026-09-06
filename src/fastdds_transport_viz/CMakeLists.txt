@@ -74,13 +74,13 @@ add_executable(transport_viz src/main.cpp)
 target_link_libraries(transport_viz PRIVATE ${PROJECT_NAME}_lib)
 
 # --- verification nodes ---------------------------------------------------------
-foreach(node bounded_pub bounded_sub unbounded_pub large_array_pub large_array_sub)
+foreach(node bounded_pub bounded_sub unbounded_pub unbounded_sub large_array_pub large_array_sub)
   add_executable(${node} src/test_nodes/${node}.cpp)
   target_link_libraries(${node} PRIVATE rclcpp::rclcpp ${std_msgs_TARGETS})
 endforeach()
 
 install(TARGETS
-  transport_viz bounded_pub bounded_sub unbounded_pub large_array_pub large_array_sub
+  transport_viz bounded_pub bounded_sub unbounded_pub unbounded_sub large_array_pub large_array_sub
   DESTINATION lib/${PROJECT_NAME})
 install(TARGETS ${PROJECT_NAME}_core ${PROJECT_NAME}_lib ${PROJECT_NAME}_stats_types
   ARCHIVE DESTINATION lib
@@ -92,7 +92,7 @@ install(DIRECTORY include/ DESTINATION include)
 set(WEB_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../web)
 if(EXISTS ${WEB_DIR}/index.html)
   install(DIRECTORY ${WEB_DIR}/ DESTINATION share/${PROJECT_NAME}/web
-    PATTERN "serve.py" EXCLUDE PATTERN "README.md" EXCLUDE)
+    PATTERN "serve.py" EXCLUDE PATTERN "README.md" EXCLUDE PATTERN "test" EXCLUDE)
   install(PROGRAMS ${WEB_DIR}/serve.py RENAME transport_viz_web DESTINATION lib/${PROJECT_NAME})
 else()
   message(WARNING "web/ not found next to the package; transport_viz_web will not be installed")
@@ -108,6 +108,11 @@ if(BUILD_TESTING)
   target_link_libraries(test_shm_info ${PROJECT_NAME}_core)
   ament_add_gtest(test_render test/test_render.cpp)
   target_link_libraries(test_render ${PROJECT_NAME}_lib)
+  ament_add_gtest(test_render_json test/test_render_json.cpp)
+  target_link_libraries(test_render_json ${PROJECT_NAME}_lib)
+  # real Fast DDS participants (no ROS nodes): conversions, error paths of the observers
+  ament_add_gtest(test_observers test/test_observers.cpp)
+  target_link_libraries(test_observers ${PROJECT_NAME}_lib ${PROJECT_NAME}_stats_types)
 
   find_package(launch_testing_ament_cmake REQUIRED)
   add_launch_test(test/launch/test_same_host_shm.py TIMEOUT 60)
@@ -118,6 +123,7 @@ if(BUILD_TESTING)
   find_package(ament_cmake_pytest REQUIRED)
   ament_add_pytest_test(test_json_schema test/test_json_schema.py)
   ament_add_pytest_test(test_web_serve test/test_web_serve.py)
+  ament_add_pytest_test(test_cli_args test/test_cli_args.py)
   add_launch_test(test/launch/test_web_live.py TIMEOUT 90)
   add_launch_test(test/launch/test_udpv6.py TIMEOUT 90)
   add_launch_test(test/launch/test_localhost_range.py TIMEOUT 90)
@@ -126,6 +132,11 @@ if(BUILD_TESTING)
   add_launch_test(test/launch/test_large_shm.py TIMEOUT 120)
   add_launch_test(test/launch/test_datasharing_stats.py TIMEOUT 120)
   add_launch_test(test/launch/test_shm.py TIMEOUT 90)
+  add_launch_test(test/launch/test_watch.py TIMEOUT 150)
+  add_launch_test(test/launch/test_watch_tty.py TIMEOUT 120)
+  add_launch_test(test/launch/test_large_data_v6.py TIMEOUT 90)
+  add_launch_test(test/launch/test_multicast_locators.py TIMEOUT 90)
+  add_launch_test(test/launch/test_unbounded_vs_bounded.py TIMEOUT 90)
 endif()
 
 ament_package()

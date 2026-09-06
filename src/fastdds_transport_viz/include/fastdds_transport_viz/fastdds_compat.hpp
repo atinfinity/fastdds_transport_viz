@@ -37,6 +37,7 @@
 #include <fastdds/rtps/participant/ParticipantDiscoveryInfo.h>
 #include <fastdds/rtps/reader/ReaderDiscoveryInfo.h>
 #include <fastdds/rtps/writer/WriterDiscoveryInfo.h>
+#include <fastrtps/types/TypesBase.h>   // ReturnCode_t
 #include <fastrtps/utils/IPLocator.h>
 #endif
 
@@ -51,9 +52,9 @@ inline bool retcode_ok(eprosima::fastdds::dds::ReturnCode_t code)
 }
 #else
 namespace ftv_rtps = eprosima::fastrtps::rtps;
-inline bool retcode_ok(const ReturnCode_t & code)
+inline bool retcode_ok(const eprosima::fastrtps::types::ReturnCode_t & code)
 {
-  return code == ReturnCode_t::RETCODE_OK;
+  return code == eprosima::fastrtps::types::ReturnCode_t::RETCODE_OK;
 }
 #endif
 

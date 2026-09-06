@@ -114,17 +114,31 @@ jobs:
           path: /tmp/transport_viz_*.json
           if-no-files-found: ignore
 
+  web-unit-tests:
+    # web/model.js (the viewer's pure model/formatting functions) under Node's test runner.
+    name: web viewer unit tests (node)
+    needs: changes
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'pull_request' && needs.changes.outputs.code == 'true')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: node --version && node --test "web/test/*.test.js"
+
   # Single check for main's branch protection: succeeds when every job above passed or
   # was skipped (a skipped matrix job reports an unexpanded name, so the per-distro
   # names cannot be required directly). Rolling is continue-on-error and does not count.
   ci-result:
     name: CI result
-    needs: [changes, build-and-test, integration]
+    needs: [changes, build-and-test, integration, web-unit-tests]
     if: always()
     runs-on: ubuntu-latest
     steps:
       - run: |
           echo "build-and-test: ${{ needs.build-and-test.result }}"
           echo "integration: ${{ needs.integration.result }}"
+          echo "web-unit-tests: ${{ needs.web-unit-tests.result }}"
           case "${{ needs.build-and-test.result }}" in success|skipped) ;; *) exit 1 ;; esac
           case "${{ needs.integration.result }}" in success|skipped) ;; *) exit 1 ;; esac
+          case "${{ needs.web-unit-tests.result }}" in success|skipped) ;; *) exit 1 ;; esac

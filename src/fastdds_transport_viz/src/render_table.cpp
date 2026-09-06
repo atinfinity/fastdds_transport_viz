@@ -245,14 +245,24 @@ std::string mark_cell(char mark, bool color)
   }
 }
 
+/// Priority of a watch mark on a topic row: an appearance beats a change beats a removal.
+int mark_rank(char mark)
+{
+  switch (mark) {
+    case '+': return 3;
+    case '~': return 2;
+    case '-': return 1;
+    default: return 0;
+  }
+}
+
 char topic_mark(const TopicSummary & t, const WatchDecorations & w)
 {
   char best = ' ';
   for (const auto & p : t.pairs) {
     auto it = w.marks.find(pair_key(t, p));
     if (it == w.marks.end()) {continue;}
-    if (it->second == '+') {return '+';}
-    best = it->second;
+    if (mark_rank(it->second) > mark_rank(best)) {best = it->second;}
   }
   return best;
 }
@@ -415,7 +425,19 @@ std::string render_table(const Snapshot & snap, const RenderOptions & opt)
     os << "\nLegend: '?' after a transport = confidence 'likely' (see reason codes);"
        << " '!' prefix = warning.\n";
   }
-  return os.str();
+  if (opt.max_width == 0) {
+    return os.str();
+  }
+  // The table rows were cut while being emitted; cut the footer lines (changes,
+  // statistics, shared memory, legend) the same way so that nothing wraps on a terminal.
+  std::string out;
+  std::istringstream lines(os.str());
+  std::string line;
+  while (std::getline(lines, line)) {
+    out += truncate_visible(line, opt.max_width);
+    out += '\n';
+  }
+  return out;
 }
 
 }  // namespace fastdds_transport_viz

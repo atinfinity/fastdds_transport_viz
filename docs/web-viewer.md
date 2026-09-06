@@ -3,7 +3,8 @@
 `web/index.html` renders a `transport_viz --json` document as a graph: hosts are columns,
 ROS nodes are boxes, and every writer → reader pair is an arrow colored by transport.
 It is a static page (plain HTML/JS plus a vendored copy of d3) — no build step, no
-server, and it works offline from `file://`.
+server, and it works offline from `file://`. (`model.js` holds the document model and
+formatting, `app.js` the rendering.)
 
 ![graph view](images/web-viewer-graph.jpg)
 

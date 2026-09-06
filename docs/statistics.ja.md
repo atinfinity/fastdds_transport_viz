@@ -69,6 +69,10 @@ Fast DDS はプロファイルファイルを 1 つしか読みません。data-
 
 ## 実装メモ
 
+- ツールは participant を作る前に自分の環境から `FASTDDS_STATISTICS` を取り除きます。設定された
+  ままだと Fast DDS 2.14 はツールの statistics reader を載せた participant にも statistics writer を
+  追加し、reader が acknack を送る途中の `on_rtps_sent()` 内でデッドロックすることがあります。
+  ツール自身の statistics は不要です (自身のエンドポイントは除外されます)。
 - `RTPS_SENT` の送信元は *participant* の GUID で、`byte_count` は単純な累積バイト数です
   (`byte_magnitude_order` は `floor(log10(byte_count))` にすぎません)。
 - Fast DDS はツールと同じホストにいる participant の locator を `127.0.0.1` に変換して見せます

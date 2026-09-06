@@ -182,3 +182,38 @@ TEST_F(FakeShmDir, ExplanationsExistForShmWarnings)
     EXPECT_NE(explain(code), "(no description)") << code;
   }
 }
+
+TEST(ScanShm, RegularFileIsNotADirectory)
+{
+  char tmpl[] = "/tmp/ftv_shm_file_XXXXXX";
+  int fd = ::mkstemp(tmpl);
+  ASSERT_GE(fd, 0);
+  ::close(fd);
+  auto info = scan_shm(tmpl, ShmScanInput{});   // statvfs works, opendir does not
+  EXPECT_TRUE(info.available);
+  EXPECT_EQ(info.segments, 0u);
+  ::unlink(tmpl);
+}
+
+TEST(ScanShm, CapacityWarning)
+{
+  ShmInfo info;
+  info.total_bytes = 1000; info.used_bytes = 100; info.free_bytes = 900;
+  add_capacity_warning(info);
+  EXPECT_TRUE(has(info.warnings, "shm-nearly-full"));   // 900 bytes free < 16 MiB
+  info.warnings.clear();
+  info.total_bytes = 64ull << 20; info.used_bytes = 10ull << 20; info.free_bytes = 54ull << 20;
+  add_capacity_warning(info);
+  EXPECT_TRUE(info.warnings.empty());
+  info.used_bytes = 60ull << 20; info.free_bytes = 4ull << 20;   // < 16 MiB free
+  add_capacity_warning(info);
+  EXPECT_TRUE(has(info.warnings, "shm-nearly-full"));
+  info.warnings.clear();
+  info.total_bytes = 16ull << 30; info.used_bytes = 15ull << 30; info.free_bytes = 1ull << 30;   // 93 % used
+  add_capacity_warning(info);
+  EXPECT_TRUE(has(info.warnings, "shm-nearly-full"));
+  info.warnings.clear();
+  info.total_bytes = 0;
+  add_capacity_warning(info);
+  EXPECT_TRUE(info.warnings.empty());
+}

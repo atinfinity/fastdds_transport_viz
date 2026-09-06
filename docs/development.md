@@ -106,7 +106,7 @@ Shipped with the package for reproducing the scenarios in the docs:
 | Executable | Purpose |
 |---|---|
 | `bounded_pub` / `bounded_sub` | `std_msgs/Int32`, data-sharing eligible |
-| `unbounded_pub` | `std_msgs/String`, never data-sharing |
+| `unbounded_pub` / `unbounded_sub` | `std_msgs/String`, never data-sharing |
 | `large_array_pub --size-kb N [--period-ms M]` / `large_array_sub` | large `std_msgs/UInt8MultiArray` samples (default 200 ms period) |
 
 ## Tests
@@ -118,9 +118,20 @@ colcon test && colcon test-result --verbose
 - `test_decision`: gtest over the pure decision logic, the statistics overlay and name
   demangling.
 - `test_render`: gtest over the table renderer (visible width, truncation, colors, watch
-  marks and ghost rows).
+  marks and ghost rows, every `measured=` cell value, the statistics and shared-memory
+  footers, the `--explain` legend, host labels).
+- `test_render_json`: gtest over the JSON renderer (every documented key, the `stats` and
+  `shm` objects, the `--watch` `changes` object, JSON Lines mode).
+- `test_cli_args` (pytest): `--help`, `--list-codes`, unknown options, missing values,
+  invalid regexes and color modes exit with the documented codes and messages; `--color
+  always` paints a non-terminal table; the `ROS_AUTOMATIC_DISCOVERY_RANGE=OFF` warning.
 - `test_shm_info`: gtest over the `/dev/shm` scan on a temporary directory (sizes, stale
-  detection through `flock`, data-sharing file names, IPC-namespace visibility).
+  detection through `flock`, data-sharing file names, IPC-namespace visibility, the
+  capacity warning).
+- `test_observers`: gtest with real Fast DDS participants on domain 200 (no ROS nodes):
+  locator and QoS conversions, participant creation failure (a death test with an invalid
+  lease configuration), the statistics observer reusing an existing topic and rejecting a
+  content-filtered topic under a statistics topic name.
 - `test_same_host_shm.py` / `test_same_host_udp.py`: launch_testing against real demo
   nodes (SHM, and UDPv4 fallback via `FASTDDS_BUILTIN_TRANSPORTS=UDPv4`).
 - `test_stats.py`: demo nodes with `FASTDDS_STATISTICS`; asserts measured SHM / UDPv4 and
@@ -131,8 +142,16 @@ colcon test && colcon test-result --verbose
   `test_large_data_same_host.py` (`LARGE_DATA`: TCPv4 announced, SHM chosen),
   `test_large_shm.py` (2 MB samples measured on SHM), `test_datasharing_stats.py`
   (`bounded_pub`/`bounded_sub` with `datasharing_auto_stats.xml`: `DATA_SHARING` becomes
-  `certain` through `HISTORY_LATENCY` + `DATA_COUNT`), `test_shm.py` (the shared-memory
-  report for nodes in the tool's IPC namespace).
+  `certain` through `HISTORY_LATENCY` + `DATA_COUNT`), `test_unbounded_vs_bounded.py`
+  (`datasharing_auto.xml`: the bounded pair is `DATA_SHARING?`, the `unbounded_pub` String
+  writer resolves to `OFF` and stays on `SHM`), `test_shm.py` (the shared-memory report for
+  nodes in the tool's IPC namespace), `test_watch.py` (`--watch` without a terminal: a pair
+  appears, disappears and comes back while watching, `+`/`-` marks, ghost rows, the
+  `changes` object in `--watch --json`), `test_watch_tty.py` (`--watch` on a pseudo
+  terminal: alternate screen, in-place painting, the `q`/`p`/`v`/`e`/`a` keys, width
+  truncation, Ctrl-C), `test_large_data_v6.py` (`LARGE_DATAv6`: TCPv6 announced, SHM
+  chosen; skipped without an IPv6 interface), `test_multicast_locators.py` (endpoints
+  announcing a multicast locator through `defaultMulticastLocatorList`).
 - `test_json_schema` / `test_json_schema_live.py`: sample and live `--json` output against
   `schema/transport_viz.schema.json`.
 - `test_web_serve` (pytest, fake `transport_viz`) / `test_web_live.py` (real one): the live
@@ -140,6 +159,26 @@ colcon test && colcon test-result --verbose
 - `ros2transport/test/test_cli.py` (pytest, fake `transport_viz`): argument translation of
   `ros2 transport list`, parity with the binary's `--help`, `codes`, missing binary.
   `test_list_live.py`: `ros2 transport list --json` against real demo nodes.
+
+Line coverage of the C++ sources, measured with `scripts/coverage.sh` inside the dev
+container (a `--coverage` build in `build_cov/`, the whole test suite, then `gcovr`):
+98 % as of 2026-09-06 (`shm_info.cpp` 100 %, `main.cpp`, `render_table.cpp`,
+`render_json.cpp` 99 %, `stats_observer.cpp` 98 %, `decision.cpp` and
+`discovery_observer.cpp` 96 %). What is left is unreachable by construction: subscriber
+and reader creation failures inside Fast DDS, `getifaddrs` errors, `default:` labels of
+switches over enums whose every value is handled, and discovery statuses Fast DDS 2.14 never
+reports for our participant.
+
+The web viewer's pure functions (`web/model.js`: document → nodes/hosts/pairs, filters
+with the `--node` semantics, edge bundling, number formatting, the shared-memory line) are
+unit-tested under Node without a browser:
+
+```
+node --test "web/test/*.test.js"
+```
+
+CI runs this in the `web viewer unit tests (node)` job; `app.js` (DOM, d3, live mode) is
+exercised through `test_web_live.py`.
 
 ## Continuous integration
 

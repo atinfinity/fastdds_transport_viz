@@ -9,12 +9,13 @@
 (() => {
   'use strict';
 
-  const TRANSPORTS = ['UDPv4', 'UDPv6', 'TCPv4', 'TCPv6', 'SHM', 'DATA_SHARING', 'NONE'];
+  // pure model / formatting functions live in model.js (unit-tested under Node)
+  const { TRANSPORTS, INTERNAL_TOPICS, buildModel, filterRegex, visiblePairs, visibleNodesModel, bundle,
+    humanBytes, measuredText, rateText, escapeHtml, shmText } = globalThis.TransportVizModel;
   const COLORS = {
     UDPv4: 'var(--c-udpv4)', UDPv6: 'var(--c-udpv6)', TCPv4: 'var(--c-tcp)', TCPv6: 'var(--c-tcp)',
     SHM: 'var(--c-shm)', DATA_SHARING: 'var(--c-ds)', NONE: 'var(--c-none)',
   };
-  const INTERNAL_TOPICS = new Set(['/parameter_events', '/rosout']);
 
   const state = {
     doc: null,
@@ -23,106 +24,6 @@
     selection: null,   // {kind: 'node', id} | {kind: 'edge', id} | {kind: 'pair', id}
     sort: { key: 'topic', asc: true },
   };
-
-  // ---------------------------------------------------------------- data model
-
-  /** Flatten the document into nodes, hosts and pairs with resolved endpoints. */
-  function buildModel(doc) {
-    const nodes = new Map();      // key -> {id, name, host, process, pubs:[], subs:[], unmatched:[]}
-    const hosts = new Map();      // host label -> {label, nodes:[]}
-    const pairs = [];
-    const endpointsByGuid = new Map();
-
-    // Service endpoints carry no node name (the ROS graph API only covers
-    // topics); attribute them to the node that owns the same participant.
-    const nodeByParticipant = new Map();
-    for (const t of doc.topics) {
-      for (const ep of [...t.writers, ...t.readers]) {
-        if (ep.node) nodeByParticipant.set(ep.participant_guid_prefix, ep.node);
-      }
-    }
-    const nodeKey = (ep) => ep.node || nodeByParticipant.get(ep.participant_guid_prefix) || `participant ${ep.participant_guid_prefix}`;
-
-    const touchNode = (ep) => {
-      const id = nodeKey(ep);
-      if (!nodes.has(id)) {
-        nodes.set(id, { id, name: id, host: ep.host, process: ep.process || '', pubs: [], subs: [], unmatched: [] });
-        if (!hosts.has(ep.host)) hosts.set(ep.host, { label: ep.host, nodes: [] });
-        hosts.get(ep.host).nodes.push(nodes.get(id));
-      }
-      return nodes.get(id);
-    };
-
-    for (const t of doc.topics) {
-      for (const w of t.writers) { endpointsByGuid.set(w.guid, w); touchNode(w).pubs.push({ topic: t, ep: w }); }
-      for (const r of t.readers) { endpointsByGuid.set(r.guid, r); touchNode(r).subs.push({ topic: t, ep: r }); }
-      if (t.unmatched_reasons.length) {
-        for (const ep of [...t.writers, ...t.readers]) touchNode(ep).unmatched.push({ topic: t, reasons: t.unmatched_reasons });
-      }
-      t.pairs.forEach((p, i) => {
-        const w = endpointsByGuid.get(p.writer_guid);
-        const r = endpointsByGuid.get(p.reader_guid);
-        pairs.push({
-          id: `${t.dds_topic}#${i}`, topic: t, pair: p, writer: w, reader: r,
-          writerNode: nodeKey(w), readerNode: nodeKey(r),
-        });
-      });
-    }
-    for (const n of nodes.values()) {
-      n.pubs.sort((a, b) => a.topic.topic.localeCompare(b.topic.topic));
-      n.subs.sort((a, b) => a.topic.topic.localeCompare(b.topic.topic));
-    }
-    const hostList = [...hosts.values()].sort((a, b) => (a.label === 'local' ? -1 : b.label === 'local' ? 1 : a.label.localeCompare(b.label)));
-    for (const h of hostList) h.nodes.sort((a, b) => a.name.localeCompare(b.name));
-    return { nodes, hosts: hostList, pairs };
-  }
-
-  /** RegExp for a filter field, or null when empty or invalid (an invalid pattern filters nothing). */
-  function filterRegex(pattern) {
-    if (!pattern) return null;
-    try { return new RegExp(pattern); } catch (e) { return null; }
-  }
-
-  /** Same semantics as `transport_viz --node`: pairs where the writer's or the reader's node matches. */
-  function visiblePairs(model) {
-    const f = state.filter;
-    const re = filterRegex(f.topic);
-    const nre = filterRegex(f.node);
-    return model.pairs.filter(({ topic, pair, writerNode, readerNode }) => {
-      if (f.hideInternal && INTERNAL_TOPICS.has(topic.topic)) return false;
-      if (!f.transports.has(pair.transport)) return false;
-      if (re && !re.test(topic.topic)) return false;
-      if (nre && !nre.test(writerNode) && !nre.test(readerNode)) return false;
-      return true;
-    });
-  }
-
-  /** With a node filter: matching nodes (even without visible pairs) plus the partners of visible pairs. */
-  function visibleNodesModel(model, pairs) {
-    const nre = filterRegex(state.filter.node);
-    if (!nre) return { model, matched: () => false };
-    const keep = new Set();
-    for (const n of model.nodes.values()) if (nre.test(n.id)) keep.add(n.id);
-    for (const vp of pairs) { keep.add(vp.writerNode); keep.add(vp.readerNode); }
-    const nodes = new Map([...model.nodes].filter(([id]) => keep.has(id)));
-    const hosts = model.hosts.map(h => ({ ...h, nodes: h.nodes.filter(n => keep.has(n.id)) })).filter(h => h.nodes.length);
-    return { model: { ...model, nodes, hosts }, matched: id => nre.test(id) };
-  }
-
-  /** Bundle pairs into edges: same writer node, reader node, transport and confidence. */
-  function bundle(pairs) {
-    const edges = new Map();
-    for (const vp of pairs) {
-      const key = `${vp.writerNode}→${vp.readerNode}|${vp.pair.transport}|${vp.pair.confidence}`;
-      if (!edges.has(key)) {
-        edges.set(key, { id: key, source: vp.writerNode, target: vp.readerNode, transport: vp.pair.transport, confidence: vp.pair.confidence, pairs: [], warn: false });
-      }
-      const e = edges.get(key);
-      e.pairs.push(vp);
-      if (vp.pair.warnings.length) e.warn = true;
-    }
-    return [...edges.values()];
-  }
 
   // ---------------------------------------------------------------- layout
 
@@ -182,9 +83,9 @@
   svg.call(d3.zoom().scaleExtent([0.2, 3]).on('zoom', (ev) => root.attr('transform', ev.transform)));
 
   function renderGraph(fullModel) {
-    const pairs = visiblePairs(fullModel);
+    const pairs = visiblePairs(fullModel, state.filter);
     const edges = bundle(pairs);
-    const { model, matched } = visibleNodesModel(fullModel, pairs);
+    const { model, matched } = visibleNodesModel(fullModel, pairs, state.filter.node);
     const { pos, hostBoxes } = layout(model);
 
     // parallel-edge index per (source,target) so bundles do not overlap
@@ -262,29 +163,8 @@
     { key: 'reasons', label: 'Reasons', get: v => [...v.pair.reasons, ...v.pair.warnings.map(w => '!' + w)].join(', ') },
   ];
 
-  function humanBytes(v, unit) {
-    const prefixes = ['', 'k', 'M', 'G', 'T'];
-    let i = 0;
-    while (v >= 1000 && i < 4) { v /= 1000; i++; }
-    const digits = i === 0 ? 0 : v < 10 ? 2 : v < 100 ? 1 : 0;
-    return `${v.toFixed(digits)} ${prefixes[i]}${unit}`;
-  }
-
-  function measuredText(m) {
-    if (!m || !m.available) return '';
-    if (!m.transports.length) return m.delivered ? 'none (delivered)' : 'none';
-    if (!m.packets) return `${m.transports.join('+')} (idle)`;
-    const bytes = typeof m.bytes === 'number' ? ` ${humanBytes(m.bytes, 'B')}` : '';
-    return `${m.transports.join('+')} ${m.packets} pkt${bytes}`;
-  }
-
-  function rateText(m) {
-    if (!m || typeof m.throughput_bytes_per_s !== 'number') return '';
-    return humanBytes(m.throughput_bytes_per_s, 'B/s');
-  }
-
   function renderTable(model) {
-    const rows = visiblePairs(model);
+    const rows = visiblePairs(model, state.filter);
     const col = COLUMNS.find(c => c.key === state.sort.key);
     rows.sort((a, b) => col.get(a).localeCompare(col.get(b)) * (state.sort.asc ? 1 : -1));
     const head = d3.select('#pairs-head').selectAll('th').data(COLUMNS, d => d.key);
@@ -352,7 +232,7 @@
     const sel = state.selection;
     if (!sel) { panel.html('<div class="panel-empty">Click a node or an edge for details.</div>'); return; }
     if (sel.kind === 'edge') {
-      const e = bundle(visiblePairs(model)).find(x => x.id === sel.id);
+      const e = bundle(visiblePairs(model, state.filter)).find(x => x.id === sel.id);
       if (!e) { select(null); return; }
       panel.html(`<h2>${escapeHtml(e.source)} → ${escapeHtml(e.target)}</h2><div>${e.pairs.length} pair(s), ${e.transport}${e.confidence === 'likely' ? ' (likely)' : ''}</div>` +
         e.pairs.map(vp => pairCard(vp, false)).join(''));
@@ -392,19 +272,7 @@
     const n = d.topics.reduce((a, t) => a + t.pairs.length, 0);
     d3.select('#meta').text(`domain ${d.domain} · ${d.observed_at} · ${d.topics.length} topics, ${n} pairs · ` +
       (d.stats && d.stats.enabled ? `statistics: ${d.stats.samples} samples` : 'no statistics'));
-    d3.select('#shm').html(shmText(d.shm));
-  }
-
-  /** Shared memory of the environment transport_viz ran in (the `shm` object). */
-  function shmText(shm) {
-    if (!shm || !shm.available) return '';
-    const stale = shm.stale_segments + shm.stale_ports;
-    const desc = (state.doc && state.doc.reason_code_descriptions) || {};
-    const warnings = (shm.warnings || []).map(w => `<span class="code warn" title="${escapeHtml(desc[w] || '')}"><b>!${escapeHtml(w)}</b></span>`).join(' ');
-    return `shared memory: ${escapeHtml(shm.path)} ${humanBytes(shm.used_bytes, 'B')} used of ${humanBytes(shm.total_bytes, 'B')}` +
-      ` · Fast DDS ${humanBytes(shm.fastdds_bytes, 'B')} in ${shm.segments} segment(s), ${shm.ports} port(s), ${shm.datasharing_histories} data-sharing histor${shm.datasharing_histories === 1 ? 'y' : 'ies'}` +
-      (stale ? ` (${stale} stale)` : '') + (shm.nodes_visible === false ? ' · nodes in another IPC namespace' : '') +
-      (warnings ? ` ${warnings}` : '');
+    d3.select('#shm').html(shmText(d.shm, d.reason_code_descriptions));
   }
 
   function render() {
@@ -478,8 +346,6 @@
       .then(doc => setDocument(doc, url))
       .catch(e => { d3.select('#meta').text(`failed to load ${url}: ${e.message} (fetch does not work from file://; use "Open JSON…")`); });
   }
-
-  function escapeHtml(s) { return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 
   // wiring
   d3.select('#file').on('change', function () { if (this.files[0]) loadFile(this.files[0]); this.value = ''; });

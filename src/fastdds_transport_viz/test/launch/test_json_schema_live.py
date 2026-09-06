@@ -4,11 +4,13 @@
 import json
 import os
 import pathlib
+import signal
 import subprocess
 import sys
 
 import jsonschema
 import launch_testing
+from ament_index_python.packages import get_package_prefix
 
 sys.path.insert(0, os.path.dirname(__file__))
 from _common import Base, description, node_action, transport_viz_json  # noqa: E402
@@ -43,15 +45,21 @@ class TestJsonSchemaLive(Base):
     def test_watch_json_lines_have_changes(self):
         with open(SCHEMA) as f:
             validator = jsonschema.Draft202012Validator(json.load(f))
+        # the binary itself: terminating the `ros2 run` wrapper would leave it running
+        binary = os.path.join(get_package_prefix('fastdds_transport_viz'), 'lib',
+                              'fastdds_transport_viz', 'transport_viz')
         proc = subprocess.Popen(
-            ['ros2', 'run', 'fastdds_transport_viz', 'transport_viz', '--watch', '--json',
-             '--interval', '1', '--timeout', '2'],
+            [binary, '--watch', '--json', '--interval', '1', '--timeout', '2'],
             stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         try:
             docs = [json.loads(proc.stdout.readline()) for _ in range(2)]
         finally:
-            proc.terminate()
-            proc.wait(timeout=10)
+            proc.send_signal(signal.SIGINT)
+            try:
+                proc.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                proc.wait()
         for doc in docs:
             validator.validate(doc)
             self.assertIn('changes', doc)

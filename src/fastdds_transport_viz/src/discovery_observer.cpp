@@ -91,12 +91,14 @@ void fill_locators(const rtps::RemoteLocatorList & list, Endpoint & e)
   }
 }
 
-std::string reliability_str(const dds::ReliabilityQosPolicy & q)
+}  // namespace
+
+std::string reliability_to_string(const dds::ReliabilityQosPolicy & q)
 {
   return q.kind == dds::RELIABLE_RELIABILITY_QOS ? "RELIABLE" : "BEST_EFFORT";
 }
 
-std::string durability_str(const dds::DurabilityQosPolicy & q)
+std::string durability_to_string(const dds::DurabilityQosPolicy & q)
 {
   switch (q.kind) {
     case dds::VOLATILE_DURABILITY_QOS: return "VOLATILE";
@@ -117,6 +119,9 @@ void fill_data_sharing(const dds::DataSharingQosPolicy & q, EndpointQos & out)
   }
   out.data_sharing_domains = q.domain_ids();
 }
+
+namespace
+{
 
 template<typename ProxyData>
 Endpoint make_endpoint(const ProxyData & data, bool is_writer)
@@ -141,8 +146,8 @@ Endpoint make_endpoint(const ProxyData & data, bool is_writer)
   }
   e.ros_type = demangle_type(e.dds_type);
   fill_locators(disc_locators(data), e);
-  e.qos.reliability = reliability_str(disc_reliability(data));
-  e.qos.durability = durability_str(disc_durability(data));
+  e.qos.reliability = reliability_to_string(disc_reliability(data));
+  e.qos.durability = durability_to_string(disc_durability(data));
   fill_data_sharing(disc_data_sharing(data), e.qos);
   return e;
 }

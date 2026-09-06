@@ -47,6 +47,9 @@ struct ShmScanInput
 /// Scan `path` (statvfs + directory listing + lock probes).
 ShmInfo scan_shm(const std::string & path, const ShmScanInput & in);
 
+/// Adds `shm-nearly-full` from total/used/free (90 % used or less than 16 MiB free).
+void add_capacity_warning(ShmInfo & info);
+
 }  // namespace fastdds_transport_viz
 
 #endif  // FASTDDS_TRANSPORT_VIZ__SHM_INFO_HPP_
