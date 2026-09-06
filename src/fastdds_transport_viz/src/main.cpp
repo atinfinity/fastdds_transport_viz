@@ -323,7 +323,9 @@ public:
     if (!enabled_) {return;}
     tcgetattr(STDIN_FILENO, &saved_);
     termios raw = saved_;
-    raw.c_lflag &= ~(ICANON | ECHO);
+    // No line buffering, no echo, and no signal generation: Ctrl-C arrives as key 3 and
+    // ends the loop like 'q' (an orderly shutdown instead of a signal racing with it).
+    raw.c_lflag &= ~(ICANON | ECHO | ISIG);
     raw.c_cc[VMIN] = 0;
     raw.c_cc[VTIME] = 0;
     tcsetattr(STDIN_FILENO, TCSANOW, &raw);

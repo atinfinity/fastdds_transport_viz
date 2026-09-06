@@ -107,7 +107,7 @@ class TestWatchTty(Base):
         self.assertIn('p pause', out.split('[PAUSED]')[-1])
         t.key('q')
         code = t.wait()
-        self.assertEqual(code, 0)
+        self.assertEqual(code, 0, t.out.decode('utf-8', 'replace')[-1500:])
         out = t.read(0.5)
         self.assertIn('\033[?1049l', out)          # back to the main screen
         self.assertIn('\033[?25h', out)
@@ -120,8 +120,9 @@ class TestWatchTty(Base):
         for line in out.replace('\r', '').split('\n'):
             visible = re.sub(r'\033\[[0-9;?]*[A-Za-z]', '', line)
             self.assertLessEqual(len(visible), 60, line)
-        t.key('\x03')                              # Ctrl-C in raw mode
-        self.assertEqual(t.wait(), 0)
+        t.key('\x03')                              # Ctrl-C in raw mode: key 3, like 'q'
+        code = t.wait()
+        self.assertEqual(code, 0, t.out.decode('utf-8', 'replace')[-1500:])
 
 
 @launch_testing.post_shutdown_test()
