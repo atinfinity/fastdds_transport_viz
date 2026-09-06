@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!-- Test profile: a participant with UDPv4 as its only transport (no SHM), for Fast DDS
+     versions without FASTDDS_BUILTIN_TRANSPORTS (2.6, ROS 2 Humble). -->
+<dds xmlns="http://www.eprosima.com/XMLSchemas/fastRTPS_Profiles">
+  <profiles>
+    <transport_descriptors>
+      <transport_descriptor>
+        <transport_id>udpv4_only</transport_id>
+        <type>UDPv4</type>
+      </transport_descriptor>
+    </transport_descriptors>
+    <participant profile_name="udpv4_only" is_default_profile="true">
+      <rtps>
+        <useBuiltinTransports>false</useBuiltinTransports>
+        <userTransports><transport_id>udpv4_only</transport_id></userTransports>
+      </rtps>
+    </participant>
+  </profiles>
+</dds>

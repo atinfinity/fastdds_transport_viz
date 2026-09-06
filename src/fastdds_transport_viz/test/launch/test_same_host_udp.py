@@ -7,14 +7,13 @@ import sys
 import launch_testing
 
 sys.path.insert(0, os.path.dirname(__file__))
-from _common import Base, description, node_action  # noqa: E402
+from _common import FASTDDS_26, Base, description, node_action, udpv4_only_env  # noqa: E402
 
 
 def generate_test_description():
     return description([
         node_action('demo_nodes_cpp', 'talker', 'talker'),
-        node_action('demo_nodes_cpp', 'listener', 'listener',
-                    {'FASTDDS_BUILTIN_TRANSPORTS': 'UDPv4'}),
+        node_action('demo_nodes_cpp', 'listener', 'listener', udpv4_only_env()),
     ]), {}
 
 
@@ -28,7 +27,12 @@ class TestSameHostUdp(Base):
         self.assertIn('same-host-guid', pair['reasons'])
         self.assertIn('reader-no-shm-locator', pair['reasons'])
         self.assertNotIn('writer-no-shm-locator', pair['reasons'])
-        self.assertIn('common-udpv4-locator', pair['reasons'])
+        if FASTDDS_26:
+            # Fast DDS 2.6 shows only the talker's SHM locator: the fallback is inferred
+            self.assertEqual(pair['confidence'], 'likely', pair)
+            self.assertIn('same-host-locators-hidden', pair['reasons'])
+        else:
+            self.assertIn('common-udpv4-locator', pair['reasons'])
         reader = chatter['readers'][0]
         self.assertFalse(any(l['kind'] == 'SHM' for l in reader['unicast_locators']), reader)
 

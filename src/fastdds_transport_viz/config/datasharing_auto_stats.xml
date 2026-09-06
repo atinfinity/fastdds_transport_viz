@@ -8,11 +8,11 @@
 <dds xmlns="http://www.eprosima.com/XMLSchemas/fastRTPS_Profiles">
   <profiles>
     <data_writer profile_name="ds_writer" is_default_profile="true">
-      <qos><data_sharing><kind>AUTO</kind></data_sharing></qos>
+      <qos><data_sharing><kind>AUTOMATIC</kind></data_sharing></qos>
       <historyMemoryPolicy>PREALLOCATED_WITH_REALLOC</historyMemoryPolicy>
     </data_writer>
     <data_reader profile_name="ds_reader" is_default_profile="true">
-      <qos><data_sharing><kind>AUTO</kind></data_sharing></qos>
+      <qos><data_sharing><kind>AUTOMATIC</kind></data_sharing></qos>
       <historyMemoryPolicy>PREALLOCATED_WITH_REALLOC</historyMemoryPolicy>
     </data_reader>
     <data_writer profile_name="RTPS_SENT_TOPIC">

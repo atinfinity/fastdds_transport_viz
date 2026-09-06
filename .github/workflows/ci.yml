@@ -42,13 +42,14 @@ jobs:
       (github.event_name == 'pull_request' && needs.changes.outputs.code == 'true')
     runs-on: ubuntu-latest
     container: ros:${{ matrix.distro }}
-    # Jazzy: Fast DDS 2.14; Kilted: Fast DDS 3.2; Rolling: Fast DDS 3.x head, may break
-    # with upstream changes, so it does not block PRs.
+    # Humble: Fast DDS 2.6 (no statistics module in the binary); Jazzy: Fast DDS 2.14;
+    # Kilted: Fast DDS 3.2; Rolling: Fast DDS 3.x head, may break with upstream changes,
+    # so it does not block PRs.
     continue-on-error: ${{ matrix.distro == 'rolling' }}
     strategy:
       fail-fast: false
       matrix:
-        distro: [jazzy, kilted, rolling]
+        distro: [humble, jazzy, kilted, rolling]
     defaults:
       run:
         shell: bash

@@ -11,7 +11,8 @@
 **ROS 2 の各トピックが Fast DDS のどの transport で通信しているか** — UDPv4、UDPv6、TCP、
 共有メモリ (SHM)、zero-copy の data-sharing — を、**その理由とともに**表示します。
 
-対象: ROS 2 Jazzy (Fast DDS 2.14) と Kilted / Rolling (Fast DDS 3.x)、`rmw_fastrtps_cpp`。
+対象: ROS 2 Jazzy (Fast DDS 2.14) と Kilted / Rolling (Fast DDS 3.x)、`rmw_fastrtps_cpp`。Humble
+(Fast DDS 2.6) は予測のみ (バイナリに statistics モジュールが無い)。
 
 ```
 $ ros2 transport list -v --stats --topic '^/(chatter|bounded)$'

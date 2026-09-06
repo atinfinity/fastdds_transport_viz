@@ -7,6 +7,7 @@ and Rolling).
 
 | ROS 2 distribution | Fast DDS | Notes |
 |---|---|---|
+| Humble (Ubuntu 22.04) | 2.6 | prediction only: the Humble binary has no statistics module, so `--stats` measures nothing; same-host peers show only their SHM locator (see [how-it-works](how-it-works.md#fast-dds-26-ros-2-humble)) |
 | Jazzy (Ubuntu 24.04) | 2.14 | primary target |
 | Kilted (Ubuntu 24.04) | 3.2 | |
 | Rolling | 3.x | best effort (CI allows failures) |
@@ -25,7 +26,7 @@ and `rosdep` (`sudo rosdep init && rosdep update` once).
 ```
 mkdir -p ~/ws/src && cd ~/ws
 git clone https://github.com/atinfinity/fastdds_transport_viz.git src/fastdds_transport_viz
-source /opt/ros/jazzy/setup.bash              # or kilted / rolling
+source /opt/ros/jazzy/setup.bash              # or humble / kilted / rolling
 rosdep install --from-paths src --ignore-src -y
 colcon build --symlink-install
 source install/setup.bash

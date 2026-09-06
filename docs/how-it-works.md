@@ -105,6 +105,24 @@ see [development.md](development.md#verification-results)):
 - Large samples (2 MB `UInt8MultiArray`) stay on SHM; Fast DDS fragments them to the
   transport's maximum message size.
 
+## Fast DDS 2.6 (ROS 2 Humble)
+
+Two things differ on Humble's Fast DDS 2.6:
+
+- **No statistics.** The Humble binary is built without the statistics module
+  (`FASTDDS_STATISTICS` off in `config.h`), so the observed nodes cannot publish
+  statistics whatever `FASTDDS_STATISTICS` says. `--stats` prints a warning and every
+  pair shows `stats-not-enabled-on-writer`; `RATE`, `LATENCY` and `measured=` stay empty.
+  A Fast DDS built with the module on works with the tool's 2.6 support.
+- **Same-host locators are filtered.** Fast DDS below 2.10 announces only the SHM locator
+  of a participant on the same host to the tool. When the other side has no SHM locator
+  (a UDP-only participant), no common locator kind is visible; the tool then predicts
+  `UDPv4?` with the reason `same-host-locators-hidden`, because both sides keep the
+  builtin UDPv4 transport, and Fast DDS does fall back to it.
+- `FASTDDS_BUILTIN_TRANSPORTS` (Fast DDS 2.12+) and `ROS_AUTOMATIC_DISCOVERY_RANGE` /
+  `ROS_STATIC_PEERS` (ROS 2 Iron+) do not exist there; transports are configured through
+  an XML profile (`test/launch/udpv4_only.xml` is an example of a UDPv4-only participant).
+
 ## Hosts
 
 Without `--stats`, hosts are shown as `local` (same host id as the tool) or

@@ -169,6 +169,7 @@ Endpoint make_endpoint(const ProxyData & data, bool is_writer)
   e.qos.liveliness_lease_s = duration_seconds(disc_liveliness(data).lease_duration);
   e.qos.ownership = ownership_to_string(disc_ownership(data));
   e.qos.partitions = disc_partition(data).names();
+  e.same_host_locators_filtered = FTV_SAME_HOST_LOCATORS_FILTERED;
   return e;
 }
 

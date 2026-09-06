@@ -9,6 +9,11 @@ import subprocess
 import sys
 
 import jsonschema
+
+# Draft 2020-12 where available (Jazzy+); Humble's jsonschema 3.2 validates the same
+# schema with its newest draft (the schema only uses $defs, $ref, enum, type, const).
+VALIDATOR = getattr(jsonschema, 'Draft202012Validator', None) or jsonschema.validators.validator_for(
+    {'$schema': 'http://json-schema.org/draft-07/schema#'})
 import launch_testing
 from ament_index_python.packages import get_package_prefix
 
@@ -30,7 +35,7 @@ class TestJsonSchemaLive(Base):
 
     def test_output_matches_schema(self):
         with open(SCHEMA) as f:
-            validator = jsonschema.Draft202012Validator(json.load(f))
+            validator = VALIDATOR(json.load(f))
         for args in ([], ['--stats'], ['--all']):
             doc = transport_viz_json(args, timeout=4.0)
             validator.validate(doc)
@@ -44,7 +49,7 @@ class TestJsonSchemaLive(Base):
 
     def test_watch_json_lines_have_changes(self):
         with open(SCHEMA) as f:
-            validator = jsonschema.Draft202012Validator(json.load(f))
+            validator = VALIDATOR(json.load(f))
         # the binary itself: terminating the `ros2 run` wrapper would leave it running
         binary = os.path.join(get_package_prefix('fastdds_transport_viz'), 'lib',
                               'fastdds_transport_viz', 'transport_viz')

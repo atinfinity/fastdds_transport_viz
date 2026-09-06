@@ -10,7 +10,7 @@ import launch
 import launch_testing
 
 sys.path.insert(0, os.path.dirname(__file__))
-from _common import Base, description, node_action, pair_of, transport_viz_json  # noqa: E402
+from _common import Base, description, node_action, pair_of, transport_viz_json, skip_without_builtin_transports  # noqa: E402
 from test_udpv6 import has_ipv6_interface  # noqa: E402
 
 ENV = {'FASTDDS_BUILTIN_TRANSPORTS': 'LARGE_DATAv6'}
@@ -25,6 +25,7 @@ def generate_test_description():
     return description(nodes), {}
 
 
+@skip_without_builtin_transports
 class TestLargeDataV6(Base):
 
     @unittest.skipUnless(has_ipv6_interface(), 'no IPv6 interface')

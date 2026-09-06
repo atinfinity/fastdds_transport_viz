@@ -7,7 +7,7 @@ import sys
 import launch_testing
 
 sys.path.insert(0, os.path.dirname(__file__))
-from _common import Base, description, node_action, pair_of, transport_viz_json  # noqa: E402
+from _common import Base, description, node_action, pair_of, transport_viz_json, skip_without_discovery_range  # noqa: E402
 
 ENV = {'ROS_AUTOMATIC_DISCOVERY_RANGE': 'LOCALHOST'}
 
@@ -19,6 +19,7 @@ def generate_test_description():
     ]), {}
 
 
+@skip_without_discovery_range
 class TestLocalhostRange(Base):
 
     def test_chatter_uses_shm(self):

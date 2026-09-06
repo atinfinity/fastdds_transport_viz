@@ -4,7 +4,7 @@
 
 The repository ships a `compose.yaml` and `docker/Dockerfile` based on `ros:jazzy`
 (multi-arch: x86_64 and arm64). `ROS_DISTRO=kilted docker compose build` (or `rolling`)
-builds the same environment on Fast DDS 3.x; the image is tagged
+builds the same environment on Fast DDS 3.x, `ROS_DISTRO=humble` on Fast DDS 2.6; the image is tagged
 `fastdds_transport_viz:<distro>` and every `docker compose` command below then needs
 the same `ROS_DISTRO` in the environment.
 
@@ -136,6 +136,9 @@ colcon test && colcon test-result --verbose
   nodes (SHM, and UDPv4 fallback via `FASTDDS_BUILTIN_TRANSPORTS=UDPv4`).
 - `test_stats.py`: demo nodes with `FASTDDS_STATISTICS`; asserts measured SHM / UDPv4,
   host names and the `LATENCY` values.
+- Humble: tests that need the statistics module, `FASTDDS_BUILTIN_TRANSPORTS` or
+  `ROS_AUTOMATIC_DISCOVERY_RANGE` skip themselves (`skip_without_*` in `_common.py`);
+  UDPv4-only participants come from `udpv4_only.xml` instead of the environment variable.
 - `test_udpv6.py` (`FASTDDS_BUILTIN_TRANSPORTS=UDPv6`, skipped without an IPv6
   interface), `test_localhost_range.py` (`ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST`),
   `test_discovery_server.py` (`fastdds discovery` server, SUPER_CLIENT vs plain client),
@@ -186,7 +189,7 @@ exercised through `test_web_live.py`.
 ## Continuous integration
 
 `.github/workflows/ci.yml` runs `rosdep install`, `colcon build`, `colcon test` inside
-`ros:jazzy`, `ros:kilted` and `ros:rolling` containers for every pull request that touches
+`ros:humble`, `ros:jazzy`, `ros:kilted` and `ros:rolling` containers for every pull request that touches
 code (docs-only changes skip the job); Rolling may break with upstream changes and does
 not block (`continue-on-error`). Test result XML files and launch logs are uploaded as a
 workflow artifact per distribution. `main` is protected: pull requests merge only when
@@ -285,6 +288,8 @@ Done:
 - Web viewer: node filter — [#18](https://github.com/atinfinity/fastdds_transport_viz/issues/18)
 - Fast DDS 3.x (Kilted / Rolling) next to 2.14 (Jazzy) —
   [#5](https://github.com/atinfinity/fastdds_transport_viz/issues/5)
+- Humble (Fast DDS 2.6): prediction, statistics unavailable in the binary —
+  [#48](https://github.com/atinfinity/fastdds_transport_viz/issues/48)
 - Japanese README and user docs — [#8](https://github.com/atinfinity/fastdds_transport_viz/issues/8)
 - `RATE` column (payload throughput) and the shared-memory line (`/dev/shm` capacity,
   Fast DDS files, stale files, IPC-namespace visibility)
@@ -298,13 +303,10 @@ Done:
 
 Open, in priority order (labels `priority/1-high` … `priority/3-low` on the issues):
 
-1. Humble (Fast DDS 2.6) support —
-   [#48](https://github.com/atinfinity/fastdds_transport_viz/issues/48): the largest user
-   base.
-2. Reliability health (resends, gaps, lost samples) —
+1. Reliability health (resends, gaps, lost samples) —
    [#47](https://github.com/atinfinity/fastdds_transport_viz/issues/47).
-3. Distribution: CHANGELOG, ament lint, bloom release —
+2. Distribution: CHANGELOG, ament lint, bloom release —
    [#50](https://github.com/atinfinity/fastdds_transport_viz/issues/50).
-4. DDS Security (SROS2) — [#49](https://github.com/atinfinity/fastdds_transport_viz/issues/49).
-5. Same host id, separate IPC namespace in the shared-memory line —
+3. DDS Security (SROS2) — [#49](https://github.com/atinfinity/fastdds_transport_viz/issues/49).
+4. Same host id, separate IPC namespace in the shared-memory line —
    [#51](https://github.com/atinfinity/fastdds_transport_viz/issues/51).

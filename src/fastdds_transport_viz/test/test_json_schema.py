@@ -5,6 +5,11 @@ import json
 import pathlib
 
 import jsonschema
+
+# Draft 2020-12 where available (Jazzy+); Humble's jsonschema 3.2 validates the same
+# schema with its newest draft (the schema only uses $defs, $ref, enum, type, const).
+VALIDATOR = getattr(jsonschema, 'Draft202012Validator', None) or jsonschema.validators.validator_for(
+    {'$schema': 'http://json-schema.org/draft-07/schema#'})
 import pytest
 
 REPO = pathlib.Path(__file__).resolve().parents[3]
@@ -18,13 +23,13 @@ def load(path):
 
 
 def test_schema_itself_is_valid():
-    jsonschema.Draft202012Validator.check_schema(load(SCHEMA))
+    VALIDATOR.check_schema(load(SCHEMA))
 
 
 @pytest.mark.parametrize('sample', SAMPLES, ids=[s.name for s in SAMPLES])
 def test_sample_matches_schema(sample):
     assert SAMPLES, 'no sample documents found'
-    jsonschema.Draft202012Validator(load(SCHEMA)).validate(load(sample))
+    VALIDATOR(load(SCHEMA)).validate(load(sample))
 
 
 def test_sample_descriptions_cover_used_codes():

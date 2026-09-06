@@ -7,7 +7,7 @@ import sys
 import launch_testing
 
 sys.path.insert(0, os.path.dirname(__file__))
-from _common import Base, description, node_action, pair_of, transport_viz_json  # noqa: E402
+from _common import Base, description, node_action, pair_of, transport_viz_json, skip_without_builtin_transports  # noqa: E402
 
 ENV = {'FASTDDS_BUILTIN_TRANSPORTS': 'LARGE_DATA'}
 
@@ -19,6 +19,7 @@ def generate_test_description():
     ]), {}
 
 
+@skip_without_builtin_transports
 class TestLargeDataSameHost(Base):
 
     def test_shm_wins_over_announced_tcp(self):

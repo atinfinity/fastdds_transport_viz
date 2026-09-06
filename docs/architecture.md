@@ -215,9 +215,13 @@ first and falls back to `fastrtps`, and `package.xml` uses `condition="$ROS_DIST
 for the dependency.
 
 The statistics topics need their generated type support, which the ROS distributions do
-not ship as headers. `third_party/fastdds_statistics_types/` (2.14.6) and
+not ship as headers. `third_party/fastdds_statistics_types/` (2.14.6),
+`.../fastdds_statistics_types_v26/` (2.6.12, fastcdr 1.0 serialization) and
 `.../fastdds_statistics_types_v3/` (3.2.4) are vendored copies (Apache-2.0); CMake picks
-one by major version and builds it into `fastdds_transport_viz_stats_types`.
+one by version and builds it into `fastdds_transport_viz_stats_types`. `fastdds_compat.hpp`
+also defines `FTV_HAS_STATISTICS` (false for Humble's binary, built without the module)
+and `FTV_SAME_HOST_LOCATORS_FILTERED` (Fast DDS < 2.10 hides the network locators of
+same-host peers), which `main.cpp` and the observer use.
 
 ## Web viewer and live mode
 

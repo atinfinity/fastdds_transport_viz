@@ -82,6 +82,7 @@ struct Endpoint
   std::vector<Locator> unicast;
   std::vector<Locator> multicast;
   EndpointQos qos;
+  bool same_host_locators_filtered{false};     // Fast DDS < 2.10: only the SHM locator of a same-host peer is visible
   bool datasharing_history_available{false};   // a data-sharing history file of this writer exists in /dev/shm
   uint64_t datasharing_history_bytes{0};
 };

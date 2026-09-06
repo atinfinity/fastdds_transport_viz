@@ -8,7 +8,7 @@ import launch
 import launch_testing
 
 sys.path.insert(0, os.path.dirname(__file__))
-from _common import Base, description, node_action, pair_of, transport_viz_json  # noqa: E402
+from _common import Base, description, node_action, pair_of, transport_viz_json, skip_without_builtin_transports  # noqa: E402
 
 ENV = {'FASTDDS_BUILTIN_TRANSPORTS': 'UDPv6'}
 
@@ -33,6 +33,7 @@ def generate_test_description():
     return description(nodes), {}
 
 
+@skip_without_builtin_transports
 class TestUdpv6(Base):
 
     def test_chatter_uses_udpv6(self):

@@ -1,0 +1,11 @@
+The files in this directory are generated code (fastddsgen 2.1.4) copied verbatim from
+eProsima Fast DDS v2.6.12, commit ac5c7b9014cd5b2bebf9c4b04dc229ca5a0a4338,
+path src/cpp/statistics/types/ (source IDL: include/fastdds/statistics/types.idl).
+
+Copyright 2016 Proyectos y Sistemas de Mantenimiento SL (eProsima).
+Licensed under the Apache License, Version 2.0 (see LICENSE in this directory).
+
+They are vendored because ROS 2 Humble installs the compiled statistics types in
+libfastrtps but ships neither their headers nor fastddsgen. Fast DDS 2.6 serializes
+with the fastcdr 1.0 API, so the 2.14 sources cannot be reused. Replace this directory
+when targeting a different Fast DDS 2.x version below 2.10.
