@@ -1,0 +1,67 @@
+name: Bug report
+description: Something doesn't work as documented (wrong transport/reason code, crash, build failure, ...)
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you ran, what you expected, what you got instead.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: ros-distro
+    attributes:
+      label: ROS 2 distro
+      options:
+        - Humble
+        - Jazzy
+        - Kilted
+        - Rolling
+        - Other / not sure
+    validations:
+      required: true
+
+  - type: input
+    id: os-arch
+    attributes:
+      label: OS / architecture
+      description: e.g. "Ubuntu 24.04, x86_64", "Docker (ros:jazzy image), arm64 host", "macOS via RoboStack"
+      placeholder: Ubuntu 24.04, x86_64
+    validations:
+      required: true
+
+  - type: input
+    id: fastdds-version
+    attributes:
+      label: Fast DDS version (if known)
+      description: From the build log, or `ros2 pkg xml fastrtps` / `ros2 pkg xml fastdds`.
+    validations:
+      required: false
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: How to reproduce
+      description: Exact commands, including env vars (`FASTDDS_BUILTIN_TRANSPORTS`, `FASTDDS_STATISTICS`, ...) and any XML profile used.
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: output
+    attributes:
+      label: Relevant output
+      description: Table/`--json` output, error messages, or a stack trace. Paste `--json` output as-is where possible — it's easier to compare against the schema than a description.
+      render: shell
+    validations:
+      required: false
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else
+      description: Anything that might be relevant — container vs bare metal, multiple hosts, a custom XML profile, etc.
+    validations:
+      required: false

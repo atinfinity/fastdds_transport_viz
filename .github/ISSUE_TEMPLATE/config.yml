@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Documentation
+    url: https://atinfinity.github.io/fastdds_transport_viz/
+    about: Usage questions are often already answered in Getting started, How it works, or the docs for a specific feature.
