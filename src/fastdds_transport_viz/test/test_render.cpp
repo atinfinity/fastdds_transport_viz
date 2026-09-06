@@ -100,8 +100,20 @@ TEST(RenderTable, MaxWidthTruncatesEveryLine)
 {
   RenderOptions opt;
   opt.verbose = true;
+  opt.explain = true;
   opt.max_width = 30;
-  auto out = render_table(snapshot(), opt);
+  auto snap = snapshot();
+  snap.stats.enabled = true;               // footer lines must be cut as well
+  snap.shm.available = true;
+  snap.shm.path = "/dev/shm";
+  snap.shm.total_bytes = 1000000;
+  snap.shm.warnings = {"shm-stale-files"};
+  snap.shm.stale_segments = 3;
+  WatchDecorations w;
+  w.summary = "+1 pair  -1 pair  ~1 changed and a very long summary";
+  opt.watch = &w;
+  auto out = render_table(snap, opt);
+  EXPECT_NE(out.find("shared memory:"), std::string::npos);
   size_t start = 0;
   while (start < out.size()) {
     size_t end = out.find('\n', start);

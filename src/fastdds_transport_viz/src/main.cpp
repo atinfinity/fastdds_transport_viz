@@ -479,6 +479,13 @@ int main(int argc, char ** argv)
   if (o.timeout < 0) {
     o.timeout = o.stats ? 5.0 : 3.0;
   }
+  // The tool is meant to run in the observed nodes' environment, which may carry
+  // FASTDDS_STATISTICS. Fast DDS would then add statistics DataWriters to our own two
+  // participants as well; on the discovery participant, which also hosts the statistics
+  // readers, that deadlocks inside Fast DDS 2.14 (on_rtps_sent() -> statistics
+  // DataWriter::write() while a reader sends its acknack). We never need statistics about
+  // ourselves, so drop the variable before any participant is created.
+  ::unsetenv("FASTDDS_STATISTICS");
   int domain = o.domain;
   if (domain < 0) {
     const char * env = std::getenv("ROS_DOMAIN_ID");
@@ -571,12 +578,14 @@ int main(int argc, char ** argv)
             term.size(rows, cols);
             ropt.max_width = cols;
             ropt.watch = &ws.deco;
+            std::ostringstream header;
+            header << "transport_viz  domain " << domain << "  " << snap.observed_at
+                   << "  refresh " << o.interval << "s" << (paused ? "  [PAUSED]" : "")
+                   << (o.all ? "  [all]" : "")
+                   << (o.topic_regex.empty() ? "" : "  [topic: " + o.topic_regex + "]")
+                   << (o.node_regex.empty() ? "" : "  [node: " + o.node_regex + "]");
             std::ostringstream frame;
-            frame << "transport_viz  domain " << domain << "  " << snap.observed_at
-                  << "  refresh " << o.interval << "s" << (paused ? "  [PAUSED]" : "")
-                  << (o.all ? "  [all]" : "")
-                  << (o.topic_regex.empty() ? "" : "  [topic: " + o.topic_regex + "]")
-                  << (o.node_regex.empty() ? "" : "  [node: " + o.node_regex + "]") << "\n\n";
+            frame << fastdds_transport_viz::truncate_visible(header.str(), cols) << "\n\n";
             frame << fastdds_transport_viz::render_table(snap, ropt);
             if (term.enabled()) {
               frame << "\n q quit   p " << (paused ? "resume" : "pause") << "   v pairs   e legend   a all\n";

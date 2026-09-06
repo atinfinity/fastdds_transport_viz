@@ -222,9 +222,10 @@ one by major version and builds it into `fastdds_transport_viz_stats_types`.
 ## Web viewer and live mode
 
 `web/index.html` + `web/app.js` (plain JavaScript, vendored d3) render a `--json`
-document: `buildModel()` turns it into nodes, hosts and bundled edges, filters apply
-`--node`/`--topic` semantics client-side, and the panel shows the reason codes with the
-descriptions carried in the document. `schema/transport_viz.schema.json` is the contract;
+document: `buildModel()` in `web/model.js` turns it into nodes, hosts and bundled edges,
+filters apply `--node`/`--topic` semantics client-side, and the panel shows the reason
+codes with the descriptions carried in the document. `model.js` holds every function
+without DOM or d3 dependencies and is unit-tested under Node (`web/test/`). `schema/transport_viz.schema.json` is the contract;
 `test_json_schema` validates the shipped samples and `test_json_schema_live.py` the live
 output against it. The tool may add
 keys freely; a breaking change bumps `schema_version`.
@@ -253,8 +254,8 @@ src/fastdds_transport_viz/
   third_party/fastdds_statistics_types_v3/  same for Fast DDS 3.x
   test/                            gtest (decision, render, shm_info), pytest (json schema, web serve),
                                    launch/ (launch tests, _common.py, large_shm_stats.xml)
-web/                               static viewer (index.html, app.js, style.css, vendor/d3), serve.py
-                                   (transport_viz_web), sample/
+web/                               static viewer (index.html, app.js, model.js, style.css, vendor/d3),
+                                   serve.py (transport_viz_web), sample/, test/ (Node unit tests)
 schema/                            JSON Schema for --json output
 scripts/                           integration_test.sh (Docker scenarios), render_examples.sh, ansi2svg.py
 docker/, compose.yaml              development / verification containers

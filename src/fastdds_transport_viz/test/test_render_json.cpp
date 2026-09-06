@@ -13,6 +13,7 @@
 #include "fastdds_transport_viz/decision.hpp"
 #include "fastdds_transport_viz/model.hpp"
 #include "fastdds_transport_viz/render.hpp"
+#include "fastdds_transport_viz/stats_observer.hpp"
 
 using namespace fastdds_transport_viz;  // NOLINT
 using json = nlohmann::json;
@@ -152,4 +153,10 @@ TEST(RenderJson, ChangesObjectAndCompactMode)
   // pretty mode spans lines
   EXPECT_GT(render_json(s, RenderOptions{}).find('\n'), 0u);
   EXPECT_NE(render_json(s, RenderOptions{}).find("\n  \"changes\""), std::string::npos);
+}
+
+TEST(StatsObserver, RequiredEnvValueIsTheDocumentedFiveTopicList)
+{
+  EXPECT_EQ(StatsObserver::required_env_value(),
+    "RTPS_SENT_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC;DATA_COUNT_TOPIC;PUBLICATION_THROUGHPUT_TOPIC");
 }

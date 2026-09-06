@@ -70,6 +70,17 @@ class TestStats(Base):
         self.assertEqual(shm['writer_host'], writer['host_name'].split(':')[0])
 
 
+    def test_tool_with_statistics_in_its_own_environment(self):
+        """FASTDDS_STATISTICS set for the tool too (the nodes' environment): the tool must
+        drop it for its own participants, otherwise Fast DDS 2.14 deadlocks in
+        on_rtps_sent() and this call never returns."""
+        doc = transport_viz_json(['--stats'], timeout=6.0, env=STATS_ENV)
+        self.assertTrue(doc['stats']['enabled'])
+        chatter = topic(doc, '/chatter')
+        pair = next(p for p in chatter['pairs'] if p['reader_node'] == '/listener')
+        self.assertTrue(pair['measured']['available'], pair)
+
+
 @launch_testing.post_shutdown_test()
 class TestShutdown(Base):
 

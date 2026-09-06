@@ -71,6 +71,11 @@ own statistics readers already use unlimited instances.)
 
 ## Implementation notes
 
+- The tool removes `FASTDDS_STATISTICS` from its own environment before creating its
+  participants: with the variable set, Fast DDS 2.14 adds statistics writers to the
+  participant that hosts the tool's statistics readers and can deadlock inside
+  `on_rtps_sent()` while a reader sends an acknack. Statistics about the tool itself are
+  never needed (its endpoints are filtered out anyway).
 - `RTPS_SENT` reports the *participant* GUID as source, and `byte_count` is the plain
   cumulative byte total (`byte_magnitude_order` is only `floor(log10(byte_count))`).
 - Fast DDS shows the tool the locators of participants on its own host as `127.0.0.1`

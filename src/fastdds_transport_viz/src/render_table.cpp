@@ -415,7 +415,19 @@ std::string render_table(const Snapshot & snap, const RenderOptions & opt)
     os << "\nLegend: '?' after a transport = confidence 'likely' (see reason codes);"
        << " '!' prefix = warning.\n";
   }
-  return os.str();
+  if (opt.max_width == 0) {
+    return os.str();
+  }
+  // The table rows were cut while being emitted; cut the footer lines (changes,
+  // statistics, shared memory, legend) the same way so that nothing wraps on a terminal.
+  std::string out;
+  std::istringstream lines(os.str());
+  std::string line;
+  while (std::getline(lines, line)) {
+    out += truncate_visible(line, opt.max_width);
+    out += '\n';
+  }
+  return out;
 }
 
 }  // namespace fastdds_transport_viz

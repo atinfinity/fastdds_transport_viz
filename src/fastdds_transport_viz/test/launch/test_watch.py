@@ -46,13 +46,16 @@ def run_watch(extra, seconds, action_at, action):
 
 
 LISTENER = os.path.join(get_package_prefix('demo_nodes_cpp'), 'lib', 'demo_nodes_cpp', 'listener')
+_udp_children = []
 
 
 def start_udp_listener():
     env = dict(os.environ, FASTDDS_BUILTIN_TRANSPORTS='UDPv4')
-    return subprocess.Popen(
+    proc = subprocess.Popen(
         [LISTENER, '--ros-args', '-r', '__node:=listener_udp'],
         env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    _udp_children.append(proc)
+    return proc
 
 
 def stop_node(proc):
@@ -63,6 +66,8 @@ def stop_node(proc):
     except subprocess.TimeoutExpired:
         proc.kill()
         proc.wait()
+    if proc in _udp_children:
+        _udp_children.remove(proc)
 
 
 class TestWatch(Base):
@@ -84,6 +89,25 @@ class TestWatch(Base):
         self.assertIn('-1 pair', out2)
         self.assertIn('(removed)', out2)
         self.assertIn('/listener_udp', out2)
+        # phase 3: a listener that disappears and comes back while its ghost row is still
+        # shown: the ghost is replaced by the live pair, marked + again
+        udp2 = start_udp_listener()
+        time.sleep(3)
+
+        def bounce():
+            stop_node(udp2)
+            time.sleep(1.5)
+            return start_udp_listener()
+        try:
+            out3, _ = run_watch(['-v'], seconds=10, action_at=3, action=bounce)
+            self.assertIn('(removed)', out3)
+            self.assertIn('+1 pair', out3)
+            last = out3.split('transport_viz  domain')[-1]
+            self.assertNotIn('(removed)', last, 'ghost replaced by the live pair')
+            self.assertIn('/listener_udp', last)
+        finally:
+            for proc in list(_udp_children):
+                stop_node(proc)
 
     def test_json_frames_carry_changes(self):
         self.wait_for_topic('/chatter')

@@ -58,6 +58,26 @@ def test_invalid_regex_exits_2():
     assert "--node: invalid regex '['" in r.stderr
 
 
+def test_color_modes_are_accepted_and_always_paints_without_a_terminal():
+    for mode in ('auto', 'never'):
+        r = run('--color', mode, '--list-codes')
+        assert r.returncode == 0, (mode, r)
+        assert '\033[' not in r.stdout
+    # a table with no endpoints still carries the bold "shared memory:" label
+    r = run('--color', 'always', '--timeout', '0.5', '--quiet', '0')
+    assert r.returncode == 0, r
+    assert '\033[1mshared memory: \033[0m' in r.stdout or '(no endpoints discovered' in r.stdout, r.stdout
+    assert '\033[' in r.stdout
+
+
+def test_discovery_range_off_prints_a_warning():
+    env = dict(os.environ, ROS_AUTOMATIC_DISCOVERY_RANGE='OFF')
+    r = subprocess.run([BINARY, '--timeout', '0.5', '--quiet', '0'], capture_output=True, text=True,
+                       timeout=30, env=env)
+    assert r.returncode == 0, r
+    assert 'ROS_AUTOMATIC_DISCOVERY_RANGE=OFF disables discovery' in r.stderr
+
+
 def test_invalid_color_mode_exits_2():
     r = run('--color', 'pink')
     assert r.returncode == 2, r

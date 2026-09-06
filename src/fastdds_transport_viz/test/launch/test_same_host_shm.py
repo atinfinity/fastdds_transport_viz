@@ -7,7 +7,7 @@ import sys
 import launch_testing
 
 sys.path.insert(0, os.path.dirname(__file__))
-from _common import STRING_TYPES, Base, description, node_action  # noqa: E402
+from _common import STRING_TYPES, Base, description, node_action, transport_viz_json  # noqa: E402
 
 
 def generate_test_description():
@@ -35,6 +35,18 @@ class TestSameHostShm(Base):
         for t in doc['topics']:
             for ep in t['writers'] + t['readers']:
                 self.assertFalse(ep['node'].startswith('/_transport_viz'), ep)
+
+
+    def test_node_filter(self):
+        self.wait_for_topic('/chatter')
+        doc = transport_viz_json(['--node', '^/listener$'])
+        names = {t['topic'] for t in doc['topics']}
+        self.assertIn('/chatter', names)
+        for t in doc['topics']:
+            for p in t['pairs']:
+                self.assertTrue(p['writer_node'] == '/listener' or p['reader_node'] == '/listener', p)
+        doc = transport_viz_json(['--node', 'no-such-node'])
+        self.assertEqual(doc['topics'], [], doc['topics'])
 
 
 @launch_testing.post_shutdown_test()
