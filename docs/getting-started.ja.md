@@ -8,6 +8,7 @@
 
 | ROS 2 ディストリビューション | Fast DDS | 備考 |
 |---|---|---|
+| Humble (Ubuntu 22.04) | 2.6 | 予測のみ: Humble のバイナリには statistics モジュールが無く `--stats` は何も測れない。同一ホストの相手は SHM locator しか見えない ([仕組み](how-it-works.ja.md#fast-dds-26-ros-2-humble) 参照) |
 | Jazzy (Ubuntu 24.04) | 2.14 | 主対象 |
 | Kilted (Ubuntu 24.04) | 3.2 | |
 | Rolling | 3.x | ベストエフォート (CI は失敗を許容) |
@@ -26,7 +27,7 @@
 ```
 mkdir -p ~/ws/src && cd ~/ws
 git clone https://github.com/atinfinity/fastdds_transport_viz.git src/fastdds_transport_viz
-source /opt/ros/jazzy/setup.bash              # または kilted / rolling
+source /opt/ros/jazzy/setup.bash              # または humble / kilted / rolling
 rosdep install --from-paths src --ignore-src -y
 colcon build --symlink-install
 source install/setup.bash

@@ -8,7 +8,7 @@ import sys
 import launch_testing
 
 sys.path.insert(0, os.path.dirname(__file__))
-from _common import Base, description, node_action, pair_of, STATS_ENV, transport_viz_json  # noqa: E402
+from _common import Base, description, node_action, pair_of, skip_without_statistics, STATS_ENV, transport_viz_json  # noqa: E402
 
 from ament_index_python.packages import get_package_share_directory  # noqa: E402
 
@@ -27,6 +27,7 @@ def generate_test_description():
     ]), {}
 
 
+@skip_without_statistics
 class TestDataSharingStats(Base):
 
     def test_datasharing_is_certain(self):

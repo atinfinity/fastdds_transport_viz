@@ -29,6 +29,7 @@
 #include "rclcpp/rclcpp.hpp"
 
 #include "fastdds_transport_viz/decision.hpp"
+#include "fastdds_transport_viz/fastdds_compat.hpp"
 #include "fastdds_transport_viz/discovery_observer.hpp"
 #include "fastdds_transport_viz/model.hpp"
 #include "fastdds_transport_viz/render.hpp"
@@ -488,6 +489,10 @@ int main(int argc, char ** argv)
   // DataWriter::write() while a reader sends its acknack). We never need statistics about
   // ourselves, so drop the variable before any participant is created.
   ::unsetenv("FASTDDS_STATISTICS");
+  if (o.stats && !FTV_HAS_STATISTICS) {
+    std::cerr << "warning: this Fast DDS was built without the statistics module (ROS 2 Humble's "
+      "2.6 binary): the observed nodes cannot publish statistics and --stats measures nothing\n";
+  }
   int domain = o.domain;
   if (domain < 0) {
     const char * env = std::getenv("ROS_DOMAIN_ID");

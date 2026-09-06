@@ -18,11 +18,14 @@ ENV = {'ROS_DISCOVERY_SERVER': SERVER}
 
 
 def generate_test_description():
-    # Fast DDS 2.14 (Jazzy) requires a server id; the 3.x tool has no -i option.
-    server_id = ['-i', '0'] if os.environ.get('ROS_DISTRO') == 'jazzy' else []
-    server = launch.actions.ExecuteProcess(
-        cmd=['fastdds', 'discovery', *server_id, '-l', '127.0.0.1', '-p', '11811'],
-        output='screen')
+    # Fast DDS 2.x requires a server id; the 3.x tool has no -i option. Humble's `fastdds`
+    # script has no shebang (not executable from here), it ships fast-discovery-server.
+    distro = os.environ.get('ROS_DISTRO')
+    if distro == 'humble':
+        cmd = ['fast-discovery-server', '-i', '0']
+    else:
+        cmd = ['fastdds', 'discovery', *(['-i', '0'] if distro == 'jazzy' else [])]
+    server = launch.actions.ExecuteProcess(cmd=[*cmd, '-l', '127.0.0.1', '-p', '11811'], output='screen')
     nodes = [node_action('demo_nodes_cpp', 'talker', 'talker', ENV),
              node_action('demo_nodes_cpp', 'listener', 'listener', ENV)]
     return launch.LaunchDescription([

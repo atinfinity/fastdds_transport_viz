@@ -582,6 +582,21 @@
               "samples"
             ]
           }
+        },
+        "statistics_writers": {
+          "type": "array",
+          "description": "statistics DataWriters seen in discovery (participant prefix, topic)",
+          "items": {
+            "type": "object",
+            "properties": {
+              "participant_guid_prefix": {
+                "type": "string"
+              },
+              "topic": {
+                "type": "string"
+              }
+            }
+          }
         }
       }
     },

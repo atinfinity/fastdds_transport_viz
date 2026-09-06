@@ -245,6 +245,15 @@ Verdict decide(const Endpoint & writer, const Endpoint & reader)
   if (pick_network_kind(writer, reader, kind)) {
     v.transport = transport_for(kind);
     v.reasons.push_back(reason_for(kind));
+  } else if (same_host && (writer.same_host_locators_filtered || reader.same_host_locators_filtered) &&
+    (w_shm != r_shm))
+  {
+    // Fast DDS < 2.10 shows the tool only the SHM locator of a same-host participant; the
+    // side without SHM is UDP-only, and the SHM side has the builtin UDP transport as
+    // well, so Fast DDS falls back to UDPv4 between them.
+    v.transport = Transport::UDPv4;
+    v.confidence = Confidence::Likely;
+    v.reasons.push_back("same-host-locators-hidden");
   } else {
     v.transport = Transport::None;
     v.reasons.push_back("no-common-transport");
@@ -698,6 +707,11 @@ const std::map<std::string, std::string> & explanations()
       "writer's. The latency is write time on the writer's host minus notification time on the "
       "reader's host, so across hosts it includes their clock offset (synchronize the clocks, or "
       "read the value only on one host)."},
+    {"same-host-locators-hidden",
+      "Fast DDS below 2.10 (ROS 2 Humble) announces only the SHM locator of a participant on the "
+      "same host to this tool, so the network locators of one side are not visible. The other "
+      "side has no SHM locator, and both keep the builtin UDPv4 transport, so Fast DDS falls "
+      "back to UDPv4 between them; the tool cannot see it in discovery data."},
     {"no-matching-writer", "No publisher was discovered for this topic."},
     {"no-matching-reader", "No subscription was discovered for this topic."},
     {"type-name-mismatch",

@@ -1,6 +1,7 @@
 # Development / test image for fastdds_transport_viz.
 # Multi-arch: uses whatever ros:<distro> variant matches the host (x86_64 or arm64).
-# ROS_DISTRO build argument: jazzy (default, Fast DDS 2.14), kilted or rolling (Fast DDS 3.x).
+# ROS_DISTRO build argument: jazzy (default, Fast DDS 2.14), humble (Fast DDS 2.6, no
+# statistics module), kilted or rolling (Fast DDS 3.x).
 ARG ROS_DISTRO=jazzy
 FROM ros:${ROS_DISTRO}
 ARG ROS_DISTRO

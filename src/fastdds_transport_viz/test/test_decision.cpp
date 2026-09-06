@@ -1027,3 +1027,24 @@ TEST(ApplyStats, LatencyPerPairTopicMaxAndClockSkew)
   EXPECT_FALSE(topics[0].pairs[0].measured.latency_available);
   EXPECT_FALSE(topics[0].latency_available);
 }
+
+TEST(Decision, SameHostLocatorsHiddenOnOldFastDds)
+{
+  auto w = make(true, HOST_A, {shm(7411)});                  // what Fast DDS 2.6 shows of a same-host writer
+  auto r = make(false, HOST_A, {udp4("127.0.0.1", 7413)});   // a UDP-only reader
+  EXPECT_EQ(decide(w, r).transport, Transport::None);        // without the flag: no common kind
+  w.same_host_locators_filtered = true;
+  r.same_host_locators_filtered = true;
+  auto v = decide(w, r);
+  EXPECT_EQ(v.transport, Transport::UDPv4);
+  EXPECT_EQ(v.confidence, Confidence::Likely);
+  EXPECT_TRUE(has(v.reasons, "same-host-locators-hidden"));
+  // both sides SHM: still SHM; both UDP-only: still UDPv4 certain
+  auto r2 = make(false, HOST_A, {shm(7413)});
+  r2.same_host_locators_filtered = true;
+  EXPECT_EQ(decide(w, r2).transport, Transport::SHM);
+  auto w3 = make(true, HOST_A, {udp4("127.0.0.1", 7411)});
+  w3.same_host_locators_filtered = true;
+  EXPECT_EQ(decide(w3, r).transport, Transport::UDPv4);
+  EXPECT_EQ(decide(w3, r).confidence, Confidence::Certain);
+}

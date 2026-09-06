@@ -22,7 +22,8 @@ ros2 run fastdds_transport_viz bounded_sub &
 ros2 transport list -v                              # /bounded -> DATA_SHARING? (likely)
 ```
 
-Use `AUTO`, not `ON`, in the default profile: `ON` makes writer creation fail for unbounded
+Use `AUTO` (`<kind>AUTOMATIC</kind>` in the XML, the spelling every Fast DDS version
+accepts), not `ON`, in the default profile: `ON` makes writer creation fail for unbounded
 types such as `/rosout`.
 
 ## Confidence

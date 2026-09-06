@@ -13,7 +13,7 @@ import launch_testing
 from ament_index_python.packages import get_package_prefix
 
 sys.path.insert(0, os.path.dirname(__file__))
-from _common import Base, description, node_action  # noqa: E402
+from _common import Base, description, node_action, udpv4_only_env  # noqa: E402
 
 # the binary itself: `ros2 run` would not forward the signal that ends the watch loop
 BIN = [os.path.join(get_package_prefix('fastdds_transport_viz'), 'lib', 'fastdds_transport_viz',
@@ -50,7 +50,7 @@ _udp_children = []
 
 
 def start_udp_listener():
-    env = dict(os.environ, FASTDDS_BUILTIN_TRANSPORTS='UDPv4')
+    env = dict(os.environ, **udpv4_only_env())
     proc = subprocess.Popen(
         [LISTENER, '--ros-args', '-r', '__node:=listener_udp'],
         env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)

@@ -1,6 +1,6 @@
 # Development and verification environment for fastdds_transport_viz.
 #
-#   docker compose build                        # ROS_DISTRO=kilted docker compose build => Fast DDS 3.x image
+#   docker compose build                        # ROS_DISTRO=humble|kilted|rolling docker compose build => other distros
 #   docker compose run --rm dev bash            # interactive shell, repo mounted at /ws
 #   docker compose up talker listener           # two containers => different "hosts" => UDPv4
 #   docker compose up talker_stats listener_stats   # same, with FASTDDS_STATISTICS

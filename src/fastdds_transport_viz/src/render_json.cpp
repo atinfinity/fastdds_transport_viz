@@ -184,6 +184,15 @@ std::string render_json(const Snapshot & snap, const RenderOptions & opt)
     stats["throughput"] = th;   // writer guid -> PUBLICATION_THROUGHPUT bytes/s
   }
   stats["participants_with_stats"] = snap.stats.participants_with_stats;
+  {
+    // statistics writers seen in discovery (participant prefix, topic): tells whether a
+    // node has statistics enabled even before any sample arrives
+    json sw = json::array();
+    for (const auto & kv : snap.stats.statistics_writers) {
+      sw.push_back({{"participant_guid_prefix", kv.first}, {"topic", kv.second}});
+    }
+    stats["statistics_writers"] = sw;
+  }
   json physical = json::object();
   for (const auto & kv : snap.stats.physical) {
     physical[kv.first] = {{"host", kv.second.host}, {"user", kv.second.user},

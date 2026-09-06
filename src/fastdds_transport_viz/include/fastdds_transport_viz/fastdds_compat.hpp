@@ -41,6 +41,22 @@
 #include <fastrtps/utils/IPLocator.h>
 #endif
 
+/// Fast DDS 3.x always ships the statistics module; 2.x only when built with
+/// FASTDDS_STATISTICS (ROS 2 Jazzy: yes; Humble's 2.6 binary: no).
+#if FTV_FASTDDS_3 || defined(FASTDDS_STATISTICS)
+#define FTV_HAS_STATISTICS 1
+#else
+#define FTV_HAS_STATISTICS 0
+#endif
+
+/// Fast DDS below 2.10 delivers only the SHM locator of a participant on the same host
+/// (its UDP locators are filtered out of the discovery data the tool receives).
+#if !FTV_FASTDDS_3 && (FASTRTPS_VERSION_MAJOR < 2 || (FASTRTPS_VERSION_MAJOR == 2 && FASTRTPS_VERSION_MINOR < 10))
+#define FTV_SAME_HOST_LOCATORS_FILTERED 1
+#else
+#define FTV_SAME_HOST_LOCATORS_FILTERED 0
+#endif
+
 namespace fastdds_transport_viz
 {
 

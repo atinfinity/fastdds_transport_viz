@@ -21,9 +21,10 @@ else()
   find_package(fastrtps REQUIRED)
   set(FTV_FASTDDS_TARGET fastrtps)
   set(FTV_FASTDDS_MAJOR 2)
+  set(FTV_FASTDDS_VERSION ${fastrtps_VERSION})
 endif()
 find_package(fastcdr REQUIRED)
-message(STATUS "fastdds_transport_viz: building against Fast DDS ${FTV_FASTDDS_MAJOR}.x (${FTV_FASTDDS_TARGET})")
+message(STATUS "fastdds_transport_viz: building against Fast DDS ${FTV_FASTDDS_MAJOR}.x ${FTV_FASTDDS_VERSION} (${FTV_FASTDDS_TARGET})")
 find_package(nlohmann_json REQUIRED)
 
 # --- core library: DDS/ROS independent (model, decision, names) ---------------
@@ -43,6 +44,12 @@ if(FTV_FASTDDS_MAJOR EQUAL 3)
   set(STATS_TYPES_SOURCES
     ${STATS_TYPES_DIR}/typesPubSubTypes.cxx
     ${STATS_TYPES_DIR}/typesTypeObjectSupport.cxx)
+elseif(FTV_FASTDDS_VERSION VERSION_LESS 2.10)
+  # Humble: Fast DDS 2.6 (fastcdr 1.0 serialization)
+  set(STATS_TYPES_DIR ${CMAKE_CURRENT_SOURCE_DIR}/third_party/fastdds_statistics_types_v26)
+  set(STATS_TYPES_SOURCES
+    ${STATS_TYPES_DIR}/types.cxx
+    ${STATS_TYPES_DIR}/typesPubSubTypes.cxx)
 else()
   set(STATS_TYPES_DIR ${CMAKE_CURRENT_SOURCE_DIR}/third_party/fastdds_statistics_types)
   set(STATS_TYPES_SOURCES

@@ -7,7 +7,7 @@ import sys
 import launch_testing
 
 sys.path.insert(0, os.path.dirname(__file__))
-from _common import Base, description, node_action, topic, transport_viz_json  # noqa: E402
+from _common import Base, description, node_action, skip_without_statistics, topic, transport_viz_json, udpv4_only_env  # noqa: E402
 
 from ament_index_python.packages import get_package_share_directory  # noqa: E402
 
@@ -24,10 +24,11 @@ def generate_test_description():
         node_action('demo_nodes_cpp', 'talker', 'talker', STATS_ENV),
         node_action('demo_nodes_cpp', 'listener', 'listener', STATS_ENV),
         node_action('demo_nodes_cpp', 'listener', 'listener_udp',
-                    {**STATS_ENV, 'FASTDDS_BUILTIN_TRANSPORTS': 'UDPv4'}),
+                    {**STATS_ENV, **udpv4_only_env()}),
     ]), {}
 
 
+@skip_without_statistics
 class TestStats(Base):
 
     def test_measured_transports(self):

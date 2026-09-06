@@ -99,6 +99,24 @@ transport ごとの注意点 (いずれも launch テストかマルチコンテ
 - 大きなサンプル (2 MB の `UInt8MultiArray`) も SHM のまま流れます。Fast DDS が transport の
   最大メッセージ長に分割します。
 
+## Fast DDS 2.6 (ROS 2 Humble)
+
+Humble の Fast DDS 2.6 では 2 点が異なります。
+
+- **statistics が無い。** Humble のバイナリは statistics モジュール無しでビルドされています
+  (`config.h` で `FASTDDS_STATISTICS` が無効)。`FASTDDS_STATISTICS` を設定しても観測対象ノードは
+  statistics を出せません。`--stats` は警告を出し、すべてのペアが `stats-not-enabled-on-writer` に
+  なり、`RATE`、`LATENCY`、`measured=` は空のままです。モジュールを有効にしてビルドした Fast DDS
+  なら、ツールの 2.6 対応で動きます。
+- **同一ホストの locator がフィルタされる。** 2.10 より前の Fast DDS は、同一ホストの participant に
+  ついて SHM locator しかツールに広告しません。相手に SHM locator が無い (UDP のみの participant)
+  場合、共通の locator 種別が見えないので、ツールは `UDPv4?` と理由 `same-host-locators-hidden`
+  を出します。双方とも組み込みの UDPv4 transport を持っており、Fast DDS は実際に UDPv4 に
+  フォールバックします。
+- `FASTDDS_BUILTIN_TRANSPORTS` (Fast DDS 2.12 以降) と `ROS_AUTOMATIC_DISCOVERY_RANGE` /
+  `ROS_STATIC_PEERS` (ROS 2 Iron 以降) はありません。transport は XML プロファイルで設定します
+  (`test/launch/udpv4_only.xml` が UDPv4 のみの participant の例)。
+
 ## ホスト
 
 `--stats` 無しでは、ホストは `local` (ツールと同じホスト id) か `host:<4 バイトの 16 進>` で表示

@@ -23,7 +23,8 @@ ros2 run fastdds_transport_viz bounded_sub &
 ros2 transport list -v                              # /bounded -> DATA_SHARING? (likely)
 ```
 
-既定プロファイルには `ON` ではなく `AUTO` を使ってください。`ON` だと `/rosout` のような
+既定プロファイルには `ON` ではなく `AUTO` (XML では `<kind>AUTOMATIC</kind>`。どの Fast DDS でも
+通る綴り) を使ってください。`ON` だと `/rosout` のような
 unbounded な型で writer の作成が失敗します。
 
 ## 確信度

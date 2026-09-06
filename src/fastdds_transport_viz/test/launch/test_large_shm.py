@@ -7,7 +7,7 @@ import sys
 import launch_testing
 
 sys.path.insert(0, os.path.dirname(__file__))
-from _common import Base, description, node_action, pair_of, STATS_ENV, transport_viz_json  # noqa: E402
+from _common import Base, description, node_action, pair_of, skip_without_statistics, STATS_ENV, transport_viz_json  # noqa: E402
 
 SIZE_KB = 2048
 # statistics.xml + a 16 MB SHM segment (issue #33: on slow runners the default 512 KB
@@ -25,6 +25,7 @@ def generate_test_description():
     ]), {}
 
 
+@skip_without_statistics
 class TestLargeShm(Base):
 
     def test_large_samples_stay_on_shm(self):

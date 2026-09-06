@@ -3,6 +3,8 @@ install/
 log/
 build_cov/
 build_k/
+build_h/
+install_h/
 install_k/
 install_cov/
 *.pyc
