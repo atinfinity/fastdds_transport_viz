@@ -3,6 +3,7 @@
 """transport_viz argument handling: exits before any DDS participant is created."""
 import os
 import subprocess
+import time
 
 from ament_index_python.packages import get_package_prefix
 
@@ -68,6 +69,20 @@ def test_color_modes_are_accepted_and_always_paints_without_a_terminal():
     assert r.returncode == 0, r
     assert '\033[1mshared memory: \033[0m' in r.stdout or '(no endpoints discovered' in r.stdout, r.stdout
     assert '\033[' in r.stdout
+
+
+def test_explain_ros_args_and_default_timeout():
+    r = run('--explain', '--timeout', '0.5', '--quiet', '0')
+    assert r.returncode == 0, r
+    assert "Legend: '?' after a transport" in r.stdout
+    # everything after --ros-args is left to rclcpp
+    r = run('--timeout', '0.5', '--quiet', '0', '--ros-args', '--log-level', 'warn')
+    assert r.returncode == 0, r
+    # no --timeout: the default of 3 s applies
+    t0 = time.monotonic()
+    r = run('--quiet', '0')
+    assert r.returncode == 0, r
+    assert 2.5 <= time.monotonic() - t0 <= 15
 
 
 def test_discovery_range_off_prints_a_warning():

@@ -251,3 +251,44 @@ TEST(RenderTable, HostLabelsAndWarningsInColor)
   opt.host_labels["05050505"] = "named-host";
   EXPECT_NE(render_table(s, opt).find("/talker@named-host"), std::string::npos);
 }
+
+TEST(RenderTable, TransportColorsLikelyMarkAndTopicMarkPriority)
+{
+  Snapshot s;
+  s.local_host_id = {1, 2, 3, 4};
+  auto w = ep(true, "W1", "/talker", LocatorKind::UDPv6);
+  w.unicast.push_back(Locator{LocatorKind::TCPv4, "10.0.0.1", 7411});
+  w.unicast.push_back(Locator{LocatorKind::SHM, "", 7411});
+  w.qos.data_sharing = DataSharingKind::On;
+  w.qos.data_sharing_domains = {1};
+  auto r6 = ep(false, "R6", "/l6", LocatorKind::UDPv6);
+  r6.host_id = {9, 9, 9, 9};
+  auto rt = ep(false, "RT", "/lt", LocatorKind::TCPv4);
+  rt.host_id = {8, 8, 8, 8};
+  auto rd = ep(false, "RD", "/ld", LocatorKind::SHM);
+  rd.qos.data_sharing = DataSharingKind::On;
+  rd.qos.data_sharing_domains = {1};
+  s.endpoints = {w, r6, rt, rd};
+  s.topics = summarize(s.endpoints);
+  ASSERT_EQ(s.topics[0].pairs.size(), 3u);
+  WatchDecorations deco;
+  deco.marks[pair_key(s.topics[0], s.topics[0].pairs[0])] = '~';
+  deco.marks[pair_key(s.topics[0], s.topics[0].pairs[1])] = '-';
+  RenderOptions opt;
+  opt.color = true;
+  opt.verbose = true;
+  opt.watch = &deco;
+  auto out = render_table(s, opt);
+  EXPECT_NE(out.find("\033[36mUDPv6\033[0m"), std::string::npos);
+  EXPECT_NE(out.find("\033[35mTCPv4\033[0m"), std::string::npos);
+  EXPECT_NE(out.find("\033[33mDATA_SHARING?\033[0m"), std::string::npos);   // likely
+  EXPECT_NE(out.find("\033[33m~\033[0m"), std::string::npos);               // changed mark
+  EXPECT_NE(out.find("\033[2m-\033[0m"), std::string::npos);                // removed mark
+  // the topic row carries '~' (no '+' among its pairs)
+  auto topic_row = out.substr(out.find("\n", out.find("TOPIC")) + 1);
+  EXPECT_EQ(topic_row.find("\033[33m~\033[0m"), 0u);
+  deco.marks[pair_key(s.topics[0], s.topics[0].pairs[2])] = '+';
+  out = render_table(s, opt);
+  topic_row = out.substr(out.find("\n", out.find("TOPIC")) + 1);
+  EXPECT_EQ(topic_row.find("\033[32m+\033[0m"), 0u);
+}

@@ -110,6 +110,9 @@ if(BUILD_TESTING)
   target_link_libraries(test_render ${PROJECT_NAME}_lib)
   ament_add_gtest(test_render_json test/test_render_json.cpp)
   target_link_libraries(test_render_json ${PROJECT_NAME}_lib)
+  # real Fast DDS participants (no ROS nodes): conversions, error paths of the observers
+  ament_add_gtest(test_observers test/test_observers.cpp)
+  target_link_libraries(test_observers ${PROJECT_NAME}_lib ${PROJECT_NAME}_stats_types)
 
   find_package(launch_testing_ament_cmake REQUIRED)
   add_launch_test(test/launch/test_same_host_shm.py TIMEOUT 60)
@@ -132,6 +135,7 @@ if(BUILD_TESTING)
   add_launch_test(test/launch/test_watch.py TIMEOUT 150)
   add_launch_test(test/launch/test_watch_tty.py TIMEOUT 120)
   add_launch_test(test/launch/test_large_data_v6.py TIMEOUT 90)
+  add_launch_test(test/launch/test_multicast_locators.py TIMEOUT 90)
   add_launch_test(test/launch/test_unbounded_vs_bounded.py TIMEOUT 90)
 endif()
 

@@ -186,13 +186,18 @@ ShmInfo scan_shm(const std::string & path, const ShmScanInput & in)
   if (info.stale_segments + info.stale_ports > 0) {
     info.warnings.push_back("shm-stale-files");
   }
+  add_capacity_warning(info);
+  return info;
+}
+
+void add_capacity_warning(ShmInfo & info)
+{
   if (info.total_bytes > 0 &&
     (info.free_bytes < kNearlyFullFreeBytes ||
     static_cast<double>(info.used_bytes) >= kNearlyFullRatio * static_cast<double>(info.total_bytes)))
   {
     info.warnings.push_back("shm-nearly-full");
   }
-  return info;
 }
 
 }  // namespace fastdds_transport_viz

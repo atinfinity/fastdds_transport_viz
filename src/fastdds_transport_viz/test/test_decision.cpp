@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include <algorithm>
+#include <functional>
+#include <tuple>
 #include <string>
 #include <vector>
 
@@ -827,4 +829,53 @@ TEST(ApplyStats, MeasuredTcpReasonAndDeliveredWithoutTraffic)
   apply_stats(topics, stats);
   EXPECT_TRUE(has(topics[0].pairs[0].verdict.warnings, "delivered-without-measured-traffic"));
   EXPECT_TRUE(topics[0].pairs[0].measured.delivered);
+}
+
+TEST(ApplyStats, MeasuredUdp6Tcp6AndUnknownLocatorKinds)
+{
+  for (auto [mk, code, tr] : std::vector<std::tuple<std::function<Locator(const std::string &, uint32_t)>, std::string, Transport>>{
+      {[](const std::string & ip, uint32_t port) {return udp6(ip, port);}, "measured-udpv6-traffic", Transport::UDPv6},
+      {[](const std::string & ip, uint32_t port) {return tcp6(ip, port);}, "measured-tcpv6-traffic", Transport::TCPv6}})
+  {
+    std::vector<Endpoint> eps;
+    eps.push_back(make(true, HOST_A, {mk("fd00::1", 7411)}));
+    eps.push_back(make(false, HOST_B, {mk("fd00::2", 7413)}));
+    eps[0].participant_guid_prefix = "P1";
+    auto topics = summarize(eps);
+    auto stats = stats_with(eps[0], {TrafficSample{"P1", mk("fd00::2", 7413), 2, 200.0}});
+    apply_stats(topics, stats);
+    EXPECT_TRUE(has(topics[0].pairs[0].verdict.reasons, code)) << code;
+    ASSERT_EQ(topics[0].pairs[0].measured.transports.size(), 1u);
+    EXPECT_EQ(topics[0].pairs[0].measured.transports[0], tr);
+  }
+  // a locator of unknown kind announced by the reader and reported by RTPS_SENT
+  std::vector<Endpoint> eps;
+  Locator odd{LocatorKind::Invalid, "?", 1};
+  eps.push_back(make(true, HOST_A, {udp4("10.0.0.1")}));
+  eps.push_back(make(false, HOST_B, {odd, udp4("10.0.0.2", 7413)}));
+  eps[0].participant_guid_prefix = "P1";
+  auto topics = summarize(eps);
+  auto stats = stats_with(eps[0], {TrafficSample{"P1", odd, 2, 200.0}});
+  apply_stats(topics, stats);
+  EXPECT_TRUE(has(topics[0].pairs[0].verdict.reasons, "measured-unknown-traffic"));
+  EXPECT_TRUE(has(topics[0].pairs[0].verdict.warnings, "measured-transport-mismatch"));
+}
+
+TEST(ApplyStats, WriterWithoutStatisticsIsWarnedAndSkipped)
+{
+  std::vector<Endpoint> eps;
+  eps.push_back(make(true, HOST_A, {udp4("10.0.0.1"), shm(7415)}));
+  eps.push_back(make(false, HOST_A, {udp4("10.0.0.1", 7413), shm(7413)}));
+  eps[0].participant_guid_prefix = "P1";
+  auto topics = summarize(eps);
+  StatsData stats;
+  stats.enabled = true;
+  stats.participants_with_stats.insert("P-other");   // statistics arrive, but not from P1
+  stats.traffic.push_back(TrafficSample{"P1", shm(7413), 10, 1000.0});
+  apply_stats(topics, stats);
+  const auto & p = topics[0].pairs[0];
+  EXPECT_FALSE(p.measured.available);
+  EXPECT_TRUE(has(p.verdict.warnings, "stats-not-enabled-on-writer"));
+  EXPECT_TRUE(p.measured.transports.empty() || p.measured.transports.size() == 1u);
+  EXPECT_FALSE(has(p.verdict.reasons, "measured-shm-traffic"));
 }

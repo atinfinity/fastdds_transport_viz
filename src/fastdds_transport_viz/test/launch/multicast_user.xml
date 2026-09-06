@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!-- Test profile: user endpoints announce a multicast locator in addition to the default
+     unicast ones (defaultMulticastLocatorList), so that the tool's multicast_locators
+     field carries something. -->
+<dds xmlns="http://www.eprosima.com/XMLSchemas/fastRTPS_Profiles">
+  <profiles>
+    <participant profile_name="multicast_user" is_default_profile="true">
+      <rtps>
+        <defaultMulticastLocatorList>
+          <locator><udpv4><address>239.255.0.7</address><port>7900</port></udpv4></locator>
+        </defaultMulticastLocatorList>
+      </rtps>
+    </participant>
+  </profiles>
+</dds>

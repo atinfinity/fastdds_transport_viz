@@ -245,14 +245,24 @@ std::string mark_cell(char mark, bool color)
   }
 }
 
+/// Priority of a watch mark on a topic row: an appearance beats a change beats a removal.
+int mark_rank(char mark)
+{
+  switch (mark) {
+    case '+': return 3;
+    case '~': return 2;
+    case '-': return 1;
+    default: return 0;
+  }
+}
+
 char topic_mark(const TopicSummary & t, const WatchDecorations & w)
 {
   char best = ' ';
   for (const auto & p : t.pairs) {
     auto it = w.marks.find(pair_key(t, p));
     if (it == w.marks.end()) {continue;}
-    if (it->second == '+') {return '+';}
-    best = it->second;
+    if (mark_rank(it->second) > mark_rank(best)) {best = it->second;}
   }
   return best;
 }

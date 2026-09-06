@@ -126,7 +126,12 @@ colcon test && colcon test-result --verbose
   invalid regexes and color modes exit with the documented codes and messages; `--color
   always` paints a non-terminal table; the `ROS_AUTOMATIC_DISCOVERY_RANGE=OFF` warning.
 - `test_shm_info`: gtest over the `/dev/shm` scan on a temporary directory (sizes, stale
-  detection through `flock`, data-sharing file names, IPC-namespace visibility).
+  detection through `flock`, data-sharing file names, IPC-namespace visibility, the
+  capacity warning).
+- `test_observers`: gtest with real Fast DDS participants on domain 200 (no ROS nodes):
+  locator and QoS conversions, participant creation failure (a death test with an invalid
+  lease configuration), the statistics observer reusing an existing topic and rejecting a
+  content-filtered topic under a statistics topic name.
 - `test_same_host_shm.py` / `test_same_host_udp.py`: launch_testing against real demo
   nodes (SHM, and UDPv4 fallback via `FASTDDS_BUILTIN_TRANSPORTS=UDPv4`).
 - `test_stats.py`: demo nodes with `FASTDDS_STATISTICS`; asserts measured SHM / UDPv4 and
@@ -145,7 +150,8 @@ colcon test && colcon test-result --verbose
   `changes` object in `--watch --json`), `test_watch_tty.py` (`--watch` on a pseudo
   terminal: alternate screen, in-place painting, the `q`/`p`/`v`/`e`/`a` keys, width
   truncation, Ctrl-C), `test_large_data_v6.py` (`LARGE_DATAv6`: TCPv6 announced, SHM
-  chosen; skipped without an IPv6 interface).
+  chosen; skipped without an IPv6 interface), `test_multicast_locators.py` (endpoints
+  announcing a multicast locator through `defaultMulticastLocatorList`).
 - `test_json_schema` / `test_json_schema_live.py`: sample and live `--json` output against
   `schema/transport_viz.schema.json`.
 - `test_web_serve` (pytest, fake `transport_viz`) / `test_web_live.py` (real one): the live
@@ -156,10 +162,12 @@ colcon test && colcon test-result --verbose
 
 Line coverage of the C++ sources, measured with `scripts/coverage.sh` inside the dev
 container (a `--coverage` build in `build_cov/`, the whole test suite, then `gcovr`):
-96 % as of 2026-09-06 (`main.cpp` 98 %, `render_table.cpp` 97 %, `render_json.cpp` 99 %,
-`shm_info.cpp` 98 %, `stats_observer.cpp` 96 %, `decision.cpp` 94 %, `discovery_observer.cpp`
-88 %); what is left is unreachable error handling (participant or reader creation
-failures, `getifaddrs` errors) and QoS values ROS 2 never announces.
+98 % as of 2026-09-06 (`shm_info.cpp` 100 %, `main.cpp`, `render_table.cpp`,
+`render_json.cpp` 99 %, `stats_observer.cpp` 98 %, `decision.cpp` and
+`discovery_observer.cpp` 96 %). What is left is unreachable by construction: subscriber
+and reader creation failures inside Fast DDS, `getifaddrs` errors, `default:` labels of
+switches over enums whose every value is handled, and discovery statuses Fast DDS 2.14 never
+reports for our participant.
 
 The web viewer's pure functions (`web/model.js`: document → nodes/hosts/pairs, filters
 with the `--node` semantics, edge bundling, number formatting, the shared-memory line) are
