@@ -33,9 +33,9 @@ The same capture on a terminal (`--color auto`, default when stdout is a termina
 
 ![colored table](images/example-table.svg)
 
-The same run opened in the [web viewer](web-viewer.md) (graph view):
+The same run opened in the [web viewer](web-viewer.md) (table view):
 
-![graph view](images/web-viewer-graph.jpg)
+![table view](images/web-viewer-table.jpg)
 
 - The **prediction** comes from Fast DDS discovery data (announced locators and QoS) and
   needs nothing from the observed nodes.
