@@ -70,6 +70,20 @@ class TestStats(Base):
         self.assertEqual(shm['writer_host'], writer['host_name'].split(':')[0])
 
 
+    def test_latency_values(self):
+        doc = transport_viz_json(['--stats'], timeout=6.0)
+        chatter = topic(doc, '/chatter')
+        pair = next(p for p in chatter['pairs'] if p['reader_node'] == '/listener')
+        lat = pair['measured']['latency_s']
+        self.assertIsNotNone(lat, pair)
+        self.assertGreater(lat['samples'], 0, lat)
+        self.assertGreater(lat['mean'], 0.0, lat)            # same host: exact, positive
+        self.assertLess(lat['mean'], 1.0, lat)               # and well below a second
+        self.assertLessEqual(lat['min'], lat['mean'])
+        self.assertLessEqual(lat['mean'], lat['max'])
+        self.assertIsNotNone(chatter['latency_s'])
+        self.assertNotIn('latency-clock-skew-suspected', pair['warnings'])
+
     def test_tool_with_statistics_in_its_own_environment(self):
         """FASTDDS_STATISTICS set for the tool too (the nodes' environment): the tool must
         drop it for its own participants, otherwise Fast DDS 2.14 deadlocks in

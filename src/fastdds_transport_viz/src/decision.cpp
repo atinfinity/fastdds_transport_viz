@@ -440,6 +440,8 @@ void apply_stats(std::vector<TopicSummary> & topics, const StatsData & stats)
   for (auto & t : topics) {
     t.throughput = 0.0;
     t.throughput_available = false;
+    t.latency = 0.0;
+    t.latency_available = false;
     for (const auto * w : t.writers) {
       if (auto th = stats.throughput.find(w->guid); th != stats.throughput.end()) {
         t.throughput += th->second.mean();
@@ -457,6 +459,18 @@ void apply_stats(std::vector<TopicSummary> & topics, const StatsData & stats)
       if (auto d = stats.delivered.find({p.writer->guid, p.reader->guid}); d != stats.delivered.end()) {
         m.delivered_samples = d->second;
         m.delivered = d->second > 0;
+      }
+      if (auto l = stats.latency.find({p.writer->guid, p.reader->guid});
+        l != stats.latency.end() && l->second.samples > 0)
+      {
+        m.latency_available = true;
+        m.latency = l->second;
+        if (!t.latency_available || m.latency.mean() > t.latency) {t.latency = m.latency.mean();}
+        t.latency_available = true;
+        if (m.latency.mean() < 0.0) {
+          // the reader's clock is behind the writer's: hosts without synchronized clocks
+          p.verdict.warnings.push_back("latency-clock-skew-suspected");
+        }
       }
       // DATA_COUNT is published only when the writer actually sends a DATA submessage,
       // so "the participant has a DATA_COUNT writer but no sample arrived" means zero.
@@ -679,6 +693,11 @@ const std::map<std::string, std::string> & explanations()
       "HISTORY_LATENCY statistics prove that samples reached the reader although the QoS were "
       "judged incompatible: the tool's matching rules disagree with this Fast DDS version. "
       "Please report this with the --json output."},
+    {"latency-clock-skew-suspected",
+      "The mean HISTORY_LATENCY of this pair is negative: the reader's host clock is behind the "
+      "writer's. The latency is write time on the writer's host minus notification time on the "
+      "reader's host, so across hosts it includes their clock offset (synchronize the clocks, or "
+      "read the value only on one host)."},
     {"no-matching-writer", "No publisher was discovered for this topic."},
     {"no-matching-reader", "No subscription was discovered for this topic."},
     {"type-name-mismatch",

@@ -134,8 +134,8 @@ colcon test && colcon test-result --verbose
   content-filtered topic under a statistics topic name.
 - `test_same_host_shm.py` / `test_same_host_udp.py`: launch_testing against real demo
   nodes (SHM, and UDPv4 fallback via `FASTDDS_BUILTIN_TRANSPORTS=UDPv4`).
-- `test_stats.py`: demo nodes with `FASTDDS_STATISTICS`; asserts measured SHM / UDPv4 and
-  host names.
+- `test_stats.py`: demo nodes with `FASTDDS_STATISTICS`; asserts measured SHM / UDPv4,
+  host names and the `LATENCY` values.
 - `test_udpv6.py` (`FASTDDS_BUILTIN_TRANSPORTS=UDPv6`, skipped without an IPv6
   interface), `test_localhost_range.py` (`ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST`),
   `test_discovery_server.py` (`fastdds discovery` server, SUPER_CLIENT vs plain client),
@@ -293,19 +293,18 @@ Done:
   in both directions — [#15](https://github.com/atinfinity/fastdds_transport_viz/issues/15)
 - QoS request/offer check: incompatible pairs shown as `NONE` —
   [#45](https://github.com/atinfinity/fastdds_transport_viz/issues/45)
+- `LATENCY` column from `HISTORY_LATENCY` —
+  [#46](https://github.com/atinfinity/fastdds_transport_viz/issues/46)
 
 Open, in priority order (labels `priority/1-high` … `priority/3-low` on the issues):
 
-1. `LATENCY` column from `HISTORY_LATENCY` —
-   [#46](https://github.com/atinfinity/fastdds_transport_viz/issues/46): the data is already
-   received.
-2. Humble (Fast DDS 2.6) support —
+1. Humble (Fast DDS 2.6) support —
    [#48](https://github.com/atinfinity/fastdds_transport_viz/issues/48): the largest user
    base.
-3. Reliability health (resends, gaps, lost samples) —
+2. Reliability health (resends, gaps, lost samples) —
    [#47](https://github.com/atinfinity/fastdds_transport_viz/issues/47).
-4. Distribution: CHANGELOG, ament lint, bloom release —
+3. Distribution: CHANGELOG, ament lint, bloom release —
    [#50](https://github.com/atinfinity/fastdds_transport_viz/issues/50).
-5. DDS Security (SROS2) — [#49](https://github.com/atinfinity/fastdds_transport_viz/issues/49).
-6. Same host id, separate IPC namespace in the shared-memory line —
+4. DDS Security (SROS2) — [#49](https://github.com/atinfinity/fastdds_transport_viz/issues/49).
+5. Same host id, separate IPC namespace in the shared-memory line —
    [#51](https://github.com/atinfinity/fastdds_transport_viz/issues/51).

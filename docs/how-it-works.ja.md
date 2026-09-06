@@ -41,12 +41,16 @@ publisher だけ、または subscription だけのトピックは `-` と理由
 ともに残します。残ったペアの相手側は一致しなくても表示されます。2 つのフィルタは AND です。
 不正な正規表現は起動時に拒否されます (終了コード 2)。
 
-## RATE 列
+## RATE 列と LATENCY 列
 
 `--stats` を付けると `RATE` 列に、トピックの writer の payload スループット (合算) と、ペア行では
 その writer の値が出ます。statistics の `PUBLICATION_THROUGHPUT` を観測窓で平均した値で、SI 単位
 (`24 B/s`、`1.31 MB/s`) です。writer に渡されたシリアライズ済みサンプルの量なので transport に依らず、
-zero-copy のペアでも出ます。statistics が無ければ `-` です。ペア行の `measured=` は観測中に transport が
+zero-copy のペアでも出ます。`LATENCY` は statistics の `HISTORY_LATENCY` で、writer の `write()` から
+reader への通知までの時間をペアごとに観測期間の平均と最大で示します (`420 µs (max 1.30 ms)`)。
+トピック行には最も遅いペアの平均が出ます。2 台のホストのクロックで測るのでマシン間ではその
+ずれが含まれ (平均が負なら `latency-clock-skew-suspected` を警告)、同一ホストでは正確です。
+statistics が無ければどちらの列も `-` です。ペア行の `measured=` は観測中に transport が
 実際に運んだ量 (`SHM 148pkt 7.63 MB`。観測前にしか流れていなければ `(idle)`) です。
 
 ## 理由コード

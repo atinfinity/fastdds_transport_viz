@@ -184,6 +184,8 @@ void StatsObserver::drain()
     rtps::GUID_t r = to_rtps(latency.reader_guid());
     data_.participants_with_stats.insert(prefix_to_string(w.guidPrefix));
     data_.delivered[{guid_to_string(w), guid_to_string(r)}]++;
+    // write-to-notification latency, nanoseconds as float
+    data_.latency[{guid_to_string(w), guid_to_string(r)}].add(static_cast<double>(latency.data()) * 1e-9);
   }
 
   st::EntityCount count;

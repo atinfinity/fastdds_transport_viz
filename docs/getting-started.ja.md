@@ -65,9 +65,9 @@ ros2 transport list -v --explain
 ```
 
 ```
-TOPIC     TYPE                 PUBS  SUBS  TRANSPORT  RATE  REASON
-/chatter  std_msgs/msg/String  1     1     SHM x1     -     same-host-guid,datasharing-disabled-writer,both-shm-locators
-    /talker@local -> /listener@local  SHM  -  same-host-guid,datasharing-disabled-writer,both-shm-locators
+TOPIC     TYPE                 PUBS  SUBS  TRANSPORT  RATE  LATENCY  REASON
+/chatter  std_msgs/msg/String  1     1     SHM x1     -     -        same-host-guid,datasharing-disabled-writer,both-shm-locators
+    /talker@local -> /listener@local  SHM  -  -  same-host-guid,datasharing-disabled-writer,both-shm-locators
 
 shared memory: /dev/shm 2.19 MB used of 16.7 GB (16.7 GB free) | Fast DDS 2.19 MB in 3 segment(s), 6 port(s), 0 data-sharing histories
 
@@ -112,8 +112,8 @@ ros2 run demo_nodes_cpp listener &
 ros2 transport list -v --stats
 ```
 
-ペアの行に `measured=SHM 47pkt 3.20 kB` が付き、`RATE` 列に payload のスループットが出て、
-ホストは名前とプロセス id で表示されます。プロファイルファイルは statistics writer の
+ペアの行に `measured=SHM 47pkt 3.20 kB` が付き、`RATE` 列に payload のスループット、`LATENCY` 列に
+そのペアの write-to-notification 遅延 (平均と最大) が出て、ホストは名前とプロセス id で表示されます。プロファイルファイルは statistics writer の
 リソース制限を外すためのものです。トピックの説明と回避する落とし穴は
 [statistics.ja.md](statistics.ja.md) を参照してください。
 

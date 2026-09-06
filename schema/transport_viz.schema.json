@@ -303,6 +303,31 @@
           ],
           "minimum": 0,
           "description": "writer's payload throughput (PUBLICATION_THROUGHPUT, mean over the observation); null when not published"
+        },
+        "latency_s": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "description": "HISTORY_LATENCY of this pair over the observation, seconds; null without values",
+          "properties": {
+            "mean": {
+              "type": "number"
+            },
+            "min": {
+              "type": "number"
+            },
+            "max": {
+              "type": "number"
+            },
+            "last": {
+              "type": "number"
+            },
+            "samples": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
         }
       }
     },
@@ -419,6 +444,13 @@
           ],
           "minimum": 0,
           "description": "sum of the writers' payload throughput; null when no writer publishes PUBLICATION_THROUGHPUT"
+        },
+        "latency_s": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "mean write-to-notification latency of the slowest pair (HISTORY_LATENCY, seconds); null without values"
         }
       }
     },

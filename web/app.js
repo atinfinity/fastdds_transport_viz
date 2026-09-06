@@ -11,7 +11,7 @@
 
   // pure model / formatting functions live in model.js (unit-tested under Node)
   const { TRANSPORTS, INTERNAL_TOPICS, buildModel, filterRegex, visiblePairs, visibleNodesModel, bundle,
-    humanBytes, measuredText, rateText, escapeHtml, shmText } = globalThis.TransportVizModel;
+    humanBytes, measuredText, rateText, latencyText, escapeHtml, shmText } = globalThis.TransportVizModel;
   const COLORS = {
     UDPv4: 'var(--c-udpv4)', UDPv6: 'var(--c-udpv6)', TCPv4: 'var(--c-tcp)', TCPv6: 'var(--c-tcp)',
     SHM: 'var(--c-shm)', DATA_SHARING: 'var(--c-ds)', NONE: 'var(--c-none)',
@@ -159,6 +159,7 @@
     { key: 'transport', label: 'Transport', get: v => v.pair.transport },
     { key: 'confidence', label: 'Confidence', get: v => v.pair.confidence },
     { key: 'rate', label: 'Rate', get: v => rateText(v.pair.measured) },
+    { key: 'latency', label: 'Latency', get: v => latencyText(v.pair.measured) },
     { key: 'measured', label: 'Measured', get: v => measuredText(v.pair.measured) },
     { key: 'reasons', label: 'Reasons', get: v => [...v.pair.reasons, ...v.pair.warnings.map(w => '!' + w)].join(', ') },
   ];
@@ -232,7 +233,7 @@
     const p = vp.pair;
     return `<div class="pair ${selected ? 'selected' : ''}">
       <div><b>${escapeHtml(vp.topic.topic)}</b> <span class="muted">${escapeHtml(vp.topic.type)}</span></div>
-      <div style="margin:4px 0">${badge(p)} confidence ${p.confidence}${p.measured && p.measured.available ? ` · measured ${escapeHtml(measuredText(p.measured))}` : ''}${rateText(p.measured) ? ` · rate ${escapeHtml(rateText(p.measured))}` : ''}</div>
+      <div style="margin:4px 0">${badge(p)} confidence ${p.confidence}${p.measured && p.measured.available ? ` · measured ${escapeHtml(measuredText(p.measured))}` : ''}${rateText(p.measured) ? ` · rate ${escapeHtml(rateText(p.measured))}` : ''}${latencyText(p.measured) ? ` · latency ${escapeHtml(latencyText(p.measured))}` : ''}</div>
       <div>${escapeHtml(p.writer_node || vp.writerNode)}@${escapeHtml(p.writer_host)} → ${escapeHtml(p.reader_node || vp.readerNode)}@${escapeHtml(p.reader_host)}</div>
       ${codeList(p.reasons, false)}${codeList(p.warnings, true)}
       ${endpointDetails('Writer', vp.writer)}${endpointDetails('Reader', vp.reader)}

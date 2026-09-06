@@ -138,6 +138,22 @@
     return humanBytes(m.throughput_bytes_per_s, 'B/s');
   }
 
+  /** Seconds with 3 significant digits in ns / µs / ms / s (sign kept). */
+  function humanSeconds(seconds) {
+    const units = ['ns', 'µs', 'ms', 's'];
+    let v = Math.abs(seconds) * 1e9;
+    let i = 0;
+    while (v >= 1000 && i < 3) { v /= 1000; i++; }
+    const digits = v < 10 ? 2 : v < 100 ? 1 : 0;
+    return `${seconds < 0 ? '-' : ''}${v.toFixed(digits)} ${units[i]}`;
+  }
+
+  /** "0.42 ms (max 1.30 ms)" from measured.latency_s, '' without values. */
+  function latencyText(m) {
+    if (!m || !m.latency_s || typeof m.latency_s.mean !== 'number') return '';
+    return `${humanSeconds(m.latency_s.mean)} (max ${humanSeconds(m.latency_s.max)})`;
+  }
+
   function escapeHtml(s) { return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 
   /** Shared memory of the environment transport_viz ran in (the `shm` object), as HTML. */
@@ -152,5 +168,5 @@
       (warnings ? ` ${warnings}` : '');
   }
 
-  return { TRANSPORTS, INTERNAL_TOPICS, buildModel, filterRegex, visiblePairs, visibleNodesModel, bundle, humanBytes, measuredText, rateText, escapeHtml, shmText };
+  return { TRANSPORTS, INTERNAL_TOPICS, buildModel, filterRegex, visiblePairs, visibleNodesModel, bundle, humanBytes, humanSeconds, measuredText, rateText, latencyText, escapeHtml, shmText };
 });
