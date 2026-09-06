@@ -136,6 +136,7 @@ if(BUILD_TESTING)
   add_launch_test(test/launch/test_watch_tty.py TIMEOUT 120)
   add_launch_test(test/launch/test_large_data_v6.py TIMEOUT 90)
   add_launch_test(test/launch/test_multicast_locators.py TIMEOUT 90)
+  add_launch_test(test/launch/test_qos_incompatible.py TIMEOUT 90)
   add_launch_test(test/launch/test_unbounded_vs_bounded.py TIMEOUT 90)
 endif()
 

@@ -197,6 +197,37 @@
               "items": {
                 "type": "integer"
               }
+            },
+            "deadline_s": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0,
+              "description": "deadline period; null = infinite"
+            },
+            "liveliness": {
+              "type": "string",
+              "description": "AUTOMATIC / MANUAL_BY_PARTICIPANT / MANUAL_BY_TOPIC"
+            },
+            "liveliness_lease_s": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0,
+              "description": "liveliness lease duration; null = infinite"
+            },
+            "ownership": {
+              "type": "string",
+              "description": "SHARED / EXCLUSIVE"
+            },
+            "partitions": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "partition names; empty = the default partition"
             }
           }
         },

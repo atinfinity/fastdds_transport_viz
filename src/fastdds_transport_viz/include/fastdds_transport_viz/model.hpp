@@ -10,6 +10,7 @@
 
 #include <array>
 #include <cstdint>
+#include <limits>
 #include <map>
 #include <set>
 #include <utility>
@@ -52,6 +53,12 @@ struct EndpointQos
   std::string durability;    // "VOLATILE" / "TRANSIENT_LOCAL" / ...
   DataSharingKind data_sharing{DataSharingKind::Unknown};
   std::vector<uint64_t> data_sharing_domains;   // effective domain ids announced
+  // Request/offer policies Fast DDS checks when matching (infinite = no limit)
+  double deadline_s{std::numeric_limits<double>::infinity()};
+  std::string liveliness{"AUTOMATIC"};          // "AUTOMATIC" / "MANUAL_BY_PARTICIPANT" / "MANUAL_BY_TOPIC"
+  double liveliness_lease_s{std::numeric_limits<double>::infinity()};
+  std::string ownership{"SHARED"};              // "SHARED" / "EXCLUSIVE"
+  std::vector<std::string> partitions;          // empty = the default partition
 };
 
 /// Host identity = first 4 bytes of the GUID prefix (what Fast DDS itself uses

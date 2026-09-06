@@ -38,7 +38,9 @@ plus the bounded verification nodes with statistics enabled.
 
 Click an arrow to list its pairs in the side panel: transport, confidence, measured
 traffic, reason codes with their descriptions (taken from `reason_code_descriptions` in
-the document), locators, QoS and the size of the data-sharing history of both endpoints.
+the document), locators, QoS (reliability, durability, data-sharing, and the deadline,
+liveliness, ownership and partitions when set) and the size of the data-sharing history of
+both endpoints.
 Click a node for its publishers, subscriptions and unmatched topics.
 
 The second header line summarizes the shared memory of the environment `transport_viz`

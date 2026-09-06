@@ -41,7 +41,8 @@ shared memory: /dev/shm 339 MB used of 16.7 GB (16.3 GB free) | Fast DDS 4.06 MB
 
 - **discovery データだけで、ペアごとの transport を予測。** writer → reader の各ペアに
   transport (`UDPv4`、`UDPv6`、`TCPv4`/`TCPv6`、`SHM`、`DATA_SHARING`) と機械可読な理由コードを
-  付けます。観測対象のノードに変更は不要です。
+  付けます。観測対象のノードに変更は不要です。QoS が合わないペア (reliability、durability、
+  deadline、liveliness、ownership、partition) は `NONE` と、合わないポリシー名で示します。
 - **`--stats` で実測。** Fast DDS の statistics モジュールから、locator ごとに実際に流れた
   パケット数とバイト数、payload レート (`RATE`)、ホスト名とプロセス id、zero-copy data-sharing の
   証明を取り、予測と食い違う実測は警告します。

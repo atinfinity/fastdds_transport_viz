@@ -6,6 +6,7 @@
 
 #include <unistd.h>
 
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -193,4 +194,28 @@ TEST(StatsObserver, ReusesAnExistingTopicAndRejectsANonTopicDescription)
     "_fastdds_statistics_history2history_latency", base, "", {});
   ASSERT_NE(filtered, nullptr);
   EXPECT_THROW(StatsObserver{participant}, std::runtime_error);
+}
+
+TEST(FastDdsUtil, LivelinessOwnershipAndDurations)
+{
+  fdds::LivelinessQosPolicy liv;
+  liv.kind = fdds::AUTOMATIC_LIVELINESS_QOS;
+  EXPECT_EQ(liveliness_to_string(liv), "AUTOMATIC");
+  liv.kind = fdds::MANUAL_BY_PARTICIPANT_LIVELINESS_QOS;
+  EXPECT_EQ(liveliness_to_string(liv), "MANUAL_BY_PARTICIPANT");
+  liv.kind = fdds::MANUAL_BY_TOPIC_LIVELINESS_QOS;
+  EXPECT_EQ(liveliness_to_string(liv), "MANUAL_BY_TOPIC");
+  liv.kind = static_cast<fdds::LivelinessQosPolicyKind>(9);
+  EXPECT_EQ(liveliness_to_string(liv), "UNKNOWN");
+
+  fdds::OwnershipQosPolicy own;
+  own.kind = fdds::SHARED_OWNERSHIP_QOS;
+  EXPECT_EQ(ownership_to_string(own), "SHARED");
+  own.kind = fdds::EXCLUSIVE_OWNERSHIP_QOS;
+  EXPECT_EQ(ownership_to_string(own), "EXCLUSIVE");
+
+  EXPECT_TRUE(std::isinf(duration_seconds(liv.lease_duration)));   // default: infinite
+  liv.lease_duration.seconds = 2;
+  liv.lease_duration.nanosec = 500000000u;
+  EXPECT_DOUBLE_EQ(duration_seconds(liv.lease_duration), 2.5);
 }

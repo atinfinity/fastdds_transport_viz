@@ -3,6 +3,8 @@
 
 #include "fastdds_transport_viz/decision.hpp"
 
+#include <fnmatch.h>
+
 #include <algorithm>
 #include <functional>
 #include <map>
@@ -91,9 +93,88 @@ bool domains_intersect(const std::vector<uint64_t> & a, const std::vector<uint64
 
 }  // namespace
 
+namespace
+{
+int durability_rank(const std::string & d)
+{
+  if (d == "VOLATILE") {return 0;}
+  if (d == "TRANSIENT_LOCAL") {return 1;}
+  if (d == "TRANSIENT") {return 2;}
+  if (d == "PERSISTENT") {return 3;}
+  return -1;   // unknown: do not judge
+}
+
+int liveliness_rank(const std::string & l)
+{
+  if (l == "AUTOMATIC") {return 0;}
+  if (l == "MANUAL_BY_PARTICIPANT") {return 1;}
+  if (l == "MANUAL_BY_TOPIC") {return 2;}
+  return -1;
+}
+
+/// DDS partition matching: a name may be a pattern ('*', '?', '[...]' as in fnmatch) and
+/// matches the other side's plain name; an empty list is the default partition "".
+bool partitions_match(const std::vector<std::string> & w, const std::vector<std::string> & r)
+{
+  const std::vector<std::string> empty{""};
+  const auto & ws = w.empty() ? empty : w;
+  const auto & rs = r.empty() ? empty : r;
+  for (const auto & a : ws) {
+    for (const auto & b : rs) {
+      if (a == b || ::fnmatch(a.c_str(), b.c_str(), 0) == 0 || ::fnmatch(b.c_str(), a.c_str(), 0) == 0) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+}  // namespace
+
+std::vector<std::string> qos_incompatibilities(const Endpoint & writer, const Endpoint & reader)
+{
+  std::vector<std::string> out;
+  const auto & w = writer.qos;
+  const auto & r = reader.qos;
+  if (w.reliability == "BEST_EFFORT" && r.reliability == "RELIABLE") {
+    out.push_back("reliability");
+  }
+  if (durability_rank(w.durability) >= 0 && durability_rank(r.durability) >= 0 &&
+    durability_rank(w.durability) < durability_rank(r.durability))
+  {
+    out.push_back("durability");
+  }
+  if (w.deadline_s > r.deadline_s) {           // the writer must promise at least the requested rate
+    out.push_back("deadline");
+  }
+  if ((liveliness_rank(w.liveliness) >= 0 && liveliness_rank(r.liveliness) >= 0 &&
+    liveliness_rank(w.liveliness) < liveliness_rank(r.liveliness)) ||
+    w.liveliness_lease_s > r.liveliness_lease_s)
+  {
+    out.push_back("liveliness");
+  }
+  if (w.ownership != r.ownership) {
+    out.push_back("ownership");
+  }
+  if (!partitions_match(w.partitions, r.partitions)) {
+    out.push_back("partition");
+  }
+  return out;
+}
+
 Verdict decide(const Endpoint & writer, const Endpoint & reader)
 {
   Verdict v;
+  const auto incompatible = qos_incompatibilities(writer, reader);
+  if (!incompatible.empty()) {
+    // Fast DDS does not match these endpoints at all: no transport carries user data.
+    v.transport = Transport::None;
+    v.confidence = Confidence::Certain;
+    for (const auto & policy : incompatible) {
+      v.reasons.push_back("qos-incompatible-" + policy);
+    }
+    v.warnings.push_back("qos-incompatible");
+    return v;
+  }
   const bool same_host = writer.host_id == reader.host_id;
   const bool w_shm = has_kind(writer, LocatorKind::SHM);
   const bool r_shm = has_kind(reader, LocatorKind::SHM);
@@ -405,6 +486,14 @@ void apply_stats(std::vector<TopicSummary> & topics, const StatsData & stats)
       }
 
       Verdict & v = p.verdict;
+      if (std::find(v.warnings.begin(), v.warnings.end(), "qos-incompatible") != v.warnings.end()) {
+        // Nothing should flow. A delivery proof means the rules above are wrong for
+        // this Fast DDS version: report it rather than hide it.
+        if (m.delivered) {
+          v.warnings.push_back("qos-incompatible-but-delivered");
+        }
+        continue;
+      }
       if (!m.available) {
         v.warnings.push_back("stats-not-enabled-on-writer");
         continue;
@@ -566,6 +655,30 @@ const std::map<std::string, std::string> & explanations()
     {"datasharing-unverified-by-traffic",
       "Zero-copy delivery produces no RTPS traffic; run with --stats to confirm that no user "
       "data is sent over a transport for this pair."},
+    {"qos-incompatible-reliability",
+      "The writer offers BEST_EFFORT while the reader requests RELIABLE; Fast DDS does not match them."},
+    {"qos-incompatible-durability",
+      "The writer offers a weaker durability (VOLATILE < TRANSIENT_LOCAL < TRANSIENT < PERSISTENT) "
+      "than the reader requests; Fast DDS does not match them."},
+    {"qos-incompatible-deadline",
+      "The writer's deadline period is longer than the one the reader requests; Fast DDS does not "
+      "match them."},
+    {"qos-incompatible-liveliness",
+      "The writer's liveliness kind is weaker (AUTOMATIC < MANUAL_BY_PARTICIPANT < MANUAL_BY_TOPIC) "
+      "or its lease duration longer than the reader requests; Fast DDS does not match them."},
+    {"qos-incompatible-ownership",
+      "Writer and reader announce different ownership kinds (SHARED / EXCLUSIVE); Fast DDS does "
+      "not match them."},
+    {"qos-incompatible-partition",
+      "No partition name of the writer matches one of the reader (an empty list is the default "
+      "partition); Fast DDS does not match them."},
+    {"qos-incompatible",
+      "The pair's QoS are incompatible, so the endpoints are never matched and no data flows; "
+      "the ROS 2 side reports this as an incompatible QoS event."},
+    {"qos-incompatible-but-delivered",
+      "HISTORY_LATENCY statistics prove that samples reached the reader although the QoS were "
+      "judged incompatible: the tool's matching rules disagree with this Fast DDS version. "
+      "Please report this with the --json output."},
     {"no-matching-writer", "No publisher was discovered for this topic."},
     {"no-matching-reader", "No subscription was discovered for this topic."},
     {"type-name-mismatch",

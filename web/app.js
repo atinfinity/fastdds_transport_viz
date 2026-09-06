@@ -206,6 +206,17 @@
     return escapeHtml([...ep.unicast_locators.map(fmt), ...ep.multicast_locators.map(l => fmt(l) + ' (multicast)')].join(', ')) || '—';
   }
 
+  /** Non-default request/offer policies (deadline, liveliness, ownership, partitions). */
+  function qosExtras(q) {
+    const parts = [];
+    if (typeof q.deadline_s === 'number') parts.push(`deadline ${q.deadline_s} s`);
+    if (q.liveliness && q.liveliness !== 'AUTOMATIC') parts.push(`liveliness ${q.liveliness}`);
+    if (typeof q.liveliness_lease_s === 'number') parts.push(`lease ${q.liveliness_lease_s} s`);
+    if (q.ownership && q.ownership !== 'SHARED') parts.push(`ownership ${q.ownership}`);
+    if (q.partitions && q.partitions.length) parts.push(`partitions [${q.partitions.join(', ')}]`);
+    return parts.length ? ', ' + escapeHtml(parts.join(', ')) : '';
+  }
+
   function endpointDetails(label, ep, pairSide) {
     return `<h3>${label}</h3><dl>
       <dt>node</dt><dd>${escapeHtml(ep.node || '(non-ROS participant)')}</dd>
@@ -213,7 +224,7 @@
       <dt>guid</dt><dd><code>${escapeHtml(ep.guid)}</code></dd>
       <dt>locators</dt><dd>${locators(ep)}</dd>
       ${typeof ep.datasharing_history_bytes === 'number' ? `<dt>data-sharing history</dt><dd>${humanBytes(ep.datasharing_history_bytes, 'B')} in /dev/shm</dd>` : ''}
-      <dt>qos</dt><dd>${escapeHtml(ep.qos.reliability)}, ${escapeHtml(ep.qos.durability)}, data-sharing ${escapeHtml(ep.qos.data_sharing)}${ep.qos.data_sharing_domain_ids && ep.qos.data_sharing_domain_ids.length ? ` [${ep.qos.data_sharing_domain_ids.join(', ')}]` : ''}</dd>
+      <dt>qos</dt><dd>${escapeHtml(ep.qos.reliability)}, ${escapeHtml(ep.qos.durability)}, data-sharing ${escapeHtml(ep.qos.data_sharing)}${ep.qos.data_sharing_domain_ids && ep.qos.data_sharing_domain_ids.length ? ` [${ep.qos.data_sharing_domain_ids.join(', ')}]` : ''}${qosExtras(ep.qos)}</dd>
     </dl>`;
   }
 
