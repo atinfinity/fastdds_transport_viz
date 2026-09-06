@@ -2,7 +2,7 @@
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>fastdds_transport_viz</name>
-  <version>0.1.0</version>
+  <version>1.0.0</version>
   <description>
     Shows which Fast DDS transport (UDPv4, SHM, data-sharing, ...) each ROS 2 topic is
     communicated over, and why, using Fast DDS discovery data and optionally the
