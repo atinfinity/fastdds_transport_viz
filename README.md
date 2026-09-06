@@ -39,7 +39,9 @@ The same capture on a terminal (`--color auto`, default when stdout is a termina
 
 - **Transport per pair, from discovery alone.** Every writer → reader pair gets a
   predicted transport (`UDPv4`, `UDPv6`, `TCPv4`/`TCPv6`, `SHM`, `DATA_SHARING`) with
-  machine-readable reason codes; the observed nodes need no change.
+  machine-readable reason codes; the observed nodes need no change. Pairs whose QoS do
+  not match (reliability, durability, deadline, liveliness, ownership, partition) are
+  shown as `NONE` with the policy that breaks them.
 - **Measurement with `--stats`.** The Fast DDS statistics module supplies the packets and
   bytes that actually flowed per locator, the payload rate (`RATE`), host names and process
   ids, and the proof of zero-copy data-sharing; a measurement that contradicts the

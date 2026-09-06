@@ -21,6 +21,8 @@ created:
 export FASTDDS_STATISTICS="RTPS_SENT_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC;DATA_COUNT_TOPIC;PUBLICATION_THROUGHPUT_TOPIC"
 ```
 
+A pair judged `qos-incompatible` is not measured; if `HISTORY_LATENCY` nevertheless proves
+delivery, the warning `qos-incompatible-but-delivered` flags a gap in the matching rules.
 Pairs whose *writer* was started without it are reported with the warning
 `stats-not-enabled-on-writer` (a reader without statistics is not flagged).
 

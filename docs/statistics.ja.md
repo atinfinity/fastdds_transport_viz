@@ -22,6 +22,8 @@ discovery のデータは「こうなる*はず*」を教えてくれます。`-
 export FASTDDS_STATISTICS="RTPS_SENT_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC;DATA_COUNT_TOPIC;PUBLICATION_THROUGHPUT_TOPIC"
 ```
 
+`qos-incompatible` と判定したペアは実測しません。それでも `HISTORY_LATENCY` が配送を証明した場合は
+警告 `qos-incompatible-but-delivered` でマッチング規則の穴を知らせます。
 *writer* がこれ無しで起動されたペアには警告 `stats-not-enabled-on-writer` が付きます (statistics の
 無い reader は警告されません)。
 

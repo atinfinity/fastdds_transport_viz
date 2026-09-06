@@ -37,8 +37,9 @@ open web/index.html            # macOS。あるいはファイルをダブルク
 | 赤い縁 | 警告が 1 つ以上ある (例: `measured-transport-mismatch`) |
 
 矢印をクリックすると側面パネルにそのペアの一覧が出ます。transport、確信度、実測トラフィック、
-理由コードとその説明 (文書の `reason_code_descriptions` から)、両エンドポイントの locator、QoS、
-data-sharing 履歴のサイズです。ノードをクリックすると publisher、subscription、相手のいない
+理由コードとその説明 (文書の `reason_code_descriptions` から)、両エンドポイントの locator、QoS
+(reliability、durability、data-sharing、設定されていれば deadline、liveliness、ownership、
+partition)、data-sharing 履歴のサイズです。ノードをクリックすると publisher、subscription、相手のいない
 トピックが出ます。
 
 ヘッダの 2 行目は `transport_viz` が動いた環境の共有メモリの要約です (文書の `shm`

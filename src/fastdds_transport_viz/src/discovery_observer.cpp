@@ -109,6 +109,21 @@ std::string durability_to_string(const dds::DurabilityQosPolicy & q)
   }
 }
 
+std::string liveliness_to_string(const dds::LivelinessQosPolicy & q)
+{
+  switch (q.kind) {
+    case dds::AUTOMATIC_LIVELINESS_QOS: return "AUTOMATIC";
+    case dds::MANUAL_BY_PARTICIPANT_LIVELINESS_QOS: return "MANUAL_BY_PARTICIPANT";
+    case dds::MANUAL_BY_TOPIC_LIVELINESS_QOS: return "MANUAL_BY_TOPIC";
+    default: return "UNKNOWN";
+  }
+}
+
+std::string ownership_to_string(const dds::OwnershipQosPolicy & q)
+{
+  return q.kind == dds::EXCLUSIVE_OWNERSHIP_QOS ? "EXCLUSIVE" : "SHARED";
+}
+
 void fill_data_sharing(const dds::DataSharingQosPolicy & q, EndpointQos & out)
 {
   switch (q.kind()) {
@@ -149,6 +164,11 @@ Endpoint make_endpoint(const ProxyData & data, bool is_writer)
   e.qos.reliability = reliability_to_string(disc_reliability(data));
   e.qos.durability = durability_to_string(disc_durability(data));
   fill_data_sharing(disc_data_sharing(data), e.qos);
+  e.qos.deadline_s = duration_seconds(disc_deadline(data).period);
+  e.qos.liveliness = liveliness_to_string(disc_liveliness(data));
+  e.qos.liveliness_lease_s = duration_seconds(disc_liveliness(data).lease_duration);
+  e.qos.ownership = ownership_to_string(disc_ownership(data));
+  e.qos.partitions = disc_partition(data).names();
   return e;
 }
 

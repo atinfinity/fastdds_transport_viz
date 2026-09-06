@@ -1,6 +1,7 @@
 // Copyright 2026 atinfinity
 // SPDX-License-Identifier: Apache-2.0
 
+#include <cmath>
 #include <set>
 #include <string>
 
@@ -48,6 +49,11 @@ json endpoint_json(const Snapshot & snap, const Endpoint & e, const RenderOption
         {"durability", e.qos.durability},
         {"data_sharing", to_string(e.qos.data_sharing)},
         {"data_sharing_domain_ids", e.qos.data_sharing_domains},
+        {"deadline_s", std::isinf(e.qos.deadline_s) ? json(nullptr) : json(e.qos.deadline_s)},
+        {"liveliness", e.qos.liveliness},
+        {"liveliness_lease_s", std::isinf(e.qos.liveliness_lease_s) ? json(nullptr) : json(e.qos.liveliness_lease_s)},
+        {"ownership", e.qos.ownership},
+        {"partitions", e.qos.partitions},
       }},
   };
 }

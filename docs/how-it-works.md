@@ -12,6 +12,15 @@ to select a transport for each writer → reader pair.
 
 ## Decision rules
 
+0. **Do the QoS match at all?** Fast DDS only matches a writer and a reader whose
+   request/offer policies agree: reliability (a BEST_EFFORT writer cannot serve a
+   RELIABLE reader), durability (the writer must offer at least what the reader
+   requests: VOLATILE < TRANSIENT_LOCAL < TRANSIENT < PERSISTENT), deadline (the
+   writer's period must not exceed the reader's), liveliness (kind and lease duration),
+   ownership (both SHARED or both EXCLUSIVE) and partition (a common name, patterns
+   allowed). Otherwise the pair is `NONE` with `qos-incompatible-<policy>` reasons and the
+   warning `qos-incompatible`: no data flows, whatever the transports. ROS 2 reports the
+   same situation as an incompatible QoS event on the publisher / subscription.
 1. **Same host?** Fast DDS considers two participants to be on the same host when the
    first 4 bytes of their GUID prefixes are equal.
 2. Same host and both endpoints announce data-sharing (zero-copy), and their domain ids

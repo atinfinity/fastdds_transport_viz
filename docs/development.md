@@ -106,7 +106,7 @@ Shipped with the package for reproducing the scenarios in the docs:
 | Executable | Purpose |
 |---|---|
 | `bounded_pub` / `bounded_sub` | `std_msgs/Int32`, data-sharing eligible |
-| `unbounded_pub` / `unbounded_sub` | `std_msgs/String`, never data-sharing |
+| `unbounded_pub` / `unbounded_sub` [`--best-effort`] [`--transient-local`] | `std_msgs/String`, never data-sharing; QoS options for the request/offer tests |
 | `large_array_pub --size-kb N [--period-ms M]` / `large_array_sub` | large `std_msgs/UInt8MultiArray` samples (default 200 ms period) |
 
 ## Tests
@@ -151,7 +151,10 @@ colcon test && colcon test-result --verbose
   terminal: alternate screen, in-place painting, the `q`/`p`/`v`/`e`/`a` keys, width
   truncation, Ctrl-C), `test_large_data_v6.py` (`LARGE_DATAv6`: TCPv6 announced, SHM
   chosen; skipped without an IPv6 interface), `test_multicast_locators.py` (endpoints
-  announcing a multicast locator through `defaultMulticastLocatorList`).
+  announcing a multicast locator through `defaultMulticastLocatorList`),
+  `test_qos_incompatible.py` (`unbounded_pub --best-effort` and `unbounded_sub
+  --transient-local` next to the default ones: the incompatible pairs are `NONE` with
+  `qos-incompatible-*`).
 - `test_json_schema` / `test_json_schema_live.py`: sample and live `--json` output against
   `schema/transport_viz.schema.json`.
 - `test_web_serve` (pytest, fake `transport_viz`) / `test_web_live.py` (real one): the live
@@ -288,22 +291,21 @@ Done:
 
 - Two physical hosts on a Wi-Fi LAN (x86_64 ↔ Jetson Orin NX), prediction and `--stats`
   in both directions — [#15](https://github.com/atinfinity/fastdds_transport_viz/issues/15)
+- QoS request/offer check: incompatible pairs shown as `NONE` —
+  [#45](https://github.com/atinfinity/fastdds_transport_viz/issues/45)
 
 Open, in priority order (labels `priority/1-high` … `priority/3-low` on the issues):
 
-1. QoS-incompatible pairs shown as communicating (reliability, durability) —
-   [#45](https://github.com/atinfinity/fastdds_transport_viz/issues/45): a correctness gap
-   in the table.
-2. `LATENCY` column from `HISTORY_LATENCY` —
+1. `LATENCY` column from `HISTORY_LATENCY` —
    [#46](https://github.com/atinfinity/fastdds_transport_viz/issues/46): the data is already
    received.
-3. Humble (Fast DDS 2.6) support —
+2. Humble (Fast DDS 2.6) support —
    [#48](https://github.com/atinfinity/fastdds_transport_viz/issues/48): the largest user
    base.
-4. Reliability health (resends, gaps, lost samples) —
+3. Reliability health (resends, gaps, lost samples) —
    [#47](https://github.com/atinfinity/fastdds_transport_viz/issues/47).
-5. Distribution: CHANGELOG, ament lint, bloom release —
+4. Distribution: CHANGELOG, ament lint, bloom release —
    [#50](https://github.com/atinfinity/fastdds_transport_viz/issues/50).
-6. DDS Security (SROS2) — [#49](https://github.com/atinfinity/fastdds_transport_viz/issues/49).
-7. Same host id, separate IPC namespace in the shared-memory line —
+5. DDS Security (SROS2) — [#49](https://github.com/atinfinity/fastdds_transport_viz/issues/49).
+6. Same host id, separate IPC namespace in the shared-memory line —
    [#51](https://github.com/atinfinity/fastdds_transport_viz/issues/51).

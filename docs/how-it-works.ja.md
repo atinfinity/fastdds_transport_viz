@@ -14,6 +14,14 @@ writer → reader の各ペアで transport を選ぶときと同じルールを
 
 ## 判定ルール
 
+0. **そもそも QoS が合うか?** Fast DDS は request/offer のポリシーが合う writer と reader しか
+   マッチさせません: reliability (BEST_EFFORT の writer は RELIABLE の reader に提供できない)、
+   durability (writer は reader の要求以上を提供する必要がある: VOLATILE < TRANSIENT_LOCAL <
+   TRANSIENT < PERSISTENT)、deadline (writer の周期が reader の周期を超えてはならない)、
+   liveliness (種類と lease duration)、ownership (両方 SHARED か両方 EXCLUSIVE)、partition
+   (共通の名前。パターン可)。合わなければペアは `NONE` になり、理由 `qos-incompatible-<policy>` と
+   警告 `qos-incompatible` が付きます。transport に関係なくデータは流れません。ROS 2 側では
+   publisher / subscription の incompatible QoS イベントとして報告される状況です。
 1. **同じホストか?** Fast DDS は、2 つの participant の GUID プレフィックス先頭 4 バイトが等しい
    とき同じホスト上にあるとみなします。
 2. 同じホストで、両エンドポイントが data-sharing (zero-copy) を広告し、domain id に共通部分がある

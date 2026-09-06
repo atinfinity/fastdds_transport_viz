@@ -879,3 +879,114 @@ TEST(ApplyStats, WriterWithoutStatisticsIsWarnedAndSkipped)
   EXPECT_TRUE(p.measured.transports.empty() || p.measured.transports.size() == 1u);
   EXPECT_FALSE(has(p.verdict.reasons, "measured-shm-traffic"));
 }
+
+// ---- QoS request / offer --------------------------------------------------------------
+
+namespace
+{
+std::pair<Endpoint, Endpoint> shm_pair()
+{
+  auto w = make(true, HOST_A, {udp4("10.0.0.1"), shm(7415)});
+  auto r = make(false, HOST_A, {udp4("10.0.0.1", 7413), shm(7413)});
+  w.qos.reliability = "RELIABLE"; r.qos.reliability = "RELIABLE";
+  w.qos.durability = "VOLATILE"; r.qos.durability = "VOLATILE";
+  return {w, r};
+}
+}  // namespace
+
+TEST(QosMatching, CompatibleDefaults)
+{
+  auto [w, r] = shm_pair();
+  EXPECT_TRUE(qos_incompatibilities(w, r).empty());
+  EXPECT_EQ(decide(w, r).transport, Transport::SHM);
+  // reliable writer, best-effort reader is fine; transient-local writer, volatile reader too
+  r.qos.reliability = "BEST_EFFORT";
+  w.qos.durability = "TRANSIENT_LOCAL";
+  EXPECT_TRUE(qos_incompatibilities(w, r).empty());
+}
+
+TEST(QosMatching, ReliabilityAndDurability)
+{
+  auto [w, r] = shm_pair();
+  w.qos.reliability = "BEST_EFFORT";
+  EXPECT_EQ(qos_incompatibilities(w, r), (std::vector<std::string>{"reliability"}));
+  auto v = decide(w, r);
+  EXPECT_EQ(v.transport, Transport::None);
+  EXPECT_EQ(v.confidence, Confidence::Certain);
+  EXPECT_EQ(v.reasons, (std::vector<std::string>{"qos-incompatible-reliability"}));
+  EXPECT_TRUE(has(v.warnings, "qos-incompatible"));
+
+  w.qos.reliability = "RELIABLE";
+  r.qos.durability = "TRANSIENT_LOCAL";
+  EXPECT_EQ(qos_incompatibilities(w, r), (std::vector<std::string>{"durability"}));
+  w.qos.durability = "TRANSIENT";
+  EXPECT_TRUE(qos_incompatibilities(w, r).empty());
+  r.qos.durability = "PERSISTENT";
+  EXPECT_EQ(qos_incompatibilities(w, r), (std::vector<std::string>{"durability"}));
+  r.qos.durability = "UNKNOWN";   // not judged
+  EXPECT_TRUE(qos_incompatibilities(w, r).empty());
+}
+
+TEST(QosMatching, DeadlineLivelinessOwnershipPartition)
+{
+  auto [w, r] = shm_pair();
+  r.qos.deadline_s = 0.5;          // reader wants 2 Hz, writer promises nothing (infinite)
+  EXPECT_EQ(qos_incompatibilities(w, r), (std::vector<std::string>{"deadline"}));
+  w.qos.deadline_s = 0.5;
+  EXPECT_TRUE(qos_incompatibilities(w, r).empty());
+  w.qos.deadline_s = 0.1;
+  EXPECT_TRUE(qos_incompatibilities(w, r).empty());
+
+  r.qos.liveliness = "MANUAL_BY_TOPIC";
+  EXPECT_EQ(qos_incompatibilities(w, r), (std::vector<std::string>{"liveliness"}));
+  w.qos.liveliness = "MANUAL_BY_TOPIC";
+  EXPECT_TRUE(qos_incompatibilities(w, r).empty());
+  r.qos.liveliness_lease_s = 1.0;   // writer lease infinite > reader lease
+  EXPECT_EQ(qos_incompatibilities(w, r), (std::vector<std::string>{"liveliness"}));
+  w.qos.liveliness_lease_s = 0.5;
+  EXPECT_TRUE(qos_incompatibilities(w, r).empty());
+
+  r.qos.ownership = "EXCLUSIVE";
+  EXPECT_EQ(qos_incompatibilities(w, r), (std::vector<std::string>{"ownership"}));
+  w.qos.ownership = "EXCLUSIVE";
+  EXPECT_TRUE(qos_incompatibilities(w, r).empty());
+
+  w.qos.partitions = {"robot1"};
+  EXPECT_EQ(qos_incompatibilities(w, r), (std::vector<std::string>{"partition"}));
+  r.qos.partitions = {"robot*"};    // pattern on either side
+  EXPECT_TRUE(qos_incompatibilities(w, r).empty());
+  r.qos.partitions = {"robot2", "other"};
+  EXPECT_EQ(qos_incompatibilities(w, r), (std::vector<std::string>{"partition"}));
+  w.qos.partitions = {};
+  r.qos.partitions = {""};          // explicit default partition matches the empty list
+  EXPECT_TRUE(qos_incompatibilities(w, r).empty());
+
+  // several policies at once, in a fixed order
+  w = shm_pair().first; r = shm_pair().second;
+  w.qos.reliability = "BEST_EFFORT";
+  r.qos.durability = "TRANSIENT_LOCAL";
+  r.qos.ownership = "EXCLUSIVE";
+  auto v = decide(w, r);
+  EXPECT_EQ(v.reasons, (std::vector<std::string>{"qos-incompatible-reliability", "qos-incompatible-durability", "qos-incompatible-ownership"}));
+}
+
+TEST(ApplyStats, IncompatiblePairDeliveredIsReported)
+{
+  auto [w, r] = shm_pair();
+  w.qos.reliability = "BEST_EFFORT";
+  w.participant_guid_prefix = "P1";
+  std::vector<Endpoint> eps{w, r};
+  auto topics = summarize(eps);
+  ASSERT_EQ(topics[0].pairs[0].verdict.transport, Transport::None);
+  auto stats = stats_with(eps[0], {TrafficSample{"P1", shm(7413), 5, 500.0}});
+  apply_stats(topics, stats);
+  const auto & p = topics[0].pairs[0];
+  EXPECT_EQ(p.verdict.transport, Transport::None);          // no measured-transport overlay
+  EXPECT_FALSE(has(p.verdict.warnings, "measured-transport-mismatch"));
+  EXPECT_FALSE(has(p.verdict.warnings, "qos-incompatible-but-delivered"));
+
+  topics = summarize(eps);
+  stats = stats_with(eps[0], {}, true, &eps[1]);
+  apply_stats(topics, stats);
+  EXPECT_TRUE(has(topics[0].pairs[0].verdict.warnings, "qos-incompatible-but-delivered"));
+}

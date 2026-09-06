@@ -18,7 +18,13 @@
 namespace fastdds_transport_viz
 {
 
-/// Predict the transport for one writer -> reader pair.
+/// Request/offer policies on which the writer's offer does not satisfy the reader's
+/// request, in Fast DDS's matching terms: "reliability", "durability", "deadline",
+/// "liveliness", "ownership", "partition". Empty when the pair matches.
+std::vector<std::string> qos_incompatibilities(const Endpoint & writer, const Endpoint & reader);
+
+/// Predict the transport for one writer -> reader pair. An incompatible QoS gives NONE
+/// with qos-incompatible-<policy> reasons and the warning qos-incompatible.
 Verdict decide(const Endpoint & writer, const Endpoint & reader);
 
 /// Build topic summaries (writer x reader pairs + verdicts) from endpoints.

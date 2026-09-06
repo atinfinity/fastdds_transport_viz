@@ -68,6 +68,10 @@ template<typename D> const auto & disc_locators(const D & d) {return d.remote_lo
 template<typename D> const auto & disc_reliability(const D & d) {return d.reliability;}
 template<typename D> const auto & disc_durability(const D & d) {return d.durability;}
 template<typename D> const auto & disc_data_sharing(const D & d) {return d.data_sharing;}
+template<typename D> const auto & disc_deadline(const D & d) {return d.deadline;}
+template<typename D> const auto & disc_liveliness(const D & d) {return d.liveliness;}
+template<typename D> const auto & disc_ownership(const D & d) {return d.ownership;}
+template<typename D> const auto & disc_partition(const D & d) {return d.partition;}
 #else
 template<typename D> const ftv_rtps::GUID_t & disc_guid(const D & d) {return d.guid();}
 template<typename D> std::string disc_topic(const D & d) {return d.topicName().to_string();}
@@ -76,6 +80,10 @@ template<typename D> const auto & disc_locators(const D & d) {return d.remote_lo
 template<typename D> const auto & disc_reliability(const D & d) {return d.m_qos.m_reliability;}
 template<typename D> const auto & disc_durability(const D & d) {return d.m_qos.m_durability;}
 template<typename D> const auto & disc_data_sharing(const D & d) {return d.m_qos.data_sharing;}
+template<typename D> const auto & disc_deadline(const D & d) {return d.m_qos.m_deadline;}
+template<typename D> const auto & disc_liveliness(const D & d) {return d.m_qos.m_liveliness;}
+template<typename D> const auto & disc_ownership(const D & d) {return d.m_qos.m_ownership;}
+template<typename D> const auto & disc_partition(const D & d) {return d.m_qos.m_partition;}
 #endif
 
 }  // namespace fastdds_transport_viz
