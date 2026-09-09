@@ -8,6 +8,8 @@ Forthcoming
   selected from the reader's announced locators and, with ``--stats``, the locators that
   actually carried packets. Implies ``-v``; ignored with ``--json``. Toggled with ``l``
   in ``--watch``.
+  For an SHM verdict the selected locator is the reader's ``/dev/shm`` port, so it lines
+  up with the ``fastrtps_port<N>`` files in the shared-memory line.
 * JSON gains ``pairs[].locator`` (nullable, with a ``multicast`` flag) and
   ``pairs[].measured.locators[]`` (per-locator ``packets``/``bytes`` as deltas over the
   observation, so they are a breakdown of ``measured.packets``/``bytes``). Both are

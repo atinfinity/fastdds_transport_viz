@@ -407,24 +407,24 @@ TEST(RenderTable, LocatorLineShapes)
 
 TEST(RenderTable, LocatorLineForShmDataSharingMulticastAndHiddenLocators)
 {
-  // SHM verdict: nothing was selected, so only a measured SHM port is reported, and an
-  // SHM locator names a /dev/shm port rather than an address.
+  // An SHM locator names a /dev/shm port rather than an address.
   auto s = snapshot();
   RenderOptions opt;
   opt.verbose = true;
   opt.locators = true;
-  EXPECT_EQ(render_table(s, opt).find("locators:"), std::string::npos) <<
-    "an SHM verdict without statistics has no locator to report";
+  EXPECT_NE(render_table(s, opt).find("locators: SHM port 7411\n"), std::string::npos);
   auto & m = s.topics[0].pairs[0].measured;
   m.available = true;
   m.transports = {Transport::SHM};
   m.locators = {MeasuredLocator{Locator{LocatorKind::SHM, "", 7411}, 9, 900.0}};
   EXPECT_NE(
-    render_table(s, opt).find("locators: measured SHM port 7411 (9 pkt)"), std::string::npos);
+    render_table(s, opt).find("locators: SHM port 7411 (selected = measured, 9 pkt)"),
+    std::string::npos);
 
   // DATA_SHARING carries no locator at all, which the line says rather than staying blank
   auto & v = s.topics[0].pairs[0].verdict;
   v.transport = Transport::DataSharing;
+  v.locator = Locator{};
   m.available = false;
   m.transports.clear();
   m.locators.clear();
@@ -433,6 +433,7 @@ TEST(RenderTable, LocatorLineForShmDataSharingMulticastAndHiddenLocators)
 
   // Fast DDS < 2.10 predicts UDPv4 without ever showing the locator it would use
   v.transport = Transport::UDPv4;
+  v.locator = Locator{};
   v.reasons = {"same-host-locators-hidden"};
   EXPECT_NE(
     render_table(s, opt).find("locators: UDPv4 (hidden by Fast DDS < 2.10)"), std::string::npos);

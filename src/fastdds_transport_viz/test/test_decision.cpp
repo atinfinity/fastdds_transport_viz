@@ -1129,15 +1129,20 @@ TEST(Decision, SelectedLocatorIsTheMatchingReaderLocator)
   EXPECT_FALSE(v.locator_multicast);
 }
 
-TEST(Decision, NoSelectedLocatorWithoutANetworkTransport)
+TEST(Decision, ShmVerdictSelectsTheReadersShmLocator)
 {
-  // SHM and NONE verdicts never reach the network-locator selection.
+  // The reader's SHM locator names the /dev/shm port the writer writes into, so it is
+  // selected the same way a network locator is.
   auto w = make(true, HOST_A, {udp4("10.0.0.1"), shm(7415)});
   auto r = make(false, HOST_A, {udp4("10.0.0.1", 7413), shm(7413)});
-  auto shm_verdict = decide(w, r);
-  EXPECT_EQ(shm_verdict.transport, Transport::SHM);
-  EXPECT_EQ(shm_verdict.locator.kind, LocatorKind::Invalid);
+  auto v = decide(w, r);
+  EXPECT_EQ(v.transport, Transport::SHM);
+  EXPECT_TRUE(v.locator == shm(7413));
+  EXPECT_FALSE(v.locator_multicast);
+}
 
+TEST(Decision, NoSelectedLocatorWhenThereIsNoPath)
+{
   auto w6 = make(true, HOST_A, {udp4("10.0.0.1")});
   auto r6 = make(false, HOST_B, {Locator{LocatorKind::UDPv6, "::1", 7411}});
   auto none_verdict = decide(w6, r6);
@@ -1178,7 +1183,24 @@ TEST(ApplyStats, MeasuredLocatorsBreakDownTheTraffic)
   EXPECT_EQ(packets, p.measured.packets);   // the entries are a breakdown of the total
   EXPECT_DOUBLE_EQ(bytes, p.measured.bytes);
   EXPECT_EQ(p.measured.packets, 14u);
-  // an SHM verdict selects no locator, so the UDPv4 traffic cannot be a locator mismatch
+  // the SHM locator the verdict selected did carry packets
+  EXPECT_TRUE(p.verdict.locator == shm(7413));
+  EXPECT_FALSE(has(p.verdict.warnings, "measured-locator-mismatch"));
+}
+
+TEST(ApplyStats, TransportMismatchDoesNotAlsoReportALocatorMismatch)
+{
+  // Predicted SHM, packets only on the reader's UDPv4 locator: the kind is already
+  // wrong, and saying the locator is wrong too would report one fact twice.
+  std::vector<Endpoint> eps;
+  eps.push_back(make(true, HOST_A, {udp4("10.0.0.1"), shm(7415)}));
+  eps.push_back(make(false, HOST_A, {udp4("10.0.0.1", 7413), shm(7413)}));
+  eps[0].participant_guid_prefix = "P1";
+  auto topics = summarize(eps);
+  auto stats = stats_with(eps[0], {TrafficSample{"P1", udp4("10.0.0.1", 7413), 5, 500.0}});
+  apply_stats(topics, stats);
+  const auto & p = topics[0].pairs[0];
+  EXPECT_TRUE(has(p.verdict.warnings, "measured-transport-mismatch"));
   EXPECT_FALSE(has(p.verdict.warnings, "measured-locator-mismatch"));
 }
 

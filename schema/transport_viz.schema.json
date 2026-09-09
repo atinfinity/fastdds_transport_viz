@@ -109,7 +109,7 @@
     },
     "selectedLocator": {
       "type": "object",
-      "description": "The reader locator the prediction selected. null when none was selected: an SHM, DATA_SHARING or NONE verdict, or Fast DDS < 2.10 hiding a same-host peer's locators.",
+      "description": "The reader locator the prediction selected: the address, or for SHM the /dev/shm port, the writer will deliver to. null when none was selected: a DATA_SHARING or NONE verdict, or Fast DDS < 2.10 hiding a same-host peer's locators.",
       "required": [
         "kind",
         "address",

@@ -137,15 +137,19 @@ Humble の Fast DDS 2.6 では 2 点が異なります。
 
 ```
 $ ros2 transport list -v --locators --stats --topic '^/(chatter|bounded)$'
-    /talker@host(293) -> /listener_udp@host(287)  UDPv4  23 B/s  307 us  0  measured=UDPv4 8pkt 1.06 kB  ...
-        locators: UDPv4 127.0.0.1:7411 (selected = measured, 8 pkt)
-    /bounded_pub@host(288) -> /bounded_sub@host(301)  DATA_SHARING  80 B/s  186 us  0  ...
+    /talker@host(61) -> /listener_udp@host(49)  UDPv4  23 B/s  414 us  0  measured=UDPv4 9pkt 1.19 kB  ...
+        locators: UDPv4 127.0.0.1:7411 (selected = measured, 9 pkt)
+    /talker@host(61) -> /listener@host(50)      SHM    23 B/s  453 us  0  measured=SHM 10pkt 1.31 kB   ...
+        locators: SHM port 7413 (selected = measured, 10 pkt)
+    /bounded_pub@host(56) -> /bounded_sub@host(55)  DATA_SHARING  80 B/s  195 us  0  ...
         locators: selected DATA_SHARING (no locator) | measured SHM port 7419 (1 pkt)
 ```
 
-`selected` の語は、実測側が隣に並ぶときだけ現れます。SHM locator はアドレスではなく `/dev/shm` の
-ポートを名乗り、マルチキャストアドレスには `(multicast)` が付きます。Fast DDS 2.10 より前では
-予測が使う locator がツールに届かないので、`UDPv4 (hidden by Fast DDS < 2.10)` と表示されます。
+`selected` の語は、実測側が隣に並ぶときだけ現れます。SHM locator はアドレスではなく writer が
+書き込む `/dev/shm` のポートを名乗るので、テーブルの下に出る共有メモリの行が数えている
+`fastrtps_port<N>` と対応づけられます。マルチキャストアドレスには `(multicast)` が付きます。
+zero-copy data-sharing には locator がそもそもありません。Fast DDS 2.10 より前では予測が使う
+locator がツールに届かないので、`UDPv4 (hidden by Fast DDS < 2.10)` と表示されます。
 選ばれた locator にパケットが 1 つも流れなかった場合 (reader が広告した別の locator、典型的には
 マルチホームのホストの別インターフェースを通った場合) は、`!measured-locator-mismatch` が付きます。
 

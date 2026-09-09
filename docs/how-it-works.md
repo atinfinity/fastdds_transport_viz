@@ -147,17 +147,20 @@ packets:
 
 ```
 $ ros2 transport list -v --locators --stats --topic '^/(chatter|bounded)$'
-    /talker@host(293) -> /listener_udp@host(287)  UDPv4  23 B/s  307 us  0  measured=UDPv4 8pkt 1.06 kB  ...
-        locators: UDPv4 127.0.0.1:7411 (selected = measured, 8 pkt)
-    /bounded_pub@host(288) -> /bounded_sub@host(301)  DATA_SHARING  80 B/s  186 us  0  ...
+    /talker@host(61) -> /listener_udp@host(49)  UDPv4  23 B/s  414 us  0  measured=UDPv4 9pkt 1.19 kB  ...
+        locators: UDPv4 127.0.0.1:7411 (selected = measured, 9 pkt)
+    /talker@host(61) -> /listener@host(50)      SHM    23 B/s  453 us  0  measured=SHM 10pkt 1.31 kB   ...
+        locators: SHM port 7413 (selected = measured, 10 pkt)
+    /bounded_pub@host(56) -> /bounded_sub@host(55)  DATA_SHARING  80 B/s  195 us  0  ...
         locators: selected DATA_SHARING (no locator) | measured SHM port 7419 (1 pkt)
 ```
 
 The word `selected` appears only where a measured side is printed next to it. An SHM
-locator names a `/dev/shm` port rather than an address, a group address is marked
-`(multicast)`, and on Fast DDS below 2.10 the line says
-`UDPv4 (hidden by Fast DDS < 2.10)` because the locator the prediction would use never
-reaches the tool. When the selected locator carried no packets at all - the traffic took
+locator names the `/dev/shm` port the writer writes into rather than an address, so it
+lines up with the `fastrtps_port<N>` files counted in the shared-memory line below the
+table. A group address is marked `(multicast)`, zero-copy data-sharing has no locator at
+all, and on Fast DDS below 2.10 the line says `UDPv4 (hidden by Fast DDS < 2.10)` because
+the locator the prediction would use never reaches the tool. When the selected locator carried no packets at all - the traffic took
 another locator the reader also announced, typically a different interface of a
 multi-homed host - the pair is flagged `!measured-locator-mismatch`.
 
