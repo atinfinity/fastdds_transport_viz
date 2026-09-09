@@ -46,6 +46,11 @@ def add_list_arguments(parser):
         '--explain', action='store_true',
         help='print a legend for every reason code used')
     parser.add_argument(
+        '--locators', action='store_true',
+        help='add a line under each pair with the locator the tool selected and the '
+             'locators that actually carried packets (implies -v; ignored with --json, '
+             'which always carries them)')
+    parser.add_argument(
         '--json', action='store_true',
         help='emit JSON (schema_version 1) instead of a table')
     parser.add_argument(
@@ -64,7 +69,8 @@ def add_list_arguments(parser):
         '--watch', action='store_true',
         help='keep observing and re-render every --interval seconds, marking added (+), '
              'changed (~) and removed (-) pairs; on a terminal, keys: q quit, p pause, '
-             'v pairs, e legend, a all. With --json, emits one compact document per line '
+             'v pairs, e legend, a all, l locators. With --json, emits one compact '
+             'document per line '
              '(JSON Lines) with a `changes` object')
     parser.add_argument(
         '--interval', type=float, metavar='SEC',
@@ -81,6 +87,7 @@ _LIST_OPTIONS = (
     ('all', '--all', False),
     ('verbose', '-v', False),
     ('explain', '--explain', False),
+    ('locators', '--locators', False),
     ('json', '--json', False),
     ('stats', '--stats', False),
     ('color', '--color', True),

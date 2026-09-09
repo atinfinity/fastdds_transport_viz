@@ -29,6 +29,14 @@ test('measuredText / rateText: every cell value', () => {
   assert.equal(M.measuredText({ available: true, transports: ['SHM'], packets: 0 }), 'SHM (idle)');
   assert.equal(M.measuredText({ available: true, transports: ['SHM', 'UDPv4'], packets: 47, bytes: 1310 }), 'SHM+UDPv4 47 pkt 1.31 kB');
   assert.equal(M.measuredText({ available: true, transports: ['SHM'], packets: 3 }), 'SHM 3 pkt');
+  // with measured.locators the addresses replace the bare kinds
+  const locators = [{ kind: 'UDPv4', address: '127.0.0.1', port: 7413 }, { kind: 'SHM', address: '', port: 8169 }];
+  assert.equal(
+    M.measuredText({ available: true, transports: ['UDPv4', 'SHM'], locators, packets: 47, bytes: 1310 }),
+    'UDPv4 127.0.0.1:7413 + SHM:8169 47 pkt 1.31 kB');
+  assert.equal(
+    M.measuredText({ available: true, transports: ['SHM'], locators: [locators[1]], packets: 0 }),
+    'SHM:8169 (idle)');
   assert.equal(M.rateText({ throughput_bytes_per_s: 1.31e6 }), '1.31 MB/s');
   assert.equal(M.rateText({ throughput_bytes_per_s: null }), '');
   assert.equal(M.rateText(undefined), '');

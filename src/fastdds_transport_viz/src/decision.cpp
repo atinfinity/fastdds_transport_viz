@@ -25,6 +25,18 @@ bool has_kind(const Endpoint & e, LocatorKind kind)
          std::any_of(e.multicast.begin(), e.multicast.end(), pred);
 }
 
+/// The endpoint's first announced locator of `kind`, or nullptr. Unicast before
+/// multicast, matching the order Fast DDS walks them in.
+const Locator * find_locator(const Endpoint & e, LocatorKind kind)
+{
+  for (const auto * list : {&e.unicast, &e.multicast}) {
+    for (const auto & l : *list) {
+      if (l.kind == kind) {return &l;}
+    }
+  }
+  return nullptr;
+}
+
 std::set<std::string> ip_addresses(const Endpoint & e)
 {
   std::set<std::string> out;
@@ -233,6 +245,9 @@ Verdict decide(const Endpoint & writer, const Endpoint & reader)
 
     if (w_shm && r_shm) {
       v.transport = Transport::SHM;
+      // The reader's SHM locator names the /dev/shm port the writer will write into,
+      // exactly as a network locator names the address it will send to.
+      if (const Locator * l = find_locator(reader, LocatorKind::SHM)) {v.locator = *l;}
       v.reasons.push_back("both-shm-locators");
       return v;
     }
@@ -651,7 +666,9 @@ void apply_stats(std::vector<TopicSummary> & topics, const StatsData & stats)
       // Fast DDS may legitimately use another one. Only its complete absence from the
       // measured traffic says something (a multi-homed reader reached over a different
       // interface), so compare against the whole set rather than a single locator.
-      if (v.locator.kind != LocatorKind::Invalid &&
+      // Only worth asking once the kind agrees: a kind that does not is already
+      // measured-transport-mismatch, and saying it twice adds nothing.
+      if (matches && v.locator.kind != LocatorKind::Invalid &&
         std::none_of(
           m.locators.begin(), m.locators.end(),
           [&](const MeasuredLocator & ml) {

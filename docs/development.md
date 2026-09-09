@@ -262,7 +262,7 @@ the Fast DDS 2.14 / 3.x compatibility layer, the repository layout and extension
 
 ## Roadmap
 
-As of 2026-09-06. The [issue tracker](https://github.com/atinfinity/fastdds_transport_viz/issues)
+As of 2026-09-10. The [issue tracker](https://github.com/atinfinity/fastdds_transport_viz/issues)
 is the source of truth; update this list when closing an issue.
 
 Done:
@@ -303,6 +303,9 @@ Done:
   [#46](https://github.com/atinfinity/fastdds_transport_viz/issues/46)
 - `LOSS` column and reliability counters (`RTPS_LOST`, resends, heartbeats, acknacks) —
   [#47](https://github.com/atinfinity/fastdds_transport_viz/issues/47)
+- Selected and measured locators: `--locators`, the JSON `locator` /
+  `measured.locators[]` fields and the `measured-locator-mismatch` warning —
+  [#63](https://github.com/atinfinity/fastdds_transport_viz/issues/63)
 
 Open, in priority order (labels `priority/1-high` … `priority/3-low` on the issues):
 

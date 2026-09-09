@@ -31,8 +31,8 @@ json locators_json(const std::vector<Locator> & ls)
   return arr;
 }
 
-/// The locator the verdict selected, or null when none was (SHM / DATA_SHARING / NONE,
-/// or Fast DDS < 2.10 hiding a same-host peer's locators).
+/// The locator the verdict selected, or null when none was (a DATA_SHARING or NONE
+/// verdict, or Fast DDS < 2.10 hiding a same-host peer's locators).
 json selected_locator_json(const Verdict & v)
 {
   if (v.locator.kind == LocatorKind::Invalid) {

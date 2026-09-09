@@ -203,9 +203,12 @@
     return codes.map(c => `<span class="code ${warn ? 'warn' : ''}"><b>${warn ? '!' : ''}${escapeHtml(c)}</b><span class="desc">${escapeHtml(desc[c] || '')}</span></span>`).join('');
   }
 
-  function locators(ep) {
+  /** `selected` is the pair's chosen locator (reader side only); it is marked in the list. */
+  function locators(ep, selected) {
     const fmt = l => `${l.kind}${l.address ? ' ' + l.address : ''}:${l.port}`;
-    return escapeHtml([...ep.unicast_locators.map(fmt), ...ep.multicast_locators.map(l => fmt(l) + ' (multicast)')].join(', ')) || '—';
+    const isSel = l => selected && l.kind === selected.kind && l.address === selected.address && l.port === selected.port;
+    const mark = l => fmt(l) + (isSel(l) ? ' (selected)' : '');
+    return escapeHtml([...ep.unicast_locators.map(mark), ...ep.multicast_locators.map(l => mark(l) + ' (multicast)')].join(', ')) || '—';
   }
 
   /** Non-default request/offer policies (deadline, liveliness, ownership, partitions). */
@@ -219,12 +222,12 @@
     return parts.length ? ', ' + escapeHtml(parts.join(', ')) : '';
   }
 
-  function endpointDetails(label, ep, pairSide) {
+  function endpointDetails(label, ep, selected) {
     return `<h3>${label}</h3><dl>
       <dt>node</dt><dd>${escapeHtml(ep.node || '(non-ROS participant)')}</dd>
       <dt>host</dt><dd>${escapeHtml(ep.host)}${ep.process ? ` (pid ${escapeHtml(ep.process)})` : ''}</dd>
       <dt>guid</dt><dd><code>${escapeHtml(ep.guid)}</code></dd>
-      <dt>locators</dt><dd>${locators(ep)}</dd>
+      <dt>locators</dt><dd>${locators(ep, selected)}</dd>
       ${typeof ep.datasharing_history_bytes === 'number' ? `<dt>data-sharing history</dt><dd>${humanBytes(ep.datasharing_history_bytes, 'B')} in /dev/shm</dd>` : ''}
       <dt>qos</dt><dd>${escapeHtml(ep.qos.reliability)}, ${escapeHtml(ep.qos.durability)}, data-sharing ${escapeHtml(ep.qos.data_sharing)}${ep.qos.data_sharing_domain_ids && ep.qos.data_sharing_domain_ids.length ? ` [${ep.qos.data_sharing_domain_ids.join(', ')}]` : ''}${qosExtras(ep.qos)}</dd>
     </dl>`;
@@ -238,7 +241,7 @@
       ${p.measured && p.measured.reliability ? `<div class="muted">heartbeats ${p.measured.reliability.heartbeats}, gaps ${p.measured.reliability.gaps}, acknacks ${p.measured.reliability.acknacks}, nackfrags ${p.measured.reliability.nackfrags}</div>` : ''}
       <div>${escapeHtml(p.writer_node || vp.writerNode)}@${escapeHtml(p.writer_host)} → ${escapeHtml(p.reader_node || vp.readerNode)}@${escapeHtml(p.reader_host)}</div>
       ${codeList(p.reasons, false)}${codeList(p.warnings, true)}
-      ${endpointDetails('Writer', vp.writer)}${endpointDetails('Reader', vp.reader)}
+      ${endpointDetails('Writer', vp.writer)}${endpointDetails('Reader', vp.reader, p.locator)}
     </div>`;
   }
 

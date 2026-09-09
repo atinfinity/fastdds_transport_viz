@@ -125,12 +125,18 @@
     return `${v.toFixed(digits)} ${prefixes[i]}${unit}`;
   }
 
+  /** "UDPv4 127.0.0.1:7413 + SHM:8169 47 pkt 1.31 kB": the addresses stay next to their
+   *  transport, falling back to the kinds alone for a document without measured.locators. */
   function measuredText(m) {
     if (!m || !m.available) return '';
     if (!m.transports.length) return m.delivered ? 'none (delivered)' : 'none';
-    if (!m.packets) return `${m.transports.join('+')} (idle)`;
+    const locators = Array.isArray(m.locators) ? m.locators : [];
+    const label = locators.length
+      ? locators.map(l => `${l.kind}${l.address ? ' ' + l.address : ''}:${l.port}`).join(' + ')
+      : m.transports.join('+');
+    if (!m.packets) return `${label} (idle)`;
     const bytes = typeof m.bytes === 'number' ? ` ${humanBytes(m.bytes, 'B')}` : '';
-    return `${m.transports.join('+')} ${m.packets} pkt${bytes}`;
+    return `${label} ${m.packets} pkt${bytes}`;
   }
 
   function rateText(m) {

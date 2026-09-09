@@ -87,8 +87,8 @@ the nodes you observe.
 
 ```
 ros2 transport list [--domain N] [--timeout S] [--quiet S] [--topic REGEX] [--node REGEX]
-                    [--all] [-v] [--explain] [--stats] [--json] [--color auto|always|never]
-                    [--watch [--interval S]]
+                    [--all] [-v] [--explain] [--locators] [--stats] [--json]
+                    [--color auto|always|never] [--watch [--interval S]]
 ros2 transport codes
 ```
 
@@ -100,12 +100,13 @@ ros2 transport codes
 |---|---|
 | `-v` | expand writer → reader pairs under each topic |
 | `--explain` | append a legend for the reason codes used |
+| `--locators` | add a line under each pair with the locator the tool selected and the locators that actually carried packets (implies `-v`; ignored with `--json`, which always carries them) |
 | `--stats` | also show measured transports and the `RATE` column (payload bytes/s per topic and writer); observed nodes need `FASTDDS_STATISTICS`, see [Measured transports](statistics.md) |
 | `--json` | machine-readable output (`schema_version: 1`); open it in the [web viewer](web-viewer.md) |
 | `--topic REGEX` | only topics whose name matches |
 | `--node REGEX` | only pairs involving a node whose full name matches (its unpaired endpoints stay visible) |
 | `--all` | include services/actions and non-ROS DDS topics |
-| `--watch` | re-render every `--interval` seconds, highlighting added/changed/removed pairs; keys `q p v e a` (with `--json`: JSON Lines with a `changes` object) |
+| `--watch` | re-render every `--interval` seconds, highlighting added/changed/removed pairs; keys `q p v e a l` (with `--json`: JSON Lines with a `changes` object) |
 | `--color` | ANSI colors for transports and warnings (`auto` = only on a terminal) |
 
 ## Documentation

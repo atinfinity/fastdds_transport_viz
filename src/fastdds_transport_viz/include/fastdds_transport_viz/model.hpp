@@ -116,9 +116,10 @@ struct Verdict
 {
   Transport transport{Transport::None};
   Confidence confidence{Confidence::Certain};
-  // The reader locator the decision selected for a network transport. Kind Invalid when
-  // none was selected: an SHM / DATA_SHARING / NONE verdict, or Fast DDS < 2.10 hiding
-  // the locators of a same-host peer (reason same-host-locators-hidden).
+  // The reader locator the decision selected: the address (or, for SHM, the /dev/shm
+  // port) the writer will deliver to. Kind Invalid when none was selected: a
+  // DATA_SHARING or NONE verdict, or Fast DDS < 2.10 hiding the locators of a same-host
+  // peer (reason same-host-locators-hidden).
   Locator locator;
   bool locator_multicast{false};
   std::vector<std::string> reasons;    // machine-readable reason codes
