@@ -12,7 +12,7 @@ endif()
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(std_msgs REQUIRED)
-# Fast DDS 3.x (Kilted / Rolling) exports the `fastdds` package, 2.x (Jazzy) `fastrtps`.
+# Fast DDS 3.x (Lyrical / Rolling) exports the `fastdds` package, 2.x (Jazzy) `fastrtps`.
 find_package(fastdds QUIET)
 if(fastdds_FOUND)
   set(FTV_FASTDDS_TARGET fastdds)

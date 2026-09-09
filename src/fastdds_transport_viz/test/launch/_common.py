@@ -41,7 +41,8 @@ def node_action(package, executable, name, env_overrides=None, arguments=None):
         env=env, arguments=list(arguments or []))
 
 
-# demo_nodes_cpp publishes std_msgs/String up to Kilted and example_interfaces/String in Rolling
+# demo_nodes_cpp publishes std_msgs/String on Humble and Jazzy, and
+# example_interfaces/String on Lyrical and Rolling
 STRING_TYPES = ('std_msgs/msg/String', 'example_interfaces/msg/String')
 
 # ROS 2 Humble ships Fast DDS 2.6: no statistics module in the binary, no

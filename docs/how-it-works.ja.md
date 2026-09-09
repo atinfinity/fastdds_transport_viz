@@ -2,7 +2,7 @@
 
 > 英語版が正です。この文書は 2026-09-10 時点の英語版に対応しています。
 
-このツールは Fast DDS 2.14 (ROS 2 Jazzy) と 3.x (Kilted、Rolling) の両方に対してビルドできます。
+このツールは Fast DDS 2.14 (ROS 2 Jazzy) と 3.x (Lyrical、Rolling) の両方に対してビルドできます。
 API の差分は `include/fastdds_transport_viz/fastdds_compat.hpp` に閉じ込めてあり、以下の判定ルールは
 両方で同じです。
 
@@ -96,7 +96,7 @@ transport ごとの注意点 (いずれも launch テストかマルチコンテ
   ため (Fast DDS 2.14 と 3.2。Rolling の 3.6 は全部中継します)、この変数が設定されているとツールは
   自分を `SUPER_CLIENT` にします (stderr にその旨を出します)。`ROS_SUPER_CLIENT` を明示していれば
   それを尊重します。サーバーは Jazzy では `fastdds discovery -i 0 -l <ip> -p <port>`、
-  Kilted / Rolling では `fastdds discovery -l <ip> -p <port>` です。
+  Lyrical / Rolling では `fastdds discovery -l <ip> -p <port>` です。
 - `ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST` はそのまま動きます (ノードはループバックの locator だけ
   を広告します)。`OFF` はすべての participant を自分自身に閉じ込めるので何も観測できません。
   その場合ツールは警告を出します。

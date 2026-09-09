@@ -11,7 +11,7 @@
 |---|---|---|
 | Humble | 2.6 | 予測のみ (バイナリに statistics モジュールが無い) |
 | Jazzy | 2.14 | 予測 + `--stats` による実測 |
-| Kilted | 3.2 | 予測 + `--stats` による実測 |
+| Lyrical | 3.6 | 予測 + `--stats` による実測 |
 | Rolling | 3.x (head) | Fast DDS の main を追従。CI では best-effort 扱いで必須チェックではない |
 
 ソースと Issue: [github.com/atinfinity/fastdds_transport_viz](https://github.com/atinfinity/fastdds_transport_viz)。
@@ -61,7 +61,7 @@ shared memory: /dev/shm 371 MB used of 16.7 GB (16.3 GB free) | Fast DDS 6.36 MB
   全コードを一覧する `ros2 transport codes`。
 - **環境の共有メモリ。** `/dev/shm` の容量、そこにある Fast DDS のセグメント・ポート・data-sharing
   履歴、残骸 (stale)、観測対象ノードがそれを共有しているかどうか。
-- **検証済みの環境:** Jazzy (Fast DDS 2.14) と Kilted / Rolling (Fast DDS 3.x)、x86_64 と arm64、
+- **検証済みの環境:** Jazzy (Fast DDS 2.14) と Lyrical / Rolling (Fast DDS 3.x)、x86_64 と arm64、
   Discovery Server、`LARGE_DATA` (TCP)、`UDPv6`、`LOCALHOST` の discovery range、大きな SHM
   サンプル、zero-copy data-sharing、2 台の物理ホスト (x86_64 ↔ Jetson Orin NX、Wi-Fi 経由、両方向の
   予測と実測)。

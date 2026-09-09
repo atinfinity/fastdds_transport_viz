@@ -4,14 +4,17 @@
 
 このページでは、素の ROS 2 環境から、最初の `ros2 transport list`、statistics、web viewer
 までを通します。動作環境は Linux です。ツールは Fast DDS を観測するので、観測対象のノードは
-`rmw_fastrtps_cpp` (Jazzy、Kilted、Rolling の既定 RMW) を使っている必要があります。
+`rmw_fastrtps_cpp` (Jazzy、Lyrical、Rolling の既定 RMW) を使っている必要があります。
 
 | ROS 2 ディストリビューション | Fast DDS | 備考 |
 |---|---|---|
 | Humble (Ubuntu 22.04) | 2.6 | 予測のみ: Humble のバイナリには statistics モジュールが無く `--stats` は何も測れない。同一ホストの相手は SHM locator しか見えない ([仕組み](how-it-works.ja.md#fast-dds-26-ros-2-humble) 参照) |
 | Jazzy (Ubuntu 24.04) | 2.14 | 主対象 |
-| Kilted (Ubuntu 24.04) | 3.2 | |
+| Lyrical (Ubuntu 26.04) | 3.6 | 現行 LTS |
 | Rolling | 3.x | ベストエフォート (CI は失敗を許容) |
+
+Kilted は 1.0.0 までの対応で、2026 年 12 月に EOL を迎えるため 1.1.0 以降は対象外です。
+`1.0.0` タグは Kilted でもビルドでき、動作します。
 
 ## 1. ビルド
 
@@ -27,7 +30,7 @@
 ```
 mkdir -p ~/ws/src && cd ~/ws
 git clone https://github.com/atinfinity/fastdds_transport_viz.git src/fastdds_transport_viz
-source /opt/ros/jazzy/setup.bash              # または humble / kilted / rolling
+source /opt/ros/jazzy/setup.bash              # または humble / lyrical / rolling
 rosdep install --from-paths src --ignore-src -y
 colcon build --symlink-install
 source install/setup.bash
@@ -41,7 +44,7 @@ source install/setup.bash
 ### Docker (代替)
 
 リポジトリには `compose.yaml` があり、開発用イメージ (`ros:jazzy`、または
-`ROS_DISTRO=kilted` / `rolling`)、`/ws` にマウントしたリポジトリ、ホストの共有メモリが
+`ROS_DISTRO=lyrical` / `rolling`)、`/ws` にマウントしたリポジトリ、ホストの共有メモリが
 ツールから見えるようにする `ipc: host` を定義しています:
 
 ```
