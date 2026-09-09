@@ -2,7 +2,7 @@
 
 [English](README.md) | 日本語
 
-> 英語版が正です。この文書は 2026-09-06 時点の英語版に対応しています。
+> 英語版が正です。この文書は 2026-09-09 時点の英語版に対応しています。
 
 [![CI](https://github.com/atinfinity/fastdds_transport_viz/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/atinfinity/fastdds_transport_viz/actions/workflows/ci.yml)
 
@@ -114,7 +114,7 @@ ros2 transport codes
 ## ドキュメント
 
 - [はじめに](docs/getting-started.ja.md) — ビルド (ネイティブ / Docker)、最初の実行、`--stats`、watch モード、web viewer、最初の確認事項
-- [仕組み](docs/how-it-works.ja.md) — 判定ルール、理由コード、ホスト、実行場所、watch モード
+- [仕組み](docs/how-it-works.ja.md) — 判定ルール、理由コード、ホストとアドレス、実行場所、watch モード
 - [実測 transport (`--stats`)](docs/statistics.ja.md) — statistics トピック、有効化、10 インスタンスの落とし穴
 - [Data-sharing (zero-copy)](docs/data-sharing.ja.md) — ROS 2 トピックが既定で `SHM` になる理由と data-sharing の有効化
 - [Web viewer](docs/web-viewer.ja.md) — `--json` 出力のグラフ/表表示、ライブモード (`transport_viz_web`)、JSON スキーマ

@@ -1,6 +1,6 @@
 # fastdds_transport_viz
 
-> 英語版が正です。この文書は 2026-09-06 時点の英語版に対応しています。
+> 英語版が正です。この文書は 2026-09-09 時点の英語版に対応しています。
 
 **ROS 2 の各トピックが Fast DDS のどの transport で通信しているか** — UDPv4、UDPv6、TCP、
 共有メモリ (SHM)、zero-copy の data-sharing — を、**その理由とともに**表示します。
@@ -110,7 +110,7 @@ ros2 transport codes
 ## ドキュメント
 
 - [はじめに](getting-started.md) — ビルド (ネイティブ / Docker)、最初の実行、`--stats`、watch モード、web viewer、最初の確認事項
-- [仕組み](how-it-works.md) — 判定ルール、理由コード、ホスト、実行場所、watch モード
+- [仕組み](how-it-works.md) — 判定ルール、理由コード、ホストとアドレス、実行場所、watch モード
 - [実測 transport (`--stats`)](statistics.md) — statistics トピック、有効化、10 インスタンスの落とし穴
 - [Data-sharing (zero-copy)](data-sharing.md) — ROS 2 トピックが既定で `SHM` になる理由と data-sharing の有効化
 - [Web viewer](web-viewer.md) — `--json` 出力のグラフ/表表示、ライブモード (`transport_viz_web`)、JSON スキーマ

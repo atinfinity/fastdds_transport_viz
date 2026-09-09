@@ -1,6 +1,6 @@
 # 仕組み
 
-> 英語版が正です。この文書は 2026-09-06 時点の英語版に対応しています。
+> 英語版が正です。この文書は 2026-09-09 時点の英語版に対応しています。
 
 このツールは Fast DDS 2.14 (ROS 2 Jazzy) と 3.x (Kilted、Rolling) の両方に対してビルドできます。
 API の差分は `include/fastdds_transport_viz/fastdds_compat.hpp` に閉じ込めてあり、以下の判定ルールは
@@ -121,12 +121,50 @@ Humble の Fast DDS 2.6 では 2 点が異なります。
   `ROS_STATIC_PEERS` (ROS 2 Iron 以降) はありません。transport は XML プロファイルで設定します
   (`test/launch/udpv4_only.xml` が UDPv4 のみの participant の例)。
 
-## ホスト
+## ホストとアドレス
 
 `--stats` 無しでは、ホストは `local` (ツールと同じホスト id) か `host:<4 バイトの 16 進>` で表示
 されます。`--stats` 付きでは statistics の `PHYSICAL_DATA` トピックからホスト名とプロセス id を
-取ります。1 台のマシン上でネットワーク名前空間の異なるコンテナは、ホスト id が同じなのに異なる
-IP アドレスを広告することがあり、警告 `host-id-match-but-ip-differs` で報告されます。
+取ります。このときテーブルは各エンドポイントを `node@host(pid)` と表示し、`--json` にはエンド
+ポイントごとの `host_name` (`<ホスト名>:<数値のホスト id>` の形式) と `process`、および participant
+ごとの host / user / process を並べた `stats.physical` が入ります。1 台のマシン上でネットワーク
+名前空間の異なるコンテナは、ホスト id が同じなのに異なる IP アドレスを広告することがあり、警告
+`host-id-match-but-ip-differs` で報告されます。
+
+アドレスそのものはテーブルの列にはありません (テーブルは transport の種別と理由コードを示します)
+が、`--stats` 無しの discovery だけで `--json` に出ています。
+
+```
+ros2 transport list --json | jq '.topics[].writers[] | {node, unicast_locators}'
+```
+
+```json
+{
+  "node": "/bounded_pub",
+  "unicast_locators": [
+    { "kind": "SHM",   "address": "",          "port": 8169 },
+    { "kind": "UDPv4", "address": "127.0.0.1", "port": 8169 }
+  ]
+}
+```
+
+`unicast_locators` と `multicast_locators` は公開スキーマ
+(`schema/transport_viz.schema.json`) の一部です。ただし次の 3 点は読み取れません。
+
+- これは participant が**広告した** locator、つまり受信を受け付けるアドレスであって、パケットの
+  実際の送信元ではありません。NAT 越しや bridge ネットワーク上のコンテナでは、ツールを実行して
+  いる場所から到達できないアドレスを広告することがあります。
+- SHM locator の `address` は空です。`port` は Fast DDS の共有メモリポート (`/dev/shm` の
+  `fastrtps_port<N>`) であり、ネットワークポートではありません。
+- Fast DDS 2.10 より前では、同一ホストの相手について SHM locator しかツールに届きません。
+  [Fast DDS 2.6](#fast-dds-26-ros-2-humble) を参照してください。
+
+`--stats` 付きなら、実際にパケットを運んだ locator も報告されます。`stats.traffic[]` に
+`dst_locator` (`RTPS_SENT`、送信側 participant がキー)、`stats.lost[]` に `from_locator`
+(`RTPS_LOST`、受信側 participant がキー) があり、いずれも `kind` / `address` / `port` を持ちます。
+Fast DDS は同一ホストの participant の locator を `127.0.0.1` / `::1` として報告する一方、リモート
+の writer の `RTPS_SENT` は実際のアドレスを名乗るので、ツールはトラフィックを reader に対応づける
+ときに両方の表記を突き合わせます。
 
 ## 環境の共有メモリ
 
