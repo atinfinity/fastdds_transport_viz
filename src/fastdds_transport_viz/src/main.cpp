@@ -640,7 +640,7 @@ int main(int argc, char ** argv)
             frame << fastdds_transport_viz::render_table(snap, ropt);
             if (term.enabled()) {
               frame << "\n q quit   p " << (paused ? "resume" : "pause") <<
-                "   v pairs   e legend   a all\n";
+                "   v pairs   e legend   a all   l locators\n";
               term.paint(frame.str(), rows);
             } else {
               std::cout << frame.str() << "\n" << std::flush;
