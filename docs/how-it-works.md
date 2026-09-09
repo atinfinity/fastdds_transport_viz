@@ -128,13 +128,55 @@ Two things differ on Humble's Fast DDS 2.6:
   `ROS_STATIC_PEERS` (ROS 2 Iron+) do not exist there; transports are configured through
   an XML profile (`test/launch/udpv4_only.xml` is an example of a UDPv4-only participant).
 
-## Hosts
+## Hosts and addresses
 
 Without `--stats`, hosts are shown as `local` (same host id as the tool) or
 `host:<4-byte hex>`. With `--stats`, host names and process ids come from the
-statistics `PHYSICAL_DATA` topic. Containers with separate network namespaces on one
-machine can share a host id while announcing different IP addresses; this is reported as
-the warning `host-id-match-but-ip-differs`.
+statistics `PHYSICAL_DATA` topic: the table then labels every endpoint
+`node@host(pid)`, and `--json` carries `host_name` (reported as
+`<hostname>:<numeric host id>`) and `process` per endpoint, plus the raw
+`stats.physical` table (host, user and process per participant). Containers with
+separate network namespaces on one machine can share a host id while announcing
+different IP addresses; this is reported as the warning
+`host-id-match-but-ip-differs`.
+
+The addresses themselves are not a table column - the table shows the transport kind
+and the reason codes - but they are in `--json`, from discovery alone, with no
+`--stats` needed:
+
+```
+ros2 transport list --json | jq '.topics[].writers[] | {node, unicast_locators}'
+```
+
+```json
+{
+  "node": "/bounded_pub",
+  "unicast_locators": [
+    { "kind": "SHM",   "address": "",          "port": 8169 },
+    { "kind": "UDPv4", "address": "127.0.0.1", "port": 8169 }
+  ]
+}
+```
+
+`unicast_locators` and `multicast_locators` are part of the published schema
+(`schema/transport_viz.schema.json`). Three things they do not tell you:
+
+- They are the locators a participant **announces**, that is, the addresses it is
+  willing to receive on - not the address a packet came from. Behind NAT, or in a
+  container on a bridge network, a participant can announce addresses that are
+  unreachable from where the tool runs.
+- SHM locators have an empty `address`; the `port` is the Fast DDS shared-memory port
+  (`fastrtps_port<N>` in `/dev/shm`), not a network port.
+- Below Fast DDS 2.10 only the SHM locator of a same-host peer reaches the tool, see
+  [Fast DDS 2.6](#fast-dds-26-ros-2-humble).
+
+With `--stats` the locators that actually carried packets are reported as well:
+`stats.traffic[]` has `dst_locator` (`RTPS_SENT`, keyed by the sending participant)
+and `stats.lost[]` has `from_locator` (`RTPS_LOST`, keyed by the receiving
+participant), both with `kind`, `address` and `port`. Fast DDS reports the locators of
+a same-host participant as `127.0.0.1` / `::1` while a remote writer's `RTPS_SENT`
+names the real address, so the tool matches both spellings when it attributes traffic
+to a reader.
 
 ## Shared memory of the environment
 
