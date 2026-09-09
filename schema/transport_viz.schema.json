@@ -107,6 +107,62 @@
         }
       }
     },
+    "selectedLocator": {
+      "type": "object",
+      "description": "The reader locator the prediction selected. null when none was selected: an SHM, DATA_SHARING or NONE verdict, or Fast DDS < 2.10 hiding a same-host peer's locators.",
+      "required": [
+        "kind",
+        "address",
+        "port",
+        "multicast"
+      ],
+      "properties": {
+        "kind": {
+          "$ref": "#/$defs/locatorKind"
+        },
+        "address": {
+          "type": "string"
+        },
+        "port": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "multicast": {
+          "type": "boolean"
+        }
+      }
+    },
+    "measuredLocator": {
+      "type": "object",
+      "description": "One destination locator that carried packets to the reader. packets/bytes are deltas over the observation, so the entries sum to measurement.packets/bytes.",
+      "required": [
+        "kind",
+        "address",
+        "port",
+        "packets",
+        "bytes"
+      ],
+      "properties": {
+        "kind": {
+          "$ref": "#/$defs/locatorKind"
+        },
+        "address": {
+          "type": "string"
+        },
+        "port": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "packets": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "bytes": {
+          "type": "number",
+          "minimum": 0
+        }
+      }
+    },
     "endpoint": {
       "type": "object",
       "required": [
@@ -246,6 +302,7 @@
       "required": [
         "available",
         "transports",
+        "locators",
         "packets",
         "bytes",
         "delivered"
@@ -258,6 +315,12 @@
           "type": "array",
           "items": {
             "$ref": "#/$defs/transport"
+          }
+        },
+        "locators": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/measuredLocator"
           }
         },
         "packets": {
@@ -374,6 +437,7 @@
         "writer_host",
         "reader_host",
         "transport",
+        "locator",
         "confidence",
         "reasons",
         "warnings",
@@ -400,6 +464,16 @@
         },
         "transport": {
           "$ref": "#/$defs/transport"
+        },
+        "locator": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/selectedLocator"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "confidence": {
           "$ref": "#/$defs/confidence"
@@ -705,6 +779,8 @@
         "transport",
         "confidence",
         "measured",
+        "locator",
+        "measured_locators",
         "warnings"
       ],
       "properties": {
@@ -718,6 +794,22 @@
           "type": "array",
           "items": {
             "$ref": "#/$defs/transport"
+          }
+        },
+        "locator": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/locator"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "measured_locators": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/locator"
           }
         },
         "warnings": {

@@ -1118,3 +1118,138 @@ TEST(ApplyStats, ReliabilityCountersAndLostPackets)
   EXPECT_FALSE(topics[0].reliability_available);
   EXPECT_FALSE(has(topics[0].pairs[0].verdict.warnings, "rtps-packets-lost"));
 }
+
+TEST(Decision, SelectedLocatorIsTheMatchingReaderLocator)
+{
+  auto w = make(true, HOST_A, {udp4("10.0.0.1")});
+  auto r = make(false, HOST_B, {udp4("10.0.0.2", 7413)});
+  auto v = decide(w, r);
+  EXPECT_EQ(v.transport, Transport::UDPv4);
+  EXPECT_TRUE(v.locator == udp4("10.0.0.2", 7413));
+  EXPECT_FALSE(v.locator_multicast);
+}
+
+TEST(Decision, NoSelectedLocatorWithoutANetworkTransport)
+{
+  // SHM and NONE verdicts never reach the network-locator selection.
+  auto w = make(true, HOST_A, {udp4("10.0.0.1"), shm(7415)});
+  auto r = make(false, HOST_A, {udp4("10.0.0.1", 7413), shm(7413)});
+  auto shm_verdict = decide(w, r);
+  EXPECT_EQ(shm_verdict.transport, Transport::SHM);
+  EXPECT_EQ(shm_verdict.locator.kind, LocatorKind::Invalid);
+
+  auto w6 = make(true, HOST_A, {udp4("10.0.0.1")});
+  auto r6 = make(false, HOST_B, {Locator{LocatorKind::UDPv6, "::1", 7411}});
+  auto none_verdict = decide(w6, r6);
+  EXPECT_EQ(none_verdict.transport, Transport::None);
+  EXPECT_EQ(none_verdict.locator.kind, LocatorKind::Invalid);
+}
+
+TEST(Decision, SelectedLocatorCanBeMulticast)
+{
+  auto w = make(true, HOST_A, {udp4("10.0.0.1")});
+  auto r = make(false, HOST_B, {});
+  r.multicast.push_back(udp4("239.255.0.1", 7400));
+  auto v = decide(w, r);
+  EXPECT_EQ(v.transport, Transport::UDPv4);
+  EXPECT_TRUE(v.locator == udp4("239.255.0.1", 7400));
+  EXPECT_TRUE(v.locator_multicast);
+}
+
+TEST(ApplyStats, MeasuredLocatorsBreakDownTheTraffic)
+{
+  std::vector<Endpoint> eps;
+  eps.push_back(make(true, HOST_A, {udp4("10.0.0.1"), shm(7415)}));
+  eps.push_back(make(false, HOST_A, {udp4("10.0.0.1", 7413), shm(7413)}));
+  eps[0].participant_guid_prefix = "P1";
+  auto topics = summarize(eps);
+  auto stats = stats_with(
+    eps[0], {TrafficSample{"P1", shm(7413), 10, 1000.0},
+      TrafficSample{"P1", udp4("10.0.0.1", 7413), 4, 400.0}});
+  apply_stats(topics, stats);
+  const auto & p = topics[0].pairs[0];
+  ASSERT_EQ(p.measured.locators.size(), 2u);
+  uint64_t packets = 0;
+  double bytes = 0.0;
+  for (const auto & ml : p.measured.locators) {
+    packets += ml.packets;
+    bytes += ml.bytes;
+  }
+  EXPECT_EQ(packets, p.measured.packets);   // the entries are a breakdown of the total
+  EXPECT_DOUBLE_EQ(bytes, p.measured.bytes);
+  EXPECT_EQ(p.measured.packets, 14u);
+  // an SHM verdict selects no locator, so the UDPv4 traffic cannot be a locator mismatch
+  EXPECT_FALSE(has(p.verdict.warnings, "measured-locator-mismatch"));
+}
+
+TEST(ApplyStats, LocatorMismatchWhenTheSelectedLocatorCarriedNothing)
+{
+  // Multi-homed reader: the prediction selects the first announced locator, the packets
+  // went to the second one. The transport kind still agrees.
+  std::vector<Endpoint> eps;
+  eps.push_back(make(true, HOST_B, {udp4("192.168.1.6")}));
+  eps.push_back(make(false, HOST_A, {udp4("192.168.1.20", 7413), udp4("10.0.0.5", 7413)}));
+  eps[0].participant_guid_prefix = "P1";
+  auto topics = summarize(eps);
+  auto stats = stats_with(eps[0], {TrafficSample{"P1", udp4("10.0.0.5", 7413), 9, 900.0}});
+  apply_stats(topics, stats);
+  const auto & p = topics[0].pairs[0];
+  EXPECT_TRUE(p.verdict.locator == udp4("192.168.1.20", 7413));
+  EXPECT_EQ(p.verdict.transport, Transport::UDPv4);
+  EXPECT_FALSE(has(p.verdict.warnings, "measured-transport-mismatch"));
+  EXPECT_TRUE(has(p.verdict.warnings, "measured-locator-mismatch"));
+}
+
+TEST(ApplyStats, NoLocatorMismatchWhenTheSelectedLocatorAlsoCarriedTraffic)
+{
+  std::vector<Endpoint> eps;
+  eps.push_back(make(true, HOST_B, {udp4("192.168.1.6")}));
+  eps.push_back(make(false, HOST_A, {udp4("192.168.1.20", 7413), udp4("10.0.0.5", 7413)}));
+  eps[0].participant_guid_prefix = "P1";
+  auto topics = summarize(eps);
+  auto stats = stats_with(
+    eps[0], {TrafficSample{"P1", udp4("192.168.1.20", 7413), 9, 900.0},
+      TrafficSample{"P1", udp4("10.0.0.5", 7413), 3, 300.0}});
+  apply_stats(topics, stats);
+  const auto & p = topics[0].pairs[0];
+  ASSERT_EQ(p.measured.locators.size(), 2u);
+  EXPECT_FALSE(has(p.verdict.warnings, "measured-locator-mismatch"));
+}
+
+TEST(ApplyStats, LoopbackRewriteIsNotALocatorMismatch)
+{
+  // The reader is announced as 127.0.0.1 while the remote writer's RTPS_SENT names the
+  // host's real address: the same locator, spelled two ways.
+  std::vector<Endpoint> eps;
+  eps.push_back(make(true, HOST_B, {udp4("192.168.1.6")}));
+  eps.push_back(make(false, HOST_A, {udp4("127.0.0.1", 7413)}));
+  eps[0].participant_guid_prefix = "P1";
+  auto topics = summarize(eps);
+  auto stats = stats_with(eps[0], {TrafficSample{"P1", udp4("192.168.1.8", 7413), 7, 700.0}});
+  stats.local_addresses = {"192.168.1.8"};
+  apply_stats(topics, stats);
+  const auto & p = topics[0].pairs[0];
+  ASSERT_EQ(p.measured.locators.size(), 1u);
+  EXPECT_FALSE(has(p.verdict.warnings, "measured-locator-mismatch"));
+}
+
+TEST(Diff, GrowingLocatorCountersAreNotAChange)
+{
+  // PairState keeps locator identities only: MeasuredLocator's counters grow every frame
+  // and would otherwise report every active pair as changed for as long as it is used.
+  auto w = make(true, HOST_B, {udp4("192.168.1.6")});
+  auto r = make(false, HOST_A, {udp4("10.0.0.5", 7413)});
+  Pair pair;
+  pair.writer = &w;
+  pair.reader = &r;
+  pair.verdict = decide(w, r);
+  pair.measured.locators = {MeasuredLocator{udp4("10.0.0.5", 7413), 10, 1000.0}};
+  const auto before = pair_state(pair);
+
+  pair.measured.locators[0].packets = 999;
+  pair.measured.locators[0].bytes = 99999.0;
+  EXPECT_TRUE(pair_state(pair) == before);
+
+  pair.measured.locators[0].locator = udp4("10.0.0.9", 7413);
+  EXPECT_FALSE(pair_state(pair) == before);
+}
