@@ -37,6 +37,11 @@ struct Locator
   LocatorKind kind{LocatorKind::Invalid};
   std::string address;   // dotted IPv4 / IPv6 text; empty for SHM
   uint32_t port{0};
+  bool operator==(const Locator & o) const
+  {
+    return kind == o.kind && address == o.address && port == o.port;
+  }
+  bool operator!=(const Locator & o) const {return !(*this == o);}
 };
 
 enum class DataSharingKind
@@ -111,6 +116,11 @@ struct Verdict
 {
   Transport transport{Transport::None};
   Confidence confidence{Confidence::Certain};
+  // The reader locator the decision selected for a network transport. Kind Invalid when
+  // none was selected: an SHM / DATA_SHARING / NONE verdict, or Fast DDS < 2.10 hiding
+  // the locators of a same-host peer (reason same-host-locators-hidden).
+  Locator locator;
+  bool locator_multicast{false};
   std::vector<std::string> reasons;    // machine-readable reason codes
   std::vector<std::string> warnings;   // machine-readable warning codes
 };
@@ -145,11 +155,21 @@ struct Reliability
   uint64_t nackfrags{0};        // NACKFRAG_COUNT of the reader
 };
 
+/// One destination locator that carried packets of a pair, with that locator's share of
+/// the pair's traffic.
+struct MeasuredLocator
+{
+  Locator locator;
+  uint64_t packets{0};   // window deltas, so the entries sum to Measurement::packets
+  double bytes{0.0};     // ... and to Measurement::bytes
+};
+
 /// What the Fast DDS statistics module actually observed for a pair.
 struct Measurement
 {
   bool available{false};             // writer's participant publishes statistics
   std::vector<Transport> transports;  // locator kinds that carried packets to the reader
+  std::vector<MeasuredLocator> locators;   // ... and the locators behind those kinds
   uint64_t packets{0};               // RTPS packets/bytes to the reader during the observation
   double bytes{0.0};
   uint64_t packets_total{0};         // ... and since the writer's participant started
@@ -311,10 +331,15 @@ struct PairState
   Transport transport{Transport::None};
   Confidence confidence{Confidence::Certain};
   std::vector<Transport> measured;
+  // Locator identities only, never MeasuredLocator: its counters grow every frame and
+  // would report every active pair as changed.
+  Locator locator;
+  std::vector<Locator> measured_locators;
   std::vector<std::string> warnings;
   bool operator==(const PairState & o) const
   {
     return transport == o.transport && confidence == o.confidence && measured == o.measured &&
+           locator == o.locator && measured_locators == o.measured_locators &&
            warnings == o.warnings;
   }
   bool operator!=(const PairState & o) const {return !(*this == o);}

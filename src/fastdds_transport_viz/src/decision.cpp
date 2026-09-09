@@ -61,22 +61,26 @@ std::string reason_for(LocatorKind kind)
   }
 }
 
-/// Pick the network (non-SHM) locator kind the writer will use to reach the
-/// reader: walk the reader's unicast locators in announced order, then its
-/// multicast locators, and take the first kind the writer can also speak.
-bool pick_network_kind(const Endpoint & writer, const Endpoint & reader, LocatorKind & out)
+/// Pick the network (non-SHM) locator the writer will use to reach the reader: walk the
+/// reader's unicast locators in announced order, then its multicast locators, and take
+/// the first one whose kind the writer can also speak.
+bool pick_network_locator(
+  const Endpoint & writer, const Endpoint & reader, Locator & out, bool & multicast)
 {
   static const LocatorKind network_kinds[] = {
     LocatorKind::UDPv4, LocatorKind::UDPv6, LocatorKind::TCPv4, LocatorKind::TCPv6};
+  bool in_multicast = false;
   for (const auto * list : {&reader.unicast, &reader.multicast}) {
     for (const auto & l : *list) {
       bool is_network = std::find(std::begin(network_kinds), std::end(network_kinds), l.kind) !=
         std::end(network_kinds);
       if (is_network && has_kind(writer, l.kind)) {
-        out = l.kind;
+        out = l;
+        multicast = in_multicast;
         return true;
       }
     }
+    in_multicast = true;
   }
   return false;
 }
@@ -245,13 +249,16 @@ Verdict decide(const Endpoint & writer, const Endpoint & reader)
     }
   }
 
-  LocatorKind kind;
+  Locator selected;
+  bool selected_multicast = false;
   const bool same_host_locators_hidden =
     same_host && (writer.same_host_locators_filtered || reader.same_host_locators_filtered) &&
     (w_shm != r_shm);
-  if (pick_network_kind(writer, reader, kind)) {
-    v.transport = transport_for(kind);
-    v.reasons.push_back(reason_for(kind));
+  if (pick_network_locator(writer, reader, selected, selected_multicast)) {
+    v.transport = transport_for(selected.kind);
+    v.locator = selected;
+    v.locator_multicast = selected_multicast;
+    v.reasons.push_back(reason_for(selected.kind));
   } else if (same_host_locators_hidden) {
     // Fast DDS < 2.10 shows the tool only the SHM locator of a same-host participant; the
     // side without SHM is UDP-only, and the SHM side has the builtin UDP transport as
@@ -551,8 +558,11 @@ void apply_stats(std::vector<TopicSummary> & topics, const StatsData & stats)
         }
         // counters are cumulative since the writer's participant started; the
         // difference to the first sample is what happened during the observation
-        m.packets += s.packets - std::min(s.packets, s.packets_first);
-        m.bytes += std::max(0.0, s.bytes - s.bytes_first);
+        const uint64_t packets = s.packets - std::min(s.packets, s.packets_first);
+        const double bytes = std::max(0.0, s.bytes - s.bytes_first);
+        m.locators.push_back(MeasuredLocator{s.dst, packets, bytes});
+        m.packets += packets;
+        m.bytes += bytes;
         m.packets_total += s.packets;
         m.bytes_total += s.bytes;
       }
@@ -637,6 +647,19 @@ void apply_stats(std::vector<TopicSummary> & topics, const StatsData & stats)
       } else {
         v.warnings.push_back("measured-transport-mismatch");
       }
+      // The locator the prediction selected is one of several the reader announced;
+      // Fast DDS may legitimately use another one. Only its complete absence from the
+      // measured traffic says something (a multi-homed reader reached over a different
+      // interface), so compare against the whole set rather than a single locator.
+      if (v.locator.kind != LocatorKind::Invalid &&
+        std::none_of(
+          m.locators.begin(), m.locators.end(),
+          [&](const MeasuredLocator & ml) {
+            return same_locator_local(ml.locator, v.locator, stats.local_addresses);
+          }))
+      {
+        v.warnings.push_back("measured-locator-mismatch");
+      }
     }
   }
 }
@@ -652,6 +675,10 @@ PairState pair_state(const Pair & pair)
   s.transport = pair.verdict.transport;
   s.confidence = pair.verdict.confidence;
   s.measured = pair.measured.transports;
+  s.locator = pair.verdict.locator;
+  for (const auto & ml : pair.measured.locators) {
+    s.measured_locators.push_back(ml.locator);
+  }
   s.warnings = pair.verdict.warnings;
   return s;
 }
@@ -802,6 +829,10 @@ const std::map<std::string, std::string> & explanations()
     {"measured-transport-mismatch",
       "The transport predicted from discovery data differs from the locator kind(s) that actually "
       "carried packets. Please report this with the --json output."},
+    {"measured-locator-mismatch",
+      "The locator the tool selected from the reader's announced locators carried no packets; "
+      "the traffic went to another locator of the same kind that the reader also announced - "
+      "for example a multi-homed host reached over a different interface."},
     {"stats-writer-instance-limit-suspected",
       "The writer's participant reports traffic to 10 or more locators but none to this reader. "
       "The Fast DDS statistics DataWriter keeps the default resource limit of 10 instances "

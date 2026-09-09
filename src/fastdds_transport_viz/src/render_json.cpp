@@ -17,11 +17,40 @@ namespace
 {
 using json = nlohmann::json;
 
+json locator_json(const Locator & l)
+{
+  return {{"kind", to_string(l.kind)}, {"address", l.address}, {"port", l.port}};
+}
+
 json locators_json(const std::vector<Locator> & ls)
 {
   json arr = json::array();
   for (const auto & l : ls) {
-    arr.push_back({{"kind", to_string(l.kind)}, {"address", l.address}, {"port", l.port}});
+    arr.push_back(locator_json(l));
+  }
+  return arr;
+}
+
+/// The locator the verdict selected, or null when none was (SHM / DATA_SHARING / NONE,
+/// or Fast DDS < 2.10 hiding a same-host peer's locators).
+json selected_locator_json(const Verdict & v)
+{
+  if (v.locator.kind == LocatorKind::Invalid) {
+    return json(nullptr);
+  }
+  json l = locator_json(v.locator);
+  l["multicast"] = v.locator_multicast;
+  return l;
+}
+
+json measured_locators_json(const std::vector<MeasuredLocator> & ls)
+{
+  json arr = json::array();
+  for (const auto & ml : ls) {
+    json l = locator_json(ml.locator);
+    l["packets"] = ml.packets;
+    l["bytes"] = ml.bytes;
+    arr.push_back(l);
   }
   return arr;
 }
@@ -103,6 +132,7 @@ std::string render_json(const Snapshot & snap, const RenderOptions & opt)
           {"writer_host", host_label(snap, *p.writer, opt)},
           {"reader_host", host_label(snap, *p.reader, opt)},
           {"transport", to_string(p.verdict.transport)},
+          {"locator", selected_locator_json(p.verdict)},
           {"confidence", to_string(p.verdict.confidence)},
           {"reasons", p.verdict.reasons},
           {"warnings", p.verdict.warnings},
@@ -115,6 +145,7 @@ std::string render_json(const Snapshot & snap, const RenderOptions & opt)
                   }
                   return arr;
                 }()},
+              {"locators", measured_locators_json(p.measured.locators)},
               {"packets", p.measured.packets},
               {"bytes", p.measured.bytes},
               {"packets_total", p.measured.packets_total},
@@ -181,7 +212,11 @@ std::string render_json(const Snapshot & snap, const RenderOptions & opt)
         }
         return json{
         {"transport", to_string(st.transport)}, {"confidence", to_string(st.confidence)},
-        {"measured", measured}, {"warnings", st.warnings}};
+        {"measured", measured},
+        {"locator", st.locator.kind == LocatorKind::Invalid ?
+          json(nullptr) : locator_json(st.locator)},
+        {"measured_locators", locators_json(st.measured_locators)},
+        {"warnings", st.warnings}};
       };
     json changes;
     changes["added_pairs"] = json::array();
