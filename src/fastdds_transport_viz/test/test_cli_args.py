@@ -21,7 +21,8 @@ def test_help_exits_zero_with_usage():
         assert r.returncode == 0, r
         assert r.stdout.startswith('Usage: transport_viz [options]'), r.stdout
         for opt in ('--domain', '--timeout', '--quiet', '--topic', '--node', '--all', '--explain',
-                    '--stats', '--json', '--color', '--watch', '--interval', '--list-codes'):
+                    '--locators', '--stats', '--json', '--color', '--watch', '--interval',
+                    '--list-codes'):
             assert opt in r.stdout, opt
 
 

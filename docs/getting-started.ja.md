@@ -1,6 +1,6 @@
 # はじめに
 
-> 英語版が正です。この文書は 2026-09-06 時点の英語版に対応しています。
+> 英語版が正です。この文書は 2026-09-10 時点の英語版に対応しています。
 
 このページでは、素の ROS 2 環境から、最初の `ros2 transport list`、statistics、web viewer
 までを通します。動作環境は Linux です。ツールは Fast DDS を観測するので、観測対象のノードは
@@ -144,8 +144,8 @@ URL を開くと、ホストが列、ノードが箱、ペアが transport ご�
 
 ```
 ros2 transport list [--domain N] [--timeout S] [--quiet S] [--topic REGEX] [--node REGEX]
-                    [--all] [-v] [--explain] [--stats] [--json] [--color auto|always|never]
-                    [--watch [--interval S]]
+                    [--all] [-v] [--explain] [--locators] [--stats] [--json]
+                    [--color auto|always|never] [--watch [--interval S]]
 ros2 transport codes
 ```
 

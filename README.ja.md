@@ -2,7 +2,7 @@
 
 [English](README.md) | 日本語
 
-> 英語版が正です。この文書は 2026-09-09 時点の英語版に対応しています。
+> 英語版が正です。この文書は 2026-09-10 時点の英語版に対応しています。
 
 [![CI](https://github.com/atinfinity/fastdds_transport_viz/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/atinfinity/fastdds_transport_viz/actions/workflows/ci.yml)
 
@@ -89,8 +89,8 @@ ros2 transport list -v --explain
 
 ```
 ros2 transport list [--domain N] [--timeout S] [--quiet S] [--topic REGEX] [--node REGEX]
-                    [--all] [-v] [--explain] [--stats] [--json] [--color auto|always|never]
-                    [--watch [--interval S]]
+                    [--all] [-v] [--explain] [--locators] [--stats] [--json]
+                    [--color auto|always|never] [--watch [--interval S]]
 ros2 transport codes
 ```
 
@@ -103,12 +103,13 @@ ros2 transport codes
 |---|---|
 | `-v` | 各トピックの下に writer → reader のペアを展開する |
 | `--explain` | 使われている理由コードの凡例を末尾に付ける |
+| `--locators` | ツールが選んだ locator と、実際にパケットを運んだ locator を ペアごとに 1 行追加する (`-v` を暗黙に有効化。`--json` では無視され、JSON は常に同じ情報を持つ) |
 | `--stats` | 実測の transport と `RATE` 列 (トピック/writer ごとの payload バイト数/秒) も表示する (観測対象ノードに `FASTDDS_STATISTICS` が必要。[docs/statistics.ja.md](docs/statistics.ja.md)) |
 | `--json` | 機械可読な出力 (`schema_version: 1`、`schema/` 参照)。[web viewer](docs/web-viewer.ja.md) で開ける |
 | `--topic REGEX` | 名前が一致するトピックだけ表示する |
 | `--node REGEX` | 完全修飾ノード名が一致するノードが関わるペアだけ表示する (そのノードの未接続エンドポイントも残る) |
 | `--all` | サービス/アクションと ROS 以外の DDS トピックも含める |
-| `--watch` | `--interval` 秒ごとに再描画し、追加/変更/削除されたペアを強調する。キー `q p v e a` (`--json` 時は `changes` オブジェクト付きの JSON Lines) |
+| `--watch` | `--interval` 秒ごとに再描画し、追加/変更/削除されたペアを強調する。キー `q p v e a l` (`--json` 時は `changes` オブジェクト付きの JSON Lines) |
 | `--color` | transport と警告の ANSI 色 (`auto` = 端末のときだけ) |
 
 ## ドキュメント

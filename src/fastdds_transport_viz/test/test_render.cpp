@@ -3,6 +3,7 @@
 
 #include <gtest/gtest.h>
 
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -364,4 +365,118 @@ TEST(RenderTable, LossColumn)
   only_pair(s).measured.reliability.lost_packets = 0;
   out = render_table(s, opt);
   EXPECT_NE(out.find("  2 resent  "), std::string::npos) << out;
+}
+
+TEST(RenderTable, LocatorLineShapes)
+{
+  Snapshot s;
+  s.local_host_id = {1, 2, 3, 4};
+  auto w = ep(true, "W1", "/talker", LocatorKind::UDPv4);
+  auto r = ep(false, "R1", "/listener", LocatorKind::UDPv4);
+  r.host_id = {9, 9, 9, 9};                                  // different host: no SHM path
+  r.unicast[0] = Locator{LocatorKind::UDPv4, "10.0.0.2", 7413};
+  s.endpoints = {w, r};
+  s.topics = summarize(s.endpoints);
+  ASSERT_EQ(s.topics[0].pairs.size(), 1u);
+
+  RenderOptions opt;
+  opt.verbose = true;
+  EXPECT_EQ(render_table(s, opt).find("locators:"), std::string::npos) <<
+    "the line only appears with --locators";
+
+  // no --stats: the selected locator alone, without the word "selected"
+  opt.locators = true;
+  EXPECT_NE(render_table(s, opt).find("locators: UDPv4 10.0.0.2:7413\n"), std::string::npos);
+
+  // measured on the selected locator: said once
+  auto & m = s.topics[0].pairs[0].measured;
+  m.available = true;
+  m.transports = {Transport::UDPv4};
+  m.locators = {MeasuredLocator{Locator{LocatorKind::UDPv4, "10.0.0.2", 7413}, 55, 5500.0}};
+  EXPECT_NE(
+    render_table(s, opt).find("locators: UDPv4 10.0.0.2:7413 (selected = measured, 55 pkt)"),
+    std::string::npos);
+
+  // measured elsewhere: both sides, with the word "selected"
+  m.locators = {MeasuredLocator{Locator{LocatorKind::UDPv4, "192.168.1.5", 7413}, 55, 5500.0}};
+  EXPECT_NE(
+    render_table(s, opt).find(
+      "locators: selected UDPv4 10.0.0.2:7413 | measured UDPv4 192.168.1.5:7413 (55 pkt)"),
+    std::string::npos);
+}
+
+TEST(RenderTable, LocatorLineForShmDataSharingMulticastAndHiddenLocators)
+{
+  // SHM verdict: nothing was selected, so only a measured SHM port is reported, and an
+  // SHM locator names a /dev/shm port rather than an address.
+  auto s = snapshot();
+  RenderOptions opt;
+  opt.verbose = true;
+  opt.locators = true;
+  EXPECT_EQ(render_table(s, opt).find("locators:"), std::string::npos) <<
+    "an SHM verdict without statistics has no locator to report";
+  auto & m = s.topics[0].pairs[0].measured;
+  m.available = true;
+  m.transports = {Transport::SHM};
+  m.locators = {MeasuredLocator{Locator{LocatorKind::SHM, "", 7411}, 9, 900.0}};
+  EXPECT_NE(
+    render_table(s, opt).find("locators: measured SHM port 7411 (9 pkt)"), std::string::npos);
+
+  // DATA_SHARING carries no locator at all, which the line says rather than staying blank
+  auto & v = s.topics[0].pairs[0].verdict;
+  v.transport = Transport::DataSharing;
+  m.available = false;
+  m.transports.clear();
+  m.locators.clear();
+  EXPECT_NE(
+    render_table(s, opt).find("locators: DATA_SHARING (no locator)"), std::string::npos);
+
+  // Fast DDS < 2.10 predicts UDPv4 without ever showing the locator it would use
+  v.transport = Transport::UDPv4;
+  v.reasons = {"same-host-locators-hidden"};
+  EXPECT_NE(
+    render_table(s, opt).find("locators: UDPv4 (hidden by Fast DDS < 2.10)"), std::string::npos);
+
+  // a multicast selection is marked, so a group address is not read as the reader's own
+  v.reasons.clear();
+  v.locator = Locator{LocatorKind::UDPv4, "239.255.0.1", 7400};
+  v.locator_multicast = true;
+  EXPECT_NE(
+    render_table(s, opt).find("locators: UDPv4 239.255.0.1:7400 (multicast)"),
+    std::string::npos);
+
+  // NONE has no path at all: no line
+  v.transport = Transport::None;
+  EXPECT_EQ(render_table(s, opt).find("locators:"), std::string::npos);
+}
+
+TEST(RenderTable, LocatorLineDoesNotWidenThePairColumns)
+{
+  // The line is emitted raw, not as a row, so a long locator must not shift the columns.
+  Snapshot s;
+  s.local_host_id = {1, 2, 3, 4};
+  auto w = ep(true, "W1", "/talker", LocatorKind::UDPv4);
+  auto r = ep(false, "R1", "/listener", LocatorKind::UDPv4);
+  r.host_id = {9, 9, 9, 9};
+  r.unicast[0] = Locator{LocatorKind::UDPv6, "2001:0db8:0000:0000:0000:0000:0000:0001", 7413};
+  w.unicast.push_back(Locator{LocatorKind::UDPv6, "::1", 7411});
+  s.endpoints = {w, r};
+  s.topics = summarize(s.endpoints);
+
+  RenderOptions opt;
+  opt.verbose = true;
+  const auto without = render_table(s, opt);
+  opt.locators = true;
+  const auto with = render_table(s, opt);
+  for (const auto & line : {std::string("/talker@local -> /listener@host:09090909")}) {
+    EXPECT_NE(with.find(line), std::string::npos);
+  }
+  EXPECT_NE(with.find("locators: UDPv6 2001:0db8"), std::string::npos);
+  // every line that is not the new one is unchanged
+  std::string stripped;
+  std::istringstream in(with);
+  for (std::string line; std::getline(in, line); ) {
+    if (line.find("locators:") == std::string::npos) {stripped += line + "\n";}
+  }
+  EXPECT_EQ(stripped, without);
 }

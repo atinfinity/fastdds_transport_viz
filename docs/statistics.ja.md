@@ -1,6 +1,6 @@
 # 実測 transport (`--stats`)
 
-> 英語版が正です。この文書は 2026-09-06 時点の英語版に対応しています。
+> 英語版が正です。この文書は 2026-09-10 時点の英語版に対応しています。
 
 discovery のデータは「こうなる*はず*」を教えてくれます。`--stats` を付けると、ツールは
 [Fast DDS statistics モジュール](https://fast-dds.docs.eprosima.com/en/2.14.x/fastdds/statistics/statistics.html)
@@ -8,7 +8,7 @@ discovery のデータは「こうなる*はず*」を教えてくれます。`-
 
 | トピック | 用途 |
 |---|---|
-| `_fastdds_statistics_rtps_sent` | 各 participant が各宛先 locator に送った RTPS パケット数/バイト数。reader が広告した locator と突き合わせ、実際にパケットを運んだ locator の種類を得ます (`measured=SHM 47pkt`)。予測と食い違えば `!measured-transport-mismatch` を付けます。 |
+| `_fastdds_statistics_rtps_sent` | 各 participant が各宛先 locator に送った RTPS パケット数/バイト数。reader が広告した locator と突き合わせ、実際にパケットを運んだ locator の種類 (`measured=SHM 47pkt`) と locator そのもの (`--locators`、JSON の `measured.locators[]`) を得ます。種類が予測と食い違えば `!measured-transport-mismatch`、種類は合っていても予測が選んだ locator に何も流れていなければ `!measured-locator-mismatch` を付けます。 |
 | `_fastdds_statistics_history2history_latency` (LATENCY 列: write-to-notification 遅延の平均と最大、JSON の `measured.latency_s` とトピックの `latency_s`。ホスト間ではクロックのずれを含む) | writer のサンプルが特定の reader に届いたことの証明。RTPS の痕跡を残さない zero-copy data-sharing の確認に使います。 |
 | `_fastdds_statistics_physical_data` | participant ごとのホスト名、ユーザー、プロセス id。`local` / `host:<id>` の代わりに表示します。 |
 | `_fastdds_statistics_publication_throughput` | writer ごとの payload バイト数/秒。`RATE` 列 (トピックは writer の合算) と JSON (ペアの `measured.throughput_bytes_per_s`、トピックの `topics[].throughput_bytes_per_s`) に出ます。transport に依らないので zero-copy の data-sharing も定量化できます。 |

@@ -1,6 +1,6 @@
 # 仕組み
 
-> 英語版が正です。この文書は 2026-09-09 時点の英語版に対応しています。
+> 英語版が正です。この文書は 2026-09-10 時点の英語版に対応しています。
 
 このツールは Fast DDS 2.14 (ROS 2 Jazzy) と 3.x (Kilted、Rolling) の両方に対してビルドできます。
 API の差分は `include/fastdds_transport_viz/fastdds_compat.hpp` に閉じ込めてあり、以下の判定ルールは
@@ -132,7 +132,26 @@ Humble の Fast DDS 2.6 では 2 点が異なります。
 `host-id-match-but-ip-differs` で報告されます。
 
 アドレスそのものはテーブルの列にはありません (テーブルは transport の種別と理由コードを示します)
-が、`--stats` 無しの discovery だけで `--json` に出ています。
+が、`--locators` を付けると verbose のテーブルのペア行の下に 1 行追加され、ツールが選んだ locator と、
+`--stats` があれば実際にパケットを運んだ locator が表示されます。
+
+```
+$ ros2 transport list -v --locators --stats --topic '^/(chatter|bounded)$'
+    /talker@host(293) -> /listener_udp@host(287)  UDPv4  23 B/s  307 us  0  measured=UDPv4 8pkt 1.06 kB  ...
+        locators: UDPv4 127.0.0.1:7411 (selected = measured, 8 pkt)
+    /bounded_pub@host(288) -> /bounded_sub@host(301)  DATA_SHARING  80 B/s  186 us  0  ...
+        locators: selected DATA_SHARING (no locator) | measured SHM port 7419 (1 pkt)
+```
+
+`selected` の語は、実測側が隣に並ぶときだけ現れます。SHM locator はアドレスではなく `/dev/shm` の
+ポートを名乗り、マルチキャストアドレスには `(multicast)` が付きます。Fast DDS 2.10 より前では
+予測が使う locator がツールに届かないので、`UDPv4 (hidden by Fast DDS < 2.10)` と表示されます。
+選ばれた locator にパケットが 1 つも流れなかった場合 (reader が広告した別の locator、典型的には
+マルチホームのホストの別インターフェースを通った場合) は、`!measured-locator-mismatch` が付きます。
+
+`--locators` は `-v` を暗黙に有効化し、`--json` では無視されます。JSON は同じ情報を常に
+`pairs[].locator` と `pairs[].measured.locators[]` に持っているためです。各エンドポイントが広告した
+locator も、`--stats` 無しの discovery だけで `--json` に出ています。
 
 ```
 ros2 transport list --json | jq '.topics[].writers[] | {node, unicast_locators}'

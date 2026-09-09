@@ -2,6 +2,23 @@
 Changelog for package fastdds_transport_viz
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* ``--locators``: a line under each pair of the verbose table with the locator the tool
+  selected from the reader's announced locators and, with ``--stats``, the locators that
+  actually carried packets. Implies ``-v``; ignored with ``--json``. Toggled with ``l``
+  in ``--watch``.
+* JSON gains ``pairs[].locator`` (nullable, with a ``multicast`` flag) and
+  ``pairs[].measured.locators[]`` (per-locator ``packets``/``bytes`` as deltas over the
+  observation, so they are a breakdown of ``measured.packets``/``bytes``). Both are
+  always emitted, not gated by ``--locators``; ``schema_version`` stays 1.
+* New warning ``measured-locator-mismatch``: the transport kind agrees but the locator
+  the prediction selected carried no packets at all, so the traffic took another locator
+  the reader also announced - typically a different interface of a multi-homed host.
+* ``--watch`` marks a pair whose selected or measured locator changes.
+* Web viewer: the selected locator is marked in the reader's locator list, and the
+  ``Measured`` column carries the addresses next to their transports.
+
 1.0.0 (2026-09-06)
 -------------------
 * Initial release: predicts which Fast DDS transport (``UDPv4``, ``UDPv6``, ``TCPv4``/

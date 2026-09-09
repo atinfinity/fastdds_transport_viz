@@ -58,6 +58,7 @@ struct Options
   bool json{false};
   bool verbose{false};
   bool explain{false};
+  bool locators{false};
   bool all{false};
   bool watch{false};
   double interval{2.0};
@@ -88,6 +89,9 @@ void usage()
     "  --all              include services/actions and non-ROS DDS topics\n"
     "  -v, --verbose      expand writer -> reader pairs under each topic\n"
     "  --explain          print a legend for every reason code used\n"
+    "  --locators         add a line under each pair with the locator the tool selected\n"
+    "                     and the locators that actually carried packets (implies -v;\n"
+    "                     ignored with --json, which always carries them)\n"
     "  --json             emit JSON (schema_version 1) instead of a table\n"
     "  --stats            also subscribe to the Fast DDS statistics topics and show the\n"
     "                     transport that actually carried packets; observed nodes must run\n"
@@ -99,7 +103,8 @@ void usage()
     "                     (default: auto = only when stdout is a terminal; honours NO_COLOR)\n"
     "  --watch            keep observing and re-render every --interval seconds, marking\n"
     "                     added (+), changed (~) and removed (-) pairs; on a terminal, keys:\n"
-    "                     q quit, p pause, v pairs, e legend, a all. With --json, emits one\n"
+    "                     q quit, p pause, v pairs, e legend, a all, l locators. With\n"
+    "                     --json, emits one\n"
     "                     compact document per line (JSON Lines) with a `changes` object\n"
     "  --interval <sec>   refresh period for --watch (default: 2)\n"
     "  --list-codes       list all reason codes with descriptions and exit\n"
@@ -137,6 +142,9 @@ bool parse(int argc, char ** argv, Options & o)
       o.all = true;
     } else if (a == "-v" || a == "--verbose") {o.verbose = true;} else if (a == "--explain") {
       o.explain = true;
+    } else if (a == "--locators") {
+      o.locators = true;
+      o.verbose = true;   // the line hangs under a pair row, which only -v prints
     } else if (a == "--json") {
       o.json = true;
     } else if (a == "--stats") {
@@ -567,6 +575,7 @@ int main(int argc, char ** argv)
     RenderOptions ropt;
     ropt.verbose = o.verbose;
     ropt.explain = o.explain;
+    ropt.locators = o.locators;
     ropt.compact = o.json && o.watch;   // JSON Lines: one document per line
     ropt.color = o.color == Options::Color::Always ||
       (o.color == Options::Color::Auto && isatty(STDOUT_FILENO) &&
@@ -611,6 +620,7 @@ int main(int argc, char ** argv)
           Snapshot snap = collect(observer, resolver, stats.get(), o, domain, elapsed);
           ropt.verbose = o.verbose;
           ropt.explain = o.explain;
+          ropt.locators = o.locators;
           ws.update(snap, ropt, o);
           if (o.json) {
             std::cout << fastdds_transport_viz::render_json(snap, ropt) << std::flush;
@@ -644,6 +654,11 @@ int main(int argc, char ** argv)
           case 'v': case 'V': o.verbose = !o.verbose; force = true; break;
           case 'e': case 'E': o.explain = !o.explain; force = true; break;
           case 'a': case 'A': o.all = !o.all; force = true; break;
+          case 'l': case 'L':
+            o.locators = !o.locators;
+            if (o.locators) {o.verbose = true;}
+            force = true;
+            break;
           default: break;
         }
       }

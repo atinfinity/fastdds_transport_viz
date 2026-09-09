@@ -248,6 +248,58 @@ std::string measured_label(const Pair & p)
   return s;
 }
 
+bool has_code(const std::vector<std::string> & codes, const std::string & code)
+{
+  return std::find(codes.begin(), codes.end(), code) != codes.end();
+}
+
+/// "UDPv4 127.0.0.1:7413" / "SHM port 8169" (an SHM locator names a /dev/shm port, not
+/// an address), with " (multicast)" for a group address.
+std::string locator_text(const Locator & l, bool multicast = false)
+{
+  std::string s = to_string(l.kind);
+  s += l.kind == LocatorKind::SHM ?
+    " port " + std::to_string(l.port) :
+    " " + l.address + ":" + std::to_string(l.port);
+  if (multicast) {s += " (multicast)";}
+  return s;
+}
+
+/// The --locators line under a pair row, empty when there is nothing to say. The word
+/// "selected" only appears where a measured side is printed next to it.
+std::string locators_line(const Pair & p)
+{
+  const Verdict & v = p.verdict;
+  if (v.transport == Transport::None) {return "";}
+
+  std::string selected;
+  if (v.locator.kind != LocatorKind::Invalid) {
+    selected = locator_text(v.locator, v.locator_multicast);
+  } else if (has_code(v.reasons, "same-host-locators-hidden")) {
+    selected = to_string(v.transport) + " (hidden by Fast DDS < 2.10)";
+  } else if (v.transport == Transport::DataSharing) {
+    selected = "DATA_SHARING (no locator)";
+  }
+
+  const auto & mls = p.measured.locators;
+  if (mls.empty()) {
+    return selected.empty() ? "" : "locators: " + selected;
+  }
+  // One measured locator, and it is the one that was selected: say it once.
+  if (mls.size() == 1 && v.locator.kind != LocatorKind::Invalid && mls[0].locator == v.locator) {
+    return "locators: " + selected + " (selected = measured, " +
+           std::to_string(mls[0].packets) + " pkt)";
+  }
+  std::vector<std::string> parts;
+  for (const auto & ml : mls) {
+    parts.push_back(locator_text(ml.locator) + " (" + std::to_string(ml.packets) + " pkt)");
+  }
+  std::string measured = "measured " + join(parts, ", ");
+  return selected.empty() ?
+         "locators: " + measured :
+         "locators: selected " + selected + " | " + measured;
+}
+
 std::vector<size_t> column_widths(const std::vector<std::vector<std::string>> & rows)
 {
   std::vector<size_t> widths(rows.empty() ? 0 : rows[0].size(), 0);
@@ -325,6 +377,10 @@ std::string render_table(const Snapshot & snap, const RenderOptions & opt)
   const bool color = opt.color;
   const WatchDecorations * watch = opt.watch;
   const std::string indent = watch ? "     " : "    ";
+  // A pair label starts after the mark column (1 wide + 2 separator) in --watch mode, or
+  // at the plain indent otherwise; the locator line sits four columns further in.
+  const std::string locator_indent =
+    std::string(watch ? 3 : 0, ' ') + indent.substr(watch ? 1 : 0) + "    ";
 
   std::vector<std::vector<std::string>> rows;
   std::vector<std::string> header = {
@@ -386,6 +442,7 @@ std::string render_table(const Snapshot & snap, const RenderOptions & opt)
     for (const auto & t : snap.topics) {
       emit_row(os, rows[idx++], widths, opt.max_width);
       std::vector<std::vector<std::string>> pair_rows;
+      std::vector<std::string> locator_lines;   // parallel to pair_rows, "" when not shown
       for (const auto & p : t.pairs) {
         std::string reasons = join(p.verdict.reasons, ",");
         for (const auto & w : p.verdict.warnings) {
@@ -415,11 +472,22 @@ std::string render_table(const Snapshot & snap, const RenderOptions & opt)
         }
         row.push_back(reasons);
         pair_rows.push_back(row);
+        locator_lines.push_back(opt.locators ? locators_line(p) : "");
       }
+      // Ghost pairs are gone, so their locators are stale by definition: no line for them.
       for (auto & g : ghost_rows_for(t.display_topic)) {
         pair_rows.push_back(g);
+        locator_lines.push_back("");
       }
-      print_rows(os, pair_rows, opt.max_width);
+      // The locator lines are emitted raw rather than as rows, so that their length does
+      // not widen the pair rows' first column.
+      const auto pair_widths = column_widths(pair_rows);
+      for (size_t i = 0; i < pair_rows.size(); ++i) {
+        emit_row(os, pair_rows[i], pair_widths, opt.max_width);
+        if (!locator_lines[i].empty()) {
+          os << truncate_visible(locator_indent + locator_lines[i], opt.max_width) << '\n';
+        }
+      }
     }
     for (; idx < rows.size(); ++idx) {
       emit_row(os, rows[idx], widths, opt.max_width);
