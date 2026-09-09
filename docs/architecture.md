@@ -205,7 +205,7 @@ hand-made `StatsData`.
 
 ## Fast DDS 2.14 and 3.x
 
-Jazzy ships Fast DDS 2.14 (`fastrtps` CMake package, `fastrtps` namespace), Kilted and
+Jazzy ships Fast DDS 2.14 (`fastrtps` CMake package, `fastrtps` namespace), Lyrical and
 Rolling ship 3.x (`fastdds` package, different discovery callback signatures and info
 types). `fastdds_compat.hpp` hides the difference: it detects the version with
 `__has_include(<fastdds/config.hpp>)`, defines `FTV_FASTDDS_3`, the `ftv_rtps` namespace

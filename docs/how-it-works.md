@@ -1,6 +1,6 @@
 # How it works
 
-The tool builds against Fast DDS 2.14 (ROS 2 Jazzy) and 3.x (Kilted, Rolling); the
+The tool builds against Fast DDS 2.14 (ROS 2 Jazzy) and 3.x (Lyrical, Rolling); the
 API differences live in `include/fastdds_transport_viz/fastdds_compat.hpp`. The decision
 rules below are the same in both.
 
@@ -103,7 +103,7 @@ see [development.md](development.md#verification-results)):
   (Fast DDS 2.14 and 3.2; 3.6 in Rolling relays everything), so the tool makes itself a
   `SUPER_CLIENT` when the variable is set (a message on stderr says so). An explicit
   `ROS_SUPER_CLIENT` is respected. The server is `fastdds discovery -i 0 -l <ip> -p <port>`
-  on Jazzy and `fastdds discovery -l <ip> -p <port>` on Kilted / Rolling.
+  on Jazzy and `fastdds discovery -l <ip> -p <port>` on Lyrical / Rolling.
 - `ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST` works unchanged (nodes announce loopback
   locators only). `OFF` limits every participant to itself, so nothing can be observed;
   the tool prints a warning in that case.

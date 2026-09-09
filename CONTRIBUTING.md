@@ -32,7 +32,7 @@ colcon test && colcon test-result --verbose
   `docs/<slug>` for docs-only changes.
 - Open the PR against `main`; the [PR template](.github/PULL_REQUEST_TEMPLATE.md) will be
   applied automatically.
-- CI (`.github/workflows/ci.yml`) builds and tests against Humble, Jazzy, Kilted and Rolling
+- CI (`.github/workflows/ci.yml`) builds and tests against Humble, Jazzy, Lyrical and Rolling
   and is required to pass before merging.
 
 ## License

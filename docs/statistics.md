@@ -93,6 +93,6 @@ own statistics readers already use unlimited instances.)
   because the ROS distributions ship the compiled types in the Fast DDS library but
   neither their headers nor `fastddsgen`:
   `src/fastdds_transport_viz/third_party/fastdds_statistics_types/` (Fast DDS 2.14.6,
-  Jazzy) and `.../fastdds_statistics_types_v3/` (Fast DDS 3.2.4, Kilted / Rolling);
+  Jazzy) and `.../fastdds_statistics_types_v3/` (generated from Fast DDS 3.2.4, used on Lyrical / Rolling);
   CMake picks one by the Fast DDS major version. Replace the matching directory when
   targeting another Fast DDS version.

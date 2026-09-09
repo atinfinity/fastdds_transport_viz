@@ -88,6 +88,6 @@ Fast DDS はプロファイルファイルを 1 つしか読みません。data-
 - statistics トピックの型サポート生成コードは同梱しています (Apache-2.0)。ROS ディストリビューション
   はコンパイル済みの型を Fast DDS ライブラリに含めていますが、ヘッダも `fastddsgen` も配布して
   いないためです。`src/fastdds_transport_viz/third_party/fastdds_statistics_types/` (Fast DDS
-  2.14.6、Jazzy) と `.../fastdds_statistics_types_v3/` (Fast DDS 3.2.4、Kilted / Rolling) があり、
+  2.14.6、Jazzy) と `.../fastdds_statistics_types_v3/` (Fast DDS 3.2.4 から生成、Lyrical / Rolling で使用) があり、
   CMake が Fast DDS のメジャーバージョンで選びます。別の Fast DDS を対象にするときは該当ディレクトリ
   を差し替えてください。

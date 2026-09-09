@@ -2,15 +2,18 @@
 
 This page takes you from a plain ROS 2 installation to the first `ros2 transport list`,
 with statistics and the web viewer. Everything runs on Linux; the tool observes Fast DDS,
-so the nodes you look at must use `rmw_fastrtps_cpp` (the default RMW of Jazzy, Kilted
+so the nodes you look at must use `rmw_fastrtps_cpp` (the default RMW of Jazzy, Lyrical
 and Rolling).
 
 | ROS 2 distribution | Fast DDS | Notes |
 |---|---|---|
 | Humble (Ubuntu 22.04) | 2.6 | prediction only: the Humble binary has no statistics module, so `--stats` measures nothing; same-host peers show only their SHM locator (see [how-it-works](how-it-works.md#fast-dds-26-ros-2-humble)) |
 | Jazzy (Ubuntu 24.04) | 2.14 | primary target |
-| Kilted (Ubuntu 24.04) | 3.2 | |
+| Lyrical (Ubuntu 26.04) | 3.6 | current LTS |
 | Rolling | 3.x | best effort (CI allows failures) |
+
+Kilted was supported through 1.0.0 and is out of scope from 1.1.0 on, as it reaches EOL in
+December 2026; the `1.0.0` tag still builds and runs there.
 
 ## 1. Build it
 
@@ -26,7 +29,7 @@ and `rosdep` (`sudo rosdep init && rosdep update` once).
 ```
 mkdir -p ~/ws/src && cd ~/ws
 git clone https://github.com/atinfinity/fastdds_transport_viz.git src/fastdds_transport_viz
-source /opt/ros/jazzy/setup.bash              # or humble / kilted / rolling
+source /opt/ros/jazzy/setup.bash              # or humble / lyrical / rolling
 rosdep install --from-paths src --ignore-src -y
 colcon build --symlink-install
 source install/setup.bash
@@ -40,7 +43,7 @@ it also registers the `ros2 transport` command.
 ### Docker (alternative)
 
 The repository ships a `compose.yaml` with a development image (`ros:jazzy`, or
-`ROS_DISTRO=kilted` / `rolling`), the repository mounted at `/ws`, and `ipc: host` so that
+`ROS_DISTRO=lyrical` / `rolling`), the repository mounted at `/ws`, and `ipc: host` so that
 the tool sees the host's shared memory:
 
 ```

@@ -53,8 +53,8 @@ class TestDiscoveryServer(Base):
         self.assertEqual({pair['writer_node'], pair['reader_node']}, {'/talker', '/listener'})
 
     @unittest.skipUnless(
-        os.environ.get('ROS_DISTRO') in ('jazzy', 'kilted'),
-        'Fast DDS 3.6+ (Rolling) relays every endpoint to plain clients too')
+        os.environ.get('ROS_DISTRO') in ('jazzy',),
+        'Fast DDS 3.6+ (Lyrical, Rolling) relays every endpoint to plain clients too')
     def test_plain_client_is_blind(self):
         doc = transport_viz_json(env={**ENV, 'ROS_SUPER_CLIENT': 'FALSE'})
         names = [t['topic'] for t in doc['topics']]

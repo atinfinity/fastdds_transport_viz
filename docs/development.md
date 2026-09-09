@@ -3,7 +3,7 @@
 ## Docker environment
 
 The repository ships a `compose.yaml` and `docker/Dockerfile` based on `ros:jazzy`
-(multi-arch: x86_64 and arm64). `ROS_DISTRO=kilted docker compose build` (or `rolling`)
+(multi-arch: x86_64 and arm64). `ROS_DISTRO=lyrical docker compose build` (or `rolling`)
 builds the same environment on Fast DDS 3.x, `ROS_DISTRO=humble` on Fast DDS 2.6; the image is tagged
 `fastdds_transport_viz:<distro>` and every `docker compose` command below then needs
 the same `ROS_DISTRO` in the environment.
@@ -189,7 +189,7 @@ exercised through `test_web_live.py`.
 ## Continuous integration
 
 `.github/workflows/ci.yml` runs `rosdep install`, `colcon build`, `colcon test` inside
-`ros:humble`, `ros:jazzy`, `ros:kilted` and `ros:rolling` containers for every pull request that touches
+`ros:humble`, `ros:jazzy`, `ros:lyrical` and `ros:rolling` containers for every pull request that touches
 code (docs-only changes skip the job); Rolling may break with upstream changes and does
 not block (`continue-on-error`). Test result XML files and launch logs are uploaded as a
 workflow artifact per distribution. `main` is protected: pull requests merge only when
@@ -221,6 +221,7 @@ request.
 | 2026-09-06 | reliability counters over Wi-Fi: x86_64 ↔ Jetson Orin NX (Docker `hostnet`, both directions, `--stats` with all 11 aliases) | x86_64 + arm64 | 2.14.6 both | `LOSS` `0` (no `RTPS_LOST`, no resends at 1 Hz), 3–4 heartbeats and acknacks per 10 s observation, `LATENCY` ≈ 46 ms mean / 93 ms max (includes the clock offset of the two hosts) | "Two physical hosts" |
 | 2026-09-06 | shared-memory line: nodes in the tool's IPC namespace visible (`hostnet_shm`), bridged containers reported `shm-not-visible` (`multi_container`) | x86_64 | 2.14.6 | as expected | `scripts/integration_test.sh multi_container`, `hostnet_shm`, `test_shm.py` |
 | 2026-09-05 | full launch test suite on Fast DDS 3.x (Kilted 3.2.4, Rolling 3.6.2) | x86_64 | 3.2.4 / 3.6.2 | all pass; Rolling: demo nodes publish `example_interfaces/msg/String`, Discovery Server relays every endpoint to plain clients | `ROS_DISTRO=kilted docker compose build dev` + `colcon test` |
+| 2026-09-10 | full test suite on ROS 2 Lyrical Luth (Ubuntu 26.04) | x86_64 | 3.6 (`ros:lyrical`) | 341 tests, 0 failures, 49 skipped; demo nodes publish `example_interfaces/msg/String` and the Discovery Server relays every endpoint to plain clients, as on Rolling; the vendored statistics types generated from 3.2.4 build unchanged | `ROS_DISTRO=lyrical docker compose build dev` + `colcon test` |
 | 2026-09-06 | two physical hosts on one Wi-Fi LAN: x86_64 Ubuntu 24.04 (Docker `hostnet`) ↔ Jetson Orin NX, JetPack 6 / Ubuntu 22.04 arm64 (Docker `hostnet`, Jazzy image), plain multicast discovery, `--stats` on both nodes, tool on the x86 host | x86_64 + arm64 | 2.14.6 both | both directions: `UDPv4`, `different-host`, `certain`, measured `UDPv4` (`measured=UDPv4 7pkt 1.06 kB` Jetson → x86, `8pkt 1.16 kB` x86 → Jetson), hosts `jetson-orin-nx01` / `ubuntu2404-desktop01` from `PHYSICAL_DATA`, `RATE` 24 B/s. Found and fixed: a reader on the tool's host is announced as `127.0.0.1`, so the remote writer's `RTPS_SENT` did not match (`delivered-without-measured-traffic`) | "Two physical hosts" below |
 | 2026-09-05 | two physical hosts on one Wi-Fi LAN: x86_64 Ubuntu (Docker `hostnet`) ↔ macOS arm64 (native RoboStack Jazzy), Discovery Server on the x86 host | x86_64 + arm64 | 2.14.6 both | `UDPv4`, `different-host`, `common-udpv4-locator` observed (writer `host:010f0956`, reader on `ubuntu2404-desktop01`); no `--stats` measurement: the Mac's Fast DDS `sendto()` intermittently fails with `EHOSTUNREACH` while plain UDP from the Mac works ([#15](https://github.com/atinfinity/fastdds_transport_viz/issues/15)) | see "Two physical hosts" |
 
@@ -306,10 +307,12 @@ Done:
 - Selected and measured locators: `--locators`, the JSON `locator` /
   `measured.locators[]` fields and the `measured-locator-mismatch` warning —
   [#63](https://github.com/atinfinity/fastdds_transport_viz/issues/63)
+- ROS 2 Lyrical Luth (Fast DDS 3.6) in place of Kilted, which reaches EOL in December
+  2026 — [#68](https://github.com/atinfinity/fastdds_transport_viz/issues/68)
 
 Open, in priority order (labels `priority/1-high` … `priority/3-low` on the issues):
 
-1. Distribution: CHANGELOG, ament lint, bloom release for Jazzy/Kilted/Humble —
+1. Distribution: CHANGELOG, ament lint, bloom release for Jazzy/Humble/Lyrical —
    [#50](https://github.com/atinfinity/fastdds_transport_viz/issues/50).
 2. DDS Security (SROS2) — [#49](https://github.com/atinfinity/fastdds_transport_viz/issues/49).
 3. Same host id, separate IPC namespace in the shared-memory line —

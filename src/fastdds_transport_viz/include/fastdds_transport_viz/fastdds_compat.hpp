@@ -1,7 +1,7 @@
 // Copyright 2026 atinfinity
 // SPDX-License-Identifier: Apache-2.0
 //
-// Fast DDS 2.14 (ROS 2 Jazzy) / 3.x (Kilted, Rolling) compatibility: header names,
+// Fast DDS 2.14 (ROS 2 Jazzy) / 3.x (Lyrical, Rolling) compatibility: header names,
 // namespaces, return codes and the discovery listener API differ between the two.
 #ifndef FASTDDS_TRANSPORT_VIZ__FASTDDS_COMPAT_HPP_
 #define FASTDDS_TRANSPORT_VIZ__FASTDDS_COMPAT_HPP_

@@ -20,6 +20,8 @@ Forthcoming
 * ``--watch`` marks a pair whose selected or measured locator changes.
 * Web viewer: the selected locator is marked in the reader's locator list, and the
   ``Measured`` column carries the addresses next to their transports.
+* Supported distributions: ROS 2 Lyrical Luth (Fast DDS 3.6) replaces Kilted, which
+  reaches EOL in December 2026. Humble, Jazzy and Rolling are unchanged.
 
 1.0.0 (2026-09-06)
 -------------------

@@ -43,13 +43,13 @@ jobs:
     runs-on: ubuntu-latest
     container: ros:${{ matrix.distro }}
     # Humble: Fast DDS 2.6 (no statistics module in the binary); Jazzy: Fast DDS 2.14;
-    # Kilted: Fast DDS 3.2; Rolling: Fast DDS 3.x head, may break with upstream changes,
+    # Lyrical: Fast DDS 3.6; Rolling: Fast DDS 3.x head, may break with upstream changes,
     # so it does not block PRs.
     continue-on-error: ${{ matrix.distro == 'rolling' }}
     strategy:
       fail-fast: false
       matrix:
-        distro: [humble, jazzy, kilted, rolling]
+        distro: [humble, jazzy, lyrical, rolling]
     defaults:
       run:
         shell: bash

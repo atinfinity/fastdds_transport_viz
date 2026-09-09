@@ -9,7 +9,7 @@ All distros below use `rmw_fastrtps_cpp`:
 |---|---|---|
 | Humble | 2.6 | Prediction only — the binary has no statistics module |
 | Jazzy | 2.14 | Prediction + `--stats` measurement |
-| Kilted | 3.2 | Prediction + `--stats` measurement |
+| Lyrical | 3.6 | Prediction + `--stats` measurement |
 | Rolling | 3.x (head) | Tracks Fast DDS main; best-effort in CI, not a required check |
 
 Source and issues: [github.com/atinfinity/fastdds_transport_viz](https://github.com/atinfinity/fastdds_transport_viz).
@@ -63,7 +63,7 @@ The same run opened in the [web viewer](web-viewer.md) (table view):
 - **Shared memory of the environment.** Capacity of `/dev/shm`, the Fast DDS segments,
   ports and data-sharing histories in it, stale leftovers, and whether the observed nodes
   share it at all.
-- **Verified on** Jazzy (Fast DDS 2.14) and Kilted / Rolling (Fast DDS 3.x), x86_64 and
+- **Verified on** Jazzy (Fast DDS 2.14) and Lyrical / Rolling (Fast DDS 3.x), x86_64 and
   arm64, with Discovery Server, `LARGE_DATA` (TCP), `UDPv6`, `LOCALHOST` discovery range,
   large SHM samples, zero-copy data-sharing, and two physical hosts (x86_64 ↔ Jetson Orin
   NX over Wi-Fi, prediction and measurement in both directions).
