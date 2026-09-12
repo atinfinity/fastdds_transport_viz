@@ -314,10 +314,10 @@ Done:
   [#63](https://github.com/atinfinity/fastdds_transport_viz/issues/63)
 - ROS 2 Lyrical Luth (Fast DDS 3.6) in place of Kilted, which reaches EOL in December
   2026 — [#68](https://github.com/atinfinity/fastdds_transport_viz/issues/68)
-- CI on arm64 runners (Jazzy / Lyrical build & test, integration scenarios) —
-  [#75](https://github.com/atinfinity/fastdds_transport_viz/issues/75)
 - Release 1.1.0: `--locators`, the locator fields in the JSON, Lyrical in place of
   Kilted — [#70](https://github.com/atinfinity/fastdds_transport_viz/issues/70)
+- CI on arm64 runners (Jazzy / Lyrical build & test, integration scenarios) —
+  [#75](https://github.com/atinfinity/fastdds_transport_viz/issues/75)
 
 Open, by priority (labels `priority/1-high` … `priority/3-low` on the issues):
 
