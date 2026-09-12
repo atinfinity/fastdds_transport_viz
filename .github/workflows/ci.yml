@@ -33,14 +33,18 @@ jobs:
               - '!.github/workflows/docs.yml'
 
   build-and-test:
-    name: colcon build & test (ROS 2 ${{ matrix.distro }})
+    name: colcon build & test (ROS 2 ${{ matrix.distro }}, ${{ matrix.arch }})
     # Pull requests validate the code (required checks of main's protection); the merge
     # commit on main only runs the multi-container job below. Docs-only changes skip it.
     needs: changes
     if: >-
       github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'pull_request' && needs.changes.outputs.code == 'true')
-    runs-on: ubuntu-latest
+    # GitHub-hosted arm64 runners have no floating label, hence the fixed name.
+    runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
+    # Queue time does not count; the jobs themselves take 6-7 minutes on x86_64.
+    timeout-minutes: 30
+    # ros:<distro> images are multi-arch, so the same tag serves both runners.
     container: ros:${{ matrix.distro }}
     # Humble: Fast DDS 2.6 (no statistics module in the binary); Jazzy: Fast DDS 2.14;
     # Lyrical: Fast DDS 3.6; Rolling: Fast DDS 3.x head, may break with upstream changes,
@@ -50,6 +54,15 @@ jobs:
       fail-fast: false
       matrix:
         distro: [humble, jazzy, lyrical, rolling]
+        arch: [x86_64]
+        # arm64 for the two LTS distributions the bloom release targets; Humble on arm64
+        # adds little (Fast DDS 2.6, prediction only) and Rolling on arm64 belongs to the
+        # scheduled Rolling run (#79). arm64 blocks pull requests like x86_64 does.
+        include:
+          - distro: jazzy
+            arch: arm64
+          - distro: lyrical
+            arch: arm64
     defaults:
       run:
         shell: bash
@@ -84,23 +97,29 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: test-results-${{ matrix.distro }}
+          name: test-results-${{ matrix.distro }}-${{ matrix.arch }}
           path: |
             build/**/test_results/**/*.xml
             log/latest_test/**/*.log
           if-no-files-found: ignore
 
   integration:
-    # Multi-container scenarios (scripts/integration_test.sh) on the x86_64 runner VM:
-    # bridged containers => UDPv4, --stats across containers, host network/IPC => SHM,
-    # LARGE_DATA => TCPv4, DEFAULTv6 => UDPv6. Runs for the merge commit on main (and
-    # workflow_dispatch), not for pull requests, to keep PR CI short.
-    name: multi-container integration (x86_64)
+    # Multi-container scenarios (scripts/integration_test.sh) on the runner VM, once per
+    # architecture: bridged containers => UDPv4, --stats across containers, host
+    # network/IPC => SHM, LARGE_DATA => TCPv4, DEFAULTv6 => UDPv6. Runs for the merge
+    # commit on main (and workflow_dispatch), not for pull requests, to keep PR CI short.
+    name: multi-container integration (${{ matrix.arch }})
     needs: changes
     if: >-
       github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'push' && needs.changes.outputs.code == 'true')
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
+    # Includes `docker compose build dev` of the multi-arch image; about 3 minutes on x86_64.
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [x86_64, arm64]
     steps:
       - uses: actions/checkout@v4
 
@@ -111,7 +130,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: integration-json
+          name: integration-json-${{ matrix.arch }}
           path: /tmp/transport_viz_*.json
           if-no-files-found: ignore
 
@@ -128,8 +147,9 @@ jobs:
       - run: node --version && node --test "web/test/*.test.js"
 
   # Single check for main's branch protection: succeeds when every job above passed or
-  # was skipped (a skipped matrix job reports an unexpanded name, so the per-distro
-  # names cannot be required directly). Rolling is continue-on-error and does not count.
+  # was skipped (a skipped matrix job reports an unexpanded name, so the per-distro /
+  # per-arch names cannot be required directly). Rolling is continue-on-error and does
+  # not count.
   ci-result:
     name: CI result
     needs: [changes, build-and-test, integration, web-unit-tests]
