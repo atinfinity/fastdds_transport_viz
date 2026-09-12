@@ -15,22 +15,23 @@ namespace fastdds_transport_viz
 
 /// The RMW the tool is written for: its discovery data, name mangling and statistics.
 constexpr char kSupportedRmw[] = "rmw_fastrtps_cpp";
-/// Shares the discovery layer with kSupportedRmw but is not verified yet (issue #73).
-constexpr char kUnverifiedRmw[] = "rmw_fastrtps_dynamic_cpp";
+/// Also accepted: shares the discovery layer, name mangling and statistics with
+/// kSupportedRmw (the type support goes through introspection instead of generated code,
+/// which no verdict depends on); the launch test suite passes on it (issue #73).
+constexpr char kSupportedRmwDynamic[] = "rmw_fastrtps_dynamic_cpp";
 
 enum class RmwVerdictKind
 {
-  Accept,   // rmw_fastrtps_cpp: nothing to say
-  Warn,     // rmw_fastrtps_dynamic_cpp: run, but say it is unverified
+  Accept,   // rmw_fastrtps_cpp or rmw_fastrtps_dynamic_cpp: nothing to say
   Reject,   // another middleware, or no RMW could be loaded: do not start
 };
 
 struct RmwVerdict
 {
   RmwVerdictKind kind{RmwVerdictKind::Accept};
-  /// Empty for Accept. Warn: a complete "warning: ..." line. Reject: the reason without a
-  /// program prefix ("RMW is rmw_cyclonedds_cpp; ..."), so that `transport_viz` and
-  /// `ros2 transport` can each prepend their own name.
+  /// Empty for Accept. Reject: the reason without a program prefix
+  /// ("RMW is rmw_cyclonedds_cpp; ..."), so that `transport_viz` and `ros2 transport` can
+  /// each prepend their own name.
   std::string message;
 };
 

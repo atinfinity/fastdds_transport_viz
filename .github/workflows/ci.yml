@@ -33,7 +33,7 @@ jobs:
               - '!.github/workflows/docs.yml'
 
   build-and-test:
-    name: colcon build & test (ROS 2 ${{ matrix.distro }}, ${{ matrix.arch }})
+    name: colcon build & test (ROS 2 ${{ matrix.distro }}, ${{ matrix.arch }}, ${{ matrix.rmw }})
     # Pull requests validate the code (required checks of main's protection); the merge
     # commit on main only runs the multi-container job below. Docs-only changes skip it.
     needs: changes
@@ -55,14 +55,28 @@ jobs:
       matrix:
         distro: [humble, jazzy, lyrical, rolling]
         arch: [x86_64]
+        rmw: [rmw_fastrtps_cpp]
         # arm64 for the two LTS distributions the bloom release targets; Humble on arm64
         # adds little (Fast DDS 2.6, prediction only) and Rolling on arm64 belongs to the
         # scheduled Rolling run (#79). arm64 blocks pull requests like x86_64 does.
+        # rmw_fastrtps_dynamic_cpp (#73): same suite on the released distros, x86_64 only;
+        # it blocks pull requests like the default RMW does.
         include:
           - distro: jazzy
             arch: arm64
+            rmw: rmw_fastrtps_cpp
           - distro: lyrical
             arch: arm64
+            rmw: rmw_fastrtps_cpp
+          - distro: humble
+            arch: x86_64
+            rmw: rmw_fastrtps_dynamic_cpp
+          - distro: jazzy
+            arch: x86_64
+            rmw: rmw_fastrtps_dynamic_cpp
+          - distro: lyrical
+            arch: x86_64
+            rmw: rmw_fastrtps_dynamic_cpp
     defaults:
       run:
         shell: bash
@@ -86,7 +100,7 @@ jobs:
 
       - name: Test
         env:
-          RMW_IMPLEMENTATION: rmw_fastrtps_cpp
+          RMW_IMPLEMENTATION: ${{ matrix.rmw }}
         run: |
           source /opt/ros/${{ matrix.distro }}/setup.bash
           source install/setup.bash
@@ -97,7 +111,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: test-results-${{ matrix.distro }}-${{ matrix.arch }}
+          name: test-results-${{ matrix.distro }}-${{ matrix.arch }}-${{ matrix.rmw }}
           path: |
             build/**/test_results/**/*.xml
             log/latest_test/**/*.log

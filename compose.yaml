@@ -2,6 +2,8 @@
 #
 #   docker compose build                        # ROS_DISTRO=humble|lyrical|rolling docker compose build => other distros
 #   docker compose run --rm dev bash            # interactive shell, repo mounted at /ws
+#   RMW_IMPLEMENTATION=rmw_fastrtps_dynamic_cpp docker compose run --rm dev bash
+#                                               # every service honours the host's RMW_IMPLEMENTATION
 #   docker compose up talker listener           # two containers => different "hosts" => UDPv4
 #   docker compose up talker_stats listener_stats   # same, with FASTDDS_STATISTICS
 #   docker compose up talker_large_data listener_large_data   # LARGE_DATA => TCPv4
@@ -26,19 +28,19 @@ x-base: &base
     - ./:/ws
   environment:
     - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-0}
-    - RMW_IMPLEMENTATION=rmw_fastrtps_cpp
+    - RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION:-rmw_fastrtps_cpp}
 
 # Fast DDS statistics on the observed nodes (see docs/statistics.md).
 x-stats-env: &stats_env
   ROS_DOMAIN_ID: ${ROS_DOMAIN_ID:-0}
-  RMW_IMPLEMENTATION: rmw_fastrtps_cpp
+  RMW_IMPLEMENTATION: ${RMW_IMPLEMENTATION:-rmw_fastrtps_cpp}
   FASTDDS_STATISTICS: RTPS_SENT_TOPIC;RTPS_LOST_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC;DATA_COUNT_TOPIC;PUBLICATION_THROUGHPUT_TOPIC;RESENT_DATAS_TOPIC;HEARTBEAT_COUNT_TOPIC;ACKNACK_COUNT_TOPIC;NACKFRAG_COUNT_TOPIC;GAP_COUNT_TOPIC
   FASTRTPS_DEFAULT_PROFILES_FILE: /ws/src/fastdds_transport_viz/config/statistics.xml
 
 # LARGE_DATA builtin transports (UDPv4 discovery, TCPv4 + SHM user data) with statistics.
 x-large-data-env: &large_data_env
   ROS_DOMAIN_ID: ${ROS_DOMAIN_ID:-0}
-  RMW_IMPLEMENTATION: rmw_fastrtps_cpp
+  RMW_IMPLEMENTATION: ${RMW_IMPLEMENTATION:-rmw_fastrtps_cpp}
   FASTDDS_BUILTIN_TRANSPORTS: LARGE_DATA
   FASTDDS_STATISTICS: RTPS_SENT_TOPIC;RTPS_LOST_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC;DATA_COUNT_TOPIC;PUBLICATION_THROUGHPUT_TOPIC;RESENT_DATAS_TOPIC;HEARTBEAT_COUNT_TOPIC;ACKNACK_COUNT_TOPIC;NACKFRAG_COUNT_TOPIC;GAP_COUNT_TOPIC
   FASTRTPS_DEFAULT_PROFILES_FILE: /ws/src/fastdds_transport_viz/config/statistics.xml
@@ -88,14 +90,14 @@ services:
     <<: *base
     environment:
       - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-0}
-      - RMW_IMPLEMENTATION=rmw_fastrtps_cpp
+      - RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION:-rmw_fastrtps_cpp}
       - FASTDDS_BUILTIN_TRANSPORTS=DEFAULTv6
     command: ros2 run demo_nodes_cpp talker
   listener_udpv6:
     <<: *base
     environment:
       - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-0}
-      - RMW_IMPLEMENTATION=rmw_fastrtps_cpp
+      - RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION:-rmw_fastrtps_cpp}
       - FASTDDS_BUILTIN_TRANSPORTS=DEFAULTv6
     command: ros2 run demo_nodes_cpp listener
 

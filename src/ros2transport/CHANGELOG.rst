@@ -6,6 +6,8 @@ Forthcoming
 -----------
 * ``ros2 transport list`` exits 1 with the same message as the binary when
   ``RMW_IMPLEMENTATION`` names another middleware, before spawning it.
+* ``rmw_fastrtps_dynamic_cpp`` is supported like ``rmw_fastrtps_cpp`` (#73); the live
+  test follows ``RMW_IMPLEMENTATION`` instead of pinning ``rmw_fastrtps_cpp``.
 * Pass ``--advise`` through to ``transport_viz``; ``ros2 transport codes`` prints the
   remedy of each code after its description.
 

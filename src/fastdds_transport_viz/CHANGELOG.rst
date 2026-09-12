@@ -7,7 +7,10 @@ Forthcoming
 * The tool refuses to start on an RMW other than ``rmw_fastrtps_cpp`` (exit 1, the
   message names the RMW and the fix), asking the RMW layer itself before any participant
   is created, so an unset ``RMW_IMPLEMENTATION`` resolves to the distro's default.
-  ``rmw_fastrtps_dynamic_cpp`` runs with a warning until it is verified (#73).
+* ``rmw_fastrtps_dynamic_cpp`` is supported: the full test suite and the multi-container
+  scenarios pass on it (Jazzy and Lyrical locally; CI runs the suite on it for Humble,
+  Jazzy and Lyrical on x86_64), so it is accepted silently instead of with a warning
+  (#73). ``compose.yaml`` honours ``RMW_IMPLEMENTATION`` from the host shell.
 * ``--advise``: what to change to get past the reason codes in use. Every code now has a
   remedy (one sentence naming the environment variable, XML element or QoS policy) or an
   explicit none. The flag adds a ``fix <code>: ...`` line under each pair for its codes

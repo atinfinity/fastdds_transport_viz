@@ -11,3 +11,5 @@ install_cov/
 __pycache__/
 .cache/
 site/
+build_l/
+install_l/

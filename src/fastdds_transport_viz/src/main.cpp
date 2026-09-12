@@ -554,9 +554,6 @@ int main(int argc, char ** argv)
       std::cerr << "transport_viz: " << rv.message << "\n";
       return 1;
     }
-    if (rv.kind == fastdds_transport_viz::RmwVerdictKind::Warn) {
-      std::cerr << rv.message << "\n";
-    }
   }
 
   if (o.timeout < 0) {

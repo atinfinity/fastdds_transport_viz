@@ -15,6 +15,11 @@ colcon build --symlink-install
 source install/setup.bash
 ```
 
+Every compose service takes `RMW_IMPLEMENTATION` from the host shell (default
+`rmw_fastrtps_cpp`), so `RMW_IMPLEMENTATION=rmw_fastrtps_dynamic_cpp docker compose run
+--rm dev bash` gives a shell whose `colcon test` runs the whole suite on the dynamic RMW,
+and the same prefix on `scripts/integration_test.sh` switches the observed nodes.
+
 Try it in that shell:
 
 ```
@@ -196,8 +201,12 @@ x86_64 runner and on GitHub's `ubuntu-24.04-arm` runner (the `ros:<distro>` imag
 multi-arch); the arm64 jobs block pull requests like the x86_64 ones. Humble on arm64 is
 not run (Fast DDS 2.6, prediction only), and Rolling on arm64 is left to the scheduled
 Rolling run ([#79](https://github.com/atinfinity/fastdds_transport_viz/issues/79)). Test
-result XML files and launch logs are uploaded as a workflow artifact per distribution and
-architecture. `main` is protected: pull requests merge only when the `CI result` and
+result XML files and launch logs are uploaded as a workflow artifact per distribution,
+architecture and RMW. The matrix's `rmw` axis is `rmw_fastrtps_cpp` everywhere plus one
+`rmw_fastrtps_dynamic_cpp` job each for Humble, Jazzy and Lyrical on x86_64
+([#73](https://github.com/atinfinity/fastdds_transport_viz/issues/73)); `package.xml`
+declares `rmw_fastrtps_dynamic_cpp` as a test dependency so `rosdep` installs it. These
+jobs block pull requests like the default-RMW ones. `main` is protected: pull requests merge only when the `CI result` and
 `Docs result` jobs are green; they succeed when every job of their workflow passed or was
 skipped for a change that does not concern it (Rolling does not count).
 
@@ -227,6 +236,9 @@ run again on `main`: each change is built once, in its pull request. Every job h
 | 2026-09-06 | shared-memory line: nodes in the tool's IPC namespace visible (`hostnet_shm`), bridged containers reported `shm-not-visible` (`multi_container`) | x86_64 | 2.14.6 | as expected | `scripts/integration_test.sh multi_container`, `hostnet_shm`, `test_shm.py` |
 | 2026-09-05 | full launch test suite on Fast DDS 3.x (Kilted 3.2.4, Rolling 3.6.2) | x86_64 | 3.2.4 / 3.6.2 | all pass; Rolling: demo nodes publish `example_interfaces/msg/String`, Discovery Server relays every endpoint to plain clients | `ROS_DISTRO=kilted docker compose build dev` + `colcon test` |
 | 2026-09-10 | full test suite on ROS 2 Lyrical Luth (Ubuntu 26.04) | x86_64 | 3.6 (`ros:lyrical`) | 341 tests, 0 failures, 49 skipped; demo nodes publish `example_interfaces/msg/String` and the Discovery Server relays every endpoint to plain clients, as on Rolling; the vendored statistics types generated from 3.2.4 build unchanged | `ROS_DISTRO=lyrical docker compose build dev` + `colcon test` |
+| 2026-09-13 | full test suite on `rmw_fastrtps_dynamic_cpp`, ROS 2 Jazzy | arm64 | 2.14.6 (`ros:jazzy`) | 370 tests, 0 failures, 51 skipped (cppcheck per-file placeholders only); every verdict as on `rmw_fastrtps_cpp`. The former "not verified yet" warning line was 143 columns wide and broke `test_watch_tty.py`'s 60-column check; gone with the warning | `RMW_IMPLEMENTATION=rmw_fastrtps_dynamic_cpp docker compose run --rm dev bash` + `colcon test` |
+| 2026-09-13 | full test suite on `rmw_fastrtps_dynamic_cpp`, ROS 2 Lyrical | arm64 | 3.6 (`ros:lyrical`) | 363 tests, 0 failures, 52 skipped (cppcheck placeholders and the Fast DDS 3.6 Discovery Server skip, as on `rmw_fastrtps_cpp`) | `RMW_IMPLEMENTATION=rmw_fastrtps_dynamic_cpp ROS_DISTRO=lyrical docker compose run --rm dev bash` + `colcon test` |
+| 2026-09-13 | all five multi-container scenarios on `rmw_fastrtps_dynamic_cpp` (Jazzy image) | arm64 | 2.14.6 | `UDPv4` / measured `UDPv4` / `SHM` / `TCPv4` measured `TCPv4` / `UDPv6`, reason codes identical to the `rmw_fastrtps_cpp` runs | `RMW_IMPLEMENTATION=rmw_fastrtps_dynamic_cpp scripts/integration_test.sh all` |
 | 2026-09-06 | two physical hosts on one Wi-Fi LAN: x86_64 Ubuntu 24.04 (Docker `hostnet`) ↔ Jetson Orin NX, JetPack 6 / Ubuntu 22.04 arm64 (Docker `hostnet`, Jazzy image), plain multicast discovery, `--stats` on both nodes, tool on the x86 host | x86_64 + arm64 | 2.14.6 both | both directions: `UDPv4`, `different-host`, `certain`, measured `UDPv4` (`measured=UDPv4 7pkt 1.06 kB` Jetson → x86, `8pkt 1.16 kB` x86 → Jetson), hosts `jetson-orin-nx01` / `ubuntu2404-desktop01` from `PHYSICAL_DATA`, `RATE` 24 B/s. Found and fixed: a reader on the tool's host is announced as `127.0.0.1`, so the remote writer's `RTPS_SENT` did not match (`delivered-without-measured-traffic`) | "Two physical hosts" below |
 | 2026-09-05 | two physical hosts on one Wi-Fi LAN: x86_64 Ubuntu (Docker `hostnet`) ↔ macOS arm64 (native RoboStack Jazzy), Discovery Server on the x86 host | x86_64 + arm64 | 2.14.6 both | `UDPv4`, `different-host`, `common-udpv4-locator` observed (writer `host:010f0956`, reader on `ubuntu2404-desktop01`); no `--stats` measurement: the Mac's Fast DDS `sendto()` intermittently fails with `EHOSTUNREACH` while plain UDP from the Mac works ([#15](https://github.com/atinfinity/fastdds_transport_viz/issues/15)) | see "Two physical hosts" |
 
@@ -268,7 +280,7 @@ the Fast DDS 2.14 / 3.x compatibility layer, the repository layout and extension
 
 ## Roadmap
 
-As of 2026-09-12. The [issue tracker](https://github.com/atinfinity/fastdds_transport_viz/issues)
+As of 2026-09-13. The [issue tracker](https://github.com/atinfinity/fastdds_transport_viz/issues)
 is the source of truth; update this list when closing an issue.
 
 Done:
@@ -318,6 +330,10 @@ Done:
   Kilted — [#70](https://github.com/atinfinity/fastdds_transport_viz/issues/70)
 - CI on arm64 runners (Jazzy / Lyrical build & test, integration scenarios) —
   [#75](https://github.com/atinfinity/fastdds_transport_viz/issues/75)
+- Refuse to start on an RMW other than Fast DDS's (exit 1, naming it) —
+  [#72](https://github.com/atinfinity/fastdds_transport_viz/issues/72)
+- `rmw_fastrtps_dynamic_cpp` verified and accepted; CI runs the suite on it —
+  [#73](https://github.com/atinfinity/fastdds_transport_viz/issues/73)
 
 Open, by priority (labels `priority/1-high` … `priority/3-low` on the issues):
 
@@ -328,8 +344,6 @@ Open, by priority (labels `priority/1-high` … `priority/3-low` on the issues):
 `priority/2-medium`:
 
 - Distribution: bloom release for Jazzy/Humble/Lyrical — [#50](https://github.com/atinfinity/fastdds_transport_viz/issues/50)
-- Warn and exit when `RMW_IMPLEMENTATION` is not `rmw_fastrtps_cpp` — [#72](https://github.com/atinfinity/fastdds_transport_viz/issues/72)
-- `rmw_fastrtps_dynamic_cpp` verified — [#73](https://github.com/atinfinity/fastdds_transport_viz/issues/73)
 - Verification on a large real system (Nav2 / Autoware scale) — [#74](https://github.com/atinfinity/fastdds_transport_viz/issues/74)
 - `--advise`: what to change to get the intended transport — [#76](https://github.com/atinfinity/fastdds_transport_viz/issues/76)
 - `transport_viz diff`: compare two `--json` snapshots — [#77](https://github.com/atinfinity/fastdds_transport_viz/issues/77)

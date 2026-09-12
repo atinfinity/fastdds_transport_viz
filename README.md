@@ -9,7 +9,7 @@ Documentation site: <https://atinfinity.github.io/fastdds_transport_viz/>
 Shows **which Fast DDS transport each ROS 2 topic is communicated over** — UDPv4,
 UDPv6, TCP, shared memory (SHM) or zero-copy data-sharing — **and why**.
 
-All distros below use `rmw_fastrtps_cpp`:
+All distros below use `rmw_fastrtps_cpp` (`rmw_fastrtps_dynamic_cpp` works the same):
 
 | ROS 2 distro | Fast DDS | Notes |
 |---|---|---|
@@ -126,10 +126,10 @@ ros2 transport codes
 
 ## Limitations
 
-- **`rmw_fastrtps_cpp` only.** Nodes on CycloneDDS, Connext or `rmw_fastrtps_dynamic_cpp`
-  are not covered; Fast DDS participants that are not ROS nodes appear only with `--all`.
-  The tool refuses to start on another RMW (exit 1, naming it); `rmw_fastrtps_dynamic_cpp`
-  runs with a warning until it is verified ([#73](https://github.com/atinfinity/fastdds_transport_viz/issues/73)).
+- **Fast DDS RMWs only.** `rmw_fastrtps_cpp` and `rmw_fastrtps_dynamic_cpp` are supported
+  (the launch test suite passes on both, see CI); nodes on CycloneDDS or Connext are not
+  covered, and Fast DDS participants that are not ROS nodes appear only with `--all`.
+  The tool refuses to start on another RMW (exit 1, naming it).
 - **Linux only.** macOS has no `/dev/shm`, and Docker Desktop cannot observe nodes on the
   host.
 - **Run it where the nodes run.** Same domain, same environment variables and XML profile,
