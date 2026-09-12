@@ -199,5 +199,185 @@
       (warnings ? ` ${warnings}` : '');
   }
 
-  return { TRANSPORTS, INTERNAL_TOPICS, buildModel, filterRegex, visiblePairs, visibleNodesModel, bundle, humanBytes, humanSeconds, measuredText, rateText, latencyText, lossText, escapeHtml, codeListHtml, shmText };
+  // ---------------------------------------------------------------- comparing two documents
+  //
+  // A port of the C++ pair_state() / diff_snapshots() (decision.cpp): the same `changes`
+  // object as `transport_viz diff --json` and `--watch --json`, so that a document carrying
+  // one (from the CLI or a live frame) and two documents compared here look the same.
+
+  /** Identity of a pair as the `changes` object names it. */
+  function pairKey(topic, pair) {
+    return { topic: topic.topic, writer_guid: pair.writer_guid, reader_guid: pair.reader_guid,
+      writer_node: pair.writer_node || '', reader_node: pair.reader_node || '' };
+  }
+
+  /** String form of a key, for Maps. */
+  function keyId(k) { return `${k.topic}|${k.writer_guid}|${k.reader_guid}`; }
+
+  const locatorId = l => ({ kind: l.kind, address: l.address, port: l.port });
+
+  /** The part of a pair whose change is worth highlighting (C++ PairState; counters are left out). */
+  function pairState(pair) {
+    const m = pair.measured || {};
+    return {
+      transport: pair.transport, confidence: pair.confidence,
+      measured: [...(m.transports || [])],
+      locator: pair.locator ? locatorId(pair.locator) : null,
+      measured_locators: (m.locators || []).map(locatorId),
+      warnings: [...(pair.warnings || [])],
+    };
+  }
+
+  function sameLocator(a, b, ignorePorts) {
+    if (!a || !b) return a === b;
+    return a.kind === b.kind && a.address === b.address && (ignorePorts || a.port === b.port);
+  }
+
+  /** PairState equality; the node key ignores the port numbers a restart renumbers. */
+  function sameState(a, b, ignorePorts) {
+    return a.transport === b.transport && a.confidence === b.confidence &&
+      a.measured.length === b.measured.length && a.measured.every((t, i) => t === b.measured[i]) &&
+      sameLocator(a.locator, b.locator, ignorePorts) &&
+      a.measured_locators.length === b.measured_locators.length &&
+      a.measured_locators.every((l, i) => sameLocator(l, b.measured_locators[i], ignorePorts)) &&
+      a.warnings.length === b.warnings.length && a.warnings.every((w, i) => w === b.warnings[i]);
+  }
+
+  const byteOrder = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
+  const compareKeys = (a, b) => byteOrder(a.topic, b.topic) || byteOrder(a.writer_guid, b.writer_guid) || byteOrder(a.reader_guid, b.reader_guid);
+
+  /**
+   * The pairs of a document keyed for comparison: by GUIDs, or by node names (`node#<n>`,
+   * the n-th endpoint of that node on the topic in GUID order; `guid:<guid>` without a
+   * node name), sorted like the C++ std::map so the output order matches the binary's.
+   */
+  function keyedPairs(doc, key) {
+    const out = [];
+    for (const t of doc.topics) {
+      const byNode = new Map();
+      for (const ep of [...t.writers, ...t.readers]) {
+        if (ep.node) { if (!byNode.has(ep.node)) byNode.set(ep.node, []); byNode.get(ep.node).push(ep.guid); }
+      }
+      for (const guids of byNode.values()) guids.sort(byteOrder);
+      const identity = (guid, node) => node ? `${node}#${byNode.get(node).indexOf(guid)}` : `guid:${guid}`;
+      for (const p of t.pairs) {
+        const real = pairKey(t, p);
+        const ident = key === 'node'
+          ? { topic: t.topic, writer_guid: identity(p.writer_guid, real.writer_node), reader_guid: identity(p.reader_guid, real.reader_node) }
+          : real;
+        out.push({ ident, key: real, state: pairState(p) });
+      }
+    }
+    out.sort((a, b) => compareKeys(a.ident, b.ident));
+    return out;
+  }
+
+  /**
+   * Compare two documents: the `changes` object of `transport_viz diff --json` (`key` =
+   * 'node', the default, or 'guid'). Added and changed pairs carry the after document's
+   * GUIDs, removed pairs the before document's; changed_pairs[].from names the before GUIDs.
+   */
+  function diffDocuments(before, after, key = 'node') {
+    const prev = new Map(keyedPairs(before, key).map(e => [keyId(e.ident), e]));
+    const cur = keyedPairs(after, key);
+    const changes = { key, before: { observed_at: before.observed_at, domain: before.domain }, added_pairs: [], removed_pairs: [], changed_pairs: [] };
+    const seen = new Set();
+    for (const e of cur) {
+      const id = keyId(e.ident);
+      seen.add(id);
+      const p = prev.get(id);
+      if (!p) changes.added_pairs.push(e.key);
+      else if (!sameState(p.state, e.state, key === 'node')) {
+        changes.changed_pairs.push({ ...e.key, from: { ...p.state, writer_guid: p.key.writer_guid, reader_guid: p.key.reader_guid }, to: e.state });
+      }
+    }
+    for (const [id, p] of prev) if (!seen.has(id)) changes.removed_pairs.push(p.key);
+    return changes;
+  }
+
+  /** What changed between two pair states, e.g. "transport SHM → UDPv4, warnings [] → [x]". */
+  function changeText(from, to) {
+    const loc = l => (l ? `${l.kind}${l.address ? ' ' + l.address : ''}:${l.port}` : 'none');
+    const list = a => `[${a.join(', ')}]`;
+    const parts = [];
+    if (from.transport !== to.transport) parts.push(`transport ${from.transport} → ${to.transport}`);
+    if (from.confidence !== to.confidence) parts.push(`confidence ${from.confidence} → ${to.confidence}`);
+    if (from.measured.join() !== to.measured.join()) parts.push(`measured ${list(from.measured)} → ${list(to.measured)}`);
+    if (loc(from.locator) !== loc(to.locator)) parts.push(`locator ${loc(from.locator)} → ${loc(to.locator)}`);
+    const mls = a => a.map(loc).join(', ');
+    if (mls(from.measured_locators) !== mls(to.measured_locators)) parts.push(`measured locators [${mls(from.measured_locators)}] → [${mls(to.measured_locators)}]`);
+    if (from.warnings.join() !== to.warnings.join()) parts.push(`warnings ${list(from.warnings)} → ${list(to.warnings)}`);
+    return parts.join(', ');
+  }
+
+  /** "+2 pairs  -1 pair  ~1 changed" like the CLI's `changes:` line, or "none". */
+  function changesSummary(c) {
+    if (!c) return '';
+    const n = (list, sign, word) => list.length ? `${sign}${list.length} ${word}` : '';
+    const parts = [
+      n(c.added_pairs, '+', c.added_pairs.length === 1 ? 'pair' : 'pairs'),
+      n(c.removed_pairs, '-', c.removed_pairs.length === 1 ? 'pair' : 'pairs'),
+      n(c.changed_pairs, '~', 'changed'),
+    ].filter(Boolean);
+    return parts.length ? parts.join('  ') : 'none';
+  }
+
+  /**
+   * Marks and ghosts of a `changes` object, as the viewer draws them: marks = Map(keyId ->
+   * {mark: '+'|'~', from}), ghosts = the removed pairs, each with the transport and type it
+   * had when `before` (the before document) is at hand.
+   */
+  function decorations(changes, before) {
+    const marks = new Map();
+    const ghosts = [];
+    if (!changes) return { marks, ghosts };
+    for (const k of changes.added_pairs) marks.set(keyId(k), { mark: '+', from: null });
+    for (const c of changes.changed_pairs) marks.set(keyId(c), { mark: '~', from: c.from });
+    const beforePairs = new Map();
+    if (before) for (const t of before.topics) for (const p of t.pairs) beforePairs.set(keyId(pairKey(t, p)), { topic: t, pair: p });
+    for (const k of changes.removed_pairs) {
+      const was = beforePairs.get(keyId(k));
+      ghosts.push({ key: k, id: `ghost|${keyId(k)}`, topic: was ? was.topic : null, pair: was ? was.pair : null });
+    }
+    return { marks, ghosts };
+  }
+
+  /**
+   * Live mode: every mark and ghost stays `hold` frames after its change, like the CLI's
+   * three frames. `prev` is the previous hold state (or null), `changes` the new frame's.
+   */
+  function holdChanges(prev, changes, before, hold = 3) {
+    const marks = new Map();
+    const ghosts = new Map();
+    if (prev) {
+      for (const [id, m] of prev.marks) if (m.ttl > 1) marks.set(id, { ...m, ttl: m.ttl - 1 });
+      for (const [id, g] of prev.ghosts) if (g.ttl > 1) ghosts.set(id, { ...g, ttl: g.ttl - 1 });
+    }
+    const now = decorations(changes, before);
+    for (const [id, m] of now.marks) { marks.set(id, { ...m, ttl: hold }); ghosts.delete(`ghost|${id}`); }
+    for (const g of now.ghosts) { ghosts.set(g.id, { ...g, ttl: hold }); marks.delete(keyId(g.key)); }
+    return { marks, ghosts };
+  }
+
+  /** Marks / ghosts of a hold state in the shape decorations() returns. */
+  function heldDecorations(hold) {
+    return hold ? { marks: hold.marks, ghosts: [...hold.ghosts.values()] } : { marks: new Map(), ghosts: [] };
+  }
+
+  /** The visible pairs that carry a mark (`changes only`). */
+  function markedPairs(pairs, marks) {
+    return pairs.filter(vp => marks.has(keyId(pairKey(vp.topic, vp.pair))));
+  }
+
+  /** Keep only the nodes that a visible pair or ghost touches (`changes only`). */
+  function pruneNodes(model, pairs, ghostNodes) {
+    const keep = new Set(ghostNodes);
+    for (const vp of pairs) { keep.add(vp.writerNode); keep.add(vp.readerNode); }
+    const nodes = new Map([...model.nodes].filter(([id]) => keep.has(id)));
+    const hosts = model.hosts.map(h => ({ ...h, nodes: h.nodes.filter(n => keep.has(n.id)) })).filter(h => h.nodes.length);
+    return { ...model, nodes, hosts };
+  }
+
+  return { TRANSPORTS, INTERNAL_TOPICS, buildModel, filterRegex, visiblePairs, visibleNodesModel, bundle, humanBytes, humanSeconds, measuredText, rateText, latencyText, lossText, escapeHtml, codeListHtml, shmText,
+    pairKey, keyId, pairState, sameState, diffDocuments, changeText, changesSummary, decorations, holdChanges, heldDecorations, markedPairs, pruneNodes };
 });

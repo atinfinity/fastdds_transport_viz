@@ -14,6 +14,7 @@
   <div class="live" id="live" hidden><span class="dot"></span><span id="live-text">live</span> <button class="btn" id="live-pause">Pause</button></div>
   <div class="actions">
     <label class="btn">Open JSON… <input type="file" id="file" accept=".json,application/json" hidden></label>
+    <label class="btn" title="Compare the loaded document with a second one (as transport_viz diff)">Compare with… <input type="file" id="file-diff" accept=".json,application/json" hidden></label>
     <button class="btn" id="load-sample">Load sample</button>
     <span class="hint">or drop a <code>transport_viz --json</code> file anywhere</span>
   </div>
@@ -31,6 +32,11 @@
   <div class="group" id="filter-transports"></div>
   <div class="group">
     <label><input type="checkbox" id="filter-internal" checked> hide ROS internal topics</label>
+  </div>
+  <div class="group changes" id="changes-group" hidden>
+    <span class="summary">changes: <b id="changes-summary"></b></span>
+    <label><input type="checkbox" id="filter-changes"> changes only</label>
+    <label id="diff-key-label" hidden>key <select id="diff-key"><option value="node">node</option><option value="guid">guid</option></select></label>
   </div>
   <div class="group legend" id="legend"></div>
 </div>

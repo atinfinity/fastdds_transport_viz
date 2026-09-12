@@ -5,6 +5,7 @@
   --c-ds: #ff7f0e; --c-none: #8b949e;
 }
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 html, body { margin: 0; height: 100%; font: 13px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--fg); background: var(--bg); }
 code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
 header { display: flex; align-items: center; gap: 16px; padding: 8px 12px; background: var(--panel); border-bottom: 1px solid var(--line); }
@@ -70,5 +71,26 @@ main { display: grid; grid-template-columns: 1fr 380px; height: calc(100% - 84px
 #pairs-table th { position: sticky; top: 0; background: #f6f8fa; cursor: pointer; white-space: nowrap; }
 #pairs-table tr:hover td { background: #f6f8fa; }
 #pairs-table tr.selected td { background: #ddf4ff; }
+/* changes (transport_viz diff / --watch): + added, ~ changed, - removed */
+.toolbar .changes .summary { color: var(--muted); }
+.mark { display: inline-block; width: 1em; font-weight: 700; font-family: ui-monospace, Menlo, monospace; }
+.mark.added { color: var(--c-shm); }
+.mark.changed { color: var(--c-ds); }
+.mark.removed { color: var(--muted); }
+#pairs-table tr.added td:first-child { border-left: 3px solid var(--c-shm); }
+#pairs-table tr.changed td:first-child { border-left: 3px solid var(--c-ds); }
+#pairs-table tr.removed td { color: var(--muted); font-style: italic; }
+#pairs-table tr.removed td:first-child { border-left: 3px solid var(--line); }
+.arrow { color: var(--muted); margin: 0 3px; }
+#panel .change { margin: 4px 0; padding: 4px 6px; border-radius: 4px; background: #fff8ec; }
+#panel .change.added { background: #ecf8ee; }
+#panel .change.removed { background: #f2f2f3; color: var(--muted); }
+.edge.added path.halo { stroke: var(--c-shm); stroke-width: 9; opacity: .35; }
+.edge.changed path.halo { stroke: var(--c-ds); stroke-width: 9; opacity: .4; }
+.edge.removed path.main { stroke: var(--muted); stroke-dasharray: 2 5; opacity: .8; }
+.edge.removed text { fill: var(--muted); font-style: italic; }
+.legend .sw.added { border-top-color: var(--c-shm); border-top-width: 6px; opacity: .5; }
+.legend .sw.changed { border-top-color: var(--c-ds); border-top-width: 6px; opacity: .5; }
+.legend .sw.removed { border-top-color: var(--muted); border-top-style: dotted; }
 #drop-overlay[hidden] { display: none; }
 #drop-overlay { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(9,105,218,.15); border: 4px dashed var(--accent); font-size: 22px; color: var(--accent); z-index: 10; pointer-events: none; }

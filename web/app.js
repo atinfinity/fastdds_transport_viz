@@ -11,7 +11,9 @@
 
   // pure model / formatting functions live in model.js (unit-tested under Node)
   const { TRANSPORTS, INTERNAL_TOPICS, buildModel, filterRegex, visiblePairs, visibleNodesModel, bundle,
-    humanBytes, measuredText, rateText, latencyText, lossText, escapeHtml, codeListHtml, shmText } = globalThis.TransportVizModel;
+    humanBytes, measuredText, rateText, latencyText, lossText, escapeHtml, codeListHtml, shmText,
+    pairKey, keyId, diffDocuments, changeText, changesSummary, decorations, holdChanges, heldDecorations,
+    markedPairs, pruneNodes } = globalThis.TransportVizModel;
   const COLORS = {
     UDPv4: 'var(--c-udpv4)', UDPv6: 'var(--c-udpv6)', TCPv4: 'var(--c-tcp)', TCPv6: 'var(--c-tcp)',
     SHM: 'var(--c-shm)', DATA_SHARING: 'var(--c-ds)', NONE: 'var(--c-none)',
@@ -21,9 +23,61 @@
     doc: null,
     view: 'graph',
     filter: { topic: '', node: '', transports: new Set(TRANSPORTS), hideInternal: true },
-    selection: null,   // {kind: 'node', id} | {kind: 'edge', id} | {kind: 'pair', id}
+    selection: null,   // {kind: 'node', id} | {kind: 'edge', id} | {kind: 'pair', id} | {kind: 'ghost', id}
     sort: { key: 'topic', asc: true },
+    // comparison (transport_viz diff): `changes` from the document itself (a diff file or a
+    // live frame) or computed here against `before`; `hold` ages live marks over 3 frames
+    before: null, changes: null, hold: null, previousLive: null, key: 'node', changesOnly: false,
   };
+  const HOLD_FRAMES = 3;
+
+  /** Marks (Map keyId -> {mark, from}) and ghosts (removed pairs) to draw for the current document. */
+  function currentDecorations() {
+    if (state.hold) return heldDecorations(state.hold);
+    return decorations(state.changes, state.before);
+  }
+
+  /** Mark of a visible pair, ' ' when none. */
+  function markOf(vp, marks) {
+    const m = marks.get(keyId(pairKey(vp.topic, vp.pair)));
+    return m ? m.mark : ' ';
+  }
+
+  const MARK_CLASS = { '+': 'added', '~': 'changed', '-': 'removed', ' ': '' };
+  const markHtml = m => (m === ' ' ? '' : `<span class="mark ${MARK_CLASS[m]}">${m}</span>`);
+
+  /** Ghosts that pass the topic / node / transport filters (a ghost's transport is known only with the before document). */
+  function visibleGhosts(ghosts) {
+    const f = state.filter;
+    const re = filterRegex(f.topic);
+    const nre = filterRegex(f.node);
+    return ghosts.filter(g => {
+      if (f.hideInternal && INTERNAL_TOPICS.has(g.key.topic)) return false;
+      if (re && !re.test(g.key.topic)) return false;
+      if (nre && !nre.test(g.key.writer_node) && !nre.test(g.key.reader_node)) return false;
+      if (g.pair && !f.transports.has(g.pair.transport)) return false;
+      return true;
+    });
+  }
+
+  /** The pairs, ghosts and node model to draw: filters, then `changes only`. */
+  function visibleScene(fullModel) {
+    const deco = currentDecorations();
+    let pairs = visiblePairs(fullModel, state.filter);
+    const ghosts = visibleGhosts(deco.ghosts);
+    if (state.changesOnly) pairs = markedPairs(pairs, deco.marks);
+    let { model, matched } = visibleNodesModel(fullModel, pairs, state.filter.node);
+    // a ghost edge needs both of its nodes: those the after document still has by name
+    const ghostNodes = ghosts.flatMap(g => [g.key.writer_node, g.key.reader_node]).filter(id => fullModel.nodes.has(id));
+    if (state.filter.node) {
+      const nre = filterRegex(state.filter.node);
+      const keep = new Set([...model.nodes.keys(), ...ghosts.filter(g => nre && (nre.test(g.key.writer_node) || nre.test(g.key.reader_node)))
+        .flatMap(g => [g.key.writer_node, g.key.reader_node])]);
+      model = pruneNodes(fullModel, [], [...keep].filter(id => fullModel.nodes.has(id)));
+    }
+    if (state.changesOnly) model = pruneNodes(model, pairs, ghostNodes);
+    return { pairs, ghosts, model, matched, marks: deco.marks };
+  }
 
   // ---------------------------------------------------------------- layout
 
@@ -82,10 +136,26 @@
        <path d="M0,0 L10,5 L0,10 z" fill="${COLORS[t]}"/></marker>`).join(''));
   svg.call(d3.zoom().scaleExtent([0.2, 3]).on('zoom', (ev) => root.attr('transform', ev.transform)));
 
+  const MARK_RANK = { '+': 3, '~': 2, ' ': 0 };
+
+  /** Bundled edges plus one dashed ghost edge per removed pair whose nodes are both still there. */
+  function sceneEdges(scene) {
+    const edges = bundle(scene.pairs);
+    for (const e of edges) {
+      e.mark = e.pairs.reduce((best, vp) => { const m = markOf(vp, scene.marks); return MARK_RANK[m] > MARK_RANK[best] ? m : best; }, ' ');
+    }
+    for (const g of scene.ghosts) {
+      if (!scene.model.nodes.has(g.key.writer_node) || !scene.model.nodes.has(g.key.reader_node)) continue;
+      edges.push({ id: g.id, source: g.key.writer_node, target: g.key.reader_node, transport: g.pair ? g.pair.transport : 'NONE',
+        confidence: g.pair ? g.pair.confidence : 'certain', pairs: [], warn: false, mark: '-', ghost: g });
+    }
+    return edges;
+  }
+
   function renderGraph(fullModel) {
-    const pairs = visiblePairs(fullModel, state.filter);
-    const edges = bundle(pairs);
-    const { model, matched } = visibleNodesModel(fullModel, pairs, state.filter.node);
+    const scene = visibleScene(fullModel);
+    const edges = sceneEdges(scene);
+    const { model, matched } = scene;
     const { pos, hostBoxes } = layout(model);
 
     // parallel-edge index per (source,target) so bundles do not overlap
@@ -114,16 +184,17 @@
     edgeEnter.append('text');
     edgeSel.exit().remove();
     const edgesAll = edgeEnter.merge(edgeSel)
-      .attr('class', d => `edge ${d.confidence === 'likely' ? 'likely' : ''} ${d.warn ? 'warn' : ''} ${isSelected('edge', d.id) ? 'selected' : ''}`)
-      .on('click', (ev, d) => { ev.stopPropagation(); select({ kind: 'edge', id: d.id }); });
+      .attr('class', d => `edge ${d.confidence === 'likely' ? 'likely' : ''} ${d.warn ? 'warn' : ''} ${MARK_CLASS[d.mark]} ${isSelected(d.ghost ? 'ghost' : 'edge', d.id) ? 'selected' : ''}`)
+      .on('click', (ev, d) => { ev.stopPropagation(); select({ kind: d.ghost ? 'ghost' : 'edge', id: d.id }); });
     edgesAll.selectAll('path').attr('d', d => edgePath(pos.get(d.source), pos.get(d.target), d.k));
-    edgesAll.select('path.main').attr('stroke', d => COLORS[d.transport]).attr('marker-end', d => `url(#arrow-${d.transport})`);
+    edgesAll.select('path.main').attr('stroke', d => COLORS[d.transport]).attr('marker-end', d => `url(#arrow-${d.ghost ? 'NONE' : d.transport})`);
     edgesAll.select('text').each(function (d) {
       const p = this.parentNode.querySelector('path.main');
       const len = p.getTotalLength();
       const pt = p.getPointAtLength(len * 0.5);
-      d3.select(this).attr('x', pt.x).attr('y', pt.y - 6).attr('text-anchor', 'middle')
-        .text(d.pairs.length === 1 ? `${d.pairs[0].topic.topic} · ${d.transport}${d.confidence === 'likely' ? '?' : ''}` : `${d.pairs.length} topics · ${d.transport}${d.confidence === 'likely' ? '?' : ''}`);
+      const label = d.ghost ? `${d.ghost.key.topic} · removed` :
+        d.pairs.length === 1 ? `${d.pairs[0].topic.topic} · ${d.transport}${d.confidence === 'likely' ? '?' : ''}` : `${d.pairs.length} topics · ${d.transport}${d.confidence === 'likely' ? '?' : ''}`;
+      d3.select(this).attr('x', pt.x).attr('y', pt.y - 6).attr('text-anchor', 'middle').text((d.mark === ' ' ? '' : d.mark + ' ') + label);
     });
 
     const hideInternal = state.filter.hideInternal;
@@ -152,6 +223,7 @@
   // ---------------------------------------------------------------- rendering: table
 
   const COLUMNS = [
+    { key: 'mark', label: '', get: v => (v.mark || ' '), diff: true },
     { key: 'topic', label: 'Topic', get: v => v.topic.topic },
     { key: 'type', label: 'Type', get: v => v.topic.type },
     { key: 'writer', label: 'Writer', get: v => `${v.pair.writer_node || v.writerNode}@${v.pair.writer_host}` },
@@ -165,11 +237,25 @@
     { key: 'reasons', label: 'Reasons', get: v => [...v.pair.reasons, ...v.pair.warnings.map(w => '!' + w)].join(', ') },
   ];
 
-  function renderTable(model) {
-    const rows = visiblePairs(model, state.filter);
-    const col = COLUMNS.find(c => c.key === state.sort.key);
+  /** A removed pair as a table row: what the before document knew about it, else the key alone. */
+  function ghostRow(g) {
+    const p = g.pair;
+    return { id: g.id, ghost: g, mark: '-', topic: g.topic || { topic: g.key.topic, type: '' },
+      pair: p || { writer_node: g.key.writer_node, reader_node: g.key.reader_node, writer_host: '?', reader_host: '?',
+        transport: '', confidence: '', reasons: [], warnings: [], measured: null },
+      writerNode: g.key.writer_node, readerNode: g.key.reader_node };
+  }
+
+  function renderTable(fullModel) {
+    const scene = visibleScene(fullModel);
+    const hasChanges = !!(state.changes || state.hold);
+    const columns = COLUMNS.filter(c => !c.diff || hasChanges);
+    const rows = scene.pairs.map(vp => ({ ...vp, mark: markOf(vp, scene.marks), from: (scene.marks.get(keyId(pairKey(vp.topic, vp.pair))) || {}).from }));
+    const col = COLUMNS.find(c => c.key === state.sort.key) || COLUMNS[1];
     rows.sort((a, b) => col.get(a).localeCompare(col.get(b)) * (state.sort.asc ? 1 : -1));
-    const head = d3.select('#pairs-head').selectAll('th').data(COLUMNS, d => d.key);
+    for (const g of scene.ghosts) rows.push(ghostRow(g));   // removed pairs last, dimmed
+    const head = d3.select('#pairs-head').selectAll('th').data(columns, d => d.key);
+    head.exit().remove();
     head.enter().append('th').merge(head)
       .text(d => `${d.label}${state.sort.key === d.key ? (state.sort.asc ? ' ▲' : ' ▼') : ''}`)
       .on('click', (ev, d) => { state.sort = { key: d.key, asc: state.sort.key === d.key ? !state.sort.asc : true }; render(); });
@@ -177,12 +263,18 @@
     const trEnter = tr.enter().append('tr');
     tr.exit().remove();
     const trAll = trEnter.merge(tr)
-      .attr('class', d => (isSelected('pair', d.id) ? 'selected' : ''))
-      .on('click', (ev, d) => select({ kind: 'pair', id: d.id }));
+      .attr('class', d => `${MARK_CLASS[d.mark || ' ']} ${isSelected(d.ghost ? 'ghost' : 'pair', d.id) ? 'selected' : ''}`)
+      .on('click', (ev, d) => select({ kind: d.ghost ? 'ghost' : 'pair', id: d.id }));
     trAll.order();
-    const td = trAll.selectAll('td').data(d => COLUMNS.map(c => ({ c, v: d })));
+    const td = trAll.selectAll('td').data(d => columns.map(c => ({ c, v: d })));
+    td.exit().remove();
     td.enter().append('td').merge(td).html(({ c, v }) => {
-      if (c.key === 'transport') return badge(v.pair);
+      if (c.key === 'mark') return markHtml(v.mark || ' ');
+      if (c.key === 'transport') {
+        if (v.ghost) return v.pair.transport ? badge(v.pair) + ' <span class="muted">(removed)</span>' : '<span class="muted">(removed)</span>';
+        return v.from && v.from.transport !== v.pair.transport ? `${badge(v.from)}<span class="arrow">→</span>${badge(v.pair)}` : badge(v.pair);
+      }
+      if (v.ghost && !v.pair.transport && ['confidence', 'rate', 'latency', 'loss', 'measured', 'reasons'].includes(c.key)) return '';
       return escapeHtml(c.get(v));
     });
   }
@@ -195,7 +287,29 @@
     const t = pair.transport;
     const cls = `badge ${pair.confidence === 'likely' ? 'likely' : ''}`;
     return `<span class="${cls}" style="background:${COLORS[t]}">${t}${pair.confidence === 'likely' ? '?' : ''}</span>` +
-      (pair.warnings.length ? ' <span class="badge warn">!</span>' : '');
+      ((pair.warnings || []).length ? ' <span class="badge warn">!</span>' : '');
+  }
+
+  /** The change line of a pair card: "+ added", "~ changed: transport SHM → UDPv4", or ''. */
+  function changeHtml(vp, marks) {
+    const m = marks.get(keyId(pairKey(vp.topic, vp.pair)));
+    if (!m) return '';
+    if (m.mark === '+') return '<div class="change added"><span class="mark added">+</span> added</div>';
+    const text = m.from ? changeText(m.from, {
+      transport: vp.pair.transport, confidence: vp.pair.confidence, measured: (vp.pair.measured && vp.pair.measured.transports) || [],
+      locator: vp.pair.locator, measured_locators: (vp.pair.measured && vp.pair.measured.locators) || [], warnings: vp.pair.warnings }) : '';
+    return `<div class="change changed"><span class="mark changed">~</span> changed${text ? ': ' + escapeHtml(text) : ''}</div>`;
+  }
+
+  function ghostCard(g) {
+    const k = g.key;
+    const p = g.pair;
+    return `<div class="pair"><div class="change removed"><span class="mark removed">-</span> removed</div>
+      <div><b>${escapeHtml(k.topic)}</b>${g.topic ? ` <span class="muted">${escapeHtml(g.topic.type)}</span>` : ''}</div>
+      ${p ? `<div style="margin:4px 0">${badge(p)} confidence ${p.confidence}</div>` : ''}
+      <div>${escapeHtml(k.writer_node || 'guid:' + k.writer_guid)}${p ? '@' + escapeHtml(p.writer_host) : ''} → ${escapeHtml(k.reader_node || 'guid:' + k.reader_guid)}${p ? '@' + escapeHtml(p.reader_host) : ''}</div>
+      ${p ? codeList(p.reasons, false) + codeList(p.warnings, true) : '<div class="muted">as it was before: open the before document with "Compare with…" to see it</div>'}
+    </div>`;
   }
 
   function codeList(codes, warn) {
@@ -232,9 +346,10 @@
     </dl>`;
   }
 
-  function pairCard(vp, selected) {
+  function pairCard(vp, selected, marks) {
     const p = vp.pair;
     return `<div class="pair ${selected ? 'selected' : ''}">
+      ${marks ? changeHtml(vp, marks) : ''}
       <div><b>${escapeHtml(vp.topic.topic)}</b> <span class="muted">${escapeHtml(vp.topic.type)}</span></div>
       <div style="margin:4px 0">${badge(p)} confidence ${p.confidence}${p.measured && p.measured.available ? ` · measured ${escapeHtml(measuredText(p.measured))}` : ''}${rateText(p.measured) ? ` · rate ${escapeHtml(rateText(p.measured))}` : ''}${latencyText(p.measured) ? ` · latency ${escapeHtml(latencyText(p.measured))}` : ''}${lossText(p.measured) ? ` · loss ${escapeHtml(lossText(p.measured))}` : ''}</div>
       ${p.measured && p.measured.reliability ? `<div class="muted">heartbeats ${p.measured.reliability.heartbeats}, gaps ${p.measured.reliability.gaps}, acknacks ${p.measured.reliability.acknacks}, nackfrags ${p.measured.reliability.nackfrags}</div>` : ''}
@@ -247,15 +362,20 @@
   function renderPanel(model) {
     const sel = state.selection;
     if (!sel) { panel.html('<div class="panel-empty">Click a node or an edge for details.</div>'); return; }
+    const scene = visibleScene(model);
     if (sel.kind === 'edge') {
-      const e = bundle(visiblePairs(model, state.filter)).find(x => x.id === sel.id);
+      const e = bundle(scene.pairs).find(x => x.id === sel.id);
       if (!e) { select(null); return; }
       panel.html(`<h2>${escapeHtml(e.source)} → ${escapeHtml(e.target)}</h2><div>${e.pairs.length} pair(s), ${e.transport}${e.confidence === 'likely' ? ' (likely)' : ''}</div>` +
-        e.pairs.map(vp => pairCard(vp, false)).join(''));
+        e.pairs.map(vp => pairCard(vp, false, scene.marks)).join(''));
+    } else if (sel.kind === 'ghost') {
+      const g = scene.ghosts.find(x => x.id === sel.id);
+      if (!g) { select(null); return; }
+      panel.html(`<h2>${escapeHtml(g.key.writer_node || 'guid:' + g.key.writer_guid)} → ${escapeHtml(g.key.reader_node || 'guid:' + g.key.reader_guid)}</h2>${ghostCard(g)}`);
     } else if (sel.kind === 'pair') {
       const vp = model.pairs.find(x => x.id === sel.id);
       if (!vp) { select(null); return; }
-      panel.html(`<h2>Pair</h2>${pairCard(vp, true)}`);
+      panel.html(`<h2>Pair</h2>${pairCard(vp, true, scene.marks)}`);
     } else if (sel.kind === 'node') {
       const n = model.nodes.get(sel.id);
       if (!n) { select(null); return; }
@@ -279,15 +399,24 @@
     d3.select('#legend').html(
       TRANSPORTS.map(t => `<span class="item"><span class="sw" style="border-top-color:${COLORS[t]}"></span>${t}</span>`).join('') +
       '<span class="item"><span class="sw dashed" style="border-top-color:#8b949e"></span>likely</span>' +
-      '<span class="item"><span class="sw warn"></span>warning</span>');
+      '<span class="item"><span class="sw warn"></span>warning</span>' +
+      (state.changes || state.hold ? '<span class="item"><span class="sw added"></span>+ added</span><span class="item"><span class="sw changed"></span>~ changed</span><span class="item"><span class="sw removed"></span>- removed</span>' : ''));
+    const hasChanges = !!(state.changes || state.hold);
+    d3.select('#changes-group').attr('hidden', hasChanges ? null : true);
+    d3.select('#changes-summary').text(state.hold ? changesSummary(state.changes) : changesSummary(state.changes));
+    d3.select('#diff-key-label').attr('hidden', state.before ? null : true);
+    d3.select('#diff-key').property('value', state.key);
+    d3.select('#filter-changes').property('checked', state.changesOnly);
   }
 
   function renderMeta() {
     const d = state.doc;
     if (!d) { d3.select('#meta').text('no document loaded'); return; }
     const n = d.topics.reduce((a, t) => a + t.pairs.length, 0);
+    const c = state.changes;
+    const vs = c && c.before ? ` · vs ${c.before.observed_at}${c.before.domain !== d.domain ? ` (domain ${c.before.domain})` : ''} by ${c.key || 'guid'} key` : '';
     d3.select('#meta').text(`domain ${d.domain} · ${d.observed_at} · ${d.topics.length} topics, ${n} pairs · ` +
-      (d.stats && d.stats.enabled ? `statistics: ${d.stats.samples} samples` : 'no statistics'));
+      (d.stats && d.stats.enabled ? `statistics: ${d.stats.samples} samples` : 'no statistics') + vs);
     d3.select('#shm').html(shmText(d.shm, d.reason_code_descriptions, d.reason_code_remedies));
   }
 
@@ -306,15 +435,44 @@
   function isSelected(kind, id) { return state.selection && state.selection.kind === kind && state.selection.id === id; }
   function select(sel) { state.selection = sel; render(); }
 
-  function setDocument(doc, sourceName, keepSelection) {
-    if (!doc || doc.schema_version !== 1 || !Array.isArray(doc.topics)) {
+  function isDocument(doc) { return doc && doc.schema_version === 1 && Array.isArray(doc.topics); }
+
+  /**
+   * Show `doc`. opts.before: compare against that document here (Compare with…, ?diff=);
+   * opts.live: a frame of the live stream, whose own `changes` are held for a few frames.
+   * Otherwise a `changes` object inside the document (a `transport_viz diff --json` file)
+   * is shown as it is.
+   */
+  function setDocument(doc, sourceName, keepSelection, opts = {}) {
+    if (!isDocument(doc)) {
       alert(`Not a transport_viz --json document (schema_version 1): ${sourceName}`);
       return;
     }
+    if (opts.live) {
+      state.hold = holdChanges(state.hold, doc.changes || null, state.previousLive, HOLD_FRAMES);
+      state.previousLive = doc;
+      state.changes = doc.changes || null;
+      state.before = null;
+    } else if (opts.before) {
+      state.hold = null;
+      state.before = opts.before;
+      state.changes = diffDocuments(opts.before, doc, state.key);
+    } else {
+      state.hold = null;
+      state.before = null;
+      state.changes = doc.changes && Array.isArray(doc.changes.added_pairs) ? doc.changes : null;
+    }
+    if (!state.changes && !state.hold) state.changesOnly = false;
     state.doc = doc;
     if (!keepSelection) state.selection = null;   // live updates keep the selection; render() drops it if gone
     render();
     document.title = `transport_viz viewer – ${sourceName}`;
+  }
+
+  /** Compare the loaded document with `doc` (which becomes the one shown). */
+  function compareWith(doc, sourceName) {
+    if (!state.doc) { setDocument(doc, sourceName); return; }
+    setDocument(doc, `${document.title.replace(/^transport_viz viewer – /, '')} vs ${sourceName}`, false, { before: state.doc });
   }
 
   // ---------------------------------------------------------------- live mode (serve.py / transport_viz_web)
@@ -334,7 +492,7 @@
       try { doc = JSON.parse(e.data); } catch (err) { console.error('live: bad document', err); return; }
       live.updates++;
       if (live.paused) { live.pending = doc; liveStatus('paused', `live: paused (${live.updates} updates, newest ${doc.observed_at})`); return; }
-      setDocument(doc, 'live', true);
+      setDocument(doc, 'live', true, { live: true });
       liveStatus('', `live: updated ${doc.observed_at} (#${live.updates})`);
     });
     live.es.addEventListener('status', (e) => {
@@ -346,25 +504,51 @@
     d3.select('#live-pause').on('click', function () {
       live.paused = !live.paused;
       this.textContent = live.paused ? 'Resume' : 'Pause';
-      if (!live.paused && live.pending) { setDocument(live.pending, 'live', true); live.pending = null; }
+      if (!live.paused && live.pending) { setDocument(live.pending, 'live', true, { live: true }); live.pending = null; }
       liveStatus(live.paused ? 'paused' : '', live.paused ? 'live: paused' : 'live: resumed');
     });
   }
 
-  function loadFile(file) {
+  function loadFile(file, compare) {
     const reader = new FileReader();
-    reader.onload = () => { try { setDocument(JSON.parse(reader.result), file.name); } catch (e) { alert(`Invalid JSON: ${e.message}`); } };
+    reader.onload = () => {
+      let doc;
+      try { doc = JSON.parse(reader.result); } catch (e) { alert(`Invalid JSON: ${e.message}`); return; }
+      if (compare) compareWith(doc, file.name); else setDocument(doc, file.name);
+    };
     reader.readAsText(file);
   }
 
+  function fetchDocument(url) {
+    return fetch(url).then(r => { if (!r.ok) throw new Error(`${r.status} ${r.statusText}`); return r.json(); });
+  }
+
+  function loadFailed(url, e) {
+    d3.select('#meta').text(`failed to load ${url}: ${e.message} (fetch does not work from file://; use "Open JSON…")`);
+  }
+
   function loadUrl(url) {
-    fetch(url).then(r => { if (!r.ok) throw new Error(`${r.status} ${r.statusText}`); return r.json(); })
-      .then(doc => setDocument(doc, url))
-      .catch(e => { d3.select('#meta').text(`failed to load ${url}: ${e.message} (fetch does not work from file://; use "Open JSON…")`); });
+    fetchDocument(url).then(doc => setDocument(doc, url)).catch(e => loadFailed(url, e));
+  }
+
+  /** ?src=before&diff=after: both fetched, then compared like `transport_viz diff before after`. */
+  function loadDiffUrls(beforeUrl, afterUrl) {
+    Promise.all([fetchDocument(beforeUrl), fetchDocument(afterUrl)])
+      .then(([b, a]) => {
+        if (!isDocument(b)) throw new Error(`${beforeUrl} is not a transport_viz --json document`);
+        setDocument(a, `${beforeUrl} vs ${afterUrl}`, false, { before: b });
+      })
+      .catch(e => loadFailed(`${beforeUrl} / ${afterUrl}`, e));
   }
 
   // wiring
   d3.select('#file').on('change', function () { if (this.files[0]) loadFile(this.files[0]); this.value = ''; });
+  d3.select('#file-diff').on('change', function () { if (this.files[0]) loadFile(this.files[0], true); this.value = ''; });
+  d3.select('#filter-changes').on('change', function () { state.changesOnly = this.checked; render(); });
+  d3.select('#diff-key').on('change', function () {
+    state.key = this.value;
+    if (state.before) { state.changes = diffDocuments(state.before, state.doc, state.key); render(); }
+  });
   d3.select('#load-sample').on('click', () => loadSample());
   d3.selectAll('.tab').on('click', function () { state.view = this.dataset.view; render(); });
   const onFilterInput = (key) => function () {
@@ -390,7 +574,9 @@
 
   render();
   const params = new URLSearchParams(location.search);
+  if (params.get('key') === 'guid') state.key = 'guid';
   if (params.get('live')) connectLive();
+  else if (params.get('src') && params.get('diff')) loadDiffUrls(params.get('src'), params.get('diff'));
   else if (params.get('src')) loadUrl(params.get('src'));
   else loadSample();
 })();

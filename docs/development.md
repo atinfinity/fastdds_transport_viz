@@ -191,8 +191,10 @@ switches over enums whose every value is handled, and discovery statuses Fast DD
 reports for our participant.
 
 The web viewer's pure functions (`web/model.js`: document → nodes/hosts/pairs, filters
-with the `--node` semantics, edge bundling, number formatting, the shared-memory line) are
-unit-tested under Node without a browser:
+with the `--node` semantics, edge bundling, number formatting, the shared-memory line, and
+the comparison of two documents: `diffDocuments()` must reproduce `web/sample/diff.json`,
+what the binary printed for `diff --all --json` on the fixture pair, which `test_cli_args`
+asserts from the C++ side) are unit-tested under Node without a browser:
 
 ```
 node --test "web/test/*.test.js"
@@ -344,8 +346,8 @@ Done:
   [#72](https://github.com/atinfinity/fastdds_transport_viz/issues/72)
 - `rmw_fastrtps_dynamic_cpp` verified and accepted; CI runs the suite on it —
   [#73](https://github.com/atinfinity/fastdds_transport_viz/issues/73)
-- `transport_viz diff` / `ros2 transport diff`: compare two `--json` snapshots (the web
-  viewer part is still open) —
+- `transport_viz diff` / `ros2 transport diff`: compare two `--json` snapshots; the web
+  viewer compares two documents and highlights `changes` —
   [#77](https://github.com/atinfinity/fastdds_transport_viz/issues/77)
 
 Open, by priority (labels `priority/1-high` … `priority/3-low` on the issues):

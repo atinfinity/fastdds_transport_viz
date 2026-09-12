@@ -214,6 +214,15 @@ def test_diff_json_is_the_after_document_plus_changes():
     assert pruned['changes'] == c
 
 
+def test_diff_json_matches_the_shipped_diff_sample():
+    """web/sample/diff.json is what the binary prints for the fixture pair with --all; the web
+    viewer's JavaScript port of the comparison is tested against the same file."""
+    r = run('diff', '--all', '--json', BEFORE, AFTER)
+    assert r.returncode == 1, r
+    with open(SAMPLES / 'diff.json') as f:
+        assert json.loads(r.stdout) == json.load(f)
+
+
 def test_diff_filters_apply_to_both_documents():
     r = run('diff', '--json', '--topic', '^/chatter$', BEFORE, AFTER)
     assert r.returncode == 1, r

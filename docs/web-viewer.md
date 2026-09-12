@@ -52,6 +52,36 @@ it includes the writer's payload rate and the bytes carried during the observati
 
 ![table view](images/web-viewer-table.jpg)
 
+## Comparing two documents
+
+The viewer runs the comparison of `transport_viz diff` (see
+[how-it-works.md](how-it-works.md#comparing-two-snapshots)) in the browser, in three ways:
+
+- **Compare with…** loads a second document and compares the one on screen (before) with
+  it (after); the after document is then shown. **Open JSON…** keeps replacing the
+  document, which also ends a comparison.
+- `index.html?src=before.json&diff=after.json` fetches both (served over HTTP, like
+  `?src=`); `&key=guid` selects the GUID key.
+- A document that already carries a `changes` object, that is the output of
+  `transport_viz diff --json` or a frame of `--watch --json`, is highlighted as it is.
+
+The header names the before document (`vs 2026-09-13T09:00:00Z by node key`), the toolbar
+shows the `changes:` summary of the CLI, a **changes only** switch that keeps the marked
+pairs and their nodes, and, when the comparison was made here, the **key** (`node`, the
+default, or `guid`, see [how-it-works.md](how-it-works.md#comparing-two-snapshots) for what
+each survives). The comparison itself is `diffDocuments()` in `web/model.js`, a port of
+the C++ function that is tested against the binary's output on the same fixture pair
+(`web/sample/diff_before.json`, `diff_after.json`, `diff.json`), so both agree.
+
+| Element | Meaning |
+|---|---|
+| `+` green | pair appeared (table row, edge halo and label) |
+| `~` orange | transport, confidence, measured transport, selected locator, measured locators or warnings changed; the table shows `before → after` transports and the pair card lists what changed |
+| `-` grey, dotted, italic | pair disappeared: a ghost row at the end of the table with the transport it had (when the before document is at hand), and a dotted ghost edge when both of its nodes still exist |
+
+In live mode every mark and ghost stays for three frames after its change and then
+clears, like the CLI's `--watch`.
+
 The filters
 (topic regex, node regex, transport checkboxes, "hide ROS internal topics" for
 `/parameter_events` and `/rosout`) apply to the graph, the table and the edge panel (the
@@ -100,8 +130,8 @@ the container is reachable from the host browser.
 `transport_viz --watch --json` itself prints one compact document per line (JSON Lines),
 so any other consumer can read the same stream. The `changes` object of those documents is
 also what `transport_viz diff --json before.json after.json` emits (see
-[how-it-works.md](how-it-works.md#comparing-two-snapshots)); the viewer does not highlight
-it yet ([#77](https://github.com/atinfinity/fastdds_transport_viz/issues/77)).
+[how-it-works.md](how-it-works.md#comparing-two-snapshots)); the viewer highlights it in
+both cases ([Comparing two documents](#comparing-two-documents)).
 
 ## JSON schema
 

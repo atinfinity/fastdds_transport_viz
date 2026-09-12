@@ -125,7 +125,8 @@ or removed (`-`) marked as in `--watch`, or with `--json` as the after document 
 `changes` object. Pairs are matched by node names (`--key node`, the default, so a restart
 of the nodes is not a change) or by GUIDs (`--key guid`, what `--watch` does);
 `--changes-only` keeps only the topics that moved. The exit status is 0 without changes, 1
-with, 2 on an error, so it works in scripts. Details in
+with, 2 on an error, so it works in scripts. The web viewer compares two documents the same
+way and highlights the result. Details in
 [docs/how-it-works.md](docs/how-it-works.md#comparing-two-snapshots).
 
 ## Documentation

@@ -1,0 +1,790 @@
+{
+  "changes": {
+    "added_pairs": [
+      {
+        "reader_guid": "0a.0b.0c.0d.0d.00.00.00.00.00.00.00|00.00.02.04",
+        "reader_node": "/listener2",
+        "topic": "/chatter",
+        "writer_guid": "0a.0b.0c.0d.0b.00.00.00.00.00.00.00|00.00.01.03",
+        "writer_node": "/talker"
+      },
+      {
+        "reader_guid": "0a.0b.0c.0d.11.00.00.00.00.00.00.00|00.00.02.04",
+        "reader_node": "/sink2",
+        "topic": "/new_topic",
+        "writer_guid": "0a.0b.0c.0d.10.00.00.00.00.00.00.00|00.00.01.03",
+        "writer_node": "/fresh"
+      }
+    ],
+    "before": {
+      "domain": 0,
+      "observed_at": "2026-09-13T09:00:00Z"
+    },
+    "changed_pairs": [
+      {
+        "from": {
+          "confidence": "certain",
+          "locator": {
+            "address": "",
+            "kind": "SHM",
+            "port": 7415
+          },
+          "measured": [],
+          "measured_locators": [],
+          "reader_guid": "0a.0b.0c.0d.02.00.00.00.00.00.00.00|00.00.02.04",
+          "transport": "SHM",
+          "warnings": [],
+          "writer_guid": "0a.0b.0c.0d.01.00.00.00.00.00.00.00|00.00.01.03"
+        },
+        "reader_guid": "0a.0b.0c.0d.0c.00.00.00.00.00.00.00|00.00.02.04",
+        "reader_node": "/listener",
+        "to": {
+          "confidence": "certain",
+          "locator": {
+            "address": "127.0.0.1",
+            "kind": "UDPv4",
+            "port": 7415
+          },
+          "measured": [],
+          "measured_locators": [],
+          "transport": "UDPv4",
+          "warnings": []
+        },
+        "topic": "/chatter",
+        "writer_guid": "0a.0b.0c.0d.0b.00.00.00.00.00.00.00|00.00.01.03",
+        "writer_node": "/talker"
+      }
+    ],
+    "key": "node",
+    "removed_pairs": [
+      {
+        "reader_guid": "0a.0b.0c.0e.03.00.00.00.00.00.00.00|00.00.02.04",
+        "reader_node": "/listener_udp",
+        "topic": "/chatter",
+        "writer_guid": "0a.0b.0c.0d.01.00.00.00.00.00.00.00|00.00.01.03",
+        "writer_node": "/talker"
+      },
+      {
+        "reader_guid": "0a.0b.0c.0e.07.00.00.00.00.00.00.00|00.00.02.04",
+        "reader_node": "/sink",
+        "topic": "/old_topic",
+        "writer_guid": "0a.0b.0c.0d.06.00.00.00.00.00.00.00|00.00.01.03",
+        "writer_node": "/legacy"
+      }
+    ]
+  },
+  "domain": 0,
+  "local_host_id": "0a0b0c0d",
+  "observation_seconds": 3.0,
+  "observed_at": "2026-09-13T09:05:00Z",
+  "reason_code_descriptions": {
+    "both-shm-locators": "Both endpoints announce a SHM locator. On the same host Fast DDS then uses the shared memory transport exclusively for user data (discovery still goes over UDP).",
+    "datasharing-disabled-writer": "The writer announces data-sharing OFF (explicitly disabled, or AUTO resolved to OFF because the type is unbounded / the history memory policy is not preallocated).",
+    "reader-no-shm-locator": "The reader's participant announces no SHM locator: SHM transport is not instantiated on its side (e.g. FASTDDS_BUILTIN_TRANSPORTS=UDPv4, or an XML profile without SHM).",
+    "same-host-guid": "Writer and reader GUID prefixes share the same first 4 bytes, which is how Fast DDS decides both participants run on the same host."
+  },
+  "reason_code_remedies": {
+    "both-shm-locators": null,
+    "datasharing-disabled-writer": "Enable data-sharing on the writer: <data_sharing><kind>ON</kind> in its data_writer XML profile, a bounded (fixed-size) message type and a PREALLOCATED or PREALLOCATED_WITH_REALLOC <historyMemoryPolicy>.",
+    "reader-no-shm-locator": "Enable SHM on the reader's participant: unset FASTDDS_BUILTIN_TRANSPORTS or set it to DEFAULT / LARGE_DATA (Fast DDS >= 2.11), or add a SHM <transport_descriptor> to its XML participant profile.",
+    "same-host-guid": null
+  },
+  "schema_version": 1,
+  "shm": {
+    "available": true,
+    "checked_ports": [],
+    "datasharing_histories": 0,
+    "datasharing_unmatched": 0,
+    "fastdds_bytes": 1048576,
+    "free_bytes": 4158836736,
+    "missing_ports": [],
+    "nodes_visible": true,
+    "other_host_participants": 1,
+    "path": "/dev/shm",
+    "ports": 6,
+    "segments": 4,
+    "stale_ports": 0,
+    "stale_segments": 0,
+    "total_bytes": 4159885312,
+    "used_bytes": 1048576,
+    "warnings": []
+  },
+  "stats": {
+    "data_count": {},
+    "enabled": false,
+    "lost": [],
+    "participants_with_stats": [],
+    "physical": {},
+    "samples": 0,
+    "statistics_writers": [],
+    "throughput": {},
+    "traffic": []
+  },
+  "topics": [
+    {
+      "dds_topic": "rt/chatter",
+      "is_ros_topic": true,
+      "latency_s": null,
+      "lost_packets": null,
+      "pairs": [
+        {
+          "confidence": "certain",
+          "locator": {
+            "address": "127.0.0.1",
+            "kind": "UDPv4",
+            "multicast": false,
+            "port": 7415
+          },
+          "measured": {
+            "available": false,
+            "bytes": 0.0,
+            "bytes_total": 0.0,
+            "data_submessages": null,
+            "delivered": false,
+            "delivered_samples": 0,
+            "latency_s": null,
+            "locators": [],
+            "packets": 0,
+            "packets_total": 0,
+            "reliability": null,
+            "throughput_bytes_per_s": null,
+            "transports": []
+          },
+          "reader_guid": "0a.0b.0c.0d.0c.00.00.00.00.00.00.00|00.00.02.04",
+          "reader_host": "local",
+          "reader_node": "/listener",
+          "reasons": [
+            "same-host-guid",
+            "datasharing-disabled-writer",
+            "reader-no-shm-locator"
+          ],
+          "transport": "UDPv4",
+          "warnings": [],
+          "writer_guid": "0a.0b.0c.0d.0b.00.00.00.00.00.00.00|00.00.01.03",
+          "writer_host": "local",
+          "writer_node": "/talker"
+        },
+        {
+          "confidence": "certain",
+          "locator": {
+            "address": "",
+            "kind": "SHM",
+            "multicast": false,
+            "port": 7417
+          },
+          "measured": {
+            "available": false,
+            "bytes": 0.0,
+            "bytes_total": 0.0,
+            "data_submessages": null,
+            "delivered": false,
+            "delivered_samples": 0,
+            "latency_s": null,
+            "locators": [],
+            "packets": 0,
+            "packets_total": 0,
+            "reliability": null,
+            "throughput_bytes_per_s": null,
+            "transports": []
+          },
+          "reader_guid": "0a.0b.0c.0d.0d.00.00.00.00.00.00.00|00.00.02.04",
+          "reader_host": "local",
+          "reader_node": "/listener2",
+          "reasons": [
+            "same-host-guid",
+            "datasharing-disabled-writer",
+            "both-shm-locators"
+          ],
+          "transport": "SHM",
+          "warnings": [],
+          "writer_guid": "0a.0b.0c.0d.0b.00.00.00.00.00.00.00|00.00.01.03",
+          "writer_host": "local",
+          "writer_node": "/talker"
+        }
+      ],
+      "readers": [
+        {
+          "datasharing_history_bytes": null,
+          "dds_topic": "rt/chatter",
+          "dds_type": "std_msgs::msg::dds_::String_",
+          "guid": "0a.0b.0c.0d.0c.00.00.00.00.00.00.00|00.00.02.04",
+          "host": "local",
+          "host_id": "0a0b0c0d",
+          "host_name": "",
+          "multicast_locators": [],
+          "node": "/listener",
+          "participant_guid_prefix": "0a.0b.0c.0d.0c.00.00.00.00.00.00.00",
+          "process": "",
+          "qos": {
+            "data_sharing": "OFF",
+            "data_sharing_domain_ids": [],
+            "deadline_s": null,
+            "durability": "VOLATILE",
+            "liveliness": "AUTOMATIC",
+            "liveliness_lease_s": null,
+            "ownership": "SHARED",
+            "partitions": [],
+            "reliability": "RELIABLE"
+          },
+          "ros_topic": "/chatter",
+          "ros_type": "std_msgs/msg/String",
+          "unicast_locators": [
+            {
+              "address": "127.0.0.1",
+              "kind": "UDPv4",
+              "port": 7415
+            }
+          ]
+        },
+        {
+          "datasharing_history_bytes": null,
+          "dds_topic": "rt/chatter",
+          "dds_type": "std_msgs::msg::dds_::String_",
+          "guid": "0a.0b.0c.0d.0d.00.00.00.00.00.00.00|00.00.02.04",
+          "host": "local",
+          "host_id": "0a0b0c0d",
+          "host_name": "",
+          "multicast_locators": [],
+          "node": "/listener2",
+          "participant_guid_prefix": "0a.0b.0c.0d.0d.00.00.00.00.00.00.00",
+          "process": "",
+          "qos": {
+            "data_sharing": "OFF",
+            "data_sharing_domain_ids": [],
+            "deadline_s": null,
+            "durability": "VOLATILE",
+            "liveliness": "AUTOMATIC",
+            "liveliness_lease_s": null,
+            "ownership": "SHARED",
+            "partitions": [],
+            "reliability": "RELIABLE"
+          },
+          "ros_topic": "/chatter",
+          "ros_type": "std_msgs/msg/String",
+          "unicast_locators": [
+            {
+              "address": "",
+              "kind": "SHM",
+              "port": 7417
+            },
+            {
+              "address": "127.0.0.1",
+              "kind": "UDPv4",
+              "port": 7417
+            }
+          ]
+        }
+      ],
+      "resent_datas": null,
+      "throughput_bytes_per_s": null,
+      "topic": "/chatter",
+      "type": "std_msgs/msg/String",
+      "unmatched_reasons": [],
+      "writers": [
+        {
+          "datasharing_history_bytes": null,
+          "dds_topic": "rt/chatter",
+          "dds_type": "std_msgs::msg::dds_::String_",
+          "guid": "0a.0b.0c.0d.0b.00.00.00.00.00.00.00|00.00.01.03",
+          "host": "local",
+          "host_id": "0a0b0c0d",
+          "host_name": "",
+          "multicast_locators": [],
+          "node": "/talker",
+          "participant_guid_prefix": "0a.0b.0c.0d.0b.00.00.00.00.00.00.00",
+          "process": "",
+          "qos": {
+            "data_sharing": "OFF",
+            "data_sharing_domain_ids": [],
+            "deadline_s": null,
+            "durability": "VOLATILE",
+            "liveliness": "AUTOMATIC",
+            "liveliness_lease_s": null,
+            "ownership": "SHARED",
+            "partitions": [],
+            "reliability": "RELIABLE"
+          },
+          "ros_topic": "/chatter",
+          "ros_type": "std_msgs/msg/String",
+          "unicast_locators": [
+            {
+              "address": "",
+              "kind": "SHM",
+              "port": 7413
+            },
+            {
+              "address": "127.0.0.1",
+              "kind": "UDPv4",
+              "port": 7413
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "dds_topic": "rt/cmd_vel",
+      "is_ros_topic": true,
+      "latency_s": null,
+      "lost_packets": null,
+      "pairs": [
+        {
+          "confidence": "certain",
+          "locator": {
+            "address": "",
+            "kind": "SHM",
+            "multicast": false,
+            "port": 7421
+          },
+          "measured": {
+            "available": false,
+            "bytes": 0.0,
+            "bytes_total": 0.0,
+            "data_submessages": null,
+            "delivered": false,
+            "delivered_samples": 0,
+            "latency_s": null,
+            "locators": [],
+            "packets": 0,
+            "packets_total": 0,
+            "reliability": null,
+            "throughput_bytes_per_s": null,
+            "transports": []
+          },
+          "reader_guid": "0a.0b.0c.0d.0f.00.00.00.00.00.00.00|00.00.02.04",
+          "reader_host": "local",
+          "reader_node": "/base",
+          "reasons": [
+            "same-host-guid",
+            "datasharing-disabled-writer",
+            "both-shm-locators"
+          ],
+          "transport": "SHM",
+          "warnings": [],
+          "writer_guid": "0a.0b.0c.0d.0e.00.00.00.00.00.00.00|00.00.01.03",
+          "writer_host": "local",
+          "writer_node": "/teleop"
+        },
+        {
+          "confidence": "certain",
+          "locator": {
+            "address": "",
+            "kind": "SHM",
+            "multicast": false,
+            "port": 7421
+          },
+          "measured": {
+            "available": false,
+            "bytes": 0.0,
+            "bytes_total": 0.0,
+            "data_submessages": null,
+            "delivered": false,
+            "delivered_samples": 0,
+            "latency_s": null,
+            "locators": [],
+            "packets": 0,
+            "packets_total": 0,
+            "reliability": null,
+            "throughput_bytes_per_s": null,
+            "transports": []
+          },
+          "reader_guid": "0a.0b.0c.0d.0f.00.00.00.00.00.00.00|00.00.02.04",
+          "reader_host": "local",
+          "reader_node": "/base",
+          "reasons": [
+            "same-host-guid",
+            "datasharing-disabled-writer",
+            "both-shm-locators"
+          ],
+          "transport": "SHM",
+          "warnings": [],
+          "writer_guid": "0a.0b.0c.0d.0e.00.00.00.00.00.00.00|00.00.03.03",
+          "writer_host": "local",
+          "writer_node": "/teleop"
+        }
+      ],
+      "readers": [
+        {
+          "datasharing_history_bytes": null,
+          "dds_topic": "rt/cmd_vel",
+          "dds_type": "geometry_msgs::msg::dds_::Twist_",
+          "guid": "0a.0b.0c.0d.0f.00.00.00.00.00.00.00|00.00.02.04",
+          "host": "local",
+          "host_id": "0a0b0c0d",
+          "host_name": "",
+          "multicast_locators": [],
+          "node": "/base",
+          "participant_guid_prefix": "0a.0b.0c.0d.0f.00.00.00.00.00.00.00",
+          "process": "",
+          "qos": {
+            "data_sharing": "OFF",
+            "data_sharing_domain_ids": [],
+            "deadline_s": null,
+            "durability": "VOLATILE",
+            "liveliness": "AUTOMATIC",
+            "liveliness_lease_s": null,
+            "ownership": "SHARED",
+            "partitions": [],
+            "reliability": "RELIABLE"
+          },
+          "ros_topic": "/cmd_vel",
+          "ros_type": "geometry_msgs/msg/Twist",
+          "unicast_locators": [
+            {
+              "address": "",
+              "kind": "SHM",
+              "port": 7421
+            },
+            {
+              "address": "127.0.0.1",
+              "kind": "UDPv4",
+              "port": 7421
+            }
+          ]
+        }
+      ],
+      "resent_datas": null,
+      "throughput_bytes_per_s": null,
+      "topic": "/cmd_vel",
+      "type": "geometry_msgs/msg/Twist",
+      "unmatched_reasons": [],
+      "writers": [
+        {
+          "datasharing_history_bytes": null,
+          "dds_topic": "rt/cmd_vel",
+          "dds_type": "geometry_msgs::msg::dds_::Twist_",
+          "guid": "0a.0b.0c.0d.0e.00.00.00.00.00.00.00|00.00.01.03",
+          "host": "local",
+          "host_id": "0a0b0c0d",
+          "host_name": "",
+          "multicast_locators": [],
+          "node": "/teleop",
+          "participant_guid_prefix": "0a.0b.0c.0d.0e.00.00.00.00.00.00.00",
+          "process": "",
+          "qos": {
+            "data_sharing": "OFF",
+            "data_sharing_domain_ids": [],
+            "deadline_s": null,
+            "durability": "VOLATILE",
+            "liveliness": "AUTOMATIC",
+            "liveliness_lease_s": null,
+            "ownership": "SHARED",
+            "partitions": [],
+            "reliability": "RELIABLE"
+          },
+          "ros_topic": "/cmd_vel",
+          "ros_type": "geometry_msgs/msg/Twist",
+          "unicast_locators": [
+            {
+              "address": "",
+              "kind": "SHM",
+              "port": 7419
+            },
+            {
+              "address": "127.0.0.1",
+              "kind": "UDPv4",
+              "port": 7419
+            }
+          ]
+        },
+        {
+          "datasharing_history_bytes": null,
+          "dds_topic": "rt/cmd_vel",
+          "dds_type": "geometry_msgs::msg::dds_::Twist_",
+          "guid": "0a.0b.0c.0d.0e.00.00.00.00.00.00.00|00.00.03.03",
+          "host": "local",
+          "host_id": "0a0b0c0d",
+          "host_name": "",
+          "multicast_locators": [],
+          "node": "/teleop",
+          "participant_guid_prefix": "0a.0b.0c.0d.0e.00.00.00.00.00.00.00",
+          "process": "",
+          "qos": {
+            "data_sharing": "OFF",
+            "data_sharing_domain_ids": [],
+            "deadline_s": null,
+            "durability": "VOLATILE",
+            "liveliness": "AUTOMATIC",
+            "liveliness_lease_s": null,
+            "ownership": "SHARED",
+            "partitions": [],
+            "reliability": "RELIABLE"
+          },
+          "ros_topic": "/cmd_vel",
+          "ros_type": "geometry_msgs/msg/Twist",
+          "unicast_locators": [
+            {
+              "address": "",
+              "kind": "SHM",
+              "port": 7419
+            },
+            {
+              "address": "127.0.0.1",
+              "kind": "UDPv4",
+              "port": 7419
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "dds_topic": "rt/new_topic",
+      "is_ros_topic": true,
+      "latency_s": null,
+      "lost_packets": null,
+      "pairs": [
+        {
+          "confidence": "certain",
+          "locator": {
+            "address": "",
+            "kind": "SHM",
+            "multicast": false,
+            "port": 7429
+          },
+          "measured": {
+            "available": false,
+            "bytes": 0.0,
+            "bytes_total": 0.0,
+            "data_submessages": null,
+            "delivered": false,
+            "delivered_samples": 0,
+            "latency_s": null,
+            "locators": [],
+            "packets": 0,
+            "packets_total": 0,
+            "reliability": null,
+            "throughput_bytes_per_s": null,
+            "transports": []
+          },
+          "reader_guid": "0a.0b.0c.0d.11.00.00.00.00.00.00.00|00.00.02.04",
+          "reader_host": "local",
+          "reader_node": "/sink2",
+          "reasons": [
+            "same-host-guid",
+            "datasharing-disabled-writer",
+            "both-shm-locators"
+          ],
+          "transport": "SHM",
+          "warnings": [],
+          "writer_guid": "0a.0b.0c.0d.10.00.00.00.00.00.00.00|00.00.01.03",
+          "writer_host": "local",
+          "writer_node": "/fresh"
+        }
+      ],
+      "readers": [
+        {
+          "datasharing_history_bytes": null,
+          "dds_topic": "rt/new_topic",
+          "dds_type": "std_msgs::msg::dds_::String_",
+          "guid": "0a.0b.0c.0d.11.00.00.00.00.00.00.00|00.00.02.04",
+          "host": "local",
+          "host_id": "0a0b0c0d",
+          "host_name": "",
+          "multicast_locators": [],
+          "node": "/sink2",
+          "participant_guid_prefix": "0a.0b.0c.0d.11.00.00.00.00.00.00.00",
+          "process": "",
+          "qos": {
+            "data_sharing": "OFF",
+            "data_sharing_domain_ids": [],
+            "deadline_s": null,
+            "durability": "VOLATILE",
+            "liveliness": "AUTOMATIC",
+            "liveliness_lease_s": null,
+            "ownership": "SHARED",
+            "partitions": [],
+            "reliability": "RELIABLE"
+          },
+          "ros_topic": "/new_topic",
+          "ros_type": "std_msgs/msg/String",
+          "unicast_locators": [
+            {
+              "address": "",
+              "kind": "SHM",
+              "port": 7429
+            },
+            {
+              "address": "127.0.0.1",
+              "kind": "UDPv4",
+              "port": 7429
+            }
+          ]
+        }
+      ],
+      "resent_datas": null,
+      "throughput_bytes_per_s": null,
+      "topic": "/new_topic",
+      "type": "std_msgs/msg/String",
+      "unmatched_reasons": [],
+      "writers": [
+        {
+          "datasharing_history_bytes": null,
+          "dds_topic": "rt/new_topic",
+          "dds_type": "std_msgs::msg::dds_::String_",
+          "guid": "0a.0b.0c.0d.10.00.00.00.00.00.00.00|00.00.01.03",
+          "host": "local",
+          "host_id": "0a0b0c0d",
+          "host_name": "",
+          "multicast_locators": [],
+          "node": "/fresh",
+          "participant_guid_prefix": "0a.0b.0c.0d.10.00.00.00.00.00.00.00",
+          "process": "",
+          "qos": {
+            "data_sharing": "OFF",
+            "data_sharing_domain_ids": [],
+            "deadline_s": null,
+            "durability": "VOLATILE",
+            "liveliness": "AUTOMATIC",
+            "liveliness_lease_s": null,
+            "ownership": "SHARED",
+            "partitions": [],
+            "reliability": "RELIABLE"
+          },
+          "ros_topic": "/new_topic",
+          "ros_type": "std_msgs/msg/String",
+          "unicast_locators": [
+            {
+              "address": "",
+              "kind": "SHM",
+              "port": 7427
+            },
+            {
+              "address": "127.0.0.1",
+              "kind": "UDPv4",
+              "port": 7427
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "dds_topic": "raw_topic",
+      "is_ros_topic": false,
+      "latency_s": null,
+      "lost_packets": null,
+      "pairs": [
+        {
+          "confidence": "certain",
+          "locator": {
+            "address": "",
+            "kind": "SHM",
+            "multicast": false,
+            "port": 7433
+          },
+          "measured": {
+            "available": false,
+            "bytes": 0.0,
+            "bytes_total": 0.0,
+            "data_submessages": null,
+            "delivered": false,
+            "delivered_samples": 0,
+            "latency_s": null,
+            "locators": [],
+            "packets": 0,
+            "packets_total": 0,
+            "reliability": null,
+            "throughput_bytes_per_s": null,
+            "transports": []
+          },
+          "reader_guid": "0a.0b.0c.0d.0a.00.00.00.00.00.00.00|00.00.02.04",
+          "reader_host": "local",
+          "reader_node": "",
+          "reasons": [
+            "same-host-guid",
+            "datasharing-disabled-writer",
+            "both-shm-locators"
+          ],
+          "transport": "SHM",
+          "warnings": [],
+          "writer_guid": "0a.0b.0c.0d.09.00.00.00.00.00.00.00|00.00.01.03",
+          "writer_host": "local",
+          "writer_node": ""
+        }
+      ],
+      "readers": [
+        {
+          "datasharing_history_bytes": null,
+          "dds_topic": "raw_topic",
+          "dds_type": "RawType",
+          "guid": "0a.0b.0c.0d.0a.00.00.00.00.00.00.00|00.00.02.04",
+          "host": "local",
+          "host_id": "0a0b0c0d",
+          "host_name": "",
+          "multicast_locators": [],
+          "node": "",
+          "participant_guid_prefix": "0a.0b.0c.0d.0a.00.00.00.00.00.00.00",
+          "process": "",
+          "qos": {
+            "data_sharing": "OFF",
+            "data_sharing_domain_ids": [],
+            "deadline_s": null,
+            "durability": "VOLATILE",
+            "liveliness": "AUTOMATIC",
+            "liveliness_lease_s": null,
+            "ownership": "SHARED",
+            "partitions": [],
+            "reliability": "RELIABLE"
+          },
+          "ros_topic": "",
+          "ros_type": "",
+          "unicast_locators": [
+            {
+              "address": "",
+              "kind": "SHM",
+              "port": 7433
+            },
+            {
+              "address": "127.0.0.1",
+              "kind": "UDPv4",
+              "port": 7433
+            }
+          ]
+        }
+      ],
+      "resent_datas": null,
+      "throughput_bytes_per_s": null,
+      "topic": "raw_topic",
+      "type": "RawType",
+      "unmatched_reasons": [],
+      "writers": [
+        {
+          "datasharing_history_bytes": null,
+          "dds_topic": "raw_topic",
+          "dds_type": "RawType",
+          "guid": "0a.0b.0c.0d.09.00.00.00.00.00.00.00|00.00.01.03",
+          "host": "local",
+          "host_id": "0a0b0c0d",
+          "host_name": "",
+          "multicast_locators": [],
+          "node": "",
+          "participant_guid_prefix": "0a.0b.0c.0d.09.00.00.00.00.00.00.00",
+          "process": "",
+          "qos": {
+            "data_sharing": "OFF",
+            "data_sharing_domain_ids": [],
+            "deadline_s": null,
+            "durability": "VOLATILE",
+            "liveliness": "AUTOMATIC",
+            "liveliness_lease_s": null,
+            "ownership": "SHARED",
+            "partitions": [],
+            "reliability": "RELIABLE"
+          },
+          "ros_topic": "",
+          "ros_type": "",
+          "unicast_locators": [
+            {
+              "address": "",
+              "kind": "SHM",
+              "port": 7431
+            },
+            {
+              "address": "127.0.0.1",
+              "kind": "UDPv4",
+              "port": 7431
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

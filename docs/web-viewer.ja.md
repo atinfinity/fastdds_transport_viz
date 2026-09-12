@@ -58,6 +58,34 @@ writer の payload レートと観測中に運ばれたバイト数も出ます�
 には一致したノード (強調表示。表示中のペアが無くても残る) と残ったペアの相手ノードを描き、それ以外
 は隠します。不正な正規表現は赤枠で表示され、何も絞り込みません。
 
+## 2 つの文書の比較
+
+viewer は `transport_viz diff` の比較 ([how-it-works.ja.md](how-it-works.ja.md#2-つのスナップショットの比較)
+参照) をブラウザ内で行います。方法は 3 つ:
+
+- **Compare with…** で 2 つ目の文書を読み込むと、表示中の文書 (before) とそれ (after) を比較し、
+  after の文書を表示します。**Open JSON…** は従来どおり文書を置き換え、比較も終わります。
+- `index.html?src=before.json&diff=after.json` は両方を取得します (`?src=` と同じく HTTP で配信
+  している場合)。`&key=guid` で GUID キーになります。
+- `changes` オブジェクトを既に持つ文書、つまり `transport_viz diff --json` の出力や `--watch --json`
+  のフレームは、そのまま強調表示されます。
+
+ヘッダには before の文書 (`vs 2026-09-13T09:00:00Z by node key`)、ツールバーには CLI と同じ
+`changes:` の要約、印の付いたペアとそのノードだけを残す **changes only**、そしてここで比較した場合は
+**key** (既定の `node` か `guid`。それぞれが何を乗り越えるかは
+[how-it-works.ja.md](how-it-works.ja.md#2-つのスナップショットの比較)) が出ます。比較そのものは
+`web/model.js` の `diffDocuments()` で、C++ の関数の移植です。同じ fixture (`web/sample/diff_before.json`、
+`diff_after.json`、`diff.json`) に対してバイナリの出力と一致することをテストしているので、両者は
+食い違いません。
+
+| 要素 | 意味 |
+|---|---|
+| `+` 緑 | ペアが現れた (表の行、矢印のハロとラベル) |
+| `~` 橙 | transport、確信度、実測 transport、選ばれた locator、実測 locator、警告のいずれかが変わった。表には `before → after` の transport、ペアのカードには変わった項目が出る |
+| `-` 灰、点線、斜体 | ペアが消えた。表の末尾に以前の transport 付きの薄い行 (before の文書がある場合)、両端のノードがまだあれば点線の矢印 |
+
+ライブモードでは、どの印も変化から 3 フレーム残ってから消えます (CLI の `--watch` と同じ)。
+
 ## ライブモード
 
 `transport_viz_web` (`web/serve.py` からインストール。Python 標準ライブラリのみ) は
@@ -97,7 +125,7 @@ ros2 run fastdds_transport_viz transport_viz_web --stats --interval 1
 他のプログラムからも同じストリームを読めます。その文書の `changes` オブジェクトは
 `transport_viz diff --json before.json after.json` が出すものと同じです
 ([how-it-works.ja.md](how-it-works.ja.md#2-つのスナップショットの比較) 参照)。viewer はまだそれを
-強調表示しません ([#77](https://github.com/atinfinity/fastdds_transport_viz/issues/77))。
+どちらの場合も強調表示します ([2 つの文書の比較](#2-つの文書の比較))。
 
 ## JSON スキーマ
 
