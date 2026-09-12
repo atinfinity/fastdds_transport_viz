@@ -1312,3 +1312,135 @@ TEST(Diff, GrowingLocatorCountersAreNotAChange)
   pair.measured.locators[0].locator = udp4("10.0.0.9", 7413);
   EXPECT_FALSE(pair_state(pair) == before);
 }
+
+// ---- two saved snapshots (transport_viz diff) -------------------------------------
+
+namespace
+{
+Endpoint named(bool writer, const std::string & guid, const std::string & node)
+{
+  auto e = make(writer, HOST_A, {udp4("10.0.0.1"), shm()});
+  e.guid = guid;
+  e.node_name = node;
+  return e;
+}
+Endpoint wr(const std::string & guid, const std::string & node) {return named(true, guid, node);}
+Endpoint rd(const std::string & guid, const std::string & node) {return named(false, guid, node);}
+
+template<class ... E>
+Snapshot snapshot_of(E... eps)
+{
+  Snapshot s;
+  s.endpoints = {eps ...};
+  s.topics = summarize(s.endpoints);
+  return s;
+}
+}  // namespace
+
+TEST(DiffSnapshots, GuidKeySeesARestartAsRemovedPlusAdded)
+{
+  auto before = snapshot_of(wr("w1", "/talker"), rd("r1", "/listener"));
+  auto after = snapshot_of(wr("w2", "/talker"), rd("r2", "/listener"));
+  auto c = diff_snapshots(before, after, KeyMode::Guid);
+  EXPECT_EQ(c.key, KeyMode::Guid);
+  ASSERT_EQ(c.added.size(), 1u);
+  ASSERT_EQ(c.removed.size(), 1u);
+  EXPECT_TRUE(c.changed.empty());
+  EXPECT_EQ(c.added[0].writer_guid, "w2");
+  EXPECT_EQ(c.added[0].writer_node, "/talker");    // pair keys carry the node names
+  EXPECT_EQ(c.removed[0].reader_guid, "r1");
+  EXPECT_EQ(c.removed[0].reader_node, "/listener");
+  EXPECT_FALSE(c.before.has_value());
+}
+
+TEST(DiffSnapshots, NodeKeySurvivesARestartAndReportsBothGuids)
+{
+  auto before = snapshot_of(wr("w1", "/talker"), rd("r1", "/listener"));
+  auto after = snapshot_of(wr("w2", "/talker"), rd("r2", "/listener"));
+  EXPECT_TRUE(diff_snapshots(before, after, KeyMode::Node).empty());
+
+  // the listener lost its SHM locator: same nodes, the transport changed
+  after.endpoints[1].unicast = {udp4("10.0.0.1")};
+  after.topics = summarize(after.endpoints);
+  auto c = diff_snapshots(before, after, KeyMode::Node);
+  EXPECT_EQ(c.key, KeyMode::Node);
+  EXPECT_TRUE(c.added.empty());
+  EXPECT_TRUE(c.removed.empty());
+  ASSERT_EQ(c.changed.size(), 1u);
+  EXPECT_EQ(c.changed[0].key.writer_guid, "w2");           // the after identity ...
+  EXPECT_EQ(c.changed[0].key.reader_guid, "r2");
+  EXPECT_EQ(c.changed[0].before_key.writer_guid, "w1");    // ... and the before one
+  EXPECT_EQ(c.changed[0].before_key.reader_guid, "r1");
+  EXPECT_EQ(c.changed[0].from.transport, Transport::SHM);
+  EXPECT_EQ(c.changed[0].to.transport, Transport::UDPv4);
+}
+
+TEST(DiffSnapshots, NodeKeyIgnoresRenumberedPortsButNotAddressesOrKinds)
+{
+  // the restarted listener got the next SHM port: not a change under the node key ...
+  auto before = snapshot_of(wr("w1", "/talker"), rd("r1", "/listener"));
+  auto after = snapshot_of(wr("w2", "/talker"), rd("r2", "/listener"));
+  after.endpoints[1].unicast = {udp4("10.0.0.1", 7417), shm(7417)};
+  after.topics = summarize(after.endpoints);
+  EXPECT_EQ(after.topics[0].pairs[0].verdict.locator.port, 7417u);
+  EXPECT_TRUE(diff_snapshots(before, after, KeyMode::Node).empty());
+  // ... but under the GUID key the pairs are different ones anyway
+  EXPECT_EQ(diff_snapshots(before, after, KeyMode::Guid).added.size(), 1u);
+  // another address (a different interface) is a change under both keys
+  auto other = snapshot_of(wr("w1", "/talker"), rd("r1", "/listener"));
+  other.endpoints[1].unicast = {udp4("10.0.0.2", 7411)};   // UDPv4 only, other address
+  other.topics = summarize(other.endpoints);
+  auto udp = snapshot_of(wr("w1", "/talker"), rd("r1", "/listener"));
+  udp.endpoints[1].unicast = {udp4("10.0.0.1", 7415)};
+  udp.topics = summarize(udp.endpoints);
+  EXPECT_EQ(diff_snapshots(udp, other, KeyMode::Guid).changed.size(), 1u);
+  EXPECT_EQ(diff_snapshots(udp, other, KeyMode::Node).changed.size(), 1u);
+  udp.endpoints[1].unicast = {udp4("10.0.0.2", 7419)};   // same address, another port
+  udp.topics = summarize(udp.endpoints);
+  EXPECT_TRUE(diff_snapshots(udp, other, KeyMode::Node).empty());
+  EXPECT_EQ(diff_snapshots(udp, other, KeyMode::Guid).changed.size(), 1u);
+}
+
+TEST(DiffSnapshots, NodeKeyMatchesSeveralEndpointsOfOneNodeInGuidOrder)
+{
+  // one node with two writers on the topic, one reader: two pairs of the same node pair
+  auto before = snapshot_of(wr("w1", "/multi"), wr("w2", "/multi"), rd("r1", "/sink"));
+  auto after = snapshot_of(wr("w8", "/multi"), wr("w9", "/multi"), rd("r7", "/sink"));
+  EXPECT_TRUE(diff_snapshots(before, after, KeyMode::Node).empty());
+  // a third writer of the same node appears: one added pair, the others still match
+  after.endpoints.push_back(wr("w7", "/multi"));
+  after.topics = summarize(after.endpoints);
+  auto c = diff_snapshots(before, after, KeyMode::Node);
+  ASSERT_EQ(c.added.size(), 1u);
+  EXPECT_TRUE(c.removed.empty());
+  EXPECT_TRUE(c.changed.empty());
+  EXPECT_EQ(c.added[0].writer_guid, "w9");   // the highest GUID is the new ordinal
+}
+
+TEST(DiffSnapshots, NodeKeyFallsBackToTheGuidWithoutANodeName)
+{
+  auto before = snapshot_of(wr("w1", ""), rd("r1", "/sink"));
+  auto same = snapshot_of(wr("w1", ""), rd("r9", "/sink"));
+  auto other = snapshot_of(wr("w2", ""), rd("r9", "/sink"));
+  EXPECT_TRUE(diff_snapshots(before, same, KeyMode::Node).empty());
+  auto c = diff_snapshots(before, other, KeyMode::Node);
+  EXPECT_EQ(c.added.size(), 1u);
+  EXPECT_EQ(c.removed.size(), 1u);
+  EXPECT_EQ(c.removed[0].writer_guid, "w1");
+}
+
+TEST(DiffSnapshots, RemovedTopicAndAddedTopic)
+{
+  auto before = snapshot_of(wr("w1", "/a"), rd("r1", "/b"));
+  auto after = snapshot_of(wr("w2", "/a"), rd("r2", "/b"));
+  after.endpoints[0].ros_topic = "/other";
+  after.endpoints[0].dds_topic = "rt/other";
+  after.endpoints[1].ros_topic = "/other";
+  after.endpoints[1].dds_topic = "rt/other";
+  after.topics = summarize(after.endpoints);
+  auto c = diff_snapshots(before, after, KeyMode::Node);
+  ASSERT_EQ(c.added.size(), 1u);
+  ASSERT_EQ(c.removed.size(), 1u);
+  EXPECT_EQ(c.added[0].topic, "/other");
+  EXPECT_EQ(c.removed[0].topic, "/chatter");
+}

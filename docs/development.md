@@ -126,10 +126,17 @@ colcon test && colcon test-result --verbose
   marks and ghost rows, every `measured=` cell value, the statistics and shared-memory
   footers, the `--explain` legend, host labels).
 - `test_render_json`: gtest over the JSON renderer (every documented key, the `stats` and
-  `shm` objects, the `--watch` `changes` object, JSON Lines mode).
+  `shm` objects, the `--watch` and `diff` `changes` objects, JSON Lines mode) and its
+  inverse `parse_json()` (a rendered document parses back into a snapshot that renders
+  identically; JSON Lines; foreign documents are rejected).
+- `test_decision` also covers `diff_snapshots()`: the GUID key sees a restart as removed +
+  added, the node key does not, several endpoints of one node, the GUID fallback.
 - `test_cli_args` (pytest): `--help`, `--list-codes`, unknown options, missing values,
   invalid regexes and color modes exit with the documented codes and messages; `--color
-  always` paints a non-terminal table; the `ROS_AUTOMATIC_DISCOVERY_RANGE=OFF` warning.
+  always` paints a non-terminal table; the `ROS_AUTOMATIC_DISCOVERY_RANGE=OFF` warning;
+  `transport_viz diff` on the fixture pair `web/sample/diff_before.json` /
+  `diff_after.json` (node vs GUID key, `--changes-only`, the `--json` shape, filters, stdin
+  and JSON Lines input, colors, every exit status).
 - `test_shm_info`: gtest over the `/dev/shm` scan on a temporary directory (sizes, stale
   detection through `flock`, data-sharing file names, IPC-namespace visibility, the
   capacity warning).
@@ -162,13 +169,16 @@ colcon test && colcon test-result --verbose
   announcing a multicast locator through `defaultMulticastLocatorList`),
   `test_qos_incompatible.py` (`unbounded_pub --best-effort` and `unbounded_sub
   --transient-local` next to the default ones: the incompatible pairs are `NONE` with
-  `qos-incompatible-*`).
+  `qos-incompatible-*`), `test_diff.py` (`transport_viz diff` on two live captures: a
+  restarted listener is no change under the node key and a removed + added pair under the
+  GUID key; a second listener is an added pair under both).
 - `test_json_schema` / `test_json_schema_live.py`: sample and live `--json` output against
   `schema/transport_viz.schema.json`.
 - `test_web_serve` (pytest, fake `transport_viz`) / `test_web_live.py` (real one): the live
   server's SSE stream, `/latest.json` and shutdown behaviour.
 - `ros2transport/test/test_cli.py` (pytest, fake `transport_viz`): argument translation of
-  `ros2 transport list`, parity with the binary's `--help`, `codes`, missing binary.
+  `ros2 transport list` and `diff`, parity with the binary's `--help`, `codes`, missing
+  binary and missing input files.
   `test_list_live.py`: `ros2 transport list --json` against real demo nodes.
 
 Line coverage of the C++ sources, measured with `scripts/coverage.sh` inside the dev
@@ -334,6 +344,9 @@ Done:
   [#72](https://github.com/atinfinity/fastdds_transport_viz/issues/72)
 - `rmw_fastrtps_dynamic_cpp` verified and accepted; CI runs the suite on it —
   [#73](https://github.com/atinfinity/fastdds_transport_viz/issues/73)
+- `transport_viz diff` / `ros2 transport diff`: compare two `--json` snapshots (the web
+  viewer part is still open) —
+  [#77](https://github.com/atinfinity/fastdds_transport_viz/issues/77)
 
 Open, by priority (labels `priority/1-high` … `priority/3-low` on the issues):
 

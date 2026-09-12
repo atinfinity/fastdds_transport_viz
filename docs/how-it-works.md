@@ -294,3 +294,51 @@ warnings are red.
 
 Both images are real output (`scripts/render_examples.sh` captures it with
 `--color always` and `scripts/ansi2svg.py` turns the ANSI colors into SVG).
+
+## Comparing two snapshots
+
+A common workflow is *change a profile or an environment variable, run again, see what
+moved*. `transport_viz diff before.json after.json` (`ros2 transport diff`) runs the
+comparison of watch mode on two saved `--json` documents, without a DDS participant:
+
+```
+ros2 transport list --json > before.json
+# change the XML profile / FASTDDS_BUILTIN_TRANSPORTS / ..., restart the nodes
+ros2 transport list --json > after.json
+ros2 transport diff before.json after.json
+```
+
+The after snapshot is printed as a table with the mark column of `--watch`: `+` for a pair
+that appeared, `~` for one whose transport, confidence, measured transport, selected
+locator, measured locators or warnings changed, `-` for a pair that disappeared (a dimmed
+ghost row with the labels it had before; a topic that disappeared entirely gets a ghost
+topic row). The `changes:` summary line follows the table, and the view options of a
+one-shot run apply to both documents before the comparison: `--topic`, `--node`, `--all`
+(without it services and raw DDS topics are left out, as when observing), `-v`,
+`--explain`, `--locators`, `--advise`, `--color`. `--changes-only` keeps only the topics with
+a marked or removed pair.
+
+**Matching pairs.** `--watch` matches a pair from one frame to the next by
+`(topic, writer GUID, reader GUID)`. Between two runs the nodes are usually restarted, and
+every restart gives their endpoints new GUIDs, so that key would report every pair as
+removed and added again. `diff` therefore matches by `(topic, writer node, reader node)`
+by default (`--key node`): a node with several writers or readers on one topic has them
+matched in GUID order, and an endpoint without a ROS node name is matched by its GUID. For
+the same reason the node key ignores the port numbers of the selected and measured
+locators (a restart renumbers them: 7413, 7415, ... by participant id); their kinds and
+addresses still count. `--key guid` gives the exact `--watch` semantics for two frames of
+the same run.
+
+**Exit status** follows `diff(1)`: 0 when nothing changed, 1 when something did, 2 on a
+usage error, an unreadable file, a document of another `schema_version` or an invalid
+one. A domain mismatch between the two documents is only a warning. One of the two
+documents may be `-` (stdin); a JSON Lines file written by `--watch --json` counts by its
+last document (a note on stderr says so).
+
+**JSON.** With `--json` the output is the after document with the `changes` object of
+`--watch --json` added: `added_pairs`, `removed_pairs` and `changed_pairs` (each pair key
+carries `topic`, the GUIDs and `writer_node` / `reader_node`; `changed_pairs[].from`
+also names the GUIDs the pair had in the before document), plus `key` (`node` or `guid`)
+and `before` (`observed_at` and `domain` of the before document). `--changes-only` prunes
+`topics` the same way as the table. The document validates against the schema, so
+`jq .changes` extracts the bare comparison and the web viewer can open it.

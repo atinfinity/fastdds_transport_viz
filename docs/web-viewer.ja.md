@@ -94,7 +94,10 @@ ros2 run fastdds_transport_viz transport_viz_web --stats --interval 1
 届きます。
 
 `transport_viz --watch --json` 自体は 1 行に 1 つのコンパクトな文書 (JSON Lines) を出力するので、
-他のプログラムからも同じストリームを読めます。
+他のプログラムからも同じストリームを読めます。その文書の `changes` オブジェクトは
+`transport_viz diff --json before.json after.json` が出すものと同じです
+([how-it-works.ja.md](how-it-works.ja.md#2-つのスナップショットの比較) 参照)。viewer はまだそれを
+強調表示しません ([#77](https://github.com/atinfinity/fastdds_transport_viz/issues/77))。
 
 ## JSON スキーマ
 

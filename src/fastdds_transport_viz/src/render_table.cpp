@@ -169,6 +169,71 @@ std::string endpoint_label(const Snapshot & snap, const Endpoint & e, const Rend
   return label;
 }
 
+GhostPair ghost_pair(
+  const Snapshot & previous, const TopicSummary & topic, const Pair & pair,
+  const RenderOptions & opt)
+{
+  std::string label = to_string(pair.verdict.transport) +
+    (pair.verdict.confidence == Confidence::Likely ? "?" : "");
+  return GhostPair{pair_key(topic, pair), topic.display_type,
+    endpoint_label(previous, *pair.writer, opt), endpoint_label(previous, *pair.reader, opt),
+    label};
+}
+
+std::string changes_summary(const Changes & c)
+{
+  if (c.empty()) {return "none";}
+  std::ostringstream os;
+  if (!c.added.empty()) {
+    os << "+" << c.added.size() << (c.added.size() == 1 ? " pair  " : " pairs  ");
+  }
+  if (!c.removed.empty()) {
+    os << "-" << c.removed.size() << (c.removed.size() == 1 ? " pair  " : " pairs  ");
+  }
+  if (!c.changed.empty()) {os << "~" << c.changed.size() << " changed";}
+  std::string s = os.str();
+  while (!s.empty() && s.back() == ' ') {s.pop_back();}
+  return s;
+}
+
+WatchDecorations decorations_for(
+  const Changes & changes, const Snapshot & before, const RenderOptions & opt)
+{
+  WatchDecorations deco;
+  for (const auto & k : changes.added) {
+    deco.marks[k] = '+';
+  }
+  for (const auto & c : changes.changed) {
+    deco.marks[c.key] = '~';
+  }
+  for (const auto & k : changes.removed) {
+    for (const auto & t : before.topics) {
+      for (const auto & p : t.pairs) {
+        if (pair_key(t, p) == k) {deco.ghosts.push_back(ghost_pair(before, t, p, opt));}
+      }
+    }
+  }
+  deco.summary = changes_summary(changes);
+  return deco;
+}
+
+void keep_changed_topics(Snapshot & snap, const WatchDecorations & deco)
+{
+  auto changed = [&](const TopicSummary & t) {
+      for (const auto & p : t.pairs) {
+        if (deco.marks.count(pair_key(t, p))) {return true;}
+      }
+      return std::any_of(
+        deco.ghosts.begin(), deco.ghosts.end(),
+        [&](const GhostPair & g) {return g.key.topic == t.display_topic;});
+    };
+  snap.topics.erase(
+    std::remove_if(
+      snap.topics.begin(), snap.topics.end(),
+      [&](const TopicSummary & t) {return !changed(t);}),
+    snap.topics.end());
+}
+
 namespace
 {
 

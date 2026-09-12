@@ -70,7 +70,8 @@ add_library(${PROJECT_NAME}_lib
   src/ros_graph_resolver.cpp
   src/stats_observer.cpp
   src/render_table.cpp
-  src/render_json.cpp)
+  src/render_json.cpp
+  src/parse_json.cpp)
 target_link_libraries(${PROJECT_NAME}_lib PRIVATE ${PROJECT_NAME}_stats_types)
 target_link_libraries(${PROJECT_NAME}_lib PUBLIC
   ${PROJECT_NAME}_core
@@ -160,6 +161,7 @@ if(BUILD_TESTING)
   add_launch_test(test/launch/test_multicast_locators.py TIMEOUT 90)
   add_launch_test(test/launch/test_qos_incompatible.py TIMEOUT 90)
   add_launch_test(test/launch/test_unbounded_vs_bounded.py TIMEOUT 90)
+  add_launch_test(test/launch/test_diff.py TIMEOUT 120)
 endif()
 
 ament_package()

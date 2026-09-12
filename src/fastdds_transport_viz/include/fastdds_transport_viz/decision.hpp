@@ -58,6 +58,17 @@ Changes diff(
   const std::map<PairKey, PairState> & previous,
   const std::map<PairKey, PairState> & current);
 
+/// Compare two snapshots (`transport_viz diff`). KeyMode::Guid is pair_states() + diff().
+/// KeyMode::Node matches the pairs by (topic, writer node, reader node) instead, so the
+/// comparison survives a restart of the nodes; a node with several writers (or readers)
+/// on one topic gets them matched in GUID order, and an endpoint without a node name is
+/// matched by its GUID; the port numbers of the selected and measured locators are ignored
+/// (a restart renumbers them), their kinds and addresses are not. The keys of `added` and
+/// `changed` are the after snapshot's, those of `removed` the before snapshot's;
+/// PairChange::before_key carries the before identity. Pure function; `Changes::before` is
+/// left for the caller.
+Changes diff_snapshots(const Snapshot & before, const Snapshot & after, KeyMode mode);
+
 /// Human readable explanation for a reason / warning code (English): what happened.
 std::string explain(const std::string & code);
 

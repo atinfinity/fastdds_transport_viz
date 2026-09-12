@@ -4,6 +4,22 @@ Changelog for package fastdds_transport_viz
 
 Forthcoming
 -----------
+* ``transport_viz diff <before.json> <after.json>``: compare two saved ``--json``
+  documents without observing anything (change a profile or an environment variable, run
+  again, see what moved). The after snapshot is printed with the ``+`` / ``~`` / ``-``
+  marks, ghost rows and ``changes:`` line of ``--watch``, or with ``--json`` as the after
+  document plus the ``changes`` object. Pairs are matched by ``(topic, writer node, reader
+  node)`` by default (``--key node``), so restarting the nodes between the two runs is not
+  a change (the node key also ignores the locator port numbers a restart renumbers);
+  ``--key guid`` matches by GUIDs as ``--watch`` does. ``--changes-only`` keeps
+  the topics that moved; ``--topic``, ``--node``, ``--all`` and the rendering options apply
+  to both documents. One document may be ``-`` (stdin) and a ``--watch --json`` log counts
+  by its last document. Exit status 0 without changes, 1 with, 2 on an error (#77).
+* The ``changes`` object (``--watch --json`` and ``diff --json``) gains ``key``
+  (``guid`` / ``node``), ``writer_node`` / ``reader_node`` in every pair key, the before
+  GUIDs in ``changed_pairs[].from`` and, for ``diff``, ``before`` (``observed_at`` and
+  ``domain`` of the before document); ``schema_version`` stays 1. New library functions
+  ``parse_json()`` (the inverse of ``render_json()``) and ``diff_snapshots()``.
 * The tool refuses to start on an RMW other than ``rmw_fastrtps_cpp`` (exit 1, the
   message names the RMW and the fix), asking the RMW layer itself before any participant
   is created, so an unset ``RMW_IMPLEMENTATION`` resolves to the distro's default.

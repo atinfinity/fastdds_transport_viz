@@ -70,7 +70,8 @@ class TestJsonSchemaLive(Base):
             validator.validate(doc)
             self.assertIn('changes', doc)
         self.assertEqual(
-            docs[0]['changes'], {'added_pairs': [], 'removed_pairs': [], 'changed_pairs': []})
+            docs[0]['changes'],
+            {'key': 'guid', 'added_pairs': [], 'removed_pairs': [], 'changed_pairs': []})
 
 
 @launch_testing.post_shutdown_test()

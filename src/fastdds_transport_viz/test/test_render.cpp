@@ -592,3 +592,70 @@ TEST(RenderTable, AdviseLinesDoNotWidenThePairColumns)
   }
   EXPECT_EQ(stripped, without);
 }
+
+// ---- decorations of a two-snapshot comparison (transport_viz diff) ---------------------
+
+TEST(ChangesSummary, CountsAndPlurals)
+{
+  Changes c;
+  EXPECT_EQ(changes_summary(c), "none");
+  c.added.push_back(PairKey{"/a", "w", "r"});
+  EXPECT_EQ(changes_summary(c), "+1 pair");
+  c.added.push_back(PairKey{"/b", "w", "r"});
+  c.removed.push_back(PairKey{"/c", "w", "r"});
+  EXPECT_EQ(changes_summary(c), "+2 pairs  -1 pair");
+  c.changed.push_back(PairChange{PairKey{"/d", "w", "r"}, PairState{}, PairState{}});
+  EXPECT_EQ(changes_summary(c), "+2 pairs  -1 pair  ~1 changed");
+}
+
+TEST(DecorationsFor, MarksAddedAndChangedAndGhostsRemovedFromBefore)
+{
+  auto before = snapshot();
+  before.endpoints.push_back(ep(false, "R2", "/gone", LocatorKind::SHM));
+  before.topics = summarize(before.endpoints);
+  auto after = snapshot();
+  Changes c = diff_snapshots(before, after, KeyMode::Guid);
+  ASSERT_EQ(c.removed.size(), 1u);
+  c.changed.push_back(
+    PairChange{pair_key(after.topics[0], after.topics[0].pairs[0]), PairState{}, PairState{}});
+  RenderOptions opt;
+  auto deco = decorations_for(c, before, opt);
+  EXPECT_EQ(deco.marks.at(pair_key(after.topics[0], after.topics[0].pairs[0])), '~');
+  ASSERT_EQ(deco.ghosts.size(), 1u);
+  EXPECT_EQ(deco.ghosts[0].reader_label, "/gone@local");
+  EXPECT_EQ(deco.ghosts[0].transport_label, "SHM");
+  EXPECT_EQ(deco.summary, "-1 pair  ~1 changed");
+  opt.verbose = true;
+  opt.watch = &deco;
+  auto out = render_table(after, opt);
+  EXPECT_NE(out.find("~  /chatter"), std::string::npos);
+  EXPECT_NE(out.find("/gone@local"), std::string::npos);
+  EXPECT_NE(out.find("(removed)"), std::string::npos);
+  EXPECT_NE(out.find("changes: -1 pair  ~1 changed"), std::string::npos);
+}
+
+TEST(KeepChangedTopics, DropsTopicsWithoutAMarkOrGhost)
+{
+  auto snap = snapshot();
+  snap.endpoints.push_back(ep(true, "W2", "/other_pub", LocatorKind::SHM));
+  snap.endpoints.push_back(ep(false, "R2", "/other_sub", LocatorKind::SHM));
+  snap.endpoints[2].ros_topic = snap.endpoints[3].ros_topic = "/other";
+  snap.endpoints[2].dds_topic = snap.endpoints[3].dds_topic = "rt/other";
+  snap.topics = summarize(snap.endpoints);
+  ASSERT_EQ(snap.topics.size(), 2u);
+  WatchDecorations deco;
+  keep_changed_topics(snap, deco);
+  EXPECT_TRUE(snap.topics.empty());
+  snap.topics = summarize(snap.endpoints);
+  deco.marks[pair_key(snap.topics[1], snap.topics[1].pairs[0])] = '+';
+  keep_changed_topics(snap, deco);
+  ASSERT_EQ(snap.topics.size(), 1u);
+  EXPECT_EQ(snap.topics[0].display_topic, "/other");
+  // a ghost keeps its topic even without a mark
+  snap.topics = summarize(snap.endpoints);
+  deco.marks.clear();
+  deco.ghosts.push_back(GhostPair{PairKey{"/chatter", "W1", "R9"}, "", "", "", ""});
+  keep_changed_topics(snap, deco);
+  ASSERT_EQ(snap.topics.size(), 1u);
+  EXPECT_EQ(snap.topics[0].display_topic, "/chatter");
+}
