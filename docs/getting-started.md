@@ -155,8 +155,9 @@ ros2 transport codes
 
 `ros2 transport` execs the `transport_viz` binary of `fastdds_transport_viz`; the binary
 can be run directly as `ros2 run fastdds_transport_viz transport_viz` with the same options
-plus `--list-codes`. Exit codes: 0 on success, 2 on a usage error, and 1 from `ros2 transport`
-when the binary cannot be found or started.
+plus `--list-codes`. Exit codes: 0 on success, 2 on a usage error, and 1 when the RMW is not
+`rmw_fastrtps_cpp` (the message names it) or, from `ros2 transport`, when the binary cannot
+be found or started.
 
 ## First checks when something is off
 
@@ -168,6 +169,7 @@ the remedy of every code. The table below covers what is not a reason code.
 | Symptom | Check |
 |---|---|
 | `ros2: error: argument Call ... invalid choice: 'transport'` | `source install/setup.bash` in this shell; `ros2transport` must be built in the same workspace. |
+| `RMW is rmw_cyclonedds_cpp; this tool observes Fast DDS ...` (exit 1) | the tool only works on `rmw_fastrtps_cpp`: set `RMW_IMPLEMENTATION=rmw_fastrtps_cpp` (or unset it on a distro whose default is Fast DDS) in the shell that runs the tool. `rmw_fastrtps_dynamic_cpp` runs with a warning. |
 | no topics at all | same `ROS_DOMAIN_ID` as the nodes? `ROS_AUTOMATIC_DISCOVERY_RANGE=OFF` limits every participant to itself. With a Discovery Server the tool needs the same `ROS_DISCOVERY_SERVER` (it becomes a SUPER_CLIENT automatically). |
 | nodes on another machine are missing | the other machine must be reachable by multicast, or listed in `ROS_STATIC_PEERS`, or both sides use a Discovery Server; see [development.md](development.md#two-physical-hosts). |
 | `!stats-not-enabled-on-writer` with `--stats` | the node was started without `FASTDDS_STATISTICS`; the variable must be set before the node starts. |

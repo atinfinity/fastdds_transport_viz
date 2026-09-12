@@ -99,6 +99,21 @@ def test_explain_ros_args_and_default_timeout():
     assert 2.5 <= time.monotonic() - t0 <= 15
 
 
+def test_unloadable_rmw_exits_1_before_discovery():
+    # The CI image ships only rmw_fastrtps_cpp, so "another middleware" cannot be exercised
+    # end to end here (test_rmw_check.cpp pins that verdict). An RMW that cannot be loaded
+    # is stopped even earlier: rcl's own load-time check exits 1 naming it before main()
+    # runs, so the binary never reaches discovery. Either way: exit 1, the name in stderr.
+    env = dict(os.environ, RMW_IMPLEMENTATION='rmw_bogus_cpp')
+    t0 = time.monotonic()
+    r = subprocess.run([BINARY, '--timeout', '5'], capture_output=True, text=True, timeout=30,
+                       env=env)
+    assert r.returncode == 1, r
+    assert 'rmw_bogus_cpp' in r.stderr, r.stderr
+    assert time.monotonic() - t0 < 4, 'exited before the discovery timeout'
+    assert r.stdout == ''
+
+
 def test_discovery_range_off_prints_a_warning():
     env = dict(os.environ, ROS_AUTOMATIC_DISCOVERY_RANGE='OFF')
     r = subprocess.run(

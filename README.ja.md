@@ -126,6 +126,8 @@ ros2 transport codes
 ## 制限事項
 
 - **`rmw_fastrtps_cpp` 専用。** CycloneDDS、Connext、`rmw_fastrtps_dynamic_cpp` のノードは対象外です。
+  別の RMW ではツールは起動しません (その RMW 名を示して exit 1)。`rmw_fastrtps_dynamic_cpp` は
+  検証が済むまで警告付きで動きます ([#73](https://github.com/atinfinity/fastdds_transport_viz/issues/73))。
   ROS ノードでない Fast DDS participant は `--all` でのみ表示されます。
 - **Linux 専用。** macOS には `/dev/shm` が無く、Docker Desktop からホスト上のノードは観測できません。
 - **ノードと同じ場所で実行する必要があります。** 同じドメイン、同じ環境変数と XML プロファイル、

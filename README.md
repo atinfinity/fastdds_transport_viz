@@ -128,6 +128,8 @@ ros2 transport codes
 
 - **`rmw_fastrtps_cpp` only.** Nodes on CycloneDDS, Connext or `rmw_fastrtps_dynamic_cpp`
   are not covered; Fast DDS participants that are not ROS nodes appear only with `--all`.
+  The tool refuses to start on another RMW (exit 1, naming it); `rmw_fastrtps_dynamic_cpp`
+  runs with a warning until it is verified ([#73](https://github.com/atinfinity/fastdds_transport_viz/issues/73)).
 - **Linux only.** macOS has no `/dev/shm`, and Docker Desktop cannot observe nodes on the
   host.
 - **Run it where the nodes run.** Same domain, same environment variables and XML profile,

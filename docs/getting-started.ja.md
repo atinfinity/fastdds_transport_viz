@@ -154,8 +154,8 @@ ros2 transport codes
 
 `ros2 transport` は `fastdds_transport_viz` の `transport_viz` バイナリを exec します。
 バイナリは `ros2 run fastdds_transport_viz transport_viz` で直接実行でき、同じオプションに
-加えて `--list-codes` があります。終了コード: 成功 0、使い方の誤り 2、バイナリが見つからない・起動
-できないときは `ros2 transport` が 1。
+加えて `--list-codes` があります。終了コード: 成功 0、使い方の誤り 2、RMW が `rmw_fastrtps_cpp` で
+ないとき (メッセージに RMW 名が出る) と、バイナリが見つからない・起動できないときの `ros2 transport` は 1。
 
 ## うまくいかないときの最初の確認
 
@@ -167,6 +167,7 @@ participant: unset FASTDDS_BUILTIN_TRANSPORTS ...`)。`ros2 transport codes` は
 | 症状 | 確認すること |
 |---|---|
 | `ros2: error: argument Call ... invalid choice: 'transport'` | このシェルで `source install/setup.bash` したか。`ros2transport` が同じワークスペースでビルドされているか。 |
+| `RMW is rmw_cyclonedds_cpp; this tool observes Fast DDS ...` (exit 1) | ツールは `rmw_fastrtps_cpp` でしか動きません。ツールを実行するシェルで `RMW_IMPLEMENTATION=rmw_fastrtps_cpp` を設定する (既定が Fast DDS の distro なら未設定でもよい)。`rmw_fastrtps_dynamic_cpp` は警告付きで動く。 |
 | トピックが 1 つも出ない | ノードと同じ `ROS_DOMAIN_ID` か。`ROS_AUTOMATIC_DISCOVERY_RANGE=OFF` は各 participant を自分だけに限定する。Discovery Server 使用時はツールにも同じ `ROS_DISCOVERY_SERVER` が必要 (自動で SUPER_CLIENT になる)。 |
 | 別マシンのノードが出ない | 相手のマシンにマルチキャストで届くか、`ROS_STATIC_PEERS` に列挙するか、双方が Discovery Server を使う。[development.md](development.md#two-physical-hosts) (英語) 参照。 |
 | `--stats` で `!stats-not-enabled-on-writer` | ノードが `FASTDDS_STATISTICS` 無しで起動された。変数はノードの起動前に設定する。 |

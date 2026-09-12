@@ -20,6 +20,7 @@
 #include <ctime>
 #include <iostream>
 #include <memory>
+#include <optional>
 #include <regex>
 #include <set>
 #include <string>
@@ -27,12 +28,15 @@
 #include <vector>
 
 #include "rclcpp/rclcpp.hpp"
+#include "rmw/error_handling.h"
+#include "rmw/rmw.h"
 
 #include "fastdds_transport_viz/decision.hpp"
 #include "fastdds_transport_viz/fastdds_compat.hpp"
 #include "fastdds_transport_viz/discovery_observer.hpp"
 #include "fastdds_transport_viz/model.hpp"
 #include "fastdds_transport_viz/render.hpp"
+#include "fastdds_transport_viz/rmw_check.hpp"
 #include "fastdds_transport_viz/ros_graph_resolver.hpp"
 #include "fastdds_transport_viz/shm_info.hpp"
 #include "fastdds_transport_viz/stats_observer.hpp"
@@ -527,6 +531,32 @@ int main(int argc, char ** argv)
       }
     }
     return 0;
+  }
+
+  // The tool only makes sense on rmw_fastrtps_cpp: on another middleware the rclcpp node
+  // (name resolution) would run elsewhere while the raw Fast DDS participant still sees
+  // whatever Fast DDS nodes exist. Ask the RMW layer itself, before anything is created;
+  // RMW_IMPLEMENTATION unset resolves to the distro's default. (An RMW that cannot be
+  // loaded at all is normally stopped earlier, by rcl's load-time check; the nullptr
+  // branch is kept for an rcl without it.)
+  {
+    const char * id = rmw_get_implementation_identifier();
+    std::string load_error;
+    if (id == nullptr) {
+      load_error = rmw_get_error_string().str;
+      rmw_reset_error();
+    }
+    const char * requested = std::getenv("RMW_IMPLEMENTATION");
+    const auto rv = fastdds_transport_viz::rmw_verdict(
+      id ? std::optional<std::string>(id) : std::nullopt, requested ? requested : "",
+      load_error);
+    if (rv.kind == fastdds_transport_viz::RmwVerdictKind::Reject) {
+      std::cerr << "transport_viz: " << rv.message << "\n";
+      return 1;
+    }
+    if (rv.kind == fastdds_transport_viz::RmwVerdictKind::Warn) {
+      std::cerr << rv.message << "\n";
+    }
   }
 
   if (o.timeout < 0) {
