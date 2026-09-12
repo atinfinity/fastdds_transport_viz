@@ -272,3 +272,44 @@ transport は web viewer と同じ配色、警告は赤です。
 
 どちらの画像も実際の出力です (`scripts/render_examples.sh` が `--color always` で採取し、
 `scripts/ansi2svg.py` が ANSI の色を SVG に変換します)。
+
+## 2 つのスナップショットの比較
+
+よくある流れは *プロファイルや環境変数を変えて、もう一度実行して、何が変わったかを見る*
+です。`transport_viz diff before.json after.json` (`ros2 transport diff`) は、watch モードの比較を
+保存した 2 つの `--json` 文書に対して行います。DDS participant は作りません。
+
+```
+ros2 transport list --json > before.json
+# XML プロファイル / FASTDDS_BUILTIN_TRANSPORTS / ... を変えてノードを再起動
+ros2 transport list --json > after.json
+ros2 transport diff before.json after.json
+```
+
+後のスナップショットが `--watch` の印の列付きの表として出ます。現れたペアは `+`、transport、
+確信度、実測 transport、選ばれた locator、実測 locator、警告のいずれかが変わったペアは `~`、
+消えたペアは `-` (以前のラベルを持つ薄い行。トピックごと消えた場合は薄いトピック行) です。
+表の後に `changes:` の要約行が続きます。一回きりの実行の表示オプションは比較の前に両方の文書へ
+適用されます: `--topic`、`--node`、`--all` (無ければ観測時と同じくサービスと生の DDS トピックは
+除外)、`-v`、`--explain`、`--locators`、`--advise`、`--color`。`--changes-only` は印か削除された
+ペアのあるトピックだけを残します。
+
+**ペアの対応付け。** `--watch` はフレーム間でペアを `(トピック, writer GUID, reader GUID)` で
+対応付けます。2 回の実行の間にはたいていノードを再起動し、再起動のたびにエンドポイントの GUID
+は変わるので、この鍵ではすべてのペアが削除されて追加し直されたように見えます。そのため `diff`
+は既定で `(トピック, writer ノード, reader ノード)` で対応付けます (`--key node`)。1 つのノードが
+同じトピックに複数の writer や reader を持つ場合は GUID 順に対応付け、ROS ノード名の無い
+エンドポイントは GUID で対応付けます。`--key guid` は同じ実行の 2 フレームに対する `--watch`
+そのものの意味になります。
+
+**終了コード** は `diff(1)` に従います: 変化なしで 0、変化ありで 1、使い方の誤り、読めない
+ファイル、別の `schema_version` の文書、不正な文書で 2。2 つの文書のドメインが違う場合は
+警告だけです。片方の文書は `-` (標準入力) にでき、`--watch --json` が書いた JSON Lines ファイルは
+最後の文書が使われます (stderr にその旨が出ます)。
+
+**JSON。** `--json` では、後の文書に `--watch --json` の `changes` オブジェクトが加わったものが
+出ます: `added_pairs`、`removed_pairs`、`changed_pairs` (各ペアの鍵は `topic`、GUID、
+`writer_node` / `reader_node` を持ち、`changed_pairs[].from` は前の文書でのペアの GUID も持つ)
+に加えて `key` (`node` か `guid`) と `before` (前の文書の `observed_at` と `domain`)。
+`--changes-only` は表と同じように `topics` を刈り込みます。文書はスキーマに適合するので、
+`jq .changes` で比較だけを取り出せ、web viewer でも開けます。

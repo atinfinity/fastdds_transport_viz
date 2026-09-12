@@ -11,10 +11,13 @@
 #include <unistd.h>
 
 #include <algorithm>
+#include <cerrno>
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <fstream>
+#include <iterator>
 #include <map>
 #include <sstream>
 #include <ctime>
@@ -35,6 +38,7 @@
 #include "fastdds_transport_viz/fastdds_compat.hpp"
 #include "fastdds_transport_viz/discovery_observer.hpp"
 #include "fastdds_transport_viz/model.hpp"
+#include "fastdds_transport_viz/parse_json.hpp"
 #include "fastdds_transport_viz/render.hpp"
 #include "fastdds_transport_viz/rmw_check.hpp"
 #include "fastdds_transport_viz/ros_graph_resolver.hpp"
@@ -44,6 +48,7 @@
 using namespace std::chrono_literals;
 using fastdds_transport_viz::Endpoint;
 using fastdds_transport_viz::GhostPair;
+using fastdds_transport_viz::KeyMode;
 using fastdds_transport_viz::PairKey;
 using fastdds_transport_viz::PairState;
 using fastdds_transport_viz::RenderOptions;
@@ -71,12 +76,18 @@ struct Options
   std::string node_regex;
   bool list_codes{false};
   enum class Color { Auto, Always, Never } color{Color::Auto};
+  // `transport_viz diff <before> <after>`: compare two saved --json documents
+  std::string command;              // "" (observe) or "diff"
+  std::vector<std::string> files;   // the two documents ('-' = stdin)
+  KeyMode key{KeyMode::Node};
+  bool changes_only{false};
 };
 
 void usage()
 {
   std::cout <<
     "Usage: transport_viz [options]\n"
+    "       transport_viz diff <before.json> <after.json> [options]\n"
     "\n"
     "Show which Fast DDS transport each ROS 2 topic is communicated over and why.\n"
     "Run it in the same environment (env vars, XML profile, network/IPC namespace)\n"
@@ -117,7 +128,19 @@ void usage()
     "                     compact document per line (JSON Lines) with a `changes` object\n"
     "  --interval <sec>   refresh period for --watch (default: 2)\n"
     "  --list-codes       list all reason codes with descriptions and remedies and exit\n"
-    "  -h, --help         this help\n";
+    "  -h, --help         this help\n"
+    "\n"
+    "diff compares two --json documents without observing anything (a JSON Lines file of\n"
+    "--watch --json counts by its last document; '-' reads one of them from stdin). It\n"
+    "prints the after document with the pairs that were added (+), changed (~) or removed\n"
+    "(-) marked as in --watch, or with --json the after document plus a `changes` object.\n"
+    "Exit status: 0 no changes, 1 changes, 2 error. Takes --json, --color, --topic, --node,\n"
+    "--all, -v, --explain, --locators, --advise and:\n"
+    "  --key <mode>       node|guid: match the pairs of the two documents by (topic, writer\n"
+    "                     node, reader node), which survives restarting the nodes (default),\n"
+    "                     or by their GUIDs as --watch does\n"
+    "  --changes-only     only the topics with an added, changed or removed pair (with\n"
+    "                     --json, `topics` is pruned the same way)\n";
 }
 
 bool parse(int argc, char ** argv, Options & o)
@@ -129,8 +152,24 @@ bool parse(int argc, char ** argv, Options & o)
       }
       return argv[++i];
     };
-  for (int i = 1; i < argc; ++i) {
+  int first = 1;
+  if (argc > 1 && argv[1][0] != '-') {
+    o.command = argv[1];
+    if (o.command != "diff") {
+      std::cerr << "unknown command: " << o.command << "\n";
+      usage();
+      return false;
+    }
+    first = 2;
+  }
+  std::set<std::string> seen;   // flags given, for the ones diff does not take
+  for (int i = first; i < argc; ++i) {
     std::string a = argv[i];
+    if (a.size() > 1 && a[0] == '-') {seen.insert(a);}
+    if (o.command == "diff" && (a == "-" || a[0] != '-')) {
+      o.files.push_back(a);
+      continue;
+    }
     if (a == "--domain") {o.domain = std::atoi(need(i, "--domain"));} else if (a == "--timeout") {
       o.timeout = std::atof(need(i, "--timeout"));
     } else if (a == "--quiet") {o.quiet = std::atof(need(i, "--quiet"));} else if (a == "--topic") {
@@ -166,6 +205,16 @@ bool parse(int argc, char ** argv, Options & o)
       o.watch = true;
     } else if (a == "--list-codes") {
       o.list_codes = true;
+    } else if (a == "--key") {
+      std::string m = need(i, "--key");
+      if (m == "node") {o.key = KeyMode::Node;} else if (m == "guid") {
+        o.key = KeyMode::Guid;
+      } else {
+        std::cerr << "--key expects node or guid\n";
+        return false;
+      }
+    } else if (a == "--changes-only") {
+      o.changes_only = true;
     } else if (a == "-h" || a == "--help") {
       usage(); std::exit(0);
     } else if (a == "--ros-args") {
@@ -188,7 +237,39 @@ bool parse(int argc, char ** argv, Options & o)
       return false;
     }
   }
+  if (o.command == "diff") {
+    if (o.files.size() != 2) {
+      std::cerr << "diff needs two documents: transport_viz diff <before.json> <after.json>\n";
+      return false;
+    }
+    if (o.files[0] == "-" && o.files[1] == "-") {
+      std::cerr << "diff: only one of the two documents can come from stdin\n";
+      return false;
+    }
+    for (const char * flag :
+      {"--domain", "--timeout", "--quiet", "--interval", "--watch", "--list-codes"})
+    {
+      if (seen.count(flag)) {
+        std::cerr << flag << " does not apply to diff: the documents were already observed\n";
+        return false;
+      }
+    }
+  } else {
+    for (const char * flag : {"--key", "--changes-only"}) {
+      if (seen.count(flag)) {
+        std::cerr << flag << " applies to 'transport_viz diff' only\n";
+        return false;
+      }
+    }
+  }
   return true;
+}
+
+bool use_color(const Options & o)
+{
+  return o.color == Options::Color::Always ||
+         (o.color == Options::Color::Auto && isatty(STDOUT_FILENO) &&
+         std::getenv("NO_COLOR") == nullptr);
 }
 
 std::string now_iso8601()
@@ -470,12 +551,7 @@ struct WatchState
       for (const auto & t : last_snapshot.topics) {
         for (const auto & p : t.pairs) {
           if (fastdds_transport_viz::pair_key(t, p) == k) {
-            std::string label = fastdds_transport_viz::to_string(p.verdict.transport) +
-              (p.verdict.confidence == fastdds_transport_viz::Confidence::Likely ? "?" : "");
-            deco.ghosts.push_back(
-              GhostPair{k, t.display_type,
-                fastdds_transport_viz::endpoint_label(last_snapshot, *p.writer, ropt),
-                fastdds_transport_viz::endpoint_label(last_snapshot, *p.reader, ropt), label});
+            deco.ghosts.push_back(fastdds_transport_viz::ghost_pair(last_snapshot, t, p, ropt));
             ghost_ttl[k] = kHoldFrames;
           }
         }
@@ -488,22 +564,8 @@ struct WatchState
           [&](const GhostPair & x) {return x.key == k;}), deco.ghosts.end());
       ghost_ttl.erase(k);
     }
-    const auto & c = snap.changes;
-    if (!have_previous) {
-      deco.summary = "first frame";
-    } else if (c.empty()) {
-      deco.summary = "none";
-    } else {
-      std::ostringstream os;
-      if (!c.added.empty()) {
-        os << "+" << c.added.size() << (c.added.size() == 1 ? " pair  " : " pairs  ");
-      }
-      if (!c.removed.empty()) {
-        os << "-" << c.removed.size() << (c.removed.size() == 1 ? " pair  " : " pairs  ");
-      }
-      if (!c.changed.empty()) {os << "~" << c.changed.size() << " changed";}
-      deco.summary = os.str();
-    }
+    deco.summary = have_previous ?
+      fastdds_transport_viz::changes_summary(snap.changes) : "first frame";
     last_rendered = std::move(current);
     // Keep the frame for ghost rows. TopicSummary holds pointers into
     // Snapshot::endpoints, so rebuild them against the copy.
@@ -515,6 +577,91 @@ struct WatchState
   }
 };
 
+/// The view options of a one-shot run applied to a loaded document: the default view keeps
+/// ROS topics only (services and raw DDS topics need --all, as when observing), then the
+/// --topic and --node filters.
+void apply_view_filters(Snapshot & snap, const Options & o)
+{
+  std::regex topic_re;
+  if (!o.topic_regex.empty()) {topic_re = std::regex(o.topic_regex);}
+  snap.topics.erase(
+    std::remove_if(
+      snap.topics.begin(), snap.topics.end(),
+      [&](const fastdds_transport_viz::TopicSummary & t) {
+        if (!o.all && !(t.is_ros_topic && t.dds_topic.rfind("rt/", 0) == 0)) {return true;}
+        return !o.topic_regex.empty() && !std::regex_search(t.display_topic, topic_re);
+      }),
+    snap.topics.end());
+  apply_node_filter(snap.topics, o);
+}
+
+/// `transport_viz diff <before> <after>`: no participant, no RMW; exit 0 when the two
+/// documents show the same pairs and transports, 1 when something changed, 2 on an error.
+int run_diff(const Options & o)
+{
+  RenderOptions ropt;
+  ropt.verbose = o.verbose;
+  ropt.explain = o.explain;
+  ropt.locators = o.locators;
+  ropt.advise = o.advise;
+  ropt.color = use_color(o);
+
+  auto load = [](const std::string & path, Snapshot & out) {
+      std::string text;
+      if (path == "-") {
+        text.assign(std::istreambuf_iterator<char>(std::cin), std::istreambuf_iterator<char>());
+      } else {
+        std::ifstream in(path, std::ios::binary);
+        if (!in) {
+          std::cerr << "transport_viz diff: cannot read " << path << ": " << std::strerror(errno)
+                    << "\n";
+          return false;
+        }
+        text.assign(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
+      }
+      size_t documents = 0;
+      try {
+        out = fastdds_transport_viz::parse_json(text, &documents);
+      } catch (const fastdds_transport_viz::ParseError & e) {
+        std::cerr << "transport_viz diff: " << path << ": " << e.what() << "\n";
+        return false;
+      }
+      if (documents > 1) {
+        std::cerr << "transport_viz diff: " << path << ": " << documents
+                  << " documents (JSON Lines), comparing the last one\n";
+      }
+      return true;
+    };
+  Snapshot before, after;
+  if (!load(o.files[0], before) || !load(o.files[1], after)) {
+    return 2;
+  }
+  if (before.domain != after.domain) {
+    std::cerr << "transport_viz diff: warning: the documents are from different domains ("
+              << before.domain << " and " << after.domain << ")\n";
+  }
+  apply_view_filters(before, o);
+  apply_view_filters(after, o);
+
+  fastdds_transport_viz::Changes changes =
+    fastdds_transport_viz::diff_snapshots(before, after, o.key);
+  changes.before = fastdds_transport_viz::SnapshotRef{before.observed_at, before.domain};
+  const bool differ = !changes.empty();
+  after.has_changes = true;
+  after.changes = changes;
+  WatchDecorations deco = fastdds_transport_viz::decorations_for(changes, before, ropt);
+  if (o.changes_only) {
+    fastdds_transport_viz::keep_changed_topics(after, deco);
+  }
+  if (o.json) {
+    std::cout << fastdds_transport_viz::render_json(after, ropt) << std::flush;
+  } else {
+    ropt.watch = &deco;
+    std::cout << fastdds_transport_viz::render_table(after, ropt) << std::flush;
+  }
+  return differ ? 1 : 0;
+}
+
 }  // namespace
 
 int main(int argc, char ** argv)
@@ -522,6 +669,9 @@ int main(int argc, char ** argv)
   Options o;
   if (!parse(argc, argv, o)) {
     return 2;
+  }
+  if (o.command == "diff") {
+    return run_diff(o);
   }
   if (o.list_codes) {
     for (const auto & c : fastdds_transport_viz::known_codes()) {
@@ -617,9 +767,7 @@ int main(int argc, char ** argv)
     ropt.locators = o.locators;
     ropt.advise = o.advise;
     ropt.compact = o.json && o.watch;   // JSON Lines: one document per line
-    ropt.color = o.color == Options::Color::Always ||
-      (o.color == Options::Color::Auto && isatty(STDOUT_FILENO) &&
-      std::getenv("NO_COLOR") == nullptr);
+    ropt.color = use_color(o);
 
     const auto start = std::chrono::steady_clock::now();
     // Wait until --timeout, or until discovery has been quiet for --quiet

@@ -4,6 +4,9 @@ Changelog for package ros2transport
 
 Forthcoming
 -----------
+* ``ros2 transport diff BEFORE AFTER``: runs ``transport_viz diff`` with the two documents
+  and the ``--key``, ``--changes-only`` and view/rendering options; a missing input file is
+  reported before the binary is started (#77).
 * ``ros2 transport list`` exits 1 with the same message as the binary when
   ``RMW_IMPLEMENTATION`` names another middleware, before spawning it.
 * ``rmw_fastrtps_dynamic_cpp`` is supported like ``rmw_fastrtps_cpp`` (#73); the live

@@ -89,12 +89,16 @@ the nodes you observe.
 ros2 transport list [--domain N] [--timeout S] [--quiet S] [--topic REGEX] [--node REGEX]
                     [--all] [-v] [--explain] [--locators] [--advise] [--stats] [--json]
                     [--color auto|always|never] [--watch [--interval S]]
+ros2 transport diff BEFORE.json AFTER.json [--key node|guid] [--changes-only] [--json]
+                    [--topic REGEX] [--node REGEX] [--all] [-v] [--explain] [--locators]
+                    [--advise] [--color auto|always|never]
 ros2 transport codes
 ```
 
 `ros2 transport` is a thin ros2cli extension (package `ros2transport`) that runs the
 `transport_viz` binary of `fastdds_transport_viz`; the binary can also be run directly as
-`ros2 run fastdds_transport_viz transport_viz`, with the same options plus `--list-codes`.
+`ros2 run fastdds_transport_viz transport_viz`, with the same options plus `--list-codes`
+(and `transport_viz diff` for `ros2 transport diff`).
 
 | Option | Effect |
 |---|---|
@@ -109,6 +113,16 @@ ros2 transport codes
 | `--all` | include services/actions and non-ROS DDS topics |
 | `--watch` | re-render every `--interval` seconds, highlighting added/changed/removed pairs; keys `q p v e a l` (with `--json`: JSON Lines with a `changes` object) |
 | `--color` | ANSI colors for transports and warnings (`auto` = only on a terminal) |
+
+`ros2 transport diff BEFORE.json AFTER.json` compares two saved `--json` documents (change
+a profile or an environment variable, run again, see what moved) without observing
+anything: the after snapshot is printed with the pairs that were added (`+`), changed (`~`)
+or removed (`-`) marked as in `--watch`, or with `--json` as the after document plus a
+`changes` object. Pairs are matched by node names (`--key node`, the default, so a restart
+of the nodes is not a change) or by GUIDs (`--key guid`, what `--watch` does);
+`--changes-only` keeps only the topics that moved. The exit status is 0 without changes, 1
+with, 2 on an error, so it works in scripts. Details in
+[How it works](how-it-works.md#comparing-two-snapshots).
 
 ## Documentation
 

@@ -11,6 +11,7 @@
 #include <optional>
 #include <set>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace fastdds_transport_viz
@@ -684,7 +685,8 @@ void apply_stats(std::vector<TopicSummary> & topics, const StatsData & stats)
 
 PairKey pair_key(const TopicSummary & topic, const Pair & pair)
 {
-  return PairKey{topic.display_topic, pair.writer->guid, pair.reader->guid};
+  return PairKey{topic.display_topic, pair.writer->guid, pair.reader->guid,
+    pair.writer->node_name, pair.reader->node_name};
 }
 
 PairState pair_state(const Pair & pair)
@@ -721,12 +723,76 @@ Changes diff(
     if (it == previous.end()) {
       c.added.push_back(kv.first);
     } else if (it->second != kv.second) {
-      c.changed.push_back(PairChange{kv.first, it->second, kv.second});
+      c.changed.push_back(PairChange{kv.first, it->second, kv.second, it->first});
     }
   }
   for (const auto & kv : previous) {
     if (!current.count(kv.first)) {
       c.removed.push_back(kv.first);
+    }
+  }
+  return c;
+}
+
+namespace
+{
+/// The pairs of a snapshot under the node key: (topic, writer identity, reader identity)
+/// with the identity "<node>#<n>" (n-th endpoint of that node on the topic, in GUID
+/// order) or "guid:<guid>" for an endpoint without a node name.
+std::map<PairKey, std::pair<PairKey, PairState>> node_keyed(const Snapshot & snap)
+{
+  std::map<PairKey, std::pair<PairKey, PairState>> out;
+  for (const auto & t : snap.topics) {
+    // ordinal of every endpoint within its node on this topic
+    std::map<std::string, std::vector<std::string>> by_node;   // node -> guids
+    for (const auto * lists : {&t.writers, &t.readers}) {
+      for (const auto * e : *lists) {
+        if (!e->node_name.empty()) {by_node[e->node_name].push_back(e->guid);}
+      }
+    }
+    for (auto & kv : by_node) {
+      std::sort(kv.second.begin(), kv.second.end());
+    }
+    auto identity = [&](const Endpoint & e) {
+        if (e.node_name.empty()) {return "guid:" + e.guid;}
+        const auto & guids = by_node[e.node_name];
+        auto pos = std::find(guids.begin(), guids.end(), e.guid) - guids.begin();
+        return e.node_name + "#" + std::to_string(pos);
+      };
+    for (const auto & p : t.pairs) {
+      PairKey ident{t.display_topic, identity(*p.writer), identity(*p.reader)};
+      out[ident] = {pair_key(t, p), pair_state(p)};
+    }
+  }
+  return out;
+}
+}  // namespace
+
+Changes diff_snapshots(const Snapshot & before, const Snapshot & after, KeyMode mode)
+{
+  Changes c;
+  c.key = mode;
+  if (mode == KeyMode::Guid) {
+    auto by_guid = diff(pair_states(before), pair_states(after));
+    c.added = std::move(by_guid.added);
+    c.removed = std::move(by_guid.removed);
+    c.changed = std::move(by_guid.changed);
+    return c;
+  }
+  const auto prev = node_keyed(before);
+  const auto cur = node_keyed(after);
+  for (const auto & kv : cur) {
+    auto it = prev.find(kv.first);
+    if (it == prev.end()) {
+      c.added.push_back(kv.second.first);
+    } else if (it->second.second != kv.second.second) {
+      c.changed.push_back(
+        PairChange{kv.second.first, it->second.second, kv.second.second, it->second.first});
+    }
+  }
+  for (const auto & kv : prev) {
+    if (!cur.count(kv.first)) {
+      c.removed.push_back(kv.second.first);
     }
   }
   return c;

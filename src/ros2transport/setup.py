@@ -32,6 +32,7 @@ setup(
         'ros2transport.verb': [
             'list = ros2transport.verb.list:ListVerb',
             'codes = ros2transport.verb.codes:CodesVerb',
+            'diff = ros2transport.verb.diff:DiffVerb',
         ],
     },
 )

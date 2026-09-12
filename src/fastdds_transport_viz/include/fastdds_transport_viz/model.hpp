@@ -12,6 +12,7 @@
 #include <cstdint>
 #include <limits>
 #include <map>
+#include <optional>
 #include <set>
 #include <utility>
 #include <string>
@@ -315,6 +316,17 @@ struct PairKey
   std::string topic;          // display topic name
   std::string writer_guid;
   std::string reader_guid;
+  // The nodes behind the GUIDs, carried for the reader of a `changes` object and for
+  // `diff --key node`; not part of the identity (a GUID names one endpoint of one node).
+  std::string writer_node;
+  std::string reader_node;
+  PairKey() = default;
+  PairKey(
+    std::string topic_, std::string writer_guid_, std::string reader_guid_,
+    std::string writer_node_ = "", std::string reader_node_ = "")
+  : topic(std::move(topic_)), writer_guid(std::move(writer_guid_)),
+    reader_guid(std::move(reader_guid_)), writer_node(std::move(writer_node_)),
+    reader_node(std::move(reader_node_)) {}
   bool operator<(const PairKey & o) const
   {
     return std::tie(topic, writer_guid, reader_guid) <
@@ -348,9 +360,32 @@ struct PairState
 
 struct PairChange
 {
-  PairKey key;
+  PairKey key;          // the pair in the current frame / the after snapshot
   PairState from;
   PairState to;
+  // The same pair in the previous frame. Equal to `key` in --watch and with `diff --key
+  // guid`; with `--key node` the GUIDs differ when the nodes were restarted in between.
+  PairKey before_key;
+  PairChange() = default;
+  PairChange(PairKey key_, PairState from_, PairState to_)
+  : key(key_), from(std::move(from_)), to(std::move(to_)), before_key(std::move(key_)) {}
+  PairChange(PairKey key_, PairState from_, PairState to_, PairKey before_key_)
+  : key(std::move(key_)), from(std::move(from_)), to(std::move(to_)),
+    before_key(std::move(before_key_)) {}
+};
+
+/// How two snapshots' pairs are matched (see diff_snapshots()).
+enum class KeyMode
+{
+  Guid,   // (topic, writer GUID, reader GUID): --watch, `diff --key guid`
+  Node,   // (topic, writer node, reader node): `diff --key node`, survives node restarts
+};
+
+/// Where the previous snapshot of a comparison came from (`diff` only).
+struct SnapshotRef
+{
+  std::string observed_at;
+  int domain{0};
 };
 
 struct Changes
@@ -358,6 +393,8 @@ struct Changes
   std::vector<PairKey> added;
   std::vector<PairKey> removed;
   std::vector<PairChange> changed;
+  KeyMode key{KeyMode::Guid};
+  std::optional<SnapshotRef> before;   // the before document of `transport_viz diff`
   bool empty() const {return added.empty() && removed.empty() && changed.empty();}
 };
 
@@ -381,6 +418,7 @@ std::string to_string(LocatorKind kind);
 std::string to_string(Transport transport);
 std::string to_string(Confidence confidence);
 std::string to_string(DataSharingKind kind);
+std::string to_string(KeyMode mode);
 std::string host_id_hex(const HostId & id);
 
 }  // namespace fastdds_transport_viz

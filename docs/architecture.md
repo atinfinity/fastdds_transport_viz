@@ -119,6 +119,13 @@ sequenceDiagram
    every pair with the previous frame; the table marks additions and changes for three
    frames and keeps removed pairs as dimmed ghost rows. On a terminal the frame is
    painted into the alternate screen buffer and single keys toggle options.
+7. **`transport_viz diff`** skips steps 1-4: `parse_json()` (the inverse of
+   `render_json()`) rebuilds a `Snapshot` from each saved document, the view filters of a
+   one-shot run are applied to both, and `diff_snapshots()` matches their pairs by GUID or
+   by node names (`KeyMode`). The result is rendered like a watch frame
+   (`decorations_for()` turns the `Changes` into marks and ghost rows, `render_json()`
+   emits the `changes` object with `key` and `before`), and the exit status says whether
+   anything changed.
 
 ## Data model (`model.hpp`)
 
@@ -131,7 +138,7 @@ classDiagram
         vector~TopicSummary~ topics
         StatsData stats
         ShmInfo shm
-        Changes changes
+        Changes changes (added, removed, changed, key, before)
     }
     class Endpoint {
         guid, participant_guid_prefix, host_id

@@ -49,6 +49,22 @@ struct RenderOptions
 /// Label used for an endpoint in pair rows ("/node@host(pid)").
 std::string endpoint_label(const Snapshot & snap, const Endpoint & e, const RenderOptions & opt);
 
+/// The ghost row of a pair that disappeared, taken from the frame that still had it.
+GhostPair ghost_pair(
+  const Snapshot & previous, const TopicSummary & topic, const Pair & pair,
+  const RenderOptions & opt);
+
+/// "+2 pairs  -1 pair  ~1 changed" for the `changes:` line, or "none".
+std::string changes_summary(const Changes & changes);
+
+/// Marks, ghosts and summary for one comparison (`transport_viz diff`): every added and
+/// changed pair marked, every removed pair a ghost taken from `before`.
+WatchDecorations decorations_for(
+  const Changes & changes, const Snapshot & before, const RenderOptions & opt);
+
+/// Drop the topics that carry no mark and no ghost (`--changes-only`).
+void keep_changed_topics(Snapshot & snap, const WatchDecorations & deco);
+
 /// Visible width of a string, ignoring ANSI escape sequences.
 size_t visible_width(const std::string & s);
 

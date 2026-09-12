@@ -50,7 +50,10 @@
       "description": "What to change to get past each code of reason_code_descriptions (same keys); null when the code describes a normal state or asks for a bug report.",
       "type": "object",
       "additionalProperties": {
-        "type": ["string", "null"]
+        "type": [
+          "string",
+          "null"
+        ]
       }
     },
     "stats": {
@@ -763,11 +766,14 @@
       }
     },
     "pairKey": {
+      "description": "Identity of a writer -> reader pair: the display topic name and the two endpoint GUIDs, with the nodes behind them (empty for an endpoint without a ROS node).",
       "type": "object",
       "required": [
         "topic",
         "writer_guid",
-        "reader_guid"
+        "reader_guid",
+        "writer_node",
+        "reader_node"
       ],
       "properties": {
         "topic": {
@@ -777,6 +783,12 @@
           "type": "string"
         },
         "reader_guid": {
+          "type": "string"
+        },
+        "writer_node": {
+          "type": "string"
+        },
+        "reader_node": {
           "type": "string"
         }
       }
@@ -829,14 +841,39 @@
       }
     },
     "changes": {
-      "description": "Only present in --watch --json documents: pairs added, removed or changed since the previously emitted document (empty in the first one).",
+      "description": "Pairs added, removed or changed between two snapshots. In --watch --json documents: since the previously emitted document (empty in the first one), pairs matched by GUID. In the output of `transport_viz diff --json`: between the before document (`before`) and this one, matched by `key`; the keys of added_pairs and changed_pairs are this document's, those of removed_pairs the before document's, and changed_pairs[].from names the pair's GUIDs in the before document.",
       "type": "object",
       "required": [
+        "key",
         "added_pairs",
         "removed_pairs",
         "changed_pairs"
       ],
       "properties": {
+        "key": {
+          "description": "How the pairs of the two snapshots were matched: by (topic, writer GUID, reader GUID) or by (topic, writer node, reader node), which survives a restart of the nodes (`diff --key node`, the default of diff).",
+          "enum": [
+            "guid",
+            "node"
+          ]
+        },
+        "before": {
+          "description": "The before document of `transport_viz diff` (absent in --watch output).",
+          "type": "object",
+          "required": [
+            "observed_at",
+            "domain"
+          ],
+          "properties": {
+            "observed_at": {
+              "type": "string"
+            },
+            "domain": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
         "added_pairs": {
           "type": "array",
           "items": {
@@ -864,7 +901,27 @@
                 ],
                 "properties": {
                   "from": {
-                    "$ref": "#/$defs/pairState"
+                    "allOf": [
+                      {
+                        "$ref": "#/$defs/pairState"
+                      },
+                      {
+                        "type": "object",
+                        "description": "The state of the pair in the before document, with the GUIDs it had there (they differ from the key's after a restart of the nodes, under `key` = node).",
+                        "required": [
+                          "writer_guid",
+                          "reader_guid"
+                        ],
+                        "properties": {
+                          "writer_guid": {
+                            "type": "string"
+                          },
+                          "reader_guid": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    ]
                   },
                   "to": {
                     "$ref": "#/$defs/pairState"

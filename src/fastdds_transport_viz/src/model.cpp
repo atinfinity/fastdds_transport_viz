@@ -48,6 +48,11 @@ std::string to_string(DataSharingKind kind)
   }
 }
 
+std::string to_string(KeyMode mode)
+{
+  return mode == KeyMode::Node ? "node" : "guid";
+}
+
 std::string host_id_hex(const HostId & id)
 {
   char buf[16];

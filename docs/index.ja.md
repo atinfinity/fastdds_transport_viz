@@ -87,13 +87,16 @@ ros2 transport list -v --explain
 ros2 transport list [--domain N] [--timeout S] [--quiet S] [--topic REGEX] [--node REGEX]
                     [--all] [-v] [--explain] [--locators] [--advise] [--stats] [--json]
                     [--color auto|always|never] [--watch [--interval S]]
+ros2 transport diff BEFORE.json AFTER.json [--key node|guid] [--changes-only] [--json]
+                    [--topic REGEX] [--node REGEX] [--all] [-v] [--explain] [--locators]
+                    [--advise] [--color auto|always|never]
 ros2 transport codes
 ```
 
 `ros2 transport` は薄い ros2cli 拡張 (パッケージ `ros2transport`) で、`fastdds_transport_viz` の
 `transport_viz` バイナリを実行します。バイナリは
 `ros2 run fastdds_transport_viz transport_viz` として直接実行することもでき、オプションは同じで
-`--list-codes` が加わります。
+`--list-codes` が加わります (`ros2 transport diff` は `transport_viz diff`)。
 
 | オプション | 効果 |
 |---|---|
@@ -108,6 +111,15 @@ ros2 transport codes
 | `--all` | サービス/アクションと ROS 以外の DDS トピックも含める |
 | `--watch` | `--interval` 秒ごとに再描画し、追加/変更/削除されたペアを強調する。キー `q p v e a l` (`--json` 時は `changes` オブジェクト付きの JSON Lines) |
 | `--color` | transport と警告の ANSI 色 (`auto` = 端末のときだけ) |
+
+`ros2 transport diff BEFORE.json AFTER.json` は保存した 2 つの `--json` 文書を比較します
+(プロファイルや環境変数を変えて、もう一度実行して、何が変わったかを見る)。観測はせず、後の
+スナップショットを `--watch` と同じ印 (追加 `+`、変更 `~`、削除 `-`) 付きの表で出すか、`--json`
+なら後の文書に `changes` オブジェクトを加えて出します。ペアはノード名で対応付けるので
+(`--key node`、既定)、ノードの再起動は変化になりません。GUID で対応付ける `--key guid` は
+`--watch` と同じ意味です。`--changes-only` は変化のあったトピックだけを残します。終了コードは
+変化なしで 0、変化ありで 1、エラーで 2 なので、スクリプトからも使えます。詳細は
+[仕組み](how-it-works.md#2-つのスナップショットの比較)。
 
 ## ドキュメント
 

@@ -10,11 +10,14 @@ import subprocess
 
 import pytest
 
+from ros2transport.api import add_diff_arguments
 from ros2transport.api import add_list_arguments
 from ros2transport.api import BINARY_ENV
+from ros2transport.api import diff_argv
 from ros2transport.api import find_binary
 from ros2transport.api import list_argv
 from ros2transport.api import rmw_error
+from ros2transport.verb.diff import DiffVerb
 from ros2transport.verb.list import ListVerb
 
 FAKE = """#!/usr/bin/env python3
@@ -35,6 +38,12 @@ def fake_binary(tmp_path):
 def parse(argv):
     parser = argparse.ArgumentParser()
     add_list_arguments(parser)
+    return parser.parse_args(argv)
+
+
+def parse_diff(argv):
+    parser = argparse.ArgumentParser()
+    add_diff_arguments(parser)
     return parser.parse_args(argv)
 
 
@@ -62,19 +71,51 @@ def test_find_binary_override(fake_binary, monkeypatch):
     assert find_binary() == fake_binary
 
 
-def test_options_match_binary_help():
-    """Every option of `transport_viz --help` is mirrored (except --list-codes / --help)."""
+DIFF_ONLY = {'--key', '--changes-only'}
+
+
+def binary_help_options():
     binary = find_binary()
     if binary is None:
         pytest.skip('transport_viz not built')
     out = subprocess.run([binary, '--help'], capture_output=True, text=True, check=True).stdout
-    binary_opts = set(re.findall(r'^\s+(?:-\w, )?(--[\w-]+)', out, re.MULTILINE))
-    binary_opts -= {'--list-codes', '--help'}
+    return set(re.findall(r'^\s+(?:-\w, )?(--[\w-]+)', out, re.MULTILINE))
+
+
+def mirrored_options(add_arguments):
     parser = argparse.ArgumentParser()
-    add_list_arguments(parser)
+    add_arguments(parser)
     mirrored = {s for a in parser._actions for s in a.option_strings if s.startswith('--')}
-    mirrored -= {'--help'}      # argparse's own
-    assert binary_opts == mirrored
+    return mirrored - {'--help'}      # argparse's own
+
+
+def test_options_match_binary_help():
+    """Every option of `transport_viz --help` is mirrored by `list` (except diff's own)."""
+    assert binary_help_options() - {'--list-codes', '--help'} - DIFF_ONLY == \
+        mirrored_options(add_list_arguments)
+
+
+def test_diff_options_match_binary_help():
+    """`diff` mirrors its own two options plus the view/rendering options of `list`."""
+    binary_opts = binary_help_options()
+    assert DIFF_ONLY <= binary_opts
+    expected = mirrored_options(add_list_arguments) - {
+        '--domain', '--timeout', '--quiet', '--watch', '--interval'} | DIFF_ONLY
+    assert mirrored_options(add_diff_arguments) == expected
+
+
+def test_diff_argv_positionals_first_then_options():
+    args = parse_diff(['before.json', 'after.json'])
+    assert diff_argv(args) == ['diff', 'before.json', 'after.json']
+    args = parse_diff(['--key', 'guid', '--changes-only', '--json', '--color', 'never',
+                       '--topic', '^/ch', '-v', 'a.json', '-'])
+    assert diff_argv(args) == [
+        'diff', 'a.json', '-', '--topic', '^/ch', '-v', '--json', '--color', 'never',
+        '--key', 'guid', '--changes-only']
+    with pytest.raises(SystemExit):
+        parse_diff(['--key', 'name', 'a', 'b'])
+    with pytest.raises(SystemExit):
+        parse_diff(['only_one.json'])
 
 
 def run_ros2(args, env_extra):
@@ -90,6 +131,32 @@ def test_ros2_transport_list_forwards_arguments(fake_binary):
     assert json.loads(proc.stdout) == ['--timeout', '2', '-v', '--stats']
 
 
+def test_ros2_transport_diff_forwards_arguments(fake_binary, tmp_path):
+    before = tmp_path / 'before.json'
+    after = tmp_path / 'after.json'
+    before.write_text('{}')
+    after.write_text('{}')
+    proc = run_ros2(['diff', str(before), str(after), '--changes-only', '--key', 'node'],
+                    {BINARY_ENV: fake_binary})
+    assert proc.returncode == 3, proc.stderr           # the fake's exit code passes through
+    assert json.loads(proc.stdout) == ['diff', str(before), str(after), '--key', 'node',
+                                       '--changes-only']
+
+
+def test_diff_reports_a_missing_file_before_the_binary(tmp_path, capsys, monkeypatch):
+    monkeypatch.setenv(BINARY_ENV, '/nonexistent/transport_viz')
+    present = tmp_path / 'present.json'
+    present.write_text('{}')
+    rc = DiffVerb().main(args=parse_diff([str(present), str(tmp_path / 'absent.json')]))
+    assert rc == 2
+    err = capsys.readouterr().err
+    assert 'no such file' in err and 'absent.json' in err
+    # '-' (stdin) is not a file to check: the binary is reached (and here cannot run)
+    rc = DiffVerb().main(args=parse_diff(['-', str(present)]))
+    assert rc == 1
+    assert 'cannot run' in capsys.readouterr().err
+
+
 def test_ros2_transport_codes(fake_binary):
     proc = run_ros2(['codes'], {BINARY_ENV: fake_binary})
     assert proc.returncode == 3, proc.stderr
@@ -99,7 +166,7 @@ def test_ros2_transport_codes(fake_binary):
 def test_ros2_transport_without_verb_prints_help():
     proc = run_ros2([], {})
     assert proc.returncode == 0, proc.stderr
-    assert 'list' in proc.stdout and 'codes' in proc.stdout
+    assert 'list' in proc.stdout and 'codes' in proc.stdout and 'diff' in proc.stdout
 
 
 def test_rmw_error_only_for_another_middleware(monkeypatch):

@@ -1312,3 +1312,112 @@ TEST(Diff, GrowingLocatorCountersAreNotAChange)
   pair.measured.locators[0].locator = udp4("10.0.0.9", 7413);
   EXPECT_FALSE(pair_state(pair) == before);
 }
+
+// ---- two saved snapshots (transport_viz diff) -------------------------------------
+
+namespace
+{
+Endpoint named(bool writer, const std::string & guid, const std::string & node, HostId host)
+{
+  auto e = make(writer, host, {udp4("10.0.0.1"), shm()});
+  e.guid = guid;
+  e.node_name = node;
+  return e;
+}
+
+Snapshot snapshot_of(std::vector<Endpoint> eps)
+{
+  Snapshot s;
+  s.endpoints = std::move(eps);
+  s.topics = summarize(s.endpoints);
+  return s;
+}
+}  // namespace
+
+TEST(DiffSnapshots, GuidKeySeesARestartAsRemovedPlusAdded)
+{
+  auto before = snapshot_of({named(true, "w1", "/talker", HOST_A),
+        named(false, "r1", "/listener", HOST_A)});
+  auto after = snapshot_of({named(true, "w2", "/talker", HOST_A),
+        named(false, "r2", "/listener", HOST_A)});
+  auto c = diff_snapshots(before, after, KeyMode::Guid);
+  EXPECT_EQ(c.key, KeyMode::Guid);
+  ASSERT_EQ(c.added.size(), 1u);
+  ASSERT_EQ(c.removed.size(), 1u);
+  EXPECT_TRUE(c.changed.empty());
+  EXPECT_EQ(c.added[0].writer_guid, "w2");
+  EXPECT_EQ(c.added[0].writer_node, "/talker");    // pair keys carry the node names
+  EXPECT_EQ(c.removed[0].reader_guid, "r1");
+  EXPECT_EQ(c.removed[0].reader_node, "/listener");
+  EXPECT_FALSE(c.before.has_value());
+}
+
+TEST(DiffSnapshots, NodeKeySurvivesARestartAndReportsBothGuids)
+{
+  auto before = snapshot_of({named(true, "w1", "/talker", HOST_A),
+        named(false, "r1", "/listener", HOST_A)});
+  auto after = snapshot_of({named(true, "w2", "/talker", HOST_A),
+        named(false, "r2", "/listener", HOST_A)});
+  EXPECT_TRUE(diff_snapshots(before, after, KeyMode::Node).empty());
+
+  // the listener lost its SHM locator: same nodes, the transport changed
+  after.endpoints[1].unicast = {udp4("10.0.0.1")};
+  after.topics = summarize(after.endpoints);
+  auto c = diff_snapshots(before, after, KeyMode::Node);
+  EXPECT_EQ(c.key, KeyMode::Node);
+  EXPECT_TRUE(c.added.empty());
+  EXPECT_TRUE(c.removed.empty());
+  ASSERT_EQ(c.changed.size(), 1u);
+  EXPECT_EQ(c.changed[0].key.writer_guid, "w2");           // the after identity ...
+  EXPECT_EQ(c.changed[0].key.reader_guid, "r2");
+  EXPECT_EQ(c.changed[0].before_key.writer_guid, "w1");    // ... and the before one
+  EXPECT_EQ(c.changed[0].before_key.reader_guid, "r1");
+  EXPECT_EQ(c.changed[0].from.transport, Transport::SHM);
+  EXPECT_EQ(c.changed[0].to.transport, Transport::UDPv4);
+}
+
+TEST(DiffSnapshots, NodeKeyMatchesSeveralEndpointsOfOneNodeInGuidOrder)
+{
+  // one node with two writers on the topic, one reader: two pairs of the same node pair
+  auto before = snapshot_of({named(true, "w1", "/multi", HOST_A),
+        named(true, "w2", "/multi", HOST_A), named(false, "r1", "/sink", HOST_A)});
+  auto after = snapshot_of({named(true, "w8", "/multi", HOST_A),
+        named(true, "w9", "/multi", HOST_A), named(false, "r7", "/sink", HOST_A)});
+  EXPECT_TRUE(diff_snapshots(before, after, KeyMode::Node).empty());
+  // a third writer of the same node appears: one added pair, the others still match
+  after.endpoints.push_back(named(true, "w7", "/multi", HOST_A));
+  after.topics = summarize(after.endpoints);
+  auto c = diff_snapshots(before, after, KeyMode::Node);
+  ASSERT_EQ(c.added.size(), 1u);
+  EXPECT_TRUE(c.removed.empty());
+  EXPECT_TRUE(c.changed.empty());
+  EXPECT_EQ(c.added[0].writer_guid, "w9");   // the highest GUID is the new ordinal
+}
+
+TEST(DiffSnapshots, NodeKeyFallsBackToTheGuidWithoutANodeName)
+{
+  auto before = snapshot_of({named(true, "w1", "", HOST_A), named(false, "r1", "/sink", HOST_A)});
+  auto same = snapshot_of({named(true, "w1", "", HOST_A), named(false, "r9", "/sink", HOST_A)});
+  auto other = snapshot_of({named(true, "w2", "", HOST_A), named(false, "r9", "/sink", HOST_A)});
+  EXPECT_TRUE(diff_snapshots(before, same, KeyMode::Node).empty());
+  auto c = diff_snapshots(before, other, KeyMode::Node);
+  EXPECT_EQ(c.added.size(), 1u);
+  EXPECT_EQ(c.removed.size(), 1u);
+  EXPECT_EQ(c.removed[0].writer_guid, "w1");
+}
+
+TEST(DiffSnapshots, RemovedTopicAndAddedTopic)
+{
+  auto before = snapshot_of({named(true, "w1", "/a", HOST_A), named(false, "r1", "/b", HOST_A)});
+  auto after = snapshot_of({named(true, "w2", "/a", HOST_A), named(false, "r2", "/b", HOST_A)});
+  after.endpoints[0].ros_topic = "/other";
+  after.endpoints[0].dds_topic = "rt/other";
+  after.endpoints[1].ros_topic = "/other";
+  after.endpoints[1].dds_topic = "rt/other";
+  after.topics = summarize(after.endpoints);
+  auto c = diff_snapshots(before, after, KeyMode::Node);
+  ASSERT_EQ(c.added.size(), 1u);
+  ASSERT_EQ(c.removed.size(), 1u);
+  EXPECT_EQ(c.added[0].topic, "/other");
+  EXPECT_EQ(c.removed[0].topic, "/chatter");
+}

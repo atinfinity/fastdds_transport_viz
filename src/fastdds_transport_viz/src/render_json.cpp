@@ -207,7 +207,8 @@ std::string render_json(const Snapshot & snap, const RenderOptions & opt)
   if (snap.has_changes) {
     auto key_json = [](const PairKey & k) {
         return json{
-        {"topic", k.topic}, {"writer_guid", k.writer_guid}, {"reader_guid", k.reader_guid}};
+        {"topic", k.topic}, {"writer_guid", k.writer_guid}, {"reader_guid", k.reader_guid},
+        {"writer_node", k.writer_node}, {"reader_node", k.reader_node}};
       };
     auto state_json = [](const PairState & st) {
         json measured = json::array();
@@ -223,6 +224,12 @@ std::string render_json(const Snapshot & snap, const RenderOptions & opt)
         {"warnings", st.warnings}};
       };
     json changes;
+    changes["key"] = to_string(snap.changes.key);
+    if (snap.changes.before) {
+      changes["before"] = {
+        {"observed_at", snap.changes.before->observed_at},
+        {"domain", snap.changes.before->domain}};
+    }
     changes["added_pairs"] = json::array();
     for (const auto & k : snap.changes.added) {
       changes["added_pairs"].push_back(key_json(k));
@@ -235,6 +242,9 @@ std::string render_json(const Snapshot & snap, const RenderOptions & opt)
     for (const auto & c : snap.changes.changed) {
       json cj = key_json(c.key);
       cj["from"] = state_json(c.from);
+      // the pair's identity in the before frame: differs from the key's with `--key node`
+      cj["from"]["writer_guid"] = c.before_key.writer_guid;
+      cj["from"]["reader_guid"] = c.before_key.reader_guid;
       cj["to"] = state_json(c.to);
       changes["changed_pairs"].push_back(cj);
     }

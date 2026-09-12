@@ -5,7 +5,8 @@ Locate and run the transport_viz binary of fastdds_transport_viz.
 
 The C++ binary keeps all Fast DDS logic and rendering; this package only translates
 ros2cli arguments and replaces the current process with the binary, so tables, colors,
-``--watch`` terminal handling, JSON output and exit codes are exactly the binary's.
+``--watch`` terminal handling, JSON output, ``diff`` and exit codes are exactly the
+binary's.
 """
 import os
 import shutil
@@ -108,6 +109,82 @@ def list_argv(args):
     """Translate parsed ``list`` arguments into transport_viz arguments."""
     argv = []
     for dest, option, has_value in _LIST_OPTIONS:
+        value = getattr(args, dest, None)
+        if has_value:
+            if value is not None:
+                argv += [option, _format(value)]
+        elif value:
+            argv.append(option)
+    return argv
+
+
+# `diff` takes the view and rendering options of `list` (not the observation ones)
+_DIFF_OPTIONS = tuple(
+    o for o in _LIST_OPTIONS
+    if o[0] not in ('domain', 'timeout', 'quiet', 'watch', 'interval')) + (
+    ('key', '--key', True),
+    ('changes_only', '--changes-only', False),
+)
+
+
+def add_diff_arguments(parser):
+    """Mirror the options of ``transport_viz diff`` (see its ``--help``)."""
+    parser.add_argument(
+        'before', metavar='BEFORE',
+        help='a --json document of transport_viz (a JSON Lines file of --watch --json '
+             "counts by its last document; '-' reads stdin)")
+    parser.add_argument(
+        'after', metavar='AFTER', help='the document to compare it with')
+    parser.add_argument(
+        '--key', choices=['node', 'guid'], metavar='MODE',
+        help='node|guid: match the pairs of the two documents by (topic, writer node, reader '
+             'node), which survives restarting the nodes (default), or by their GUIDs as '
+             '--watch does')
+    parser.add_argument(
+        '--changes-only', action='store_true',
+        help='only the topics with an added, changed or removed pair (with --json, `topics` '
+             'is pruned the same way)')
+    parser.add_argument(
+        '--topic', metavar='REGEX',
+        help='only compare topics whose (ROS) name matches the regex')
+    parser.add_argument(
+        '--node', metavar='REGEX',
+        help='only compare pairs where the writer or the reader belongs to a node whose '
+             'full name matches the regex')
+    parser.add_argument(
+        '--all', action='store_true',
+        help='include services/actions and non-ROS DDS topics')
+    parser.add_argument(
+        '-v', '--verbose', action='store_true',
+        help='expand writer -> reader pairs under each topic')
+    parser.add_argument(
+        '--explain', action='store_true',
+        help='print a legend for every reason code used')
+    parser.add_argument(
+        '--locators', action='store_true',
+        help='add a line under each pair with the selected and measured locators (implies -v)')
+    parser.add_argument(
+        '--advise', action='store_true',
+        help="add a 'fix <code>: ...' line under each pair for its reason codes that have a "
+             'remedy (implies -v and --explain)')
+    parser.add_argument(
+        '--json', action='store_true',
+        help='emit the after document plus a `changes` object (schema_version 1) instead of '
+             'a table')
+    parser.add_argument(
+        '--stats', action='store_true',
+        help='accepted for symmetry with list; the documents decide whether measured '
+             'transports are shown')
+    parser.add_argument(
+        '--color', choices=['auto', 'always', 'never'], metavar='MODE',
+        help='auto|always|never: ANSI colors for transports, warnings and marks '
+             '(default: auto = only when stdout is a terminal; honours NO_COLOR)')
+
+
+def diff_argv(args):
+    """Translate parsed ``diff`` arguments into transport_viz arguments."""
+    argv = ['diff', args.before, args.after]
+    for dest, option, has_value in _DIFF_OPTIONS:
         value = getattr(args, dest, None)
         if has_value:
             if value is not None:

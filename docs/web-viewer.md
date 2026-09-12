@@ -98,7 +98,10 @@ exited …") and stops; its exit code is 1 if `transport_viz` failed, 0 otherwis
 the container is reachable from the host browser.
 
 `transport_viz --watch --json` itself prints one compact document per line (JSON Lines),
-so any other consumer can read the same stream.
+so any other consumer can read the same stream. The `changes` object of those documents is
+also what `transport_viz diff --json before.json after.json` emits (see
+[how-it-works.md](how-it-works.md#comparing-two-snapshots)); the viewer does not highlight
+it yet ([#77](https://github.com/atinfinity/fastdds_transport_viz/issues/77)).
 
 ## JSON schema
 
