@@ -8,7 +8,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const M = require('../model.js');
-const sample = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'sample', 'sample.json'), 'utf8'));
+const load = name => JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'sample', name), 'utf8'));
+const sample = load('sample.json');
 
 const allFilter = () => ({ topic: '', node: '', transports: new Set(M.TRANSPORTS), hideInternal: true });
 
@@ -206,4 +207,125 @@ test('lossText', () => {
   assert.equal(M.lossText({ reliability: { lost_packets: 0, resent_datas: 0 } }), '0');
   assert.equal(M.lossText({ reliability: { lost_packets: 3, resent_datas: 2 } }), '3 lost, 2 resent');
   assert.equal(M.lossText({ reliability: { lost_packets: 0, resent_datas: 5 } }), '5 resent');
+});
+
+// ---- comparing two documents (the port of transport_viz diff) ---------------------------
+
+const before = () => load('diff_before.json');
+const after = () => load('diff_after.json');
+// what the C++ binary printed for `transport_viz diff --all --json diff_before.json diff_after.json`
+const expected = () => load('diff.json');
+
+test('pairKey / pairState: the C++ shapes', () => {
+  const t = before().topics[0];
+  const p = t.pairs[0];
+  assert.deepEqual(M.pairKey(t, p), { topic: '/chatter', writer_guid: p.writer_guid, reader_guid: p.reader_guid, writer_node: '/talker', reader_node: '/listener' });
+  assert.deepEqual(M.pairState(p), { transport: 'SHM', confidence: 'certain', measured: [], locator: { kind: 'SHM', address: '', port: 7415 }, measured_locators: [], warnings: [] });
+  assert.equal(M.pairState({ transport: 'NONE', confidence: 'likely', locator: null, warnings: ['x'] }).locator, null);
+});
+
+test('sameState: counters ignored, ports ignored only when asked', () => {
+  const a = M.pairState({ transport: 'SHM', confidence: 'certain', locator: { kind: 'SHM', address: '', port: 7415, multicast: false }, warnings: [],
+    measured: { transports: ['SHM'], locators: [{ kind: 'SHM', address: '', port: 7415, packets: 5, bytes: 100 }] } });
+  const b = M.pairState({ transport: 'SHM', confidence: 'certain', locator: { kind: 'SHM', address: '', port: 7417, multicast: false }, warnings: [],
+    measured: { transports: ['SHM'], locators: [{ kind: 'SHM', address: '', port: 7417, packets: 900, bytes: 1e6 }] } });
+  assert.equal(M.sameState(a, b, false), false);
+  assert.equal(M.sameState(a, b, true), true);
+  const c = { ...b, locator: { kind: 'UDPv4', address: '10.0.0.2', port: 7417 } };
+  assert.equal(M.sameState(a, c, true), false);
+  assert.equal(M.sameState(a, { ...a, warnings: ['no-traffic-observed'] }, true), false);
+  assert.equal(M.sameState(a, { ...a, measured: [] }, true), false);
+});
+
+test('diffDocuments: node key reproduces the C++ output on the fixtures exactly', () => {
+  assert.deepEqual(M.diffDocuments(before(), after(), 'node'), expected().changes);
+});
+
+test('diffDocuments: GUID key sees every restarted pair, the raw DDS pair survives', () => {
+  const c = M.diffDocuments(before(), after(), 'guid');
+  assert.equal(c.key, 'guid');
+  assert.equal(c.added_pairs.length, 5);
+  assert.equal(c.removed_pairs.length, 5);
+  assert.equal(c.changed_pairs.length, 0);
+  assert.ok(!c.added_pairs.some(k => k.topic === 'raw_topic') && !c.removed_pairs.some(k => k.topic === 'raw_topic'));
+  // sorted like the C++ std::map: by topic, then writer GUID, then reader GUID
+  const ids = c.added_pairs.map(k => `${k.topic}|${k.writer_guid}|${k.reader_guid}`);
+  assert.deepEqual(ids, [...ids].sort());
+  // a document compared with itself: nothing, under both keys
+  for (const key of ['node', 'guid']) {
+    const same = M.diffDocuments(before(), before(), key);
+    assert.deepEqual([same.added_pairs, same.removed_pairs, same.changed_pairs], [[], [], []]);
+    assert.deepEqual(same.before, { observed_at: '2026-09-13T09:00:00Z', domain: 0 });
+  }
+});
+
+test('changeText: only the fields that differ', () => {
+  const c = expected().changes.changed_pairs[0];
+  assert.equal(M.changeText(c.from, c.to), 'transport SHM → UDPv4, locator SHM:7415 → UDPv4 127.0.0.1:7415');
+  assert.equal(M.changeText(c.to, c.to), '');
+  const a = { transport: 'SHM', confidence: 'certain', measured: [], locator: null, measured_locators: [], warnings: [] };
+  const b = { ...a, confidence: 'likely', measured: ['SHM'], measured_locators: [{ kind: 'SHM', address: '', port: 8169 }], warnings: ['x'] };
+  assert.equal(M.changeText(a, b), 'confidence certain → likely, measured [] → [SHM], measured locators [] → [SHM:8169], warnings [] → [x]');
+});
+
+test('changesSummary: the CLI wording', () => {
+  assert.equal(M.changesSummary(null), '');
+  assert.equal(M.changesSummary({ added_pairs: [], removed_pairs: [], changed_pairs: [] }), 'none');
+  assert.equal(M.changesSummary(expected().changes), '+2 pairs  -2 pairs  ~1 changed');
+  assert.equal(M.changesSummary({ added_pairs: [1], removed_pairs: [], changed_pairs: [] }), '+1 pair');
+  assert.equal(M.changesSummary({ added_pairs: [], removed_pairs: [1], changed_pairs: [1, 2] }), '-1 pair  ~2 changed');
+});
+
+test('decorations: marks keyed by the after pair, ghosts with the before pair when known', () => {
+  const doc = expected();
+  const withBefore = M.decorations(doc.changes, before());
+  const m = M.buildModel(doc);
+  const marked = M.markedPairs(m.pairs, withBefore.marks);
+  assert.deepEqual(marked.map(vp => [vp.topic.topic, vp.pair.reader_node, withBefore.marks.get(M.keyId(M.pairKey(vp.topic, vp.pair))).mark]).sort(),
+    [['/chatter', '/listener', '~'], ['/chatter', '/listener2', '+'], ['/new_topic', '/sink2', '+']]);
+  const changed = withBefore.marks.get(M.keyId(M.pairKey(doc.topics[0], doc.topics[0].pairs[0])));
+  assert.equal(changed.from.transport, 'SHM');
+  assert.equal(withBefore.ghosts.length, 2);
+  const old = withBefore.ghosts.find(g => g.key.topic === '/old_topic');
+  assert.equal(old.pair.transport, 'UDPv4');
+  assert.equal(old.topic.type, 'std_msgs/msg/String');
+  assert.ok(old.id.startsWith('ghost|/old_topic|'));
+  // without the before document (a CLI diff file, a live frame) the ghosts keep their key only
+  const bare = M.decorations(doc.changes, null);
+  assert.equal(bare.ghosts.length, 2);
+  assert.equal(bare.ghosts[0].pair, null);
+  assert.equal(bare.ghosts[0].key.reader_node, '/listener_udp');
+  assert.deepEqual(M.decorations(null).ghosts, []);
+});
+
+test('holdChanges: marks and ghosts stay three frames, a returning pair drops its ghost', () => {
+  const doc = expected();
+  const empty = { key: 'guid', added_pairs: [], removed_pairs: [], changed_pairs: [] };
+  let h = M.holdChanges(null, doc.changes, null, 3);
+  assert.equal(h.marks.size, 3);
+  assert.equal(h.ghosts.size, 2);
+  h = M.holdChanges(h, empty, null, 3);
+  h = M.holdChanges(h, empty, null, 3);
+  assert.equal(h.marks.size, 3, 'still shown on the third frame');
+  assert.equal(M.heldDecorations(h).ghosts.length, 2);
+  h = M.holdChanges(h, empty, null, 3);
+  assert.equal(h.marks.size, 0, 'gone on the fourth');
+  assert.equal(h.ghosts.size, 0);
+  // the removed pair comes back: added mark, no ghost
+  const removed = doc.changes.removed_pairs[0];
+  h = M.holdChanges(null, { ...empty, removed_pairs: [removed] }, null, 3);
+  assert.equal(h.ghosts.size, 1);
+  h = M.holdChanges(h, { ...empty, added_pairs: [removed] }, null, 3);
+  assert.equal(h.ghosts.size, 0);
+  assert.equal(h.marks.get(M.keyId(removed)).mark, '+');
+  assert.deepEqual(M.heldDecorations(null).ghosts, []);
+});
+
+test('pruneNodes: only nodes touched by the visible pairs or ghosts', () => {
+  const m = M.buildModel(expected());
+  const pairs = m.pairs.filter(vp => vp.topic.topic === '/new_topic');
+  const pruned = M.pruneNodes(m, pairs, ['/talker']);
+  assert.deepEqual([...pruned.nodes.keys()].sort(), ['/fresh', '/sink2', '/talker']);
+  assert.ok(pruned.hosts.every(h => h.nodes.length));
+  assert.equal(M.pruneNodes(m, [], []).nodes.size, 0);
 });

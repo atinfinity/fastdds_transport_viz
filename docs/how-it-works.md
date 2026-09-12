@@ -341,4 +341,5 @@ carries `topic`, the GUIDs and `writer_node` / `reader_node`; `changed_pairs[].f
 also names the GUIDs the pair had in the before document), plus `key` (`node` or `guid`)
 and `before` (`observed_at` and `domain` of the before document). `--changes-only` prunes
 `topics` the same way as the table. The document validates against the schema, so
-`jq .changes` extracts the bare comparison and the web viewer can open it.
+`jq .changes` extracts the bare comparison and the [web viewer](web-viewer.md#comparing-two-documents)
+highlights it (it can also compare two documents itself).

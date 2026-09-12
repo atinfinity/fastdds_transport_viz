@@ -236,8 +236,10 @@ same-host peers), which `main.cpp` and the observer use.
 `web/index.html` + `web/app.js` (plain JavaScript, vendored d3) render a `--json`
 document: `buildModel()` in `web/model.js` turns it into nodes, hosts and bundled edges,
 filters apply `--node`/`--topic` semantics client-side, and the panel shows the reason
-codes with the descriptions carried in the document. `model.js` holds every function
-without DOM or d3 dependencies and is unit-tested under Node (`web/test/`). `schema/transport_viz.schema.json` is the contract;
+codes with the descriptions carried in the document. `diffDocuments()` in `model.js` is a
+port of `diff_snapshots()` (same `changes` object, tested against the binary's output on
+the shared fixtures) for comparing two documents in the browser. `model.js` holds every
+function without DOM or d3 dependencies and is unit-tested under Node (`web/test/`). `schema/transport_viz.schema.json` is the contract;
 `test_json_schema` validates the shipped samples and `test_json_schema_live.py` the live
 output against it. The tool may add
 keys freely; a breaking change bumps `schema_version`.

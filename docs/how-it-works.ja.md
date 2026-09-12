@@ -314,4 +314,5 @@ ros2 transport diff before.json after.json
 `writer_node` / `reader_node` を持ち、`changed_pairs[].from` は前の文書でのペアの GUID も持つ)
 に加えて `key` (`node` か `guid`) と `before` (前の文書の `observed_at` と `domain`)。
 `--changes-only` は表と同じように `topics` を刈り込みます。文書はスキーマに適合するので、
-`jq .changes` で比較だけを取り出せ、web viewer でも開けます。
+`jq .changes` で比較だけを取り出せ、[web viewer](web-viewer.ja.md#2-つの文書の比較) はそれを強調表示します
+(viewer 自身で 2 つの文書を比較することもできます)。

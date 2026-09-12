@@ -4,6 +4,14 @@ Changelog for package fastdds_transport_viz
 
 Forthcoming
 -----------
+* Web viewer: compare two documents (``Compare with…``, ``?src=a&diff=b[&key=guid]``) and
+  highlight the ``changes`` object of a ``transport_viz diff --json`` file or a live frame:
+  ``+`` / ``~`` / ``-`` marks in the table with ``before → after`` transports and ghost
+  rows, halos and dotted ghost edges in the graph, a ``changes only`` switch and the
+  ``changes:`` summary; live marks stay three frames like ``--watch``. The comparison is
+  a JavaScript port of ``diff_snapshots()`` tested against the binary's output on the
+  shared fixtures (``web/sample/diff.json``). Hidden elements no longer show through a
+  ``display`` rule (the live indicator was visible on a static page) (#77).
 * ``transport_viz diff <before.json> <after.json>``: compare two saved ``--json``
   documents without observing anything (change a profile or an environment variable, run
   again, see what moved). The after snapshot is printed with the ``+`` / ``~`` / ``-``
