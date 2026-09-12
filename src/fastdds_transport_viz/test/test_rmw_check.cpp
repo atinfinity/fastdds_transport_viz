@@ -49,6 +49,7 @@ TEST(RmwCheck, UnloadableRmwIsRejectedWithTheRmwError)
     "cannot load the RMW named by RMW_IMPLEMENTATION=rmw_bogus_cpp: failed to load shared "
     "library");
   // unset variable and no error text: still a complete sentence
-  EXPECT_EQ(rmw_verdict(std::nullopt, "", "").message,
+  EXPECT_EQ(
+    rmw_verdict(std::nullopt, "", "").message,
     "cannot load the RMW named by RMW_IMPLEMENTATION=(unset)");
 }
