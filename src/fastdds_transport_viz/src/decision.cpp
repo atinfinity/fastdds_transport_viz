@@ -766,6 +766,22 @@ std::map<PairKey, std::pair<PairKey, PairState>> node_keyed(const Snapshot & sna
   }
   return out;
 }
+
+/// PairState equality for the node key: a restart renumbers the ports of a participant's
+/// locators (7413, 7415, ... by participant id), which says nothing about how the pair
+/// talks, so the port numbers of the selected and measured locators are left out. The
+/// kinds and addresses still count.
+bool same_ignoring_ports(const PairState & a, const PairState & b)
+{
+  auto strip = [](PairState s) {
+      s.locator.port = 0;
+      for (auto & l : s.measured_locators) {
+        l.port = 0;
+      }
+      return s;
+    };
+  return strip(a) == strip(b);
+}
 }  // namespace
 
 Changes diff_snapshots(const Snapshot & before, const Snapshot & after, KeyMode mode)
@@ -785,7 +801,7 @@ Changes diff_snapshots(const Snapshot & before, const Snapshot & after, KeyMode 
     auto it = prev.find(kv.first);
     if (it == prev.end()) {
       c.added.push_back(kv.second.first);
-    } else if (it->second.second != kv.second.second) {
+    } else if (!same_ignoring_ports(it->second.second, kv.second.second)) {
       c.changed.push_back(
         PairChange{kv.second.first, it->second.second, kv.second.second, it->second.first});
     }

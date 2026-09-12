@@ -325,8 +325,8 @@ TEST(ParseJson, RoundTripsEverythingTheRenderersShow)
   EXPECT_EQ(parsed.shm.warnings, std::vector<std::string>{"shm-stale-files"});
   // both renderers produce the same output from the parsed snapshot
   std::string where;
-  EXPECT_TRUE(close(json::parse(text), json::parse(render_json(parsed, RenderOptions{})), "$",
-    &where)) << where;
+  const json again = json::parse(render_json(parsed, RenderOptions{}));
+  EXPECT_TRUE(close(json::parse(text), again, "$", &where)) << where;
   RenderOptions verbose;
   verbose.verbose = true;
   verbose.explain = true;

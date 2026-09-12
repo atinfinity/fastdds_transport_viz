@@ -851,7 +851,7 @@
       ],
       "properties": {
         "key": {
-          "description": "How the pairs of the two snapshots were matched: by (topic, writer GUID, reader GUID) or by (topic, writer node, reader node), which survives a restart of the nodes (`diff --key node`, the default of diff).",
+          "description": "How the pairs of the two snapshots were matched: by (topic, writer GUID, reader GUID) or by (topic, writer node, reader node), which survives a restart of the nodes and ignores the locator port numbers a restart renumbers (`diff --key node`, the default of diff).",
           "enum": [
             "guid",
             "node"

@@ -299,8 +299,8 @@ Snapshot snapshot(const json & doc)
   const std::string root = "document";
   const auto & version = at(doc, "schema_version", root);
   if (!version.is_number_integer() || version.get<int>() != 1) {
-    throw ParseError(
-      "schema_version " + version.dump() + " is not supported (this tool reads 1)");
+    const std::string found = "schema_version " + version.dump();
+    throw ParseError(found + " is not supported (this tool reads 1)");
   }
   Snapshot snap;
   snap.domain = at(doc, "domain", root).get<int>();

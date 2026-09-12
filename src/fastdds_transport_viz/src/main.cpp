@@ -137,8 +137,9 @@ void usage()
     "Exit status: 0 no changes, 1 changes, 2 error. Takes --json, --color, --topic, --node,\n"
     "--all, -v, --explain, --locators, --advise and:\n"
     "  --key <mode>       node|guid: match the pairs of the two documents by (topic, writer\n"
-    "                     node, reader node), which survives restarting the nodes (default),\n"
-    "                     or by their GUIDs as --watch does\n"
+    "                     node, reader node), which survives restarting the nodes (default;\n"
+    "                     locator port numbers, renumbered by a restart, are ignored), or\n"
+    "                     by their GUIDs as --watch does\n"
     "  --changes-only     only the topics with an added, changed or removed pair (with\n"
     "                     --json, `topics` is pruned the same way)\n";
 }

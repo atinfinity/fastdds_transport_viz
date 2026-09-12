@@ -10,7 +10,8 @@ Forthcoming
   marks, ghost rows and ``changes:`` line of ``--watch``, or with ``--json`` as the after
   document plus the ``changes`` object. Pairs are matched by ``(topic, writer node, reader
   node)`` by default (``--key node``), so restarting the nodes between the two runs is not
-  a change; ``--key guid`` matches by GUIDs as ``--watch`` does. ``--changes-only`` keeps
+  a change (the node key also ignores the locator port numbers a restart renumbers);
+  ``--key guid`` matches by GUIDs as ``--watch`` does. ``--changes-only`` keeps
   the topics that moved; ``--topic``, ``--node``, ``--all`` and the rendering options apply
   to both documents. One document may be ``-`` (stdin) and a ``--watch --json`` log counts
   by its last document. Exit status 0 without changes, 1 with, 2 on an error (#77).

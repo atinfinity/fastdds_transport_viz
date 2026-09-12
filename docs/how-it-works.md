@@ -323,8 +323,11 @@ a marked or removed pair.
 every restart gives their endpoints new GUIDs, so that key would report every pair as
 removed and added again. `diff` therefore matches by `(topic, writer node, reader node)`
 by default (`--key node`): a node with several writers or readers on one topic has them
-matched in GUID order, and an endpoint without a ROS node name is matched by its GUID.
-`--key guid` gives the exact `--watch` semantics for two frames of the same run.
+matched in GUID order, and an endpoint without a ROS node name is matched by its GUID. For
+the same reason the node key ignores the port numbers of the selected and measured
+locators (a restart renumbers them: 7413, 7415, ... by participant id); their kinds and
+addresses still count. `--key guid` gives the exact `--watch` semantics for two frames of
+the same run.
 
 **Exit status** follows `diff(1)`: 0 when nothing changed, 1 when something did, 2 on a
 usage error, an unreadable file, a document of another `schema_version` or an invalid
