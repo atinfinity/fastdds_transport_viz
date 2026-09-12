@@ -11,6 +11,7 @@ endif()
 
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
+find_package(rmw REQUIRED)
 find_package(std_msgs REQUIRED)
 # Fast DDS 3.x (Lyrical / Rolling) exports the `fastdds` package, 2.x (Jazzy) `fastrtps`.
 find_package(fastdds QUIET)
@@ -32,6 +33,7 @@ add_library(${PROJECT_NAME}_core
   src/model.cpp
   src/decision.cpp
   src/ros_names.cpp
+  src/rmw_check.cpp
   src/shm_info.cpp)
 target_include_directories(${PROJECT_NAME}_core PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
@@ -78,7 +80,8 @@ target_link_libraries(${PROJECT_NAME}_lib PUBLIC
   nlohmann_json::nlohmann_json)
 
 add_executable(transport_viz src/main.cpp)
-target_link_libraries(transport_viz PRIVATE ${PROJECT_NAME}_lib)
+# rmw::rmw for rmw_get_implementation_identifier() (the RMW check before rclcpp::init)
+target_link_libraries(transport_viz PRIVATE ${PROJECT_NAME}_lib rmw::rmw)
 
 # --- verification nodes ---------------------------------------------------------
 foreach(node bounded_pub bounded_sub unbounded_pub unbounded_sub large_array_pub large_array_sub)
@@ -123,6 +126,8 @@ if(BUILD_TESTING)
   target_link_libraries(test_decision ${PROJECT_NAME}_core)
   ament_add_gtest(test_shm_info test/test_shm_info.cpp)
   target_link_libraries(test_shm_info ${PROJECT_NAME}_core)
+  ament_add_gtest(test_rmw_check test/test_rmw_check.cpp)
+  target_link_libraries(test_rmw_check ${PROJECT_NAME}_core)
   ament_add_gtest(test_render test/test_render.cpp)
   target_link_libraries(test_render ${PROJECT_NAME}_lib)
   ament_add_gtest(test_render_json test/test_render_json.cpp)

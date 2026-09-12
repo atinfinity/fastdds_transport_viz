@@ -14,6 +14,8 @@ from ros2transport.api import add_list_arguments
 from ros2transport.api import BINARY_ENV
 from ros2transport.api import find_binary
 from ros2transport.api import list_argv
+from ros2transport.api import rmw_error
+from ros2transport.verb.list import ListVerb
 
 FAKE = """#!/usr/bin/env python3
 import json, sys
@@ -98,6 +100,31 @@ def test_ros2_transport_without_verb_prints_help():
     proc = run_ros2([], {})
     assert proc.returncode == 0, proc.stderr
     assert 'list' in proc.stdout and 'codes' in proc.stdout
+
+
+def test_rmw_error_only_for_another_middleware(monkeypatch):
+    for ok in ('rmw_fastrtps_cpp', 'rmw_fastrtps_dynamic_cpp'):
+        monkeypatch.setenv('RMW_IMPLEMENTATION', ok)
+        assert rmw_error() is None, ok
+    monkeypatch.delenv('RMW_IMPLEMENTATION', raising=False)
+    assert rmw_error() is None, 'unset: the binary asks the RMW layer'
+    monkeypatch.setenv('RMW_IMPLEMENTATION', 'rmw_cyclonedds_cpp')
+    msg = rmw_error()
+    assert msg.startswith('ros2 transport: RMW is rmw_cyclonedds_cpp;'), msg
+    assert 'RMW_IMPLEMENTATION=rmw_fastrtps_cpp' in msg
+
+
+def test_other_rmw_stops_list_before_the_binary(monkeypatch, capsys):
+    # In-process: `ros2 transport` itself imports rclpy, whose rcl load-time check exits 1
+    # for an RMW that is not installed (the CI image has only rmw_fastrtps_cpp), so the
+    # verb's own check is reached only for an installed other middleware; call it directly.
+    monkeypatch.setenv('RMW_IMPLEMENTATION', 'rmw_cyclonedds_cpp')
+    monkeypatch.setenv(BINARY_ENV, '/nonexistent/transport_viz')
+    rc = ListVerb().main(args=parse([]))
+    assert rc == 1
+    err = capsys.readouterr().err
+    assert err.startswith('ros2 transport: RMW is rmw_cyclonedds_cpp;'), err
+    assert 'not found' not in err, 'stopped before the binary was even looked up'
 
 
 def test_missing_binary_is_reported():

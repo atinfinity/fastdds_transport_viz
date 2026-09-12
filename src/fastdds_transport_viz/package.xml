@@ -14,6 +14,7 @@
   <buildtool_depend>ament_cmake</buildtool_depend>
 
   <depend>rclcpp</depend>
+  <depend>rmw</depend>
   <depend>std_msgs</depend>
   <depend condition="$ROS_DISTRO == humble or $ROS_DISTRO == jazzy">fastrtps</depend>
   <depend condition="$ROS_DISTRO != humble and $ROS_DISTRO != jazzy">fastdds</depend>

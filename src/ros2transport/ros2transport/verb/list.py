@@ -1,8 +1,11 @@
 # Copyright 2026 atinfinity
 # SPDX-License-Identifier: Apache-2.0
+import sys
+
 from ros2transport.api import add_list_arguments
 from ros2transport.api import exec_binary
 from ros2transport.api import list_argv
+from ros2transport.api import rmw_error
 from ros2transport.verb import VerbExtension
 
 
@@ -13,4 +16,8 @@ class ListVerb(VerbExtension):
         add_list_arguments(parser)
 
     def main(self, *, args):
+        message = rmw_error()
+        if message:
+            print(message, file=sys.stderr)
+            return 1
         return exec_binary(list_argv(args))

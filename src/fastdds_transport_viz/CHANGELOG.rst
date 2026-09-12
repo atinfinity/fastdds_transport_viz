@@ -4,6 +4,10 @@ Changelog for package fastdds_transport_viz
 
 Forthcoming
 -----------
+* The tool refuses to start on an RMW other than ``rmw_fastrtps_cpp`` (exit 1, the
+  message names the RMW and the fix), asking the RMW layer itself before any participant
+  is created, so an unset ``RMW_IMPLEMENTATION`` resolves to the distro's default.
+  ``rmw_fastrtps_dynamic_cpp`` runs with a warning until it is verified (#73).
 * ``--advise``: what to change to get past the reason codes in use. Every code now has a
   remedy (one sentence naming the environment variable, XML element or QoS policy) or an
   explicit none. The flag adds a ``fix <code>: ...`` line under each pair for its codes

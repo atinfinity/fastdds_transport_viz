@@ -13,6 +13,8 @@ import sys
 
 BINARY_PACKAGE = 'fastdds_transport_viz'
 BINARY_NAME = 'transport_viz'
+# RMWs the binary starts on (rmw_fastrtps_dynamic_cpp with a warning of its own).
+SUPPORTED_RMW = ('rmw_fastrtps_cpp', 'rmw_fastrtps_dynamic_cpp')
 # Overrides the lookup (tests use it to substitute a fake binary).
 BINARY_ENV = 'TRANSPORT_VIZ_BINARY'
 
@@ -139,6 +141,18 @@ def find_binary():
     except ImportError:
         pass
     return shutil.which(BINARY_NAME)
+
+
+def rmw_error():
+    """Return the message to print instead of running the binary on another RMW, or None."""
+    # An unset RMW_IMPLEMENTATION (the distro's default RMW) is left to the binary, which
+    # asks the RMW layer itself; so is rmw_fastrtps_dynamic_cpp, which it warns about.
+    rmw = os.environ.get('RMW_IMPLEMENTATION')
+    if not rmw or rmw in SUPPORTED_RMW:
+        return None
+    return (f'ros2 transport: RMW is {rmw}; this tool observes Fast DDS and needs '
+            'rmw_fastrtps_cpp (set RMW_IMPLEMENTATION=rmw_fastrtps_cpp, see Limitations in '
+            'the README)')
 
 
 def exec_binary(argv):
