@@ -42,3 +42,11 @@ def test_sample_descriptions_cover_used_codes():
             used.update(p['reasons'])
             used.update(p['warnings'])
     assert used <= set(doc['reason_code_descriptions'])
+
+
+def test_sample_remedies_share_the_keys_of_the_descriptions():
+    doc = load(REPO / 'web' / 'sample' / 'sample.json')
+    assert set(doc['reason_code_remedies']) == set(doc['reason_code_descriptions'])
+    # a normal state has nothing to change, a reader without SHM does
+    assert doc['reason_code_remedies']['same-host-guid'] is None
+    assert 'FASTDDS_BUILTIN_TRANSPORTS' in doc['reason_code_remedies']['reader-no-shm-locator']

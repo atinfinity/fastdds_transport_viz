@@ -92,7 +92,7 @@ class TestWatchTty(Base):
         self.assertIn('\033[?25l', out)            # cursor hidden
         self.assertIn('\033[H', out)               # frames painted in place
         self.assertIn('\033[K', out)
-        self.assertIn('q quit   p pause   v pairs   e legend   a all   l locators', out)
+        self.assertIn('q quit   p pause   v pairs   e legend   a all   l locators   f fixes', out)
         self.assertNotIn('->', out)                # no pair rows yet
         t.key('v')
         out = t.read(2.5)

@@ -10,6 +10,7 @@
 
 #include <map>
 #include <functional>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -57,8 +58,14 @@ Changes diff(
   const std::map<PairKey, PairState> & previous,
   const std::map<PairKey, PairState> & current);
 
-/// Human readable explanation for a reason / warning code (English).
+/// Human readable explanation for a reason / warning code (English): what happened.
 std::string explain(const std::string & code);
+
+/// What to change to get past a reason / warning code (English, one sentence naming the
+/// environment variable, XML element or QoS policy). Empty for codes that describe a normal
+/// state or ask for a bug report, and for unknown codes. Shown by --advise, --list-codes,
+/// the JSON `reason_code_remedies` object and the web viewer.
+std::optional<std::string> remedy(const std::string & code);
 
 /// All known reason / warning codes (for --explain listing and tests).
 std::vector<std::string> known_codes();

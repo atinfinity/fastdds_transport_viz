@@ -161,12 +161,32 @@ test('shmText: summary line, stale count, visibility and warnings with descripti
   const shm = { available: true, path: '/dev/shm', total_bytes: 16668618752, used_bytes: 396000000, fastdds_bytes: 63400000,
     segments: 114, stale_segments: 110, ports: 14, stale_ports: 7, datasharing_histories: 1, nodes_visible: false,
     warnings: ['shm-stale-files'] };
-  const html = M.shmText(shm, { 'shm-stale-files': 'run "fastdds shm clean"' });
+  const html = M.shmText(shm, { 'shm-stale-files': 'stale "files"' });
   assert.ok(html.startsWith('shared memory: /dev/shm 396 MB used of 16.7 GB · Fast DDS 63.4 MB in 114 segment(s), 14 port(s), 1 data-sharing history (117 stale) · nodes in another IPC namespace '));
   assert.ok(html.includes('<b>!shm-stale-files</b>'));
-  assert.ok(html.includes('title="run &quot;fastdds shm clean&quot;"'), 'description escaped into the title');
+  assert.ok(html.includes('title="stale &quot;files&quot;"'), 'description escaped into the title');
+  // the remedy joins the tooltip when the document carries one
+  const withFix = M.shmText(shm, { 'shm-stale-files': 'stale files.' }, { 'shm-stale-files': "run 'fastdds shm clean'" });
+  assert.ok(withFix.includes('title="stale files. Fix: run &#39;fastdds shm clean&#39;"'), withFix);
   shm.datasharing_histories = 2; shm.stale_segments = 0; shm.stale_ports = 0; shm.nodes_visible = true; shm.warnings = [];
   assert.equal(M.shmText(shm), 'shared memory: /dev/shm 396 MB used of 16.7 GB · Fast DDS 63.4 MB in 114 segment(s), 14 port(s), 2 data-sharing histories');
+});
+
+test('codeListHtml: description, remedy line only when known, warning prefix, escaping', () => {
+  const desc = { 'reader-no-shm-locator': 'no SHM <locator>', 'same-host-guid': 'same host' };
+  const rem = { 'reader-no-shm-locator': 'unset FASTDDS_BUILTIN_TRANSPORTS & co', 'same-host-guid': null };
+  const html = M.codeListHtml(['same-host-guid', 'reader-no-shm-locator'], desc, rem, false);
+  assert.equal(html,
+    '<span class="code "><b>same-host-guid</b><span class="desc">same host</span></span>' +
+    '<span class="code "><b>reader-no-shm-locator</b><span class="desc">no SHM &lt;locator&gt;</span>' +
+    '<span class="fix">fix: unset FASTDDS_BUILTIN_TRANSPORTS &amp; co</span></span>');
+  // warnings get the ! prefix; a document without the dictionaries renders bare codes
+  assert.equal(M.codeListHtml(['shm-stale-files'], undefined, undefined, true),
+    '<span class="code warn"><b>!shm-stale-files</b><span class="desc"></span></span>');
+  assert.equal(M.codeListHtml([], desc, rem, false), '');
+  // the shipped sample carries both dictionaries with the same keys
+  assert.ok(sample.reason_code_remedies, 'sample.json predates reason_code_remedies: re-capture it');
+  assert.deepEqual(Object.keys(sample.reason_code_remedies).sort(), Object.keys(sample.reason_code_descriptions).sort());
 });
 
 test('humanSeconds / latencyText', () => {

@@ -63,7 +63,7 @@ The same run opened in the [web viewer](docs/web-viewer.md) (table view):
   what changed), `--json` with a published schema, the `ros2 transport` command, and a
   web viewer (graph and table, live updates through `transport_viz_web`).
 - **Focus.** `--topic` / `--node` regex filters, `--explain` for the codes in use,
-  `ros2 transport codes` for all of them.
+  `--advise` for what to change to get past them, `ros2 transport codes` for all of them.
 - **Shared memory of the environment.** Capacity of `/dev/shm`, the Fast DDS segments,
   ports and data-sharing histories in it, stale leftovers, and whether the observed nodes
   share it at all.
@@ -91,7 +91,7 @@ the nodes you observe.
 
 ```
 ros2 transport list [--domain N] [--timeout S] [--quiet S] [--topic REGEX] [--node REGEX]
-                    [--all] [-v] [--explain] [--locators] [--stats] [--json]
+                    [--all] [-v] [--explain] [--locators] [--advise] [--stats] [--json]
                     [--color auto|always|never] [--watch [--interval S]]
 ros2 transport codes
 ```
@@ -105,6 +105,7 @@ ros2 transport codes
 | `-v` | expand writer → reader pairs under each topic |
 | `--explain` | append a legend for the reason codes used |
 | `--locators` | add a line under each pair with the locator the tool selected and the locators that actually carried packets (implies `-v`; ignored with `--json`, which always carries them) |
+| `--advise` | add a `fix <code>: …` line under each pair for its reason codes that have a remedy, and the remedy under each code of the legend (implies `-v` and `--explain`; ignored with `--json`, which always carries them as `reason_code_remedies`) |
 | `--stats` | also show measured transports and the `RATE` column (payload bytes/s per topic and writer); observed nodes need `FASTDDS_STATISTICS`, see [docs/statistics.md](docs/statistics.md) |
 | `--json` | machine-readable output (`schema_version: 1`, see `schema/`); open it in the [web viewer](docs/web-viewer.md) |
 | `--topic REGEX` | only topics whose name matches |

@@ -45,6 +45,7 @@ main { display: grid; grid-template-columns: 1fr 380px; height: calc(100% - 84px
 #panel .code b { font-family: ui-monospace, Menlo, monospace; font-size: 12px; }
 #panel .code.warn b { color: var(--warn); }
 #panel .code .desc { display: block; color: var(--muted); margin-left: 12px; }
+#panel .code .fix { display: block; margin-left: 12px; }
 .badge { display: inline-block; padding: 0 6px; border-radius: 10px; font-size: 11px; color: #fff; background: var(--c-none); }
 .badge.likely { opacity: .75; }
 .badge.warn { background: var(--warn); }

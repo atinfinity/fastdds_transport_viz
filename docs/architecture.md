@@ -179,8 +179,9 @@ classDiagram
 - `TopicSummary::pairs` hold pointers into `Snapshot::endpoints`, so a copied snapshot
   must rebuild its topics (the watch loop does this for ghost rows).
 - `Verdict::reasons` and `warnings` are machine-readable codes. Every code has an English
-  description in `decision.cpp` (`explain()`), which `--explain`, `--list-codes`,
-  `ros2 transport codes`, the JSON `reason_code_descriptions` object and the web viewer
+  description (`explain()`) and a remedy or an explicit none (`remedy()`) in one table in
+  `decision.cpp`, which `--explain` / `--advise`, `--list-codes`, `ros2 transport codes`,
+  the JSON `reason_code_descriptions` / `reason_code_remedies` objects and the web viewer
   all use. `StatsData` keeps the raw statistics (per-locator traffic samples with first
   and last cumulative values, delivery proofs, DATA_COUNT and throughput per writer,
   host info per participant); `ShmInfo` is the shared-memory scan.
@@ -269,9 +270,10 @@ docs/, mkdocs.yml                  this site (English source, *.ja.md translatio
 ## Extension points
 
 - **A new reason or warning code**: push it in `decision.cpp` where the situation is
-  detected, add its description to the `explanations()` table (`explain()` returns
-  "(no description)" otherwise), and cover it in `test_decision.cpp`. Nothing else needs to change:
-  renderers, JSON, `--explain`, the CLI and the web viewer read the table.
+  detected, add its description and its remedy (or `std::nullopt` when there is nothing to
+  change) to the `explanations()` table (`explain()` returns "(no description)" otherwise),
+  and cover it in `test_decision.cpp`. Nothing else needs to change: renderers, JSON,
+  `--explain` / `--advise`, the CLI and the web viewer read the table.
 - **A new statistics topic**: add a `Reader` to `StatsObserver` (`create_reader` reuses
   a topic Fast DDS already created when the observed node is in the same process),
   drain it in `drain()` into a new `StatsData` field, consume the field in

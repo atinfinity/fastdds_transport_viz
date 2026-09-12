@@ -148,7 +148,7 @@ the same page (`web/index.html`) can open offline. See [web-viewer.md](web-viewe
 
 ```
 ros2 transport list [--domain N] [--timeout S] [--quiet S] [--topic REGEX] [--node REGEX]
-                    [--all] [-v] [--explain] [--locators] [--stats] [--json]
+                    [--all] [-v] [--explain] [--locators] [--advise] [--stats] [--json]
                     [--color auto|always|never] [--watch [--interval S]]
 ros2 transport codes
 ```
@@ -159,6 +159,11 @@ plus `--list-codes`. Exit codes: 0 on success, 2 on a usage error, and 1 from `r
 when the binary cannot be found or started.
 
 ## First checks when something is off
+
+`ros2 transport list --advise` prints, under each pair and in the legend, what to change
+to get past the reason codes in use (`fix reader-no-shm-locator: Enable SHM on the
+reader's participant: unset FASTDDS_BUILTIN_TRANSPORTS ...`); `ros2 transport codes` lists
+the remedy of every code. The table below covers what is not a reason code.
 
 | Symptom | Check |
 |---|---|

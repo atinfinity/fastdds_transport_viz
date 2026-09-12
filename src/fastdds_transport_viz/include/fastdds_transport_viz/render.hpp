@@ -36,6 +36,8 @@ struct RenderOptions
   bool verbose{false};     // expand writer->reader pairs under each topic
   bool explain{false};     // append a legend for every reason code used
   bool locators{false};    // add a "locators:" line under each pair row (implies verbose)
+  bool advise{false};      // "fix <code>: ..." lines under each pair row and remedies in the
+                           // legend (implies verbose and explain)
   bool compact{false};     // JSON: one line per document (JSON Lines), no indentation
   bool color{false};       // ANSI colors for transports, warnings and marks
   size_t max_width{0};     // truncate table lines to this many visible columns (0 = never)

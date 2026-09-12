@@ -481,3 +481,113 @@ TEST(RenderTable, LocatorLineDoesNotWidenThePairColumns)
   }
   EXPECT_EQ(stripped, without);
 }
+
+TEST(RenderTable, AdviseLinesUnderPairsAndInTheLegend)
+{
+  // same host, writer with SHM, reader without: UDPv4 with reader-no-shm-locator (has a
+  // remedy) next to same-host-guid and common-udpv4-locator (nothing to change)
+  Snapshot s;
+  s.local_host_id = {1, 2, 3, 4};
+  auto w = ep(true, "W1", "/talker", LocatorKind::UDPv4);
+  w.unicast.push_back(Locator{LocatorKind::SHM, "", 7411});
+  auto r = ep(false, "R1", "/listener_udp", LocatorKind::UDPv4);
+  s.endpoints = {w, r};
+  s.topics = summarize(s.endpoints);
+  ASSERT_EQ(s.topics[0].pairs.size(), 1u);
+  ASSERT_EQ(s.topics[0].pairs[0].verdict.transport, Transport::UDPv4);
+
+  RenderOptions opt;
+  opt.verbose = true;
+  opt.explain = true;
+  const auto without = render_table(s, opt);
+  EXPECT_EQ(without.find("    fix "), std::string::npos) << "fix lines only appear with --advise";
+  EXPECT_EQ(without.find("      fix: "), std::string::npos);
+
+  opt.advise = true;
+  const auto with = render_table(s, opt);
+  // one line per code with a remedy, under the pair row, prefixed with the code
+  const auto pair_fix =
+    with.find("    fix reader-no-shm-locator: Enable SHM on the reader's participant");
+  ASSERT_NE(pair_fix, std::string::npos) << with;
+  EXPECT_LT(with.find("/talker@local -> /listener_udp@local"), pair_fix);
+  EXPECT_EQ(with.find("fix same-host-guid"), std::string::npos);
+  EXPECT_EQ(with.find("fix common-udpv4-locator"), std::string::npos);
+  // the legend carries the remedy under the code, right after its description
+  const auto legend = with.find("\nReason codes:\n");
+  ASSERT_NE(legend, std::string::npos);
+  EXPECT_NE(
+    with.find(
+      "  reader-no-shm-locator\n      " + explain("reader-no-shm-locator") + "\n      fix: " +
+      *remedy("reader-no-shm-locator") + "\n", legend),
+    std::string::npos) << with;
+  // and no fix line under a code without a remedy
+  const std::string shg = "  same-host-guid\n      " + explain("same-host-guid") + "\n";
+  ASSERT_NE(with.find(shg, legend), std::string::npos) << with;
+  EXPECT_EQ(with.find(shg + "      fix:", legend), std::string::npos) << with;
+}
+
+TEST(RenderTable, AdviseLinesForNoneVerdictsAndNotForGhosts)
+{
+  Snapshot s;
+  s.local_host_id = {1, 2, 3, 4};
+  auto w = ep(true, "W1", "/talker", LocatorKind::UDPv4);
+  auto r = ep(false, "R1", "/listener", LocatorKind::UDPv4);
+  w.qos.reliability = "BEST_EFFORT";
+  r.qos.reliability = "RELIABLE";
+  s.endpoints = {w, r};
+  s.topics = summarize(s.endpoints);
+  ASSERT_EQ(s.topics[0].pairs[0].verdict.transport, Transport::None);
+
+  RenderOptions opt;
+  opt.advise = true;
+  opt.verbose = true;
+  const auto out = render_table(s, opt);
+  EXPECT_NE(out.find("fix qos-incompatible-reliability: Offer RELIABLE on the writer"),
+    std::string::npos) << out;
+  EXPECT_EQ(out.find("fix qos-incompatible:"), std::string::npos) <<
+    "the warning has no remedy of its own";
+
+  // a ghost pair (removed, still displayed) is gone: nothing to fix
+  WatchDecorations deco;
+  deco.ghosts.push_back(
+    GhostPair{PairKey{"/chatter", "W1", "R9"}, "std_msgs/msg/String",
+      "/talker@local", "/gone@local", "UDPv4"});
+  opt.watch = &deco;
+  const auto watched = render_table(s, opt);
+  size_t fixes = 0;
+  for (size_t pos = watched.find("fix qos-incompatible-reliability"); pos != std::string::npos;
+    pos = watched.find("fix qos-incompatible-reliability", pos + 1))
+  {
+    ++fixes;
+  }
+  EXPECT_EQ(fixes, 1u) << watched;
+}
+
+TEST(RenderTable, AdviseLinesDoNotWidenThePairColumns)
+{
+  Snapshot s;
+  s.local_host_id = {1, 2, 3, 4};
+  auto w = ep(true, "W1", "/talker", LocatorKind::UDPv4);
+  w.unicast.push_back(Locator{LocatorKind::SHM, "", 7411});
+  auto r = ep(false, "R1", "/listener_udp", LocatorKind::UDPv4);
+  s.endpoints = {w, r};
+  s.topics = summarize(s.endpoints);
+
+  RenderOptions opt;
+  opt.verbose = true;
+  opt.explain = true;
+  const auto without = render_table(s, opt);
+  opt.advise = true;
+  const auto with = render_table(s, opt);
+  // every line that is not a fix line is unchanged
+  std::string stripped;
+  std::istringstream in(with);
+  for (std::string line; std::getline(in, line); ) {
+    if (line.find("    fix ") == std::string::npos &&
+      line.find("      fix: ") == std::string::npos)
+    {
+      stripped += line + "\n";
+    }
+  }
+  EXPECT_EQ(stripped, without);
+}

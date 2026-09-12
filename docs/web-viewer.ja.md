@@ -1,6 +1,6 @@
 # Web viewer
 
-> 英語版が正です。この文書は 2026-09-06 時点の英語版に対応しています。
+> 英語版が正です。この文書は 2026-09-12 時点の英語版に対応しています。
 
 `web/index.html` は `transport_viz --json` の文書をグラフとして描画します。ホストが列、ROS ノードが
 箱、writer → reader の各ペアが transport ごとに色分けされた矢印です。静的ページ (素の HTML/JS と
@@ -37,7 +37,7 @@ open web/index.html            # macOS。あるいはファイルをダブルク
 | 赤い縁 | 警告が 1 つ以上ある (例: `measured-transport-mismatch`) |
 
 矢印をクリックすると側面パネルにそのペアの一覧が出ます。transport、確信度、実測トラフィック、
-理由コードとその説明 (文書の `reason_code_descriptions` から)、両エンドポイントの locator、QoS
+理由コードとその説明・対処 (文書の `reason_code_descriptions` / `reason_code_remedies` から)、両エンドポイントの locator、QoS
 (reliability、durability、data-sharing、設定されていれば deadline、liveliness、ownership、
 partition)、data-sharing 履歴のサイズです。ノードをクリックすると publisher、subscription、相手のいない
 トピックが出ます。

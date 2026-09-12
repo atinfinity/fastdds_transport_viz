@@ -37,8 +37,8 @@ plus the bounded verification nodes with statistics enabled.
 | Red halo | at least one warning, e.g. `measured-transport-mismatch` |
 
 Click an arrow to list its pairs in the side panel: transport, confidence, measured
-traffic, reason codes with their descriptions (taken from `reason_code_descriptions` in
-the document), locators, QoS (reliability, durability, data-sharing, and the deadline,
+traffic, reason codes with their descriptions and remedies (taken from
+`reason_code_descriptions` / `reason_code_remedies` in the document), locators, QoS (reliability, durability, data-sharing, and the deadline,
 liveliness, ownership and partitions when set) and the size of the data-sharing history of
 both endpoints.
 Click a node for its publishers, subscriptions and unmatched topics.

@@ -51,6 +51,11 @@ def add_list_arguments(parser):
              'locators that actually carried packets (implies -v; ignored with --json, '
              'which always carries them)')
     parser.add_argument(
+        '--advise', action='store_true',
+        help="add a 'fix <code>: ...' line under each pair for its reason codes that have a "
+             'remedy, and the remedy under each code of the legend (implies -v and --explain; '
+             'ignored with --json, which always carries them as reason_code_remedies)')
+    parser.add_argument(
         '--json', action='store_true',
         help='emit JSON (schema_version 1) instead of a table')
     parser.add_argument(
@@ -69,7 +74,7 @@ def add_list_arguments(parser):
         '--watch', action='store_true',
         help='keep observing and re-render every --interval seconds, marking added (+), '
              'changed (~) and removed (-) pairs; on a terminal, keys: q quit, p pause, '
-             'v pairs, e legend, a all, l locators. With --json, emits one compact '
+             'v pairs, e legend, a all, l locators, f fixes. With --json, emits one compact '
              'document per line '
              '(JSON Lines) with a `changes` object')
     parser.add_argument(
@@ -88,6 +93,7 @@ _LIST_OPTIONS = (
     ('verbose', '-v', False),
     ('explain', '--explain', False),
     ('locators', '--locators', False),
+    ('advise', '--advise', False),
     ('json', '--json', False),
     ('stats', '--stats', False),
     ('color', '--color', True),

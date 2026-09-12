@@ -769,6 +769,43 @@ TEST(Codes, EveryKnownCodeHasADescriptionAndUnknownDoesNot)
   EXPECT_EQ(explain("not-a-code"), "(no description)");
 }
 
+TEST(Codes, RemediesAreOneSentenceAndExplicitPerCode)
+{
+  // The table forces every entry to state a remedy or std::nullopt; here the content:
+  // a remedy is one sentence that names what to change, a description no longer carries it.
+  size_t with_remedy = 0;
+  for (const auto & c : known_codes()) {
+    auto r = remedy(c);
+    if (!r) {continue;}
+    ++with_remedy;
+    EXPECT_FALSE(r->empty()) << c;
+    EXPECT_EQ(r->back(), '.') << c << ": " << *r;
+    EXPECT_LT(r->size(), 320u) << c << " is not a one-liner: " << *r;
+  }
+  EXPECT_GE(with_remedy, 25u);
+  EXPECT_LT(with_remedy, known_codes().size()) << "some codes describe a normal state";
+  EXPECT_FALSE(remedy("not-a-code").has_value());
+
+  // codes that describe a normal state, a measured fact or ask for a bug report: nothing to fix
+  for (const auto * c : {"same-host-guid", "both-shm-locators", "common-udpv4-locator",
+      "measured-shm-traffic", "measured-transport-mismatch", "qos-incompatible-but-delivered",
+      "qos-incompatible", "datasharing-confirmed-no-traffic"})
+  {
+    EXPECT_FALSE(remedy(c).has_value()) << c;
+  }
+  // codes whose remedy is the whole point of --advise
+  EXPECT_NE(remedy("shm-stale-files")->find("fastdds shm clean"), std::string::npos);
+  EXPECT_NE(remedy("reader-no-shm-locator")->find("FASTDDS_BUILTIN_TRANSPORTS"), std::string::npos);
+  EXPECT_NE(remedy("datasharing-disabled-writer")->find("data_sharing"), std::string::npos);
+  EXPECT_NE(remedy("qos-incompatible-reliability")->find("create_subscription"), std::string::npos);
+  EXPECT_NE(remedy("stats-not-enabled-on-writer")->find("FASTDDS_STATISTICS"), std::string::npos);
+  // the remedy moved out of the description: it is said once
+  EXPECT_EQ(explain("shm-stale-files").find("fastdds shm clean"), std::string::npos);
+  EXPECT_EQ(explain("shm-nearly-full").find("--shm-size"), std::string::npos);
+  EXPECT_EQ(explain("no-traffic-observed").find("--timeout"), std::string::npos);
+  EXPECT_EQ(explain("stats-not-enabled-on-writer").find("Start it"), std::string::npos);
+}
+
 TEST(Diff, AddedRemovedChanged)
 {
   std::vector<Endpoint> eps;

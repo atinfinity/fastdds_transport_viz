@@ -195,10 +195,14 @@ std::string render_json(const Snapshot & snap, const RenderOptions & opt)
     codes.insert(w);
   }
   json descriptions = json::object();
+  json remedies = json::object();   // same keys; null where there is nothing to change
   for (const auto & c : codes) {
     descriptions[c] = explain(c);
+    auto r = remedy(c);
+    remedies[c] = r ? json(*r) : json(nullptr);
   }
   root["reason_code_descriptions"] = descriptions;
+  root["reason_code_remedies"] = remedies;
 
   if (snap.has_changes) {
     auto key_json = [](const PairKey & k) {

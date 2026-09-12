@@ -69,6 +69,21 @@ Every verdict carries machine-readable reason codes (`same-host-guid`,
 `transport_viz --list-codes` prints all of them. A `?` after a transport means confidence
 `likely` rather than `certain`.
 
+A code says what happened; `--advise` adds what to change. Every code has either a
+remedy (one sentence naming the environment variable, XML element or QoS policy, e.g.
+`reader-no-shm-locator` → unset `FASTDDS_BUILTIN_TRANSPORTS` or add a SHM transport
+descriptor to the reader's profile; `shm-stale-files` → `fastdds shm clean`) or none,
+when it describes a normal state (`same-host-guid`), a measured fact
+(`measured-shm-traffic`) or asks for a bug report (`measured-transport-mismatch`). The
+remedies are target-agnostic: the tool does not know which transport you intend, so each
+sentence names what the code stands in the way of, and you pick. `--advise` prints a
+`fix <code>: …` line under each pair for its codes that have one (also for `NONE` pairs,
+whose QoS remedies are the most useful) and the remedy under each code of the legend;
+`--list-codes` / `ros2 transport codes` print it after each description; `--json` carries
+them as `reason_code_remedies` (same keys as `reason_code_descriptions`, `null` for none);
+the web viewer shows them under the descriptions. Descriptions themselves no longer
+contain remedies, so each is said once.
+
 The decision logic lives in `src/fastdds_transport_viz/src/decision.cpp` as pure
 functions with no DDS dependency, and is covered by `test/test_decision.cpp`.
 

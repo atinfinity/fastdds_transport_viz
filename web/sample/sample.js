@@ -2,8 +2,8 @@
 window.TRANSPORT_VIZ_SAMPLE = {
  "domain": 0,
  "local_host_id": "010f40ec",
- "observation_seconds": 6.037133544,
- "observed_at": "2026-09-09T15:19:06Z",
+ "observation_seconds": 6.007788128,
+ "observed_at": "2026-09-12T13:36:04Z",
  "reason_code_descriptions": {
   "both-shm-locators": "Both endpoints announce a SHM locator. On the same host Fast DDS then uses the shared memory transport exclusively for user data (discovery still goes over UDP).",
   "common-udpv4-locator": "The reader announces a UDPv4 locator and the writer speaks UDPv4.",
@@ -13,9 +13,22 @@ window.TRANSPORT_VIZ_SAMPLE = {
   "no-matching-reader": "No subscription was discovered for this topic.",
   "reader-no-shm-locator": "The reader's participant announces no SHM locator: SHM transport is not instantiated on its side (e.g. FASTDDS_BUILTIN_TRANSPORTS=UDPv4, or an XML profile without SHM).",
   "same-host-guid": "Writer and reader GUID prefixes share the same first 4 bytes, which is how Fast DDS decides both participants run on the same host.",
-  "shm-stale-files": "Fast DDS files in the shared-memory directory whose lock nobody holds: their owner process ended without cleaning up (a crash or a kill). They keep consuming /dev/shm; remove them with 'fastdds shm clean'.",
-  "stats-writer-instance-limit-suspected": "The writer's participant reports traffic to 10 or more locators but none to this reader. The Fast DDS statistics DataWriter keeps the default resource limit of 10 instances (one per destination locator), so counters for further locators are never published. Raise it with a data_writer XML profile named after the alias used in FASTDDS_STATISTICS (RTPS_SENT_TOPIC) whose <resourceLimitsQos> sets max_instances to 0; the package ships config/statistics.xml for this.",
+  "shm-stale-files": "Fast DDS files in the shared-memory directory whose lock nobody holds: their owner process ended without cleaning up (a crash or a kill). They keep consuming /dev/shm.",
+  "stats-writer-instance-limit-suspected": "The writer's participant reports traffic to 10 or more locators but none to this reader. The Fast DDS statistics DataWriter keeps the default resource limit of 10 instances (one per destination locator), so counters for further locators are never published.",
   "writer-no-shm-locator": "The writer's participant announces no SHM locator: SHM transport is not instantiated on its side (e.g. FASTDDS_BUILTIN_TRANSPORTS=UDPv4, or an XML profile without SHM)."
+ },
+ "reason_code_remedies": {
+  "both-shm-locators": null,
+  "common-udpv4-locator": null,
+  "datasharing-disabled-writer": "Enable data-sharing on the writer: <data_sharing><kind>ON</kind> in its data_writer XML profile, a bounded (fixed-size) message type and a PREALLOCATED or PREALLOCATED_WITH_REALLOC <historyMemoryPolicy>.",
+  "measured-shm-traffic": null,
+  "measured-udpv4-traffic": null,
+  "no-matching-reader": "Start a subscription on this topic, or check the topic name, namespace and remappings of the node expected to subscribe to it.",
+  "reader-no-shm-locator": "Enable SHM on the reader's participant: unset FASTDDS_BUILTIN_TRANSPORTS or set it to DEFAULT / LARGE_DATA (Fast DDS >= 2.11), or add a SHM <transport_descriptor> to its XML participant profile.",
+  "same-host-guid": null,
+  "shm-stale-files": "Run 'fastdds shm clean' to remove the files whose owner is gone.",
+  "stats-writer-instance-limit-suspected": "Start the observed nodes with FASTDDS_DEFAULT_PROFILES_FILE pointing at this package's config/statistics.xml (a data_writer profile per statistics alias whose <resourceLimitsQos> sets max_instances to 0).",
+  "writer-no-shm-locator": "Enable SHM on the writer's participant: unset FASTDDS_BUILTIN_TRANSPORTS or set it to DEFAULT / LARGE_DATA (Fast DDS >= 2.11), or add a SHM <transport_descriptor> to its XML participant profile."
  },
  "schema_version": 1,
  "shm": {
@@ -25,1091 +38,928 @@ window.TRANSPORT_VIZ_SAMPLE = {
    7001,
    7002,
    7003,
-   7411,
    7413,
    7415,
-   7417
+   7417,
+   7419
   ],
   "datasharing_histories": 0,
   "datasharing_unmatched": 0,
-  "fastdds_bytes": 11068128,
-  "free_bytes": 4148682752,
+  "fastdds_bytes": 6123456,
+  "free_bytes": 4153659392,
   "missing_ports": [],
   "nodes_visible": true,
   "other_host_participants": 0,
   "path": "/dev/shm",
   "ports": 12,
-  "segments": 19,
-  "stale_ports": 0,
-  "stale_segments": 13,
+  "segments": 10,
+  "stale_ports": 1,
+  "stale_segments": 4,
   "total_bytes": 4159885312,
-  "used_bytes": 11202560,
+  "used_bytes": 6225920,
   "warnings": [
    "shm-stale-files"
   ]
  },
  "stats": {
   "data_count": {
-   "01.0f.40.ec.ae.00.87.b3.00.00.00.00|00.00.01.03": {
-    "first": 17,
-    "last": 17,
-    "samples": 1
-   },
-   "01.0f.40.ec.af.00.82.c7.00.00.00.00|00.00.01.03": {
-    "first": 4,
-    "last": 5,
-    "samples": 2
-   },
-   "01.0f.40.ec.af.00.82.c7.00.00.00.00|00.00.14.03": {
-    "first": 12,
+   "01.0f.40.ec.35.00.5d.09.00.00.00.00|00.00.01.03": {
+    "first": 24,
     "last": 24,
-    "samples": 7
-   },
-   "01.0f.40.ec.b0.00.fe.65.00.00.00.00|00.00.01.03": {
-    "first": 15,
-    "last": 16,
-    "samples": 2
-   },
-   "01.0f.40.ec.b0.00.fe.65.00.00.00.00|00.00.10.03": {
-    "first": 10,
-    "last": 10,
     "samples": 1
    },
-   "01.0f.40.ec.b0.00.fe.65.00.00.00.00|00.00.14.03": {
-    "first": 62,
-    "last": 121,
-    "samples": 60
+   "01.0f.40.ec.35.00.5d.09.00.00.00.00|00.00.10.03": {
+    "first": 12,
+    "last": 12,
+    "samples": 1
    },
-   "01.0f.40.ec.b3.00.2e.41.00.00.00.00|00.00.01.03": {
-    "first": 4,
-    "last": 5,
+   "01.0f.40.ec.36.00.87.0c.00.00.00.00|00.00.01.03": {
+    "first": 25,
+    "last": 26,
     "samples": 2
    },
-   "01.0f.40.ec.ba.00.5e.4c.00.00.00.00|00.00.01.03": {
+   "01.0f.40.ec.36.00.87.0c.00.00.00.00|00.00.10.03": {
+    "first": 12,
+    "last": 12,
+    "samples": 1
+   },
+   "01.0f.40.ec.37.00.26.ca.00.00.00.00|00.00.01.03": {
     "first": 27,
     "last": 27,
     "samples": 1
    },
-   "01.0f.40.ec.ba.00.5e.4c.00.00.00.00|00.00.10.03": {
-    "first": 22,
-    "last": 22,
+   "01.0f.40.ec.37.00.26.ca.00.00.00.00|00.00.10.03": {
+    "first": 24,
+    "last": 24,
     "samples": 1
+   },
+   "01.0f.40.ec.37.00.26.ca.00.00.00.00|00.00.14.03": {
+    "first": 10,
+    "last": 14,
+    "samples": 2
+   },
+   "01.0f.40.ec.38.00.58.91.00.00.00.00|00.00.01.03": {
+    "first": 4,
+    "last": 5,
+    "samples": 2
+   },
+   "01.0f.40.ec.52.00.86.93.00.00.00.00|00.00.01.03": {
+    "first": 5,
+    "last": 5,
+    "samples": 1
+   },
+   "01.0f.40.ec.52.00.86.93.00.00.00.00|00.00.14.03": {
+    "first": 54,
+    "last": 78,
+    "samples": 2
    }
   },
   "enabled": true,
   "lost": [],
   "participants_with_stats": [
-   "01.0f.40.ec.03.01.d0.f0.00.00.00.00",
-   "01.0f.40.ec.ae.00.87.b3.00.00.00.00",
-   "01.0f.40.ec.af.00.82.c7.00.00.00.00",
-   "01.0f.40.ec.b0.00.fe.65.00.00.00.00",
-   "01.0f.40.ec.b3.00.2e.41.00.00.00.00",
-   "01.0f.40.ec.ba.00.5e.4c.00.00.00.00"
+   "01.0f.40.ec.35.00.5d.09.00.00.00.00",
+   "01.0f.40.ec.36.00.87.0c.00.00.00.00",
+   "01.0f.40.ec.37.00.26.ca.00.00.00.00",
+   "01.0f.40.ec.38.00.58.91.00.00.00.00",
+   "01.0f.40.ec.52.00.86.93.00.00.00.00",
+   "01.0f.40.ec.85.00.55.f9.00.00.00.00"
   ],
   "physical": {
-   "01.0f.40.ec.ae.00.87.b3.00.00.00.00": {
-    "host": "f46a48ca8c49:11219936903513702400",
-    "process": "174",
+   "01.0f.40.ec.35.00.5d.09.00.00.00.00": {
+    "host": "d87e498ecc1f:14564170186182098944",
+    "process": "53",
     "user": "root"
    },
-   "01.0f.40.ec.af.00.82.c7.00.00.00.00": {
-    "host": "f46a48ca8c49:11219936903513702400",
-    "process": "175",
+   "01.0f.40.ec.36.00.87.0c.00.00.00.00": {
+    "host": "d87e498ecc1f:14564170186182098944",
+    "process": "54",
     "user": "root"
    },
-   "01.0f.40.ec.b0.00.fe.65.00.00.00.00": {
-    "host": "f46a48ca8c49:11219936903513702400",
-    "process": "176",
+   "01.0f.40.ec.37.00.26.ca.00.00.00.00": {
+    "host": "d87e498ecc1f:14564170186182098944",
+    "process": "55",
     "user": "root"
    },
-   "01.0f.40.ec.b3.00.2e.41.00.00.00.00": {
-    "host": "f46a48ca8c49:11219936903513702400",
-    "process": "179",
+   "01.0f.40.ec.38.00.58.91.00.00.00.00": {
+    "host": "d87e498ecc1f:14564170186182098944",
+    "process": "56",
     "user": "root"
    },
-   "01.0f.40.ec.ba.00.5e.4c.00.00.00.00": {
-    "host": "f46a48ca8c49:11219936903513702400",
-    "process": "186",
+   "01.0f.40.ec.52.00.86.93.00.00.00.00": {
+    "host": "d87e498ecc1f:14564170186182098944",
+    "process": "82",
     "user": "root"
    }
   },
-  "samples": 650,
+  "samples": 233,
   "statistics_writers": [
    {
-    "participant_guid_prefix": "01.0f.40.ec.ae.00.87.b3.00.00.00.00",
+    "participant_guid_prefix": "01.0f.40.ec.35.00.5d.09.00.00.00.00",
     "topic": "_fastdds_statistics_acknack_count"
    },
    {
-    "participant_guid_prefix": "01.0f.40.ec.ae.00.87.b3.00.00.00.00",
+    "participant_guid_prefix": "01.0f.40.ec.35.00.5d.09.00.00.00.00",
     "topic": "_fastdds_statistics_data_count"
    },
    {
-    "participant_guid_prefix": "01.0f.40.ec.ae.00.87.b3.00.00.00.00",
+    "participant_guid_prefix": "01.0f.40.ec.35.00.5d.09.00.00.00.00",
     "topic": "_fastdds_statistics_gap_count"
    },
    {
-    "participant_guid_prefix": "01.0f.40.ec.ae.00.87.b3.00.00.00.00",
+    "participant_guid_prefix": "01.0f.40.ec.35.00.5d.09.00.00.00.00",
     "topic": "_fastdds_statistics_heartbeat_count"
    },
    {
-    "participant_guid_prefix": "01.0f.40.ec.ae.00.87.b3.00.00.00.00",
+    "participant_guid_prefix": "01.0f.40.ec.35.00.5d.09.00.00.00.00",
     "topic": "_fastdds_statistics_history2history_latency"
    },
    {
-    "participant_guid_prefix": "01.0f.40.ec.ae.00.87.b3.00.00.00.00",
+    "participant_guid_prefix": "01.0f.40.ec.35.00.5d.09.00.00.00.00",
     "topic": "_fastdds_statistics_nackfrag_count"
    },
    {
-    "participant_guid_prefix": "01.0f.40.ec.ae.00.87.b3.00.00.00.00",
+    "participant_guid_prefix": "01.0f.40.ec.35.00.5d.09.00.00.00.00",
     "topic": "_fastdds_statistics_physical_data"
    },
    {
-    "participant_guid_prefix": "01.0f.40.ec.ae.00.87.b3.00.00.00.00",
+    "participant_guid_prefix": "01.0f.40.ec.35.00.5d.09.00.00.00.00",
     "topic": "_fastdds_statistics_publication_throughput"
    },
    {
-    "participant_guid_prefix": "01.0f.40.ec.ae.00.87.b3.00.00.00.00",
+    "participant_guid_prefix": "01.0f.40.ec.35.00.5d.09.00.00.00.00",
     "topic": "_fastdds_statistics_resent_datas"
    },
    {
-    "participant_guid_prefix": "01.0f.40.ec.ae.00.87.b3.00.00.00.00",
+    "participant_guid_prefix": "01.0f.40.ec.35.00.5d.09.00.00.00.00",
     "topic": "_fastdds_statistics_rtps_lost"
    },
    {
-    "participant_guid_prefix": "01.0f.40.ec.ae.00.87.b3.00.00.00.00",
+    "participant_guid_prefix": "01.0f.40.ec.35.00.5d.09.00.00.00.00",
     "topic": "_fastdds_statistics_rtps_sent"
    },
    {
-    "participant_guid_prefix": "01.0f.40.ec.af.00.82.c7.00.00.00.00",
+    "participant_guid_prefix": "01.0f.40.ec.36.00.87.0c.00.00.00.00",
     "topic": "_fastdds_statistics_acknack_count"
    },
    {
-    "participant_guid_prefix": "01.0f.40.ec.af.00.82.c7.00.00.00.00",
+    "participant_guid_prefix": "01.0f.40.ec.36.00.87.0c.00.00.00.00",
     "topic": "_fastdds_statistics_data_count"
    },
    {
-    "participant_guid_prefix": "01.0f.40.ec.af.00.82.c7.00.00.00.00",
+    "participant_guid_prefix": "01.0f.40.ec.36.00.87.0c.00.00.00.00",
     "topic": "_fastdds_statistics_gap_count"
    },
    {
-    "participant_guid_prefix": "01.0f.40.ec.af.00.82.c7.00.00.00.00",
+    "participant_guid_prefix": "01.0f.40.ec.36.00.87.0c.00.00.00.00",
     "topic": "_fastdds_statistics_heartbeat_count"
    },
    {
-    "participant_guid_prefix": "01.0f.40.ec.af.00.82.c7.00.00.00.00",
+    "participant_guid_prefix": "01.0f.40.ec.36.00.87.0c.00.00.00.00",
     "topic": "_fastdds_statistics_history2history_latency"
    },
    {
-    "participant_guid_prefix": "01.0f.40.ec.af.00.82.c7.00.00.00.00",
+    "participant_guid_prefix": "01.0f.40.ec.36.00.87.0c.00.00.00.00",
     "topic": "_fastdds_statistics_nackfrag_count"
    },
    {
-    "participant_guid_prefix": "01.0f.40.ec.af.00.82.c7.00.00.00.00",
+    "participant_guid_prefix": "01.0f.40.ec.36.00.87.0c.00.00.00.00",
     "topic": "_fastdds_statistics_physical_data"
    },
    {
-    "participant_guid_prefix": "01.0f.40.ec.af.00.82.c7.00.00.00.00",
+    "participant_guid_prefix": "01.0f.40.ec.36.00.87.0c.00.00.00.00",
     "topic": "_fastdds_statistics_publication_throughput"
    },
    {
-    "participant_guid_prefix": "01.0f.40.ec.af.00.82.c7.00.00.00.00",
+    "participant_guid_prefix": "01.0f.40.ec.36.00.87.0c.00.00.00.00",
     "topic": "_fastdds_statistics_resent_datas"
    },
    {
-    "participant_guid_prefix": "01.0f.40.ec.af.00.82.c7.00.00.00.00",
+    "participant_guid_prefix": "01.0f.40.ec.36.00.87.0c.00.00.00.00",
     "topic": "_fastdds_statistics_rtps_lost"
    },
    {
-    "participant_guid_prefix": "01.0f.40.ec.af.00.82.c7.00.00.00.00",
+    "participant_guid_prefix": "01.0f.40.ec.36.00.87.0c.00.00.00.00",
     "topic": "_fastdds_statistics_rtps_sent"
    },
    {
-    "participant_guid_prefix": "01.0f.40.ec.b0.00.fe.65.00.00.00.00",
+    "participant_guid_prefix": "01.0f.40.ec.37.00.26.ca.00.00.00.00",
     "topic": "_fastdds_statistics_acknack_count"
    },
    {
-    "participant_guid_prefix": "01.0f.40.ec.b0.00.fe.65.00.00.00.00",
+    "participant_guid_prefix": "01.0f.40.ec.37.00.26.ca.00.00.00.00",
     "topic": "_fastdds_statistics_data_count"
    },
    {
-    "participant_guid_prefix": "01.0f.40.ec.b0.00.fe.65.00.00.00.00",
+    "participant_guid_prefix": "01.0f.40.ec.37.00.26.ca.00.00.00.00",
     "topic": "_fastdds_statistics_gap_count"
    },
    {
-    "participant_guid_prefix": "01.0f.40.ec.b0.00.fe.65.00.00.00.00",
+    "participant_guid_prefix": "01.0f.40.ec.37.00.26.ca.00.00.00.00",
     "topic": "_fastdds_statistics_heartbeat_count"
    },
    {
-    "participant_guid_prefix": "01.0f.40.ec.b0.00.fe.65.00.00.00.00",
+    "participant_guid_prefix": "01.0f.40.ec.37.00.26.ca.00.00.00.00",
     "topic": "_fastdds_statistics_history2history_latency"
    },
    {
-    "participant_guid_prefix": "01.0f.40.ec.b0.00.fe.65.00.00.00.00",
+    "participant_guid_prefix": "01.0f.40.ec.37.00.26.ca.00.00.00.00",
     "topic": "_fastdds_statistics_nackfrag_count"
    },
    {
-    "participant_guid_prefix": "01.0f.40.ec.b0.00.fe.65.00.00.00.00",
+    "participant_guid_prefix": "01.0f.40.ec.37.00.26.ca.00.00.00.00",
     "topic": "_fastdds_statistics_physical_data"
    },
    {
-    "participant_guid_prefix": "01.0f.40.ec.b0.00.fe.65.00.00.00.00",
+    "participant_guid_prefix": "01.0f.40.ec.37.00.26.ca.00.00.00.00",
     "topic": "_fastdds_statistics_publication_throughput"
    },
    {
-    "participant_guid_prefix": "01.0f.40.ec.b0.00.fe.65.00.00.00.00",
+    "participant_guid_prefix": "01.0f.40.ec.37.00.26.ca.00.00.00.00",
     "topic": "_fastdds_statistics_resent_datas"
    },
    {
-    "participant_guid_prefix": "01.0f.40.ec.b0.00.fe.65.00.00.00.00",
+    "participant_guid_prefix": "01.0f.40.ec.37.00.26.ca.00.00.00.00",
     "topic": "_fastdds_statistics_rtps_lost"
    },
    {
-    "participant_guid_prefix": "01.0f.40.ec.b0.00.fe.65.00.00.00.00",
+    "participant_guid_prefix": "01.0f.40.ec.37.00.26.ca.00.00.00.00",
     "topic": "_fastdds_statistics_rtps_sent"
    },
    {
-    "participant_guid_prefix": "01.0f.40.ec.b3.00.2e.41.00.00.00.00",
+    "participant_guid_prefix": "01.0f.40.ec.38.00.58.91.00.00.00.00",
     "topic": "_fastdds_statistics_acknack_count"
    },
    {
-    "participant_guid_prefix": "01.0f.40.ec.b3.00.2e.41.00.00.00.00",
+    "participant_guid_prefix": "01.0f.40.ec.38.00.58.91.00.00.00.00",
     "topic": "_fastdds_statistics_data_count"
    },
    {
-    "participant_guid_prefix": "01.0f.40.ec.b3.00.2e.41.00.00.00.00",
+    "participant_guid_prefix": "01.0f.40.ec.38.00.58.91.00.00.00.00",
     "topic": "_fastdds_statistics_gap_count"
    },
    {
-    "participant_guid_prefix": "01.0f.40.ec.b3.00.2e.41.00.00.00.00",
+    "participant_guid_prefix": "01.0f.40.ec.38.00.58.91.00.00.00.00",
     "topic": "_fastdds_statistics_heartbeat_count"
    },
    {
-    "participant_guid_prefix": "01.0f.40.ec.b3.00.2e.41.00.00.00.00",
+    "participant_guid_prefix": "01.0f.40.ec.38.00.58.91.00.00.00.00",
     "topic": "_fastdds_statistics_history2history_latency"
    },
    {
-    "participant_guid_prefix": "01.0f.40.ec.b3.00.2e.41.00.00.00.00",
+    "participant_guid_prefix": "01.0f.40.ec.38.00.58.91.00.00.00.00",
     "topic": "_fastdds_statistics_nackfrag_count"
    },
    {
-    "participant_guid_prefix": "01.0f.40.ec.b3.00.2e.41.00.00.00.00",
+    "participant_guid_prefix": "01.0f.40.ec.38.00.58.91.00.00.00.00",
     "topic": "_fastdds_statistics_physical_data"
    },
    {
-    "participant_guid_prefix": "01.0f.40.ec.b3.00.2e.41.00.00.00.00",
+    "participant_guid_prefix": "01.0f.40.ec.38.00.58.91.00.00.00.00",
     "topic": "_fastdds_statistics_publication_throughput"
    },
    {
-    "participant_guid_prefix": "01.0f.40.ec.b3.00.2e.41.00.00.00.00",
+    "participant_guid_prefix": "01.0f.40.ec.38.00.58.91.00.00.00.00",
     "topic": "_fastdds_statistics_resent_datas"
    },
    {
-    "participant_guid_prefix": "01.0f.40.ec.b3.00.2e.41.00.00.00.00",
+    "participant_guid_prefix": "01.0f.40.ec.38.00.58.91.00.00.00.00",
     "topic": "_fastdds_statistics_rtps_lost"
    },
    {
-    "participant_guid_prefix": "01.0f.40.ec.b3.00.2e.41.00.00.00.00",
+    "participant_guid_prefix": "01.0f.40.ec.38.00.58.91.00.00.00.00",
     "topic": "_fastdds_statistics_rtps_sent"
    },
    {
-    "participant_guid_prefix": "01.0f.40.ec.ba.00.5e.4c.00.00.00.00",
+    "participant_guid_prefix": "01.0f.40.ec.52.00.86.93.00.00.00.00",
     "topic": "_fastdds_statistics_acknack_count"
    },
    {
-    "participant_guid_prefix": "01.0f.40.ec.ba.00.5e.4c.00.00.00.00",
+    "participant_guid_prefix": "01.0f.40.ec.52.00.86.93.00.00.00.00",
     "topic": "_fastdds_statistics_data_count"
    },
    {
-    "participant_guid_prefix": "01.0f.40.ec.ba.00.5e.4c.00.00.00.00",
+    "participant_guid_prefix": "01.0f.40.ec.52.00.86.93.00.00.00.00",
     "topic": "_fastdds_statistics_gap_count"
    },
    {
-    "participant_guid_prefix": "01.0f.40.ec.ba.00.5e.4c.00.00.00.00",
+    "participant_guid_prefix": "01.0f.40.ec.52.00.86.93.00.00.00.00",
     "topic": "_fastdds_statistics_heartbeat_count"
    },
    {
-    "participant_guid_prefix": "01.0f.40.ec.ba.00.5e.4c.00.00.00.00",
+    "participant_guid_prefix": "01.0f.40.ec.52.00.86.93.00.00.00.00",
     "topic": "_fastdds_statistics_history2history_latency"
    },
    {
-    "participant_guid_prefix": "01.0f.40.ec.ba.00.5e.4c.00.00.00.00",
+    "participant_guid_prefix": "01.0f.40.ec.52.00.86.93.00.00.00.00",
     "topic": "_fastdds_statistics_nackfrag_count"
    },
    {
-    "participant_guid_prefix": "01.0f.40.ec.ba.00.5e.4c.00.00.00.00",
+    "participant_guid_prefix": "01.0f.40.ec.52.00.86.93.00.00.00.00",
     "topic": "_fastdds_statistics_physical_data"
    },
    {
-    "participant_guid_prefix": "01.0f.40.ec.ba.00.5e.4c.00.00.00.00",
+    "participant_guid_prefix": "01.0f.40.ec.52.00.86.93.00.00.00.00",
     "topic": "_fastdds_statistics_publication_throughput"
    },
    {
-    "participant_guid_prefix": "01.0f.40.ec.ba.00.5e.4c.00.00.00.00",
+    "participant_guid_prefix": "01.0f.40.ec.52.00.86.93.00.00.00.00",
     "topic": "_fastdds_statistics_resent_datas"
    },
    {
-    "participant_guid_prefix": "01.0f.40.ec.ba.00.5e.4c.00.00.00.00",
+    "participant_guid_prefix": "01.0f.40.ec.52.00.86.93.00.00.00.00",
     "topic": "_fastdds_statistics_rtps_lost"
    },
    {
-    "participant_guid_prefix": "01.0f.40.ec.ba.00.5e.4c.00.00.00.00",
+    "participant_guid_prefix": "01.0f.40.ec.52.00.86.93.00.00.00.00",
     "topic": "_fastdds_statistics_rtps_sent"
    }
   ],
   "throughput": {
-   "01.0f.40.ec.ae.00.87.b3.00.00.00.00|00.00.01.03": {
-    "last": 500879.4375,
-    "mean": 500879.4375,
+   "01.0f.40.ec.35.00.5d.09.00.00.00.00|00.00.01.03": {
+    "last": 391427.75,
+    "mean": 391427.75,
     "samples": 1
    },
-   "01.0f.40.ec.ae.00.87.b3.00.00.00.00|00.00.03.03": {
-    "last": 62.9338264465332,
-    "mean": 62.84224033355713,
-    "samples": 4
+   "01.0f.40.ec.35.00.5d.09.00.00.00.00|00.00.03.03": {
+    "last": 115.97248840332031,
+    "mean": 116.17436599731445,
+    "samples": 2
    },
-   "01.0f.40.ec.ae.00.87.b3.00.00.00.00|00.00.10.03": {
+   "01.0f.40.ec.35.00.5d.09.00.00.00.00|00.00.10.03": {
+    "last": 12324657.0,
+    "mean": 12324657.0,
+    "samples": 1
+   },
+   "01.0f.40.ec.36.00.87.0c.00.00.00.00|00.00.01.03": {
+    "last": 647140.8125,
+    "mean": 647140.8125,
+    "samples": 1
+   },
+   "01.0f.40.ec.36.00.87.0c.00.00.00.00|00.00.03.03": {
+    "last": 119.97345733642578,
+    "mean": 120.18891525268555,
+    "samples": 2
+   },
+   "01.0f.40.ec.36.00.87.0c.00.00.00.00|00.00.10.03": {
+    "last": 1800281.25,
+    "mean": 1800281.25,
+    "samples": 1
+   },
+   "01.0f.40.ec.37.00.26.ca.00.00.00.00|00.00.01.03": {
+    "last": 577330.9375,
+    "mean": 577330.9375,
+    "samples": 1
+   },
+   "01.0f.40.ec.37.00.26.ca.00.00.00.00|00.00.03.03": {
+    "last": 112.05616760253906,
+    "mean": 112.14136123657227,
+    "samples": 2
+   },
+   "01.0f.40.ec.37.00.26.ca.00.00.00.00|00.00.10.03": {
+    "last": 4676923.0,
+    "mean": 4676923.0,
+    "samples": 1
+   },
+   "01.0f.40.ec.37.00.26.ca.00.00.00.00|00.00.14.03": {
+    "last": 23.020750045776367,
+    "mean": 23.044191360473633,
+    "samples": 2
+   },
+   "01.0f.40.ec.38.00.58.91.00.00.00.00|00.00.01.03": {
+    "last": 471583.0,
+    "mean": 471583.0,
+    "samples": 1
+   },
+   "01.0f.40.ec.38.00.58.91.00.00.00.00|00.00.03.03": {
+    "last": 62.819637298583984,
+    "mean": 64.38638877868652,
+    "samples": 2
+   },
+   "01.0f.40.ec.38.00.58.91.00.00.00.00|00.00.10.03": {
+    "last": 23852116.0,
+    "mean": 23852116.0,
+    "samples": 1
+   },
+   "01.0f.40.ec.52.00.86.93.00.00.00.00|00.00.01.03": {
+    "last": 1016374.3125,
+    "mean": 1016374.3125,
+    "samples": 1
+   },
+   "01.0f.40.ec.52.00.86.93.00.00.00.00|00.00.10.03": {
     "last": 23412350.0,
     "mean": 23412350.0,
     "samples": 1
    },
-   "01.0f.40.ec.af.00.82.c7.00.00.00.00|00.00.01.03": {
-    "last": 1131289.5,
-    "mean": 1131289.5,
-    "samples": 1
-   },
-   "01.0f.40.ec.af.00.82.c7.00.00.00.00|00.00.03.03": {
-    "last": 111.86788177490234,
-    "mean": 111.96688951764789,
-    "samples": 7
-   },
-   "01.0f.40.ec.af.00.82.c7.00.00.00.00|00.00.10.03": {
-    "last": 22798860.0,
-    "mean": 22798860.0,
-    "samples": 1
-   },
-   "01.0f.40.ec.af.00.82.c7.00.00.00.00|00.00.14.03": {
-    "last": 23.967914581298828,
-    "mean": 23.421346391950333,
-    "samples": 7
-   },
-   "01.0f.40.ec.b0.00.fe.65.00.00.00.00|00.00.01.03": {
-    "last": 754660.6875,
-    "mean": 754660.6875,
-    "samples": 1
-   },
-   "01.0f.40.ec.b0.00.fe.65.00.00.00.00|00.00.10.03": {
-    "last": 8000000.0,
-    "mean": 8000000.0,
-    "samples": 1
-   },
-   "01.0f.40.ec.b0.00.fe.65.00.00.00.00|00.00.14.03": {
-    "last": 82.61131286621094,
-    "mean": 80.03652750651041,
-    "samples": 60
-   },
-   "01.0f.40.ec.b3.00.2e.41.00.00.00.00|00.00.01.03": {
-    "last": 633955.25,
-    "mean": 633955.25,
-    "samples": 1
-   },
-   "01.0f.40.ec.b3.00.2e.41.00.00.00.00|00.00.03.03": {
-    "last": 115.85273742675781,
-    "mean": 115.9623783656529,
-    "samples": 7
-   },
-   "01.0f.40.ec.b3.00.2e.41.00.00.00.00|00.00.10.03": {
-    "last": 21211274.0,
-    "mean": 21211274.0,
-    "samples": 1
-   },
-   "01.0f.40.ec.ba.00.5e.4c.00.00.00.00|00.00.01.03": {
-    "last": 813479.4375,
-    "mean": 813479.4375,
-    "samples": 1
-   },
-   "01.0f.40.ec.ba.00.5e.4c.00.00.00.00|00.00.03.03": {
-    "last": 119.85212707519531,
-    "mean": 119.96142251150948,
-    "samples": 7
-   },
-   "01.0f.40.ec.ba.00.5e.4c.00.00.00.00|00.00.10.03": {
-    "last": 8533333.0,
-    "mean": 8533333.0,
-    "samples": 1
+   "01.0f.40.ec.52.00.86.93.00.00.00.00|00.00.14.03": {
+    "last": 79.92034912109375,
+    "mean": 80.71406936645508,
+    "samples": 2
    }
   },
   "traffic": [
    {
-    "bytes": 940.0,
-    "bytes_first": 940.0,
+    "bytes": 5572.0,
+    "bytes_first": 5572.0,
     "dst_locator": {
      "address": "127.0.0.1",
      "kind": "UDPv4",
-     "port": 7004
+     "port": 7000
     },
-    "packets": 5,
-    "packets_first": 5,
-    "src_participant_guid_prefix": "01.0f.40.ec.ae.00.87.b3.00.00.00.00"
+    "packets": 25,
+    "packets_first": 25,
+    "src_participant_guid_prefix": "01.0f.40.ec.35.00.5d.09.00.00.00.00"
    },
    {
-    "bytes": 25048.0,
-    "bytes_first": 24032.0,
+    "bytes": 25012.0,
+    "bytes_first": 24504.0,
     "dst_locator": {
      "address": "127.0.0.1",
      "kind": "UDPv4",
      "port": 7410
     },
-    "packets": 50,
-    "packets_first": 48,
-    "src_participant_guid_prefix": "01.0f.40.ec.ae.00.87.b3.00.00.00.00"
+    "packets": 54,
+    "packets_first": 53,
+    "src_participant_guid_prefix": "01.0f.40.ec.35.00.5d.09.00.00.00.00"
    },
    {
-    "bytes": 25032.0,
-    "bytes_first": 24016.0,
+    "bytes": 4248.0,
+    "bytes_first": 4012.0,
     "dst_locator": {
      "address": "127.0.0.1",
      "kind": "UDPv4",
-     "port": 7412
+     "port": 7411
     },
-    "packets": 50,
-    "packets_first": 48,
-    "src_participant_guid_prefix": "01.0f.40.ec.ae.00.87.b3.00.00.00.00"
+    "packets": 19,
+    "packets_first": 17,
+    "src_participant_guid_prefix": "01.0f.40.ec.35.00.5d.09.00.00.00.00"
    },
    {
-    "bytes": 24520.0,
-    "bytes_first": 23380.0,
+    "bytes": 23852.0,
+    "bytes_first": 23344.0,
     "dst_locator": {
      "address": "127.0.0.1",
      "kind": "UDPv4",
      "port": 7414
     },
-    "packets": 44,
-    "packets_first": 41,
-    "src_participant_guid_prefix": "01.0f.40.ec.ae.00.87.b3.00.00.00.00"
+    "packets": 52,
+    "packets_first": 51,
+    "src_participant_guid_prefix": "01.0f.40.ec.35.00.5d.09.00.00.00.00"
    },
    {
-    "bytes": 25032.0,
-    "bytes_first": 24016.0,
+    "bytes": 23332.0,
+    "bytes_first": 22824.0,
+    "dst_locator": {
+     "address": "127.0.0.1",
+     "kind": "UDPv4",
+     "port": 7416
+    },
+    "packets": 33,
+    "packets_first": 32,
+    "src_participant_guid_prefix": "01.0f.40.ec.35.00.5d.09.00.00.00.00"
+   },
+   {
+    "bytes": 23172.0,
+    "bytes_first": 22664.0,
     "dst_locator": {
      "address": "127.0.0.1",
      "kind": "UDPv4",
      "port": 7418
     },
-    "packets": 50,
-    "packets_first": 48,
-    "src_participant_guid_prefix": "01.0f.40.ec.ae.00.87.b3.00.00.00.00"
+    "packets": 31,
+    "packets_first": 30,
+    "src_participant_guid_prefix": "01.0f.40.ec.35.00.5d.09.00.00.00.00"
+   },
+   {
+    "bytes": 4984.0,
+    "bytes_first": 4984.0,
+    "dst_locator": {
+     "address": "",
+     "kind": "SHM",
+     "port": 7001
+    },
+    "packets": 23,
+    "packets_first": 23,
+    "src_participant_guid_prefix": "01.0f.40.ec.35.00.5d.09.00.00.00.00"
+   },
+   {
+    "bytes": 940.0,
+    "bytes_first": 940.0,
+    "dst_locator": {
+     "address": "",
+     "kind": "SHM",
+     "port": 7002
+    },
+    "packets": 5,
+    "packets_first": 5,
+    "src_participant_guid_prefix": "01.0f.40.ec.35.00.5d.09.00.00.00.00"
+   },
+   {
+    "bytes": 1756.0,
+    "bytes_first": 1520.0,
+    "dst_locator": {
+     "address": "",
+     "kind": "SHM",
+     "port": 7415
+    },
+    "packets": 14,
+    "packets_first": 12,
+    "src_participant_guid_prefix": "01.0f.40.ec.35.00.5d.09.00.00.00.00"
+   },
+   {
+    "bytes": 1264.0,
+    "bytes_first": 1152.0,
+    "dst_locator": {
+     "address": "",
+     "kind": "SHM",
+     "port": 7417
+    },
+    "packets": 10,
+    "packets_first": 9,
+    "src_participant_guid_prefix": "01.0f.40.ec.35.00.5d.09.00.00.00.00"
+   },
+   {
+    "bytes": 5936.0,
+    "bytes_first": 5824.0,
+    "dst_locator": {
+     "address": "127.0.0.1",
+     "kind": "UDPv4",
+     "port": 7001
+    },
+    "packets": 27,
+    "packets_first": 26,
+    "src_participant_guid_prefix": "01.0f.40.ec.36.00.87.0c.00.00.00.00"
+   },
+   {
+    "bytes": 5616.0,
+    "bytes_first": 5504.0,
+    "dst_locator": {
+     "address": "127.0.0.1",
+     "kind": "UDPv4",
+     "port": 7002
+    },
+    "packets": 25,
+    "packets_first": 24,
+    "src_participant_guid_prefix": "01.0f.40.ec.36.00.87.0c.00.00.00.00"
+   },
+   {
+    "bytes": 944.0,
+    "bytes_first": 832.0,
+    "dst_locator": {
+     "address": "127.0.0.1",
+     "kind": "UDPv4",
+     "port": 7003
+    },
+    "packets": 5,
+    "packets_first": 4,
+    "src_participant_guid_prefix": "01.0f.40.ec.36.00.87.0c.00.00.00.00"
+   },
+   {
+    "bytes": 24216.0,
+    "bytes_first": 23736.0,
+    "dst_locator": {
+     "address": "127.0.0.1",
+     "kind": "UDPv4",
+     "port": 7412
+    },
+    "packets": 57,
+    "packets_first": 56,
+    "src_participant_guid_prefix": "01.0f.40.ec.36.00.87.0c.00.00.00.00"
+   },
+   {
+    "bytes": 4064.0,
+    "bytes_first": 3704.0,
+    "dst_locator": {
+     "address": "127.0.0.1",
+     "kind": "UDPv4",
+     "port": 7413
+    },
+    "packets": 20,
+    "packets_first": 17,
+    "src_participant_guid_prefix": "01.0f.40.ec.36.00.87.0c.00.00.00.00"
+   },
+   {
+    "bytes": 23752.0,
+    "bytes_first": 23272.0,
+    "dst_locator": {
+     "address": "127.0.0.1",
+     "kind": "UDPv4",
+     "port": 7414
+    },
+    "packets": 56,
+    "packets_first": 55,
+    "src_participant_guid_prefix": "01.0f.40.ec.36.00.87.0c.00.00.00.00"
+   },
+   {
+    "bytes": 2724.0,
+    "bytes_first": 2364.0,
+    "dst_locator": {
+     "address": "127.0.0.1",
+     "kind": "UDPv4",
+     "port": 7415
+    },
+    "packets": 19,
+    "packets_first": 16,
+    "src_participant_guid_prefix": "01.0f.40.ec.36.00.87.0c.00.00.00.00"
+   },
+   {
+    "bytes": 22296.0,
+    "bytes_first": 21816.0,
+    "dst_locator": {
+     "address": "127.0.0.1",
+     "kind": "UDPv4",
+     "port": 7416
+    },
+    "packets": 33,
+    "packets_first": 32,
+    "src_participant_guid_prefix": "01.0f.40.ec.36.00.87.0c.00.00.00.00"
+   },
+   {
+    "bytes": 1264.0,
+    "bytes_first": 1028.0,
+    "dst_locator": {
+     "address": "127.0.0.1",
+     "kind": "UDPv4",
+     "port": 7417
+    },
+    "packets": 10,
+    "packets_first": 8,
+    "src_participant_guid_prefix": "01.0f.40.ec.36.00.87.0c.00.00.00.00"
+   },
+   {
+    "bytes": 22220.0,
+    "bytes_first": 21740.0,
+    "dst_locator": {
+     "address": "127.0.0.1",
+     "kind": "UDPv4",
+     "port": 7418
+    },
+    "packets": 32,
+    "packets_first": 31,
+    "src_participant_guid_prefix": "01.0f.40.ec.36.00.87.0c.00.00.00.00"
+   },
+   {
+    "bytes": 5824.0,
+    "bytes_first": 5824.0,
+    "dst_locator": {
+     "address": "127.0.0.1",
+     "kind": "UDPv4",
+     "port": 7000
+    },
+    "packets": 27,
+    "packets_first": 27,
+    "src_participant_guid_prefix": "01.0f.40.ec.37.00.26.ca.00.00.00.00"
+   },
+   {
+    "bytes": 25144.0,
+    "bytes_first": 24636.0,
+    "dst_locator": {
+     "address": "127.0.0.1",
+     "kind": "UDPv4",
+     "port": 7410
+    },
+    "packets": 56,
+    "packets_first": 55,
+    "src_participant_guid_prefix": "01.0f.40.ec.37.00.26.ca.00.00.00.00"
+   },
+   {
+    "bytes": 5576.0,
+    "bytes_first": 4796.0,
+    "dst_locator": {
+     "address": "127.0.0.1",
+     "kind": "UDPv4",
+     "port": 7411
+    },
+    "packets": 30,
+    "packets_first": 24,
+    "src_participant_guid_prefix": "01.0f.40.ec.37.00.26.ca.00.00.00.00"
+   },
+   {
+    "bytes": 25140.0,
+    "bytes_first": 24632.0,
+    "dst_locator": {
+     "address": "127.0.0.1",
+     "kind": "UDPv4",
+     "port": 7412
+    },
+    "packets": 56,
+    "packets_first": 55,
+    "src_participant_guid_prefix": "01.0f.40.ec.37.00.26.ca.00.00.00.00"
+   },
+   {
+    "bytes": 23380.0,
+    "bytes_first": 22872.0,
+    "dst_locator": {
+     "address": "127.0.0.1",
+     "kind": "UDPv4",
+     "port": 7416
+    },
+    "packets": 34,
+    "packets_first": 33,
+    "src_participant_guid_prefix": "01.0f.40.ec.37.00.26.ca.00.00.00.00"
+   },
+   {
+    "bytes": 23244.0,
+    "bytes_first": 22736.0,
+    "dst_locator": {
+     "address": "127.0.0.1",
+     "kind": "UDPv4",
+     "port": 7418
+    },
+    "packets": 32,
+    "packets_first": 31,
+    "src_participant_guid_prefix": "01.0f.40.ec.37.00.26.ca.00.00.00.00"
+   },
+   {
+    "bytes": 5824.0,
+    "bytes_first": 5824.0,
+    "dst_locator": {
+     "address": "",
+     "kind": "SHM",
+     "port": 7000
+    },
+    "packets": 27,
+    "packets_first": 27,
+    "src_participant_guid_prefix": "01.0f.40.ec.37.00.26.ca.00.00.00.00"
+   },
+   {
+    "bytes": 936.0,
+    "bytes_first": 936.0,
+    "dst_locator": {
+     "address": "",
+     "kind": "SHM",
+     "port": 7002
+    },
+    "packets": 5,
+    "packets_first": 5,
+    "src_participant_guid_prefix": "01.0f.40.ec.37.00.26.ca.00.00.00.00"
+   },
+   {
+    "bytes": 5320.0,
+    "bytes_first": 4540.0,
+    "dst_locator": {
+     "address": "",
+     "kind": "SHM",
+     "port": 7413
+    },
+    "packets": 28,
+    "packets_first": 22,
+    "src_participant_guid_prefix": "01.0f.40.ec.37.00.26.ca.00.00.00.00"
+   },
+   {
+    "bytes": 1400.0,
+    "bytes_first": 1276.0,
+    "dst_locator": {
+     "address": "",
+     "kind": "SHM",
+     "port": 7417
+    },
+    "packets": 11,
+    "packets_first": 10,
+    "src_participant_guid_prefix": "01.0f.40.ec.37.00.26.ca.00.00.00.00"
+   },
+   {
+    "bytes": 924.0,
+    "bytes_first": 924.0,
+    "dst_locator": {
+     "address": "127.0.0.1",
+     "kind": "UDPv4",
+     "port": 7000
+    },
+    "packets": 5,
+    "packets_first": 5,
+    "src_participant_guid_prefix": "01.0f.40.ec.38.00.58.91.00.00.00.00"
+   },
+   {
+    "bytes": 25052.0,
+    "bytes_first": 24544.0,
+    "dst_locator": {
+     "address": "127.0.0.1",
+     "kind": "UDPv4",
+     "port": 7410
+    },
+    "packets": 54,
+    "packets_first": 53,
+    "src_participant_guid_prefix": "01.0f.40.ec.38.00.58.91.00.00.00.00"
+   },
+   {
+    "bytes": 25052.0,
+    "bytes_first": 24544.0,
+    "dst_locator": {
+     "address": "127.0.0.1",
+     "kind": "UDPv4",
+     "port": 7412
+    },
+    "packets": 54,
+    "packets_first": 53,
+    "src_participant_guid_prefix": "01.0f.40.ec.38.00.58.91.00.00.00.00"
+   },
+   {
+    "bytes": 23892.0,
+    "bytes_first": 23384.0,
+    "dst_locator": {
+     "address": "127.0.0.1",
+     "kind": "UDPv4",
+     "port": 7414
+    },
+    "packets": 52,
+    "packets_first": 51,
+    "src_participant_guid_prefix": "01.0f.40.ec.38.00.58.91.00.00.00.00"
+   },
+   {
+    "bytes": 23052.0,
+    "bytes_first": 22544.0,
+    "dst_locator": {
+     "address": "127.0.0.1",
+     "kind": "UDPv4",
+     "port": 7418
+    },
+    "packets": 29,
+    "packets_first": 28,
+    "src_participant_guid_prefix": "01.0f.40.ec.38.00.58.91.00.00.00.00"
+   },
+   {
+    "bytes": 3556.0,
+    "bytes_first": 3048.0,
+    "dst_locator": {
+     "address": "239.255.0.1",
+     "kind": "UDPv4",
+     "port": 7400
+    },
+    "packets": 7,
+    "packets_first": 6,
+    "src_participant_guid_prefix": "01.0f.40.ec.38.00.58.91.00.00.00.00"
+   },
+   {
+    "bytes": 924.0,
+    "bytes_first": 924.0,
+    "dst_locator": {
+     "address": "",
+     "kind": "SHM",
+     "port": 7000
+    },
+    "packets": 5,
+    "packets_first": 5,
+    "src_participant_guid_prefix": "01.0f.40.ec.38.00.58.91.00.00.00.00"
+   },
+   {
+    "bytes": 940.0,
+    "bytes_first": 940.0,
+    "dst_locator": {
+     "address": "",
+     "kind": "SHM",
+     "port": 7003
+    },
+    "packets": 5,
+    "packets_first": 5,
+    "src_participant_guid_prefix": "01.0f.40.ec.38.00.58.91.00.00.00.00"
    },
    {
     "bytes": 1128.0,
     "bytes_first": 1004.0,
     "dst_locator": {
-     "address": "127.0.0.1",
-     "kind": "UDPv4",
-     "port": 7419
+     "address": "",
+     "kind": "SHM",
+     "port": 7413
     },
     "packets": 9,
     "packets_first": 8,
-    "src_participant_guid_prefix": "01.0f.40.ec.ae.00.87.b3.00.00.00.00"
+    "src_participant_guid_prefix": "01.0f.40.ec.38.00.58.91.00.00.00.00"
    },
    {
-    "bytes": 19608.0,
-    "bytes_first": 18592.0,
+    "bytes": 1872.0,
+    "bytes_first": 1624.0,
     "dst_locator": {
-     "address": "127.0.0.1",
-     "kind": "UDPv4",
-     "port": 7420
+     "address": "",
+     "kind": "SHM",
+     "port": 7419
     },
-    "packets": 17,
-    "packets_first": 15,
-    "src_participant_guid_prefix": "01.0f.40.ec.ae.00.87.b3.00.00.00.00"
-   },
-   {
-    "bytes": 19732.0,
-    "bytes_first": 18592.0,
-    "dst_locator": {
-     "address": "127.0.0.1",
-     "kind": "UDPv4",
-     "port": 7422
-    },
-    "packets": 18,
-    "packets_first": 15,
-    "src_participant_guid_prefix": "01.0f.40.ec.ae.00.87.b3.00.00.00.00"
-   },
-   {
-    "bytes": 4064.0,
-    "bytes_first": 3048.0,
-    "dst_locator": {
-     "address": "239.255.0.1",
-     "kind": "UDPv4",
-     "port": 7400
-    },
-    "packets": 8,
-    "packets_first": 6,
-    "src_participant_guid_prefix": "01.0f.40.ec.ae.00.87.b3.00.00.00.00"
+    "packets": 15,
+    "packets_first": 13,
+    "src_participant_guid_prefix": "01.0f.40.ec.38.00.58.91.00.00.00.00"
    },
    {
     "bytes": 924.0,
     "bytes_first": 924.0,
     "dst_locator": {
-     "address": "",
-     "kind": "SHM",
+     "address": "127.0.0.1",
+     "kind": "UDPv4",
      "port": 7000
     },
     "packets": 5,
     "packets_first": 5,
-    "src_participant_guid_prefix": "01.0f.40.ec.ae.00.87.b3.00.00.00.00"
+    "src_participant_guid_prefix": "01.0f.40.ec.52.00.86.93.00.00.00.00"
    },
    {
-    "bytes": 924.0,
-    "bytes_first": 924.0,
-    "dst_locator": {
-     "address": "",
-     "kind": "SHM",
-     "port": 7001
-    },
-    "packets": 5,
-    "packets_first": 5,
-    "src_participant_guid_prefix": "01.0f.40.ec.ae.00.87.b3.00.00.00.00"
-   },
-   {
-    "bytes": 6332.0,
-    "bytes_first": 6332.0,
-    "dst_locator": {
-     "address": "",
-     "kind": "SHM",
-     "port": 7002
-    },
-    "packets": 29,
-    "packets_first": 29,
-    "src_participant_guid_prefix": "01.0f.40.ec.ae.00.87.b3.00.00.00.00"
-   },
-   {
-    "bytes": 844.0,
-    "bytes_first": 844.0,
-    "dst_locator": {
-     "address": "",
-     "kind": "SHM",
-     "port": 7004
-    },
-    "packets": 4,
-    "packets_first": 4,
-    "src_participant_guid_prefix": "01.0f.40.ec.ae.00.87.b3.00.00.00.00"
-   },
-   {
-    "bytes": 880.0,
-    "bytes_first": 880.0,
-    "dst_locator": {
-     "address": "",
-     "kind": "SHM",
-     "port": 7411
-    },
-    "packets": 7,
-    "packets_first": 7,
-    "src_participant_guid_prefix": "01.0f.40.ec.ae.00.87.b3.00.00.00.00"
-   },
-   {
-    "bytes": 880.0,
-    "bytes_first": 880.0,
-    "dst_locator": {
-     "address": "",
-     "kind": "SHM",
-     "port": 7413
-    },
-    "packets": 7,
-    "packets_first": 7,
-    "src_participant_guid_prefix": "01.0f.40.ec.ae.00.87.b3.00.00.00.00"
-   },
-   {
-    "bytes": 2748.0,
-    "bytes_first": 2128.0,
-    "dst_locator": {
-     "address": "",
-     "kind": "SHM",
-     "port": 7415
-    },
-    "packets": 22,
-    "packets_first": 17,
-    "src_participant_guid_prefix": "01.0f.40.ec.ae.00.87.b3.00.00.00.00"
-   },
-   {
-    "bytes": 632.0,
-    "bytes_first": 632.0,
-    "dst_locator": {
-     "address": "",
-     "kind": "SHM",
-     "port": 7421
-    },
-    "packets": 5,
-    "packets_first": 5,
-    "src_participant_guid_prefix": "01.0f.40.ec.ae.00.87.b3.00.00.00.00"
-   },
-   {
-    "bytes": 936.0,
-    "bytes_first": 824.0,
-    "dst_locator": {
-     "address": "127.0.0.1",
-     "kind": "UDPv4",
-     "port": 7004
-    },
-    "packets": 5,
-    "packets_first": 4,
-    "src_participant_guid_prefix": "01.0f.40.ec.af.00.82.c7.00.00.00.00"
-   },
-   {
-    "bytes": 23248.0,
-    "bytes_first": 22232.0,
-    "dst_locator": {
-     "address": "127.0.0.1",
-     "kind": "UDPv4",
-     "port": 7412
-    },
-    "packets": 27,
-    "packets_first": 25,
-    "src_participant_guid_prefix": "01.0f.40.ec.af.00.82.c7.00.00.00.00"
-   },
-   {
-    "bytes": 23124.0,
-    "bytes_first": 21984.0,
-    "dst_locator": {
-     "address": "127.0.0.1",
-     "kind": "UDPv4",
-     "port": 7414
-    },
-    "packets": 26,
-    "packets_first": 23,
-    "src_participant_guid_prefix": "01.0f.40.ec.af.00.82.c7.00.00.00.00"
-   },
-   {
-    "bytes": 23128.0,
-    "bytes_first": 22112.0,
-    "dst_locator": {
-     "address": "127.0.0.1",
-     "kind": "UDPv4",
-     "port": 7416
-    },
-    "packets": 26,
-    "packets_first": 24,
-    "src_participant_guid_prefix": "01.0f.40.ec.af.00.82.c7.00.00.00.00"
-   },
-   {
-    "bytes": 23256.0,
-    "bytes_first": 22240.0,
-    "dst_locator": {
-     "address": "127.0.0.1",
-     "kind": "UDPv4",
-     "port": 7418
-    },
-    "packets": 27,
-    "packets_first": 25,
-    "src_participant_guid_prefix": "01.0f.40.ec.af.00.82.c7.00.00.00.00"
-   },
-   {
-    "bytes": 3272.0,
-    "bytes_first": 1960.0,
-    "dst_locator": {
-     "address": "127.0.0.1",
-     "kind": "UDPv4",
-     "port": 7419
-    },
-    "packets": 25,
-    "packets_first": 15,
-    "src_participant_guid_prefix": "01.0f.40.ec.af.00.82.c7.00.00.00.00"
-   },
-   {
-    "bytes": 20120.0,
-    "bytes_first": 19104.0,
-    "dst_locator": {
-     "address": "127.0.0.1",
-     "kind": "UDPv4",
-     "port": 7420
-    },
-    "packets": 23,
-    "packets_first": 21,
-    "src_participant_guid_prefix": "01.0f.40.ec.af.00.82.c7.00.00.00.00"
-   },
-   {
-    "bytes": 20248.0,
-    "bytes_first": 19108.0,
-    "dst_locator": {
-     "address": "127.0.0.1",
-     "kind": "UDPv4",
-     "port": 7422
-    },
-    "packets": 24,
-    "packets_first": 21,
-    "src_participant_guid_prefix": "01.0f.40.ec.af.00.82.c7.00.00.00.00"
-   },
-   {
-    "bytes": 4064.0,
-    "bytes_first": 3048.0,
-    "dst_locator": {
-     "address": "239.255.0.1",
-     "kind": "UDPv4",
-     "port": 7400
-    },
-    "packets": 8,
-    "packets_first": 6,
-    "src_participant_guid_prefix": "01.0f.40.ec.af.00.82.c7.00.00.00.00"
-   },
-   {
-    "bytes": 920.0,
-    "bytes_first": 808.0,
-    "dst_locator": {
-     "address": "",
-     "kind": "SHM",
-     "port": 7001
-    },
-    "packets": 5,
-    "packets_first": 4,
-    "src_participant_guid_prefix": "01.0f.40.ec.af.00.82.c7.00.00.00.00"
-   },
-   {
-    "bytes": 920.0,
-    "bytes_first": 808.0,
-    "dst_locator": {
-     "address": "",
-     "kind": "SHM",
-     "port": 7002
-    },
-    "packets": 5,
-    "packets_first": 4,
-    "src_participant_guid_prefix": "01.0f.40.ec.af.00.82.c7.00.00.00.00"
-   },
-   {
-    "bytes": 920.0,
-    "bytes_first": 808.0,
-    "dst_locator": {
-     "address": "",
-     "kind": "SHM",
-     "port": 7003
-    },
-    "packets": 5,
-    "packets_first": 4,
-    "src_participant_guid_prefix": "01.0f.40.ec.af.00.82.c7.00.00.00.00"
-   },
-   {
-    "bytes": 840.0,
-    "bytes_first": 128.0,
-    "dst_locator": {
-     "address": "",
-     "kind": "SHM",
-     "port": 7004
-    },
-    "packets": 4,
-    "packets_first": 1,
-    "src_participant_guid_prefix": "01.0f.40.ec.af.00.82.c7.00.00.00.00"
-   },
-   {
-    "bytes": 3400.0,
-    "bytes_first": 2212.0,
-    "dst_locator": {
-     "address": "",
-     "kind": "SHM",
-     "port": 7413
-    },
-    "packets": 26,
-    "packets_first": 17,
-    "src_participant_guid_prefix": "01.0f.40.ec.af.00.82.c7.00.00.00.00"
-   },
-   {
-    "bytes": 1252.0,
-    "bytes_first": 1128.0,
-    "dst_locator": {
-     "address": "",
-     "kind": "SHM",
-     "port": 7415
-    },
-    "packets": 10,
-    "packets_first": 9,
-    "src_participant_guid_prefix": "01.0f.40.ec.af.00.82.c7.00.00.00.00"
-   },
-   {
-    "bytes": 880.0,
-    "bytes_first": 756.0,
-    "dst_locator": {
-     "address": "",
-     "kind": "SHM",
-     "port": 7417
-    },
-    "packets": 7,
-    "packets_first": 6,
-    "src_participant_guid_prefix": "01.0f.40.ec.af.00.82.c7.00.00.00.00"
-   },
-   {
-    "bytes": 632.0,
-    "bytes_first": 504.0,
-    "dst_locator": {
-     "address": "",
-     "kind": "SHM",
-     "port": 7421
-    },
-    "packets": 5,
-    "packets_first": 4,
-    "src_participant_guid_prefix": "01.0f.40.ec.af.00.82.c7.00.00.00.00"
-   },
-   {
-    "bytes": 924.0,
-    "bytes_first": 812.0,
-    "dst_locator": {
-     "address": "127.0.0.1",
-     "kind": "UDPv4",
-     "port": 7004
-    },
-    "packets": 5,
-    "packets_first": 4,
-    "src_participant_guid_prefix": "01.0f.40.ec.b0.00.fe.65.00.00.00.00"
-   },
-   {
-    "bytes": 24016.0,
-    "bytes_first": 22888.0,
+    "bytes": 24668.0,
+    "bytes_first": 24160.0,
     "dst_locator": {
      "address": "127.0.0.1",
      "kind": "UDPv4",
      "port": 7410
     },
-    "packets": 50,
-    "packets_first": 47,
-    "src_participant_guid_prefix": "01.0f.40.ec.b0.00.fe.65.00.00.00.00"
-   },
-   {
-    "bytes": 25464.0,
-    "bytes_first": 24336.0,
-    "dst_locator": {
-     "address": "127.0.0.1",
-     "kind": "UDPv4",
-     "port": 7412
-    },
-    "packets": 55,
-    "packets_first": 52,
-    "src_participant_guid_prefix": "01.0f.40.ec.b0.00.fe.65.00.00.00.00"
-   },
-   {
-    "bytes": 25336.0,
-    "bytes_first": 24208.0,
-    "dst_locator": {
-     "address": "127.0.0.1",
-     "kind": "UDPv4",
-     "port": 7416
-    },
-    "packets": 54,
-    "packets_first": 51,
-    "src_participant_guid_prefix": "01.0f.40.ec.b0.00.fe.65.00.00.00.00"
-   },
-   {
-    "bytes": 24680.0,
-    "bytes_first": 23552.0,
-    "dst_locator": {
-     "address": "127.0.0.1",
-     "kind": "UDPv4",
-     "port": 7418
-    },
-    "packets": 45,
-    "packets_first": 42,
-    "src_participant_guid_prefix": "01.0f.40.ec.b0.00.fe.65.00.00.00.00"
-   },
-   {
-    "bytes": 1272.0,
-    "bytes_first": 1024.0,
-    "dst_locator": {
-     "address": "127.0.0.1",
-     "kind": "UDPv4",
-     "port": 7419
-    },
-    "packets": 10,
-    "packets_first": 8,
-    "src_participant_guid_prefix": "01.0f.40.ec.b0.00.fe.65.00.00.00.00"
-   },
-   {
-    "bytes": 19720.0,
-    "bytes_first": 18592.0,
-    "dst_locator": {
-     "address": "127.0.0.1",
-     "kind": "UDPv4",
-     "port": 7420
-    },
-    "packets": 18,
-    "packets_first": 15,
-    "src_participant_guid_prefix": "01.0f.40.ec.b0.00.fe.65.00.00.00.00"
-   },
-   {
-    "bytes": 19848.0,
-    "bytes_first": 18596.0,
-    "dst_locator": {
-     "address": "127.0.0.1",
-     "kind": "UDPv4",
-     "port": 7422
-    },
-    "packets": 19,
-    "packets_first": 15,
-    "src_participant_guid_prefix": "01.0f.40.ec.b0.00.fe.65.00.00.00.00"
-   },
-   {
-    "bytes": 4064.0,
-    "bytes_first": 3048.0,
-    "dst_locator": {
-     "address": "239.255.0.1",
-     "kind": "UDPv4",
-     "port": 7400
-    },
-    "packets": 8,
-    "packets_first": 6,
-    "src_participant_guid_prefix": "01.0f.40.ec.b0.00.fe.65.00.00.00.00"
-   },
-   {
-    "bytes": 924.0,
-    "bytes_first": 812.0,
-    "dst_locator": {
-     "address": "",
-     "kind": "SHM",
-     "port": 7000
-    },
-    "packets": 5,
-    "packets_first": 4,
-    "src_participant_guid_prefix": "01.0f.40.ec.b0.00.fe.65.00.00.00.00"
-   },
-   {
-    "bytes": 924.0,
-    "bytes_first": 812.0,
-    "dst_locator": {
-     "address": "",
-     "kind": "SHM",
-     "port": 7001
-    },
-    "packets": 5,
-    "packets_first": 4,
-    "src_participant_guid_prefix": "01.0f.40.ec.b0.00.fe.65.00.00.00.00"
-   },
-   {
-    "bytes": 6048.0,
-    "bytes_first": 5936.0,
-    "dst_locator": {
-     "address": "",
-     "kind": "SHM",
-     "port": 7003
-    },
-    "packets": 27,
-    "packets_first": 26,
-    "src_participant_guid_prefix": "01.0f.40.ec.b0.00.fe.65.00.00.00.00"
-   },
-   {
-    "bytes": 844.0,
-    "bytes_first": 128.0,
-    "dst_locator": {
-     "address": "",
-     "kind": "SHM",
-     "port": 7004
-    },
-    "packets": 4,
-    "packets_first": 1,
-    "src_participant_guid_prefix": "01.0f.40.ec.b0.00.fe.65.00.00.00.00"
-   },
-   {
-    "bytes": 896.0,
-    "bytes_first": 772.0,
-    "dst_locator": {
-     "address": "",
-     "kind": "SHM",
-     "port": 7411
-    },
-    "packets": 7,
-    "packets_first": 6,
-    "src_participant_guid_prefix": "01.0f.40.ec.b0.00.fe.65.00.00.00.00"
-   },
-   {
-    "bytes": 896.0,
-    "bytes_first": 772.0,
-    "dst_locator": {
-     "address": "",
-     "kind": "SHM",
-     "port": 7413
-    },
-    "packets": 7,
-    "packets_first": 6,
-    "src_participant_guid_prefix": "01.0f.40.ec.b0.00.fe.65.00.00.00.00"
-   },
-   {
-    "bytes": 21220.0,
-    "bytes_first": 12548.0,
-    "dst_locator": {
-     "address": "",
-     "kind": "SHM",
-     "port": 7417
-    },
-    "packets": 139,
-    "packets_first": 78,
-    "src_participant_guid_prefix": "01.0f.40.ec.b0.00.fe.65.00.00.00.00"
-   },
-   {
-    "bytes": 632.0,
-    "bytes_first": 504.0,
-    "dst_locator": {
-     "address": "",
-     "kind": "SHM",
-     "port": 7421
-    },
-    "packets": 5,
-    "packets_first": 4,
-    "src_participant_guid_prefix": "01.0f.40.ec.b0.00.fe.65.00.00.00.00"
-   },
-   {
-    "bytes": 924.0,
-    "bytes_first": 812.0,
-    "dst_locator": {
-     "address": "127.0.0.1",
-     "kind": "UDPv4",
-     "port": 7004
-    },
-    "packets": 5,
-    "packets_first": 4,
-    "src_participant_guid_prefix": "01.0f.40.ec.b3.00.2e.41.00.00.00.00"
-   },
-   {
-    "bytes": 24764.0,
-    "bytes_first": 23748.0,
-    "dst_locator": {
-     "address": "127.0.0.1",
-     "kind": "UDPv4",
-     "port": 7410
-    },
-    "packets": 54,
-    "packets_first": 52,
-    "src_participant_guid_prefix": "01.0f.40.ec.b3.00.2e.41.00.00.00.00"
-   },
-   {
-    "bytes": 24228.0,
-    "bytes_first": 23088.0,
-    "dst_locator": {
-     "address": "127.0.0.1",
-     "kind": "UDPv4",
-     "port": 7414
-    },
-    "packets": 39,
-    "packets_first": 36,
-    "src_participant_guid_prefix": "01.0f.40.ec.b3.00.2e.41.00.00.00.00"
-   },
-   {
-    "bytes": 24068.0,
-    "bytes_first": 23052.0,
-    "dst_locator": {
-     "address": "127.0.0.1",
-     "kind": "UDPv4",
-     "port": 7416
-    },
-    "packets": 37,
-    "packets_first": 35,
-    "src_participant_guid_prefix": "01.0f.40.ec.b3.00.2e.41.00.00.00.00"
-   },
-   {
-    "bytes": 24080.0,
-    "bytes_first": 23064.0,
-    "dst_locator": {
-     "address": "127.0.0.1",
-     "kind": "UDPv4",
-     "port": 7418
-    },
-    "packets": 36,
-    "packets_first": 34,
-    "src_participant_guid_prefix": "01.0f.40.ec.b3.00.2e.41.00.00.00.00"
+    "packets": 51,
+    "packets_first": 50,
+    "src_participant_guid_prefix": "01.0f.40.ec.52.00.86.93.00.00.00.00"
    },
    {
     "bytes": 1256.0,
@@ -1117,347 +967,95 @@ window.TRANSPORT_VIZ_SAMPLE = {
     "dst_locator": {
      "address": "127.0.0.1",
      "kind": "UDPv4",
-     "port": 7419
+     "port": 7411
     },
     "packets": 10,
     "packets_first": 8,
-    "src_participant_guid_prefix": "01.0f.40.ec.b3.00.2e.41.00.00.00.00"
+    "src_participant_guid_prefix": "01.0f.40.ec.52.00.86.93.00.00.00.00"
    },
    {
-    "bytes": 20148.0,
-    "bytes_first": 19132.0,
+    "bytes": 23300.0,
+    "bytes_first": 22792.0,
     "dst_locator": {
      "address": "127.0.0.1",
      "kind": "UDPv4",
-     "port": 7420
+     "port": 7412
     },
-    "packets": 23,
-    "packets_first": 21,
-    "src_participant_guid_prefix": "01.0f.40.ec.b3.00.2e.41.00.00.00.00"
+    "packets": 47,
+    "packets_first": 46,
+    "src_participant_guid_prefix": "01.0f.40.ec.52.00.86.93.00.00.00.00"
    },
    {
-    "bytes": 20276.0,
-    "bytes_first": 19136.0,
+    "bytes": 24652.0,
+    "bytes_first": 24144.0,
     "dst_locator": {
      "address": "127.0.0.1",
      "kind": "UDPv4",
-     "port": 7422
+     "port": 7414
     },
-    "packets": 24,
-    "packets_first": 21,
-    "src_participant_guid_prefix": "01.0f.40.ec.b3.00.2e.41.00.00.00.00"
+    "packets": 51,
+    "packets_first": 50,
+    "src_participant_guid_prefix": "01.0f.40.ec.52.00.86.93.00.00.00.00"
    },
    {
-    "bytes": 4064.0,
+    "bytes": 24652.0,
+    "bytes_first": 24144.0,
+    "dst_locator": {
+     "address": "127.0.0.1",
+     "kind": "UDPv4",
+     "port": 7416
+    },
+    "packets": 51,
+    "packets_first": 50,
+    "src_participant_guid_prefix": "01.0f.40.ec.52.00.86.93.00.00.00.00"
+   },
+   {
+    "bytes": 3556.0,
     "bytes_first": 3048.0,
     "dst_locator": {
      "address": "239.255.0.1",
      "kind": "UDPv4",
      "port": 7400
     },
-    "packets": 8,
+    "packets": 7,
     "packets_first": 6,
-    "src_participant_guid_prefix": "01.0f.40.ec.b3.00.2e.41.00.00.00.00"
+    "src_participant_guid_prefix": "01.0f.40.ec.52.00.86.93.00.00.00.00"
    },
    {
     "bytes": 940.0,
-    "bytes_first": 828.0,
+    "bytes_first": 940.0,
     "dst_locator": {
      "address": "",
      "kind": "SHM",
-     "port": 7000
-    },
-    "packets": 5,
-    "packets_first": 4,
-    "src_participant_guid_prefix": "01.0f.40.ec.b3.00.2e.41.00.00.00.00"
-   },
-   {
-    "bytes": 924.0,
-    "bytes_first": 812.0,
-    "dst_locator": {
-     "address": "",
-     "kind": "SHM",
-     "port": 7002
-    },
-    "packets": 5,
-    "packets_first": 4,
-    "src_participant_guid_prefix": "01.0f.40.ec.b3.00.2e.41.00.00.00.00"
-   },
-   {
-    "bytes": 924.0,
-    "bytes_first": 812.0,
-    "dst_locator": {
-     "address": "",
-     "kind": "SHM",
-     "port": 7003
-    },
-    "packets": 5,
-    "packets_first": 4,
-    "src_participant_guid_prefix": "01.0f.40.ec.b3.00.2e.41.00.00.00.00"
-   },
-   {
-    "bytes": 844.0,
-    "bytes_first": 128.0,
-    "dst_locator": {
-     "address": "",
-     "kind": "SHM",
-     "port": 7004
-    },
-    "packets": 4,
-    "packets_first": 1,
-    "src_participant_guid_prefix": "01.0f.40.ec.b3.00.2e.41.00.00.00.00"
-   },
-   {
-    "bytes": 1372.0,
-    "bytes_first": 1000.0,
-    "dst_locator": {
-     "address": "",
-     "kind": "SHM",
-     "port": 7411
-    },
-    "packets": 11,
-    "packets_first": 8,
-    "src_participant_guid_prefix": "01.0f.40.ec.b3.00.2e.41.00.00.00.00"
-   },
-   {
-    "bytes": 1004.0,
-    "bytes_first": 880.0,
-    "dst_locator": {
-     "address": "",
-     "kind": "SHM",
-     "port": 7415
-    },
-    "packets": 8,
-    "packets_first": 7,
-    "src_participant_guid_prefix": "01.0f.40.ec.b3.00.2e.41.00.00.00.00"
-   },
-   {
-    "bytes": 880.0,
-    "bytes_first": 756.0,
-    "dst_locator": {
-     "address": "",
-     "kind": "SHM",
-     "port": 7417
-    },
-    "packets": 7,
-    "packets_first": 6,
-    "src_participant_guid_prefix": "01.0f.40.ec.b3.00.2e.41.00.00.00.00"
-   },
-   {
-    "bytes": 632.0,
-    "bytes_first": 504.0,
-    "dst_locator": {
-     "address": "",
-     "kind": "SHM",
-     "port": 7421
-    },
-    "packets": 5,
-    "packets_first": 4,
-    "src_participant_guid_prefix": "01.0f.40.ec.b3.00.2e.41.00.00.00.00"
-   },
-   {
-    "bytes": 944.0,
-    "bytes_first": 944.0,
-    "dst_locator": {
-     "address": "127.0.0.1",
-     "kind": "UDPv4",
      "port": 7000
     },
     "packets": 5,
     "packets_first": 5,
-    "src_participant_guid_prefix": "01.0f.40.ec.ba.00.5e.4c.00.00.00.00"
+    "src_participant_guid_prefix": "01.0f.40.ec.52.00.86.93.00.00.00.00"
    },
    {
-    "bytes": 944.0,
-    "bytes_first": 944.0,
+    "bytes": 924.0,
+    "bytes_first": 924.0,
     "dst_locator": {
-     "address": "127.0.0.1",
-     "kind": "UDPv4",
+     "address": "",
+     "kind": "SHM",
      "port": 7001
     },
     "packets": 5,
     "packets_first": 5,
-    "src_participant_guid_prefix": "01.0f.40.ec.ba.00.5e.4c.00.00.00.00"
+    "src_participant_guid_prefix": "01.0f.40.ec.52.00.86.93.00.00.00.00"
    },
    {
-    "bytes": 5920.0,
-    "bytes_first": 5920.0,
+    "bytes": 1128.0,
+    "bytes_first": 880.0,
     "dst_locator": {
-     "address": "127.0.0.1",
-     "kind": "UDPv4",
-     "port": 7002
-    },
-    "packets": 27,
-    "packets_first": 27,
-    "src_participant_guid_prefix": "01.0f.40.ec.ba.00.5e.4c.00.00.00.00"
-   },
-   {
-    "bytes": 5920.0,
-    "bytes_first": 5920.0,
-    "dst_locator": {
-     "address": "127.0.0.1",
-     "kind": "UDPv4",
-     "port": 7003
-    },
-    "packets": 27,
-    "packets_first": 27,
-    "src_participant_guid_prefix": "01.0f.40.ec.ba.00.5e.4c.00.00.00.00"
-   },
-   {
-    "bytes": 848.0,
-    "bytes_first": 848.0,
-    "dst_locator": {
-     "address": "127.0.0.1",
-     "kind": "UDPv4",
-     "port": 7005
-    },
-    "packets": 4,
-    "packets_first": 4,
-    "src_participant_guid_prefix": "01.0f.40.ec.ba.00.5e.4c.00.00.00.00"
-   },
-   {
-    "bytes": 23484.0,
-    "bytes_first": 22524.0,
-    "dst_locator": {
-     "address": "127.0.0.1",
-     "kind": "UDPv4",
-     "port": 7410
-    },
-    "packets": 44,
-    "packets_first": 42,
-    "src_participant_guid_prefix": "01.0f.40.ec.ba.00.5e.4c.00.00.00.00"
-   },
-   {
-    "bytes": 1760.0,
-    "bytes_first": 1524.0,
-    "dst_locator": {
-     "address": "127.0.0.1",
-     "kind": "UDPv4",
-     "port": 7411
-    },
-    "packets": 14,
-    "packets_first": 12,
-    "src_participant_guid_prefix": "01.0f.40.ec.ba.00.5e.4c.00.00.00.00"
-   },
-   {
-    "bytes": 23500.0,
-    "bytes_first": 22540.0,
-    "dst_locator": {
-     "address": "127.0.0.1",
-     "kind": "UDPv4",
-     "port": 7412
-    },
-    "packets": 44,
-    "packets_first": 42,
-    "src_participant_guid_prefix": "01.0f.40.ec.ba.00.5e.4c.00.00.00.00"
-   },
-   {
-    "bytes": 1264.0,
-    "bytes_first": 1152.0,
-    "dst_locator": {
-     "address": "127.0.0.1",
-     "kind": "UDPv4",
+     "address": "",
+     "kind": "SHM",
      "port": 7413
     },
-    "packets": 10,
-    "packets_first": 9,
-    "src_participant_guid_prefix": "01.0f.40.ec.ba.00.5e.4c.00.00.00.00"
-   },
-   {
-    "bytes": 23356.0,
-    "bytes_first": 22272.0,
-    "dst_locator": {
-     "address": "127.0.0.1",
-     "kind": "UDPv4",
-     "port": 7414
-    },
-    "packets": 43,
-    "packets_first": 40,
-    "src_participant_guid_prefix": "01.0f.40.ec.ba.00.5e.4c.00.00.00.00"
-   },
-   {
-    "bytes": 3876.0,
-    "bytes_first": 3764.0,
-    "dst_locator": {
-     "address": "127.0.0.1",
-     "kind": "UDPv4",
-     "port": 7415
-    },
-    "packets": 18,
-    "packets_first": 17,
-    "src_participant_guid_prefix": "01.0f.40.ec.ba.00.5e.4c.00.00.00.00"
-   },
-   {
-    "bytes": 23356.0,
-    "bytes_first": 22396.0,
-    "dst_locator": {
-     "address": "127.0.0.1",
-     "kind": "UDPv4",
-     "port": 7416
-    },
-    "packets": 43,
-    "packets_first": 41,
-    "src_participant_guid_prefix": "01.0f.40.ec.ba.00.5e.4c.00.00.00.00"
-   },
-   {
-    "bytes": 3920.0,
-    "bytes_first": 3808.0,
-    "dst_locator": {
-     "address": "127.0.0.1",
-     "kind": "UDPv4",
-     "port": 7417
-    },
-    "packets": 17,
-    "packets_first": 16,
-    "src_participant_guid_prefix": "01.0f.40.ec.ba.00.5e.4c.00.00.00.00"
-   },
-   {
-    "bytes": 18800.0,
-    "bytes_first": 17840.0,
-    "dst_locator": {
-     "address": "127.0.0.1",
-     "kind": "UDPv4",
-     "port": 7420
-    },
-    "packets": 18,
-    "packets_first": 16,
-    "src_participant_guid_prefix": "01.0f.40.ec.ba.00.5e.4c.00.00.00.00"
-   },
-   {
-    "bytes": 904.0,
-    "bytes_first": 792.0,
-    "dst_locator": {
-     "address": "127.0.0.1",
-     "kind": "UDPv4",
-     "port": 7421
-    },
-    "packets": 7,
-    "packets_first": 6,
-    "src_participant_guid_prefix": "01.0f.40.ec.ba.00.5e.4c.00.00.00.00"
-   },
-   {
-    "bytes": 18800.0,
-    "bytes_first": 17716.0,
-    "dst_locator": {
-     "address": "127.0.0.1",
-     "kind": "UDPv4",
-     "port": 7422
-    },
-    "packets": 18,
-    "packets_first": 15,
-    "src_participant_guid_prefix": "01.0f.40.ec.ba.00.5e.4c.00.00.00.00"
-   },
-   {
-    "bytes": 3840.0,
-    "bytes_first": 2880.0,
-    "dst_locator": {
-     "address": "239.255.0.1",
-     "kind": "UDPv4",
-     "port": 7400
-    },
-    "packets": 8,
-    "packets_first": 6,
-    "src_participant_guid_prefix": "01.0f.40.ec.ba.00.5e.4c.00.00.00.00"
+    "packets": 9,
+    "packets_first": 7,
+    "src_participant_guid_prefix": "01.0f.40.ec.52.00.86.93.00.00.00.00"
    }
   ]
  },
@@ -1465,410 +1063,7 @@ window.TRANSPORT_VIZ_SAMPLE = {
   {
    "dds_topic": "rt/bounded",
    "is_ros_topic": true,
-   "latency_s": 0.00031440901694915267,
-   "lost_packets": 0,
-   "pairs": [
-    {
-     "confidence": "certain",
-     "locator": {
-      "address": "",
-      "kind": "SHM",
-      "multicast": false,
-      "port": 7417
-     },
-     "measured": {
-      "available": true,
-      "bytes": 8672.0,
-      "bytes_total": 21220.0,
-      "data_submessages": 59,
-      "delivered": true,
-      "delivered_samples": 59,
-      "latency_s": {
-       "last": 0.00047604200000000003,
-       "max": 0.000551416,
-       "mean": 0.00031440901694915267,
-       "min": 0.000114958,
-       "samples": 59
-      },
-      "locators": [
-       {
-        "address": "",
-        "bytes": 8672.0,
-        "kind": "SHM",
-        "packets": 61,
-        "port": 7417
-       }
-      ],
-      "packets": 61,
-      "packets_total": 139,
-      "reliability": {
-       "acknacks": 5,
-       "gaps": 0,
-       "heartbeats": 6,
-       "lost_packets": 0,
-       "nackfrags": 0,
-       "resent_datas": 0
-      },
-      "throughput_bytes_per_s": 80.03652750651041,
-      "transports": [
-       "SHM"
-      ]
-     },
-     "reader_guid": "01.0f.40.ec.ae.00.87.b3.00.00.00.00|00.00.14.04",
-     "reader_host": "f46a48ca8c49",
-     "reader_node": "/bounded_sub",
-     "reasons": [
-      "same-host-guid",
-      "datasharing-disabled-writer",
-      "both-shm-locators",
-      "measured-shm-traffic"
-     ],
-     "transport": "SHM",
-     "warnings": [],
-     "writer_guid": "01.0f.40.ec.b0.00.fe.65.00.00.00.00|00.00.14.03",
-     "writer_host": "f46a48ca8c49",
-     "writer_node": "/bounded_pub"
-    }
-   ],
-   "readers": [
-    {
-     "datasharing_history_bytes": null,
-     "dds_topic": "rt/bounded",
-     "dds_type": "std_msgs::msg::dds_::Int32_",
-     "guid": "01.0f.40.ec.ae.00.87.b3.00.00.00.00|00.00.14.04",
-     "host": "f46a48ca8c49",
-     "host_id": "010f40ec",
-     "host_name": "f46a48ca8c49:11219936903513702400",
-     "multicast_locators": [],
-     "node": "/bounded_sub",
-     "participant_guid_prefix": "01.0f.40.ec.ae.00.87.b3.00.00.00.00",
-     "process": "174",
-     "qos": {
-      "data_sharing": "OFF",
-      "data_sharing_domain_ids": [],
-      "deadline_s": null,
-      "durability": "VOLATILE",
-      "liveliness": "AUTOMATIC",
-      "liveliness_lease_s": null,
-      "ownership": "SHARED",
-      "partitions": [],
-      "reliability": "RELIABLE"
-     },
-     "ros_topic": "/bounded",
-     "ros_type": "std_msgs/msg/Int32",
-     "unicast_locators": [
-      {
-       "address": "",
-       "kind": "SHM",
-       "port": 7417
-      },
-      {
-       "address": "127.0.0.1",
-       "kind": "UDPv4",
-       "port": 7417
-      }
-     ]
-    }
-   ],
-   "resent_datas": 0,
-   "throughput_bytes_per_s": 80.03652750651041,
-   "topic": "/bounded",
-   "type": "std_msgs/msg/Int32",
-   "unmatched_reasons": [],
-   "writers": [
-    {
-     "datasharing_history_bytes": null,
-     "dds_topic": "rt/bounded",
-     "dds_type": "std_msgs::msg::dds_::Int32_",
-     "guid": "01.0f.40.ec.b0.00.fe.65.00.00.00.00|00.00.14.03",
-     "host": "f46a48ca8c49",
-     "host_id": "010f40ec",
-     "host_name": "f46a48ca8c49:11219936903513702400",
-     "multicast_locators": [],
-     "node": "/bounded_pub",
-     "participant_guid_prefix": "01.0f.40.ec.b0.00.fe.65.00.00.00.00",
-     "process": "176",
-     "qos": {
-      "data_sharing": "OFF",
-      "data_sharing_domain_ids": [],
-      "deadline_s": null,
-      "durability": "VOLATILE",
-      "liveliness": "AUTOMATIC",
-      "liveliness_lease_s": null,
-      "ownership": "SHARED",
-      "partitions": [],
-      "reliability": "RELIABLE"
-     },
-     "ros_topic": "/bounded",
-     "ros_type": "std_msgs/msg/Int32",
-     "unicast_locators": [
-      {
-       "address": "",
-       "kind": "SHM",
-       "port": 7415
-      },
-      {
-       "address": "127.0.0.1",
-       "kind": "UDPv4",
-       "port": 7415
-      }
-     ]
-    }
-   ]
-  },
-  {
-   "dds_topic": "rt/chatter",
-   "is_ros_topic": true,
-   "latency_s": 0.00039170800000000005,
-   "lost_packets": 0,
-   "pairs": [
-    {
-     "confidence": "certain",
-     "locator": {
-      "address": "",
-      "kind": "SHM",
-      "multicast": false,
-      "port": 7413
-     },
-     "measured": {
-      "available": true,
-      "bytes": 1188.0,
-      "bytes_total": 3400.0,
-      "data_submessages": 12,
-      "delivered": true,
-      "delivered_samples": 7,
-      "latency_s": {
-       "last": 0.000510083,
-       "max": 0.0005425,
-       "mean": 0.00039170800000000005,
-       "min": 0.000105792,
-       "samples": 7
-      },
-      "locators": [
-       {
-        "address": "",
-        "bytes": 1188.0,
-        "kind": "SHM",
-        "packets": 9,
-        "port": 7413
-       }
-      ],
-      "packets": 9,
-      "packets_total": 26,
-      "reliability": {
-       "acknacks": 2,
-       "gaps": 0,
-       "heartbeats": 2,
-       "lost_packets": 0,
-       "nackfrags": 0,
-       "resent_datas": 0
-      },
-      "throughput_bytes_per_s": 23.421346391950333,
-      "transports": [
-       "SHM"
-      ]
-     },
-     "reader_guid": "01.0f.40.ec.b3.00.2e.41.00.00.00.00|00.00.14.04",
-     "reader_host": "f46a48ca8c49",
-     "reader_node": "/listener",
-     "reasons": [
-      "same-host-guid",
-      "datasharing-disabled-writer",
-      "both-shm-locators",
-      "measured-shm-traffic"
-     ],
-     "transport": "SHM",
-     "warnings": [],
-     "writer_guid": "01.0f.40.ec.af.00.82.c7.00.00.00.00|00.00.14.03",
-     "writer_host": "f46a48ca8c49",
-     "writer_node": "/talker"
-    },
-    {
-     "confidence": "certain",
-     "locator": {
-      "address": "127.0.0.1",
-      "kind": "UDPv4",
-      "multicast": false,
-      "port": 7419
-     },
-     "measured": {
-      "available": true,
-      "bytes": 1312.0,
-      "bytes_total": 3272.0,
-      "data_submessages": 12,
-      "delivered": true,
-      "delivered_samples": 7,
-      "latency_s": {
-       "last": 0.000491166,
-       "max": 0.00051225,
-       "mean": 0.0003650352857142857,
-       "min": 0.000101167,
-       "samples": 7
-      },
-      "locators": [
-       {
-        "address": "127.0.0.1",
-        "bytes": 1312.0,
-        "kind": "UDPv4",
-        "packets": 10,
-        "port": 7419
-       }
-      ],
-      "packets": 10,
-      "packets_total": 25,
-      "reliability": {
-       "acknacks": 1,
-       "gaps": 0,
-       "heartbeats": 2,
-       "lost_packets": 0,
-       "nackfrags": 0,
-       "resent_datas": 0
-      },
-      "throughput_bytes_per_s": 23.421346391950333,
-      "transports": [
-       "UDPv4"
-      ]
-     },
-     "reader_guid": "01.0f.40.ec.ba.00.5e.4c.00.00.00.00|00.00.14.04",
-     "reader_host": "f46a48ca8c49",
-     "reader_node": "/listener_udp",
-     "reasons": [
-      "same-host-guid",
-      "datasharing-disabled-writer",
-      "reader-no-shm-locator",
-      "common-udpv4-locator",
-      "measured-udpv4-traffic"
-     ],
-     "transport": "UDPv4",
-     "warnings": [],
-     "writer_guid": "01.0f.40.ec.af.00.82.c7.00.00.00.00|00.00.14.03",
-     "writer_host": "f46a48ca8c49",
-     "writer_node": "/talker"
-    }
-   ],
-   "readers": [
-    {
-     "datasharing_history_bytes": null,
-     "dds_topic": "rt/chatter",
-     "dds_type": "std_msgs::msg::dds_::String_",
-     "guid": "01.0f.40.ec.b3.00.2e.41.00.00.00.00|00.00.14.04",
-     "host": "f46a48ca8c49",
-     "host_id": "010f40ec",
-     "host_name": "f46a48ca8c49:11219936903513702400",
-     "multicast_locators": [],
-     "node": "/listener",
-     "participant_guid_prefix": "01.0f.40.ec.b3.00.2e.41.00.00.00.00",
-     "process": "179",
-     "qos": {
-      "data_sharing": "OFF",
-      "data_sharing_domain_ids": [],
-      "deadline_s": null,
-      "durability": "VOLATILE",
-      "liveliness": "AUTOMATIC",
-      "liveliness_lease_s": null,
-      "ownership": "SHARED",
-      "partitions": [],
-      "reliability": "RELIABLE"
-     },
-     "ros_topic": "/chatter",
-     "ros_type": "std_msgs/msg/String",
-     "unicast_locators": [
-      {
-       "address": "",
-       "kind": "SHM",
-       "port": 7413
-      },
-      {
-       "address": "127.0.0.1",
-       "kind": "UDPv4",
-       "port": 7413
-      }
-     ]
-    },
-    {
-     "datasharing_history_bytes": null,
-     "dds_topic": "rt/chatter",
-     "dds_type": "std_msgs::msg::dds_::String_",
-     "guid": "01.0f.40.ec.ba.00.5e.4c.00.00.00.00|00.00.14.04",
-     "host": "f46a48ca8c49",
-     "host_id": "010f40ec",
-     "host_name": "f46a48ca8c49:11219936903513702400",
-     "multicast_locators": [],
-     "node": "/listener_udp",
-     "participant_guid_prefix": "01.0f.40.ec.ba.00.5e.4c.00.00.00.00",
-     "process": "186",
-     "qos": {
-      "data_sharing": "OFF",
-      "data_sharing_domain_ids": [],
-      "deadline_s": null,
-      "durability": "VOLATILE",
-      "liveliness": "AUTOMATIC",
-      "liveliness_lease_s": null,
-      "ownership": "SHARED",
-      "partitions": [],
-      "reliability": "RELIABLE"
-     },
-     "ros_topic": "/chatter",
-     "ros_type": "std_msgs/msg/String",
-     "unicast_locators": [
-      {
-       "address": "127.0.0.1",
-       "kind": "UDPv4",
-       "port": 7419
-      }
-     ]
-    }
-   ],
-   "resent_datas": 0,
-   "throughput_bytes_per_s": 23.421346391950333,
-   "topic": "/chatter",
-   "type": "std_msgs/msg/String",
-   "unmatched_reasons": [],
-   "writers": [
-    {
-     "datasharing_history_bytes": null,
-     "dds_topic": "rt/chatter",
-     "dds_type": "std_msgs::msg::dds_::String_",
-     "guid": "01.0f.40.ec.af.00.82.c7.00.00.00.00|00.00.14.03",
-     "host": "f46a48ca8c49",
-     "host_id": "010f40ec",
-     "host_name": "f46a48ca8c49:11219936903513702400",
-     "multicast_locators": [],
-     "node": "/talker",
-     "participant_guid_prefix": "01.0f.40.ec.af.00.82.c7.00.00.00.00",
-     "process": "175",
-     "qos": {
-      "data_sharing": "OFF",
-      "data_sharing_domain_ids": [],
-      "deadline_s": null,
-      "durability": "VOLATILE",
-      "liveliness": "AUTOMATIC",
-      "liveliness_lease_s": null,
-      "ownership": "SHARED",
-      "partitions": [],
-      "reliability": "RELIABLE"
-     },
-     "ros_topic": "/chatter",
-     "ros_type": "std_msgs/msg/String",
-     "unicast_locators": [
-      {
-       "address": "",
-       "kind": "SHM",
-       "port": 7411
-      },
-      {
-       "address": "127.0.0.1",
-       "kind": "UDPv4",
-       "port": 7411
-      }
-     ]
-    }
-   ]
-  },
-  {
-   "dds_topic": "rt/parameter_events",
-   "is_ros_topic": true,
-   "latency_s": 0.188190496,
+   "latency_s": 0.000524895,
    "lost_packets": 0,
    "pairs": [
     {
@@ -1883,32 +1078,32 @@ window.TRANSPORT_VIZ_SAMPLE = {
       "available": true,
       "bytes": 0.0,
       "bytes_total": 0.0,
-      "data_submessages": 0,
+      "data_submessages": 24,
       "delivered": true,
-      "delivered_samples": 1,
+      "delivered_samples": 2,
       "latency_s": {
-       "last": 8.74e-07,
-       "max": 8.74e-07,
-       "mean": 8.74e-07,
-       "min": 8.74e-07,
-       "samples": 1
+       "last": 0.00038641500000000003,
+       "max": 0.000663375,
+       "mean": 0.000524895,
+       "min": 0.00038641500000000003,
+       "samples": 2
       },
       "locators": [],
       "packets": 0,
       "packets_total": 0,
       "reliability": {
-       "acknacks": 1,
+       "acknacks": 2,
        "gaps": 0,
-       "heartbeats": 0,
+       "heartbeats": 3,
        "lost_packets": 0,
        "nackfrags": 0,
        "resent_datas": 0
       },
-      "throughput_bytes_per_s": 23412350.0,
+      "throughput_bytes_per_s": 80.71406936645508,
       "transports": []
      },
-     "reader_guid": "01.0f.40.ec.ae.00.87.b3.00.00.00.00|00.00.11.04",
-     "reader_host": "f46a48ca8c49",
+     "reader_guid": "01.0f.40.ec.38.00.58.91.00.00.00.00|00.00.14.04",
+     "reader_host": "d87e498ecc1f",
      "reader_node": "/bounded_sub",
      "reasons": [
       "same-host-guid",
@@ -1919,120 +1114,352 @@ window.TRANSPORT_VIZ_SAMPLE = {
      "warnings": [
       "stats-writer-instance-limit-suspected"
      ],
-     "writer_guid": "01.0f.40.ec.ae.00.87.b3.00.00.00.00|00.00.10.03",
-     "writer_host": "f46a48ca8c49",
-     "writer_node": "/bounded_sub"
-    },
+     "writer_guid": "01.0f.40.ec.52.00.86.93.00.00.00.00|00.00.14.03",
+     "writer_host": "d87e498ecc1f",
+     "writer_node": "/bounded_pub"
+    }
+   ],
+   "readers": [
+    {
+     "datasharing_history_bytes": null,
+     "dds_topic": "rt/bounded",
+     "dds_type": "std_msgs::msg::dds_::Int32_",
+     "guid": "01.0f.40.ec.38.00.58.91.00.00.00.00|00.00.14.04",
+     "host": "d87e498ecc1f",
+     "host_id": "010f40ec",
+     "host_name": "d87e498ecc1f:14564170186182098944",
+     "multicast_locators": [],
+     "node": "/bounded_sub",
+     "participant_guid_prefix": "01.0f.40.ec.38.00.58.91.00.00.00.00",
+     "process": "56",
+     "qos": {
+      "data_sharing": "OFF",
+      "data_sharing_domain_ids": [],
+      "deadline_s": null,
+      "durability": "VOLATILE",
+      "liveliness": "AUTOMATIC",
+      "liveliness_lease_s": null,
+      "ownership": "SHARED",
+      "partitions": [],
+      "reliability": "RELIABLE"
+     },
+     "ros_topic": "/bounded",
+     "ros_type": "std_msgs/msg/Int32",
+     "unicast_locators": [
+      {
+       "address": "",
+       "kind": "SHM",
+       "port": 7417
+      },
+      {
+       "address": "127.0.0.1",
+       "kind": "UDPv4",
+       "port": 7417
+      }
+     ]
+    }
+   ],
+   "resent_datas": 0,
+   "throughput_bytes_per_s": 80.71406936645508,
+   "topic": "/bounded",
+   "type": "std_msgs/msg/Int32",
+   "unmatched_reasons": [],
+   "writers": [
+    {
+     "datasharing_history_bytes": null,
+     "dds_topic": "rt/bounded",
+     "dds_type": "std_msgs::msg::dds_::Int32_",
+     "guid": "01.0f.40.ec.52.00.86.93.00.00.00.00|00.00.14.03",
+     "host": "d87e498ecc1f",
+     "host_id": "010f40ec",
+     "host_name": "d87e498ecc1f:14564170186182098944",
+     "multicast_locators": [],
+     "node": "/bounded_pub",
+     "participant_guid_prefix": "01.0f.40.ec.52.00.86.93.00.00.00.00",
+     "process": "82",
+     "qos": {
+      "data_sharing": "OFF",
+      "data_sharing_domain_ids": [],
+      "deadline_s": null,
+      "durability": "VOLATILE",
+      "liveliness": "AUTOMATIC",
+      "liveliness_lease_s": null,
+      "ownership": "SHARED",
+      "partitions": [],
+      "reliability": "RELIABLE"
+     },
+     "ros_topic": "/bounded",
+     "ros_type": "std_msgs/msg/Int32",
+     "unicast_locators": [
+      {
+       "address": "",
+       "kind": "SHM",
+       "port": 7419
+      },
+      {
+       "address": "127.0.0.1",
+       "kind": "UDPv4",
+       "port": 7419
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "dds_topic": "rt/chatter",
+   "is_ros_topic": true,
+   "latency_s": 0.0003064375,
+   "lost_packets": 0,
+   "pairs": [
     {
      "confidence": "certain",
      "locator": {
       "address": "",
       "kind": "SHM",
+      "multicast": false,
+      "port": 7413
+     },
+     "measured": {
+      "available": true,
+      "bytes": 780.0,
+      "bytes_total": 5320.0,
+      "data_submessages": 4,
+      "delivered": true,
+      "delivered_samples": 2,
+      "latency_s": {
+       "last": 0.000564584,
+       "max": 0.000564584,
+       "mean": 0.0003064375,
+       "min": 4.8291e-05,
+       "samples": 2
+      },
+      "locators": [
+       {
+        "address": "",
+        "bytes": 780.0,
+        "kind": "SHM",
+        "packets": 6,
+        "port": 7413
+       }
+      ],
+      "packets": 6,
+      "packets_total": 28,
+      "reliability": {
+       "acknacks": 1,
+       "gaps": 0,
+       "heartbeats": 1,
+       "lost_packets": 0,
+       "nackfrags": 0,
+       "resent_datas": 0
+      },
+      "throughput_bytes_per_s": 23.044191360473633,
+      "transports": [
+       "SHM"
+      ]
+     },
+     "reader_guid": "01.0f.40.ec.35.00.5d.09.00.00.00.00|00.00.14.04",
+     "reader_host": "d87e498ecc1f",
+     "reader_node": "/listener",
+     "reasons": [
+      "same-host-guid",
+      "datasharing-disabled-writer",
+      "both-shm-locators",
+      "measured-shm-traffic"
+     ],
+     "transport": "SHM",
+     "warnings": [],
+     "writer_guid": "01.0f.40.ec.37.00.26.ca.00.00.00.00|00.00.14.03",
+     "writer_host": "d87e498ecc1f",
+     "writer_node": "/talker"
+    },
+    {
+     "confidence": "certain",
+     "locator": {
+      "address": "127.0.0.1",
+      "kind": "UDPv4",
       "multicast": false,
       "port": 7411
      },
      "measured": {
       "available": true,
-      "bytes": 0.0,
-      "bytes_total": 880.0,
-      "data_submessages": 0,
-      "delivered": false,
-      "delivered_samples": 0,
-      "latency_s": null,
+      "bytes": 780.0,
+      "bytes_total": 5576.0,
+      "data_submessages": 4,
+      "delivered": true,
+      "delivered_samples": 2,
+      "latency_s": {
+       "last": 0.0005291240000000001,
+       "max": 0.0005291240000000001,
+       "mean": 0.00028370800000000003,
+       "min": 3.8292000000000005e-05,
+       "samples": 2
+      },
       "locators": [
        {
-        "address": "",
-        "bytes": 0.0,
-        "kind": "SHM",
-        "packets": 0,
+        "address": "127.0.0.1",
+        "bytes": 780.0,
+        "kind": "UDPv4",
+        "packets": 6,
         "port": 7411
        }
       ],
-      "packets": 0,
-      "packets_total": 7,
+      "packets": 6,
+      "packets_total": 30,
       "reliability": {
        "acknacks": 1,
        "gaps": 0,
-       "heartbeats": 0,
+       "heartbeats": 1,
        "lost_packets": 0,
        "nackfrags": 0,
        "resent_datas": 0
       },
-      "throughput_bytes_per_s": 23412350.0,
+      "throughput_bytes_per_s": 23.044191360473633,
       "transports": [
-       "SHM"
+       "UDPv4"
       ]
      },
-     "reader_guid": "01.0f.40.ec.af.00.82.c7.00.00.00.00|00.00.11.04",
-     "reader_host": "f46a48ca8c49",
-     "reader_node": "/talker",
+     "reader_guid": "01.0f.40.ec.36.00.87.0c.00.00.00.00|00.00.14.04",
+     "reader_host": "d87e498ecc1f",
+     "reader_node": "/listener_udp",
      "reasons": [
       "same-host-guid",
       "datasharing-disabled-writer",
-      "both-shm-locators",
-      "measured-shm-traffic"
+      "reader-no-shm-locator",
+      "common-udpv4-locator",
+      "measured-udpv4-traffic"
      ],
-     "transport": "SHM",
+     "transport": "UDPv4",
      "warnings": [],
-     "writer_guid": "01.0f.40.ec.ae.00.87.b3.00.00.00.00|00.00.10.03",
-     "writer_host": "f46a48ca8c49",
-     "writer_node": "/bounded_sub"
+     "writer_guid": "01.0f.40.ec.37.00.26.ca.00.00.00.00|00.00.14.03",
+     "writer_host": "d87e498ecc1f",
+     "writer_node": "/talker"
+    }
+   ],
+   "readers": [
+    {
+     "datasharing_history_bytes": null,
+     "dds_topic": "rt/chatter",
+     "dds_type": "std_msgs::msg::dds_::String_",
+     "guid": "01.0f.40.ec.35.00.5d.09.00.00.00.00|00.00.14.04",
+     "host": "d87e498ecc1f",
+     "host_id": "010f40ec",
+     "host_name": "d87e498ecc1f:14564170186182098944",
+     "multicast_locators": [],
+     "node": "/listener",
+     "participant_guid_prefix": "01.0f.40.ec.35.00.5d.09.00.00.00.00",
+     "process": "53",
+     "qos": {
+      "data_sharing": "OFF",
+      "data_sharing_domain_ids": [],
+      "deadline_s": null,
+      "durability": "VOLATILE",
+      "liveliness": "AUTOMATIC",
+      "liveliness_lease_s": null,
+      "ownership": "SHARED",
+      "partitions": [],
+      "reliability": "RELIABLE"
+     },
+     "ros_topic": "/chatter",
+     "ros_type": "std_msgs/msg/String",
+     "unicast_locators": [
+      {
+       "address": "",
+       "kind": "SHM",
+       "port": 7413
+      },
+      {
+       "address": "127.0.0.1",
+       "kind": "UDPv4",
+       "port": 7413
+      }
+     ]
     },
     {
-     "confidence": "certain",
-     "locator": {
-      "address": "",
-      "kind": "SHM",
-      "multicast": false,
-      "port": 7415
+     "datasharing_history_bytes": null,
+     "dds_topic": "rt/chatter",
+     "dds_type": "std_msgs::msg::dds_::String_",
+     "guid": "01.0f.40.ec.36.00.87.0c.00.00.00.00|00.00.14.04",
+     "host": "d87e498ecc1f",
+     "host_id": "010f40ec",
+     "host_name": "d87e498ecc1f:14564170186182098944",
+     "multicast_locators": [],
+     "node": "/listener_udp",
+     "participant_guid_prefix": "01.0f.40.ec.36.00.87.0c.00.00.00.00",
+     "process": "54",
+     "qos": {
+      "data_sharing": "OFF",
+      "data_sharing_domain_ids": [],
+      "deadline_s": null,
+      "durability": "VOLATILE",
+      "liveliness": "AUTOMATIC",
+      "liveliness_lease_s": null,
+      "ownership": "SHARED",
+      "partitions": [],
+      "reliability": "RELIABLE"
      },
-     "measured": {
-      "available": true,
-      "bytes": 620.0,
-      "bytes_total": 2748.0,
-      "data_submessages": 0,
-      "delivered": false,
-      "delivered_samples": 0,
-      "latency_s": null,
-      "locators": [
-       {
-        "address": "",
-        "bytes": 620.0,
-        "kind": "SHM",
-        "packets": 5,
-        "port": 7415
-       }
-      ],
-      "packets": 5,
-      "packets_total": 22,
-      "reliability": {
-       "acknacks": 1,
-       "gaps": 0,
-       "heartbeats": 0,
-       "lost_packets": 0,
-       "nackfrags": 0,
-       "resent_datas": 0
+     "ros_topic": "/chatter",
+     "ros_type": "std_msgs/msg/String",
+     "unicast_locators": [
+      {
+       "address": "127.0.0.1",
+       "kind": "UDPv4",
+       "port": 7411
+      }
+     ]
+    }
+   ],
+   "resent_datas": 0,
+   "throughput_bytes_per_s": 23.044191360473633,
+   "topic": "/chatter",
+   "type": "std_msgs/msg/String",
+   "unmatched_reasons": [],
+   "writers": [
+    {
+     "datasharing_history_bytes": null,
+     "dds_topic": "rt/chatter",
+     "dds_type": "std_msgs::msg::dds_::String_",
+     "guid": "01.0f.40.ec.37.00.26.ca.00.00.00.00|00.00.14.03",
+     "host": "d87e498ecc1f",
+     "host_id": "010f40ec",
+     "host_name": "d87e498ecc1f:14564170186182098944",
+     "multicast_locators": [],
+     "node": "/talker",
+     "participant_guid_prefix": "01.0f.40.ec.37.00.26.ca.00.00.00.00",
+     "process": "55",
+     "qos": {
+      "data_sharing": "OFF",
+      "data_sharing_domain_ids": [],
+      "deadline_s": null,
+      "durability": "VOLATILE",
+      "liveliness": "AUTOMATIC",
+      "liveliness_lease_s": null,
+      "ownership": "SHARED",
+      "partitions": [],
+      "reliability": "RELIABLE"
+     },
+     "ros_topic": "/chatter",
+     "ros_type": "std_msgs/msg/String",
+     "unicast_locators": [
+      {
+       "address": "",
+       "kind": "SHM",
+       "port": 7415
       },
-      "throughput_bytes_per_s": 23412350.0,
-      "transports": [
-       "SHM"
-      ]
-     },
-     "reader_guid": "01.0f.40.ec.b0.00.fe.65.00.00.00.00|00.00.11.04",
-     "reader_host": "f46a48ca8c49",
-     "reader_node": "/bounded_pub",
-     "reasons": [
-      "same-host-guid",
-      "datasharing-disabled-writer",
-      "both-shm-locators",
-      "measured-shm-traffic"
-     ],
-     "transport": "SHM",
-     "warnings": [],
-     "writer_guid": "01.0f.40.ec.ae.00.87.b3.00.00.00.00|00.00.10.03",
-     "writer_host": "f46a48ca8c49",
-     "writer_node": "/bounded_sub"
-    },
+      {
+       "address": "127.0.0.1",
+       "kind": "UDPv4",
+       "port": 7415
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "dds_topic": "rt/parameter_events",
+   "is_ros_topic": true,
+   "latency_s": 0.18907820800000003,
+   "lost_packets": 0,
+   "pairs": [
     {
      "confidence": "certain",
      "locator": {
@@ -2044,7 +1471,121 @@ window.TRANSPORT_VIZ_SAMPLE = {
      "measured": {
       "available": true,
       "bytes": 0.0,
-      "bytes_total": 880.0,
+      "bytes_total": 0.0,
+      "data_submessages": 0,
+      "delivered": true,
+      "delivered_samples": 1,
+      "latency_s": {
+       "last": 1.041e-06,
+       "max": 1.041e-06,
+       "mean": 1.041e-06,
+       "min": 1.041e-06,
+       "samples": 1
+      },
+      "locators": [],
+      "packets": 0,
+      "packets_total": 0,
+      "reliability": {
+       "acknacks": 1,
+       "gaps": 1,
+       "heartbeats": 0,
+       "lost_packets": 0,
+       "nackfrags": 0,
+       "resent_datas": 0
+      },
+      "throughput_bytes_per_s": 12324657.0,
+      "transports": []
+     },
+     "reader_guid": "01.0f.40.ec.35.00.5d.09.00.00.00.00|00.00.11.04",
+     "reader_host": "d87e498ecc1f",
+     "reader_node": "/listener",
+     "reasons": [
+      "same-host-guid",
+      "datasharing-disabled-writer",
+      "both-shm-locators"
+     ],
+     "transport": "SHM",
+     "warnings": [
+      "stats-writer-instance-limit-suspected"
+     ],
+     "writer_guid": "01.0f.40.ec.35.00.5d.09.00.00.00.00|00.00.10.03",
+     "writer_host": "d87e498ecc1f",
+     "writer_node": "/listener"
+    },
+    {
+     "confidence": "certain",
+     "locator": {
+      "address": "127.0.0.1",
+      "kind": "UDPv4",
+      "multicast": false,
+      "port": 7411
+     },
+     "measured": {
+      "available": true,
+      "bytes": 236.0,
+      "bytes_total": 4248.0,
+      "data_submessages": 0,
+      "delivered": true,
+      "delivered_samples": 1,
+      "latency_s": {
+       "last": 0.18907820800000003,
+       "max": 0.18907820800000003,
+       "mean": 0.18907820800000003,
+       "min": 0.18907820800000003,
+       "samples": 1
+      },
+      "locators": [
+       {
+        "address": "127.0.0.1",
+        "bytes": 236.0,
+        "kind": "UDPv4",
+        "packets": 2,
+        "port": 7411
+       }
+      ],
+      "packets": 2,
+      "packets_total": 19,
+      "reliability": {
+       "acknacks": 1,
+       "gaps": 1,
+       "heartbeats": 0,
+       "lost_packets": 0,
+       "nackfrags": 0,
+       "resent_datas": 0
+      },
+      "throughput_bytes_per_s": 12324657.0,
+      "transports": [
+       "UDPv4"
+      ]
+     },
+     "reader_guid": "01.0f.40.ec.36.00.87.0c.00.00.00.00|00.00.11.04",
+     "reader_host": "d87e498ecc1f",
+     "reader_node": "/listener_udp",
+     "reasons": [
+      "same-host-guid",
+      "datasharing-disabled-writer",
+      "reader-no-shm-locator",
+      "common-udpv4-locator",
+      "measured-udpv4-traffic"
+     ],
+     "transport": "UDPv4",
+     "warnings": [],
+     "writer_guid": "01.0f.40.ec.35.00.5d.09.00.00.00.00|00.00.10.03",
+     "writer_host": "d87e498ecc1f",
+     "writer_node": "/listener"
+    },
+    {
+     "confidence": "certain",
+     "locator": {
+      "address": "",
+      "kind": "SHM",
+      "multicast": false,
+      "port": 7415
+     },
+     "measured": {
+      "available": true,
+      "bytes": 236.0,
+      "bytes_total": 1756.0,
       "data_submessages": 0,
       "delivered": false,
       "delivered_samples": 0,
@@ -2052,14 +1593,457 @@ window.TRANSPORT_VIZ_SAMPLE = {
       "locators": [
        {
         "address": "",
-        "bytes": 0.0,
+        "bytes": 236.0,
         "kind": "SHM",
-        "packets": 0,
+        "packets": 2,
+        "port": 7415
+       }
+      ],
+      "packets": 2,
+      "packets_total": 14,
+      "reliability": {
+       "acknacks": 2,
+       "gaps": 1,
+       "heartbeats": 0,
+       "lost_packets": 0,
+       "nackfrags": 0,
+       "resent_datas": 0
+      },
+      "throughput_bytes_per_s": 12324657.0,
+      "transports": [
+       "SHM"
+      ]
+     },
+     "reader_guid": "01.0f.40.ec.37.00.26.ca.00.00.00.00|00.00.11.04",
+     "reader_host": "d87e498ecc1f",
+     "reader_node": "/talker",
+     "reasons": [
+      "same-host-guid",
+      "datasharing-disabled-writer",
+      "both-shm-locators",
+      "measured-shm-traffic"
+     ],
+     "transport": "SHM",
+     "warnings": [],
+     "writer_guid": "01.0f.40.ec.35.00.5d.09.00.00.00.00|00.00.10.03",
+     "writer_host": "d87e498ecc1f",
+     "writer_node": "/listener"
+    },
+    {
+     "confidence": "certain",
+     "locator": {
+      "address": "",
+      "kind": "SHM",
+      "multicast": false,
+      "port": 7417
+     },
+     "measured": {
+      "available": true,
+      "bytes": 112.0,
+      "bytes_total": 1264.0,
+      "data_submessages": 0,
+      "delivered": false,
+      "delivered_samples": 0,
+      "latency_s": null,
+      "locators": [
+       {
+        "address": "",
+        "bytes": 112.0,
+        "kind": "SHM",
+        "packets": 1,
+        "port": 7417
+       }
+      ],
+      "packets": 1,
+      "packets_total": 10,
+      "reliability": {
+       "acknacks": 2,
+       "gaps": 1,
+       "heartbeats": 0,
+       "lost_packets": 0,
+       "nackfrags": 0,
+       "resent_datas": 0
+      },
+      "throughput_bytes_per_s": 12324657.0,
+      "transports": [
+       "SHM"
+      ]
+     },
+     "reader_guid": "01.0f.40.ec.38.00.58.91.00.00.00.00|00.00.11.04",
+     "reader_host": "d87e498ecc1f",
+     "reader_node": "/bounded_sub",
+     "reasons": [
+      "same-host-guid",
+      "datasharing-disabled-writer",
+      "both-shm-locators",
+      "measured-shm-traffic"
+     ],
+     "transport": "SHM",
+     "warnings": [],
+     "writer_guid": "01.0f.40.ec.35.00.5d.09.00.00.00.00|00.00.10.03",
+     "writer_host": "d87e498ecc1f",
+     "writer_node": "/listener"
+    },
+    {
+     "confidence": "certain",
+     "locator": {
+      "address": "",
+      "kind": "SHM",
+      "multicast": false,
+      "port": 7419
+     },
+     "measured": {
+      "available": true,
+      "bytes": 0.0,
+      "bytes_total": 0.0,
+      "data_submessages": 0,
+      "delivered": false,
+      "delivered_samples": 0,
+      "latency_s": null,
+      "locators": [],
+      "packets": 0,
+      "packets_total": 0,
+      "reliability": {
+       "acknacks": 2,
+       "gaps": 1,
+       "heartbeats": 0,
+       "lost_packets": 0,
+       "nackfrags": 0,
+       "resent_datas": 0
+      },
+      "throughput_bytes_per_s": 12324657.0,
+      "transports": []
+     },
+     "reader_guid": "01.0f.40.ec.52.00.86.93.00.00.00.00|00.00.11.04",
+     "reader_host": "d87e498ecc1f",
+     "reader_node": "/bounded_pub",
+     "reasons": [
+      "same-host-guid",
+      "datasharing-disabled-writer",
+      "both-shm-locators"
+     ],
+     "transport": "SHM",
+     "warnings": [
+      "stats-writer-instance-limit-suspected"
+     ],
+     "writer_guid": "01.0f.40.ec.35.00.5d.09.00.00.00.00|00.00.10.03",
+     "writer_host": "d87e498ecc1f",
+     "writer_node": "/listener"
+    },
+    {
+     "confidence": "certain",
+     "locator": {
+      "address": "127.0.0.1",
+      "kind": "UDPv4",
+      "multicast": false,
+      "port": 7413
+     },
+     "measured": {
+      "available": true,
+      "bytes": 360.0,
+      "bytes_total": 4064.0,
+      "data_submessages": 0,
+      "delivered": true,
+      "delivered_samples": 1,
+      "latency_s": {
+       "last": 0.188924416,
+       "max": 0.188924416,
+       "mean": 0.188924416,
+       "min": 0.188924416,
+       "samples": 1
+      },
+      "locators": [
+       {
+        "address": "127.0.0.1",
+        "bytes": 360.0,
+        "kind": "UDPv4",
+        "packets": 3,
         "port": 7413
        }
       ],
+      "packets": 3,
+      "packets_total": 20,
+      "reliability": {
+       "acknacks": 1,
+       "gaps": 0,
+       "heartbeats": 1,
+       "lost_packets": 0,
+       "nackfrags": 0,
+       "resent_datas": 0
+      },
+      "throughput_bytes_per_s": 1800281.25,
+      "transports": [
+       "UDPv4"
+      ]
+     },
+     "reader_guid": "01.0f.40.ec.35.00.5d.09.00.00.00.00|00.00.11.04",
+     "reader_host": "d87e498ecc1f",
+     "reader_node": "/listener",
+     "reasons": [
+      "same-host-guid",
+      "datasharing-disabled-writer",
+      "writer-no-shm-locator",
+      "common-udpv4-locator",
+      "measured-udpv4-traffic"
+     ],
+     "transport": "UDPv4",
+     "warnings": [],
+     "writer_guid": "01.0f.40.ec.36.00.87.0c.00.00.00.00|00.00.10.03",
+     "writer_host": "d87e498ecc1f",
+     "writer_node": "/listener_udp"
+    },
+    {
+     "confidence": "certain",
+     "locator": {
+      "address": "127.0.0.1",
+      "kind": "UDPv4",
+      "multicast": false,
+      "port": 7411
+     },
+     "measured": {
+      "available": true,
+      "bytes": 0.0,
+      "bytes_total": 0.0,
+      "data_submessages": 0,
+      "delivered": true,
+      "delivered_samples": 1,
+      "latency_s": {
+       "last": 5.9166e-05,
+       "max": 5.9166e-05,
+       "mean": 5.9166e-05,
+       "min": 5.9166e-05,
+       "samples": 1
+      },
+      "locators": [],
       "packets": 0,
-      "packets_total": 7,
+      "packets_total": 0,
+      "reliability": {
+       "acknacks": 1,
+       "gaps": 0,
+       "heartbeats": 1,
+       "lost_packets": 0,
+       "nackfrags": 0,
+       "resent_datas": 0
+      },
+      "throughput_bytes_per_s": 1800281.25,
+      "transports": []
+     },
+     "reader_guid": "01.0f.40.ec.36.00.87.0c.00.00.00.00|00.00.11.04",
+     "reader_host": "d87e498ecc1f",
+     "reader_node": "/listener_udp",
+     "reasons": [
+      "same-host-guid",
+      "datasharing-disabled-writer",
+      "writer-no-shm-locator",
+      "reader-no-shm-locator",
+      "common-udpv4-locator"
+     ],
+     "transport": "UDPv4",
+     "warnings": [
+      "stats-writer-instance-limit-suspected"
+     ],
+     "writer_guid": "01.0f.40.ec.36.00.87.0c.00.00.00.00|00.00.10.03",
+     "writer_host": "d87e498ecc1f",
+     "writer_node": "/listener_udp"
+    },
+    {
+     "confidence": "certain",
+     "locator": {
+      "address": "127.0.0.1",
+      "kind": "UDPv4",
+      "multicast": false,
+      "port": 7415
+     },
+     "measured": {
+      "available": true,
+      "bytes": 360.0,
+      "bytes_total": 2724.0,
+      "data_submessages": 0,
+      "delivered": true,
+      "delivered_samples": 1,
+      "latency_s": {
+       "last": 0.188938832,
+       "max": 0.188938832,
+       "mean": 0.188938832,
+       "min": 0.188938832,
+       "samples": 1
+      },
+      "locators": [
+       {
+        "address": "127.0.0.1",
+        "bytes": 360.0,
+        "kind": "UDPv4",
+        "packets": 3,
+        "port": 7415
+       }
+      ],
+      "packets": 3,
+      "packets_total": 19,
+      "reliability": {
+       "acknacks": 2,
+       "gaps": 0,
+       "heartbeats": 1,
+       "lost_packets": 0,
+       "nackfrags": 0,
+       "resent_datas": 0
+      },
+      "throughput_bytes_per_s": 1800281.25,
+      "transports": [
+       "UDPv4"
+      ]
+     },
+     "reader_guid": "01.0f.40.ec.37.00.26.ca.00.00.00.00|00.00.11.04",
+     "reader_host": "d87e498ecc1f",
+     "reader_node": "/talker",
+     "reasons": [
+      "same-host-guid",
+      "datasharing-disabled-writer",
+      "writer-no-shm-locator",
+      "common-udpv4-locator",
+      "measured-udpv4-traffic"
+     ],
+     "transport": "UDPv4",
+     "warnings": [],
+     "writer_guid": "01.0f.40.ec.36.00.87.0c.00.00.00.00|00.00.10.03",
+     "writer_host": "d87e498ecc1f",
+     "writer_node": "/listener_udp"
+    },
+    {
+     "confidence": "certain",
+     "locator": {
+      "address": "127.0.0.1",
+      "kind": "UDPv4",
+      "multicast": false,
+      "port": 7417
+     },
+     "measured": {
+      "available": true,
+      "bytes": 236.0,
+      "bytes_total": 1264.0,
+      "data_submessages": 0,
+      "delivered": false,
+      "delivered_samples": 0,
+      "latency_s": null,
+      "locators": [
+       {
+        "address": "127.0.0.1",
+        "bytes": 236.0,
+        "kind": "UDPv4",
+        "packets": 2,
+        "port": 7417
+       }
+      ],
+      "packets": 2,
+      "packets_total": 10,
+      "reliability": {
+       "acknacks": 2,
+       "gaps": 0,
+       "heartbeats": 1,
+       "lost_packets": 0,
+       "nackfrags": 0,
+       "resent_datas": 0
+      },
+      "throughput_bytes_per_s": 1800281.25,
+      "transports": [
+       "UDPv4"
+      ]
+     },
+     "reader_guid": "01.0f.40.ec.38.00.58.91.00.00.00.00|00.00.11.04",
+     "reader_host": "d87e498ecc1f",
+     "reader_node": "/bounded_sub",
+     "reasons": [
+      "same-host-guid",
+      "datasharing-disabled-writer",
+      "writer-no-shm-locator",
+      "common-udpv4-locator",
+      "measured-udpv4-traffic"
+     ],
+     "transport": "UDPv4",
+     "warnings": [],
+     "writer_guid": "01.0f.40.ec.36.00.87.0c.00.00.00.00|00.00.10.03",
+     "writer_host": "d87e498ecc1f",
+     "writer_node": "/listener_udp"
+    },
+    {
+     "confidence": "certain",
+     "locator": {
+      "address": "127.0.0.1",
+      "kind": "UDPv4",
+      "multicast": false,
+      "port": 7419
+     },
+     "measured": {
+      "available": true,
+      "bytes": 0.0,
+      "bytes_total": 0.0,
+      "data_submessages": 0,
+      "delivered": false,
+      "delivered_samples": 0,
+      "latency_s": null,
+      "locators": [],
+      "packets": 0,
+      "packets_total": 0,
+      "reliability": {
+       "acknacks": 2,
+       "gaps": 0,
+       "heartbeats": 1,
+       "lost_packets": 0,
+       "nackfrags": 0,
+       "resent_datas": 0
+      },
+      "throughput_bytes_per_s": 1800281.25,
+      "transports": []
+     },
+     "reader_guid": "01.0f.40.ec.52.00.86.93.00.00.00.00|00.00.11.04",
+     "reader_host": "d87e498ecc1f",
+     "reader_node": "/bounded_pub",
+     "reasons": [
+      "same-host-guid",
+      "datasharing-disabled-writer",
+      "writer-no-shm-locator",
+      "common-udpv4-locator"
+     ],
+     "transport": "UDPv4",
+     "warnings": [
+      "stats-writer-instance-limit-suspected"
+     ],
+     "writer_guid": "01.0f.40.ec.36.00.87.0c.00.00.00.00|00.00.10.03",
+     "writer_host": "d87e498ecc1f",
+     "writer_node": "/listener_udp"
+    },
+    {
+     "confidence": "certain",
+     "locator": {
+      "address": "",
+      "kind": "SHM",
+      "multicast": false,
+      "port": 7413
+     },
+     "measured": {
+      "available": true,
+      "bytes": 780.0,
+      "bytes_total": 5320.0,
+      "data_submessages": 0,
+      "delivered": true,
+      "delivered_samples": 1,
+      "latency_s": {
+       "last": 0.18788558400000002,
+       "max": 0.18788558400000002,
+       "mean": 0.18788558400000002,
+       "min": 0.18788558400000002,
+       "samples": 1
+      },
+      "locators": [
+       {
+        "address": "",
+        "bytes": 780.0,
+        "kind": "SHM",
+        "packets": 6,
+        "port": 7413
+       }
+      ],
+      "packets": 6,
+      "packets_total": 28,
       "reliability": {
        "acknacks": 1,
        "gaps": 0,
@@ -2068,13 +2052,13 @@ window.TRANSPORT_VIZ_SAMPLE = {
        "nackfrags": 0,
        "resent_datas": 0
       },
-      "throughput_bytes_per_s": 23412350.0,
+      "throughput_bytes_per_s": 4676923.0,
       "transports": [
        "SHM"
       ]
      },
-     "reader_guid": "01.0f.40.ec.b3.00.2e.41.00.00.00.00|00.00.11.04",
-     "reader_host": "f46a48ca8c49",
+     "reader_guid": "01.0f.40.ec.35.00.5d.09.00.00.00.00|00.00.11.04",
+     "reader_host": "d87e498ecc1f",
      "reader_node": "/listener",
      "reasons": [
       "same-host-guid",
@@ -2084,9 +2068,9 @@ window.TRANSPORT_VIZ_SAMPLE = {
      ],
      "transport": "SHM",
      "warnings": [],
-     "writer_guid": "01.0f.40.ec.ae.00.87.b3.00.00.00.00|00.00.10.03",
-     "writer_host": "f46a48ca8c49",
-     "writer_node": "/bounded_sub"
+     "writer_guid": "01.0f.40.ec.37.00.26.ca.00.00.00.00|00.00.10.03",
+     "writer_host": "d87e498ecc1f",
+     "writer_node": "/talker"
     },
     {
      "confidence": "certain",
@@ -2094,7 +2078,222 @@ window.TRANSPORT_VIZ_SAMPLE = {
       "address": "127.0.0.1",
       "kind": "UDPv4",
       "multicast": false,
+      "port": 7411
+     },
+     "measured": {
+      "available": true,
+      "bytes": 780.0,
+      "bytes_total": 5576.0,
+      "data_submessages": 0,
+      "delivered": true,
+      "delivered_samples": 1,
+      "latency_s": {
+       "last": 0.18786392000000002,
+       "max": 0.18786392000000002,
+       "mean": 0.18786392000000002,
+       "min": 0.18786392000000002,
+       "samples": 1
+      },
+      "locators": [
+       {
+        "address": "127.0.0.1",
+        "bytes": 780.0,
+        "kind": "UDPv4",
+        "packets": 6,
+        "port": 7411
+       }
+      ],
+      "packets": 6,
+      "packets_total": 30,
+      "reliability": {
+       "acknacks": 1,
+       "gaps": 0,
+       "heartbeats": 0,
+       "lost_packets": 0,
+       "nackfrags": 0,
+       "resent_datas": 0
+      },
+      "throughput_bytes_per_s": 4676923.0,
+      "transports": [
+       "UDPv4"
+      ]
+     },
+     "reader_guid": "01.0f.40.ec.36.00.87.0c.00.00.00.00|00.00.11.04",
+     "reader_host": "d87e498ecc1f",
+     "reader_node": "/listener_udp",
+     "reasons": [
+      "same-host-guid",
+      "datasharing-disabled-writer",
+      "reader-no-shm-locator",
+      "common-udpv4-locator",
+      "measured-udpv4-traffic"
+     ],
+     "transport": "UDPv4",
+     "warnings": [],
+     "writer_guid": "01.0f.40.ec.37.00.26.ca.00.00.00.00|00.00.10.03",
+     "writer_host": "d87e498ecc1f",
+     "writer_node": "/talker"
+    },
+    {
+     "confidence": "certain",
+     "locator": {
+      "address": "",
+      "kind": "SHM",
+      "multicast": false,
+      "port": 7415
+     },
+     "measured": {
+      "available": true,
+      "bytes": 0.0,
+      "bytes_total": 0.0,
+      "data_submessages": 0,
+      "delivered": true,
+      "delivered_samples": 1,
+      "latency_s": {
+       "last": 1.416e-06,
+       "max": 1.416e-06,
+       "mean": 1.416e-06,
+       "min": 1.416e-06,
+       "samples": 1
+      },
+      "locators": [],
+      "packets": 0,
+      "packets_total": 0,
+      "reliability": {
+       "acknacks": 2,
+       "gaps": 0,
+       "heartbeats": 0,
+       "lost_packets": 0,
+       "nackfrags": 0,
+       "resent_datas": 0
+      },
+      "throughput_bytes_per_s": 4676923.0,
+      "transports": []
+     },
+     "reader_guid": "01.0f.40.ec.37.00.26.ca.00.00.00.00|00.00.11.04",
+     "reader_host": "d87e498ecc1f",
+     "reader_node": "/talker",
+     "reasons": [
+      "same-host-guid",
+      "datasharing-disabled-writer",
+      "both-shm-locators"
+     ],
+     "transport": "SHM",
+     "warnings": [
+      "stats-writer-instance-limit-suspected"
+     ],
+     "writer_guid": "01.0f.40.ec.37.00.26.ca.00.00.00.00|00.00.10.03",
+     "writer_host": "d87e498ecc1f",
+     "writer_node": "/talker"
+    },
+    {
+     "confidence": "certain",
+     "locator": {
+      "address": "",
+      "kind": "SHM",
+      "multicast": false,
+      "port": 7417
+     },
+     "measured": {
+      "available": true,
+      "bytes": 124.0,
+      "bytes_total": 1400.0,
+      "data_submessages": 0,
+      "delivered": false,
+      "delivered_samples": 0,
+      "latency_s": null,
+      "locators": [
+       {
+        "address": "",
+        "bytes": 124.0,
+        "kind": "SHM",
+        "packets": 1,
+        "port": 7417
+       }
+      ],
+      "packets": 1,
+      "packets_total": 11,
+      "reliability": {
+       "acknacks": 2,
+       "gaps": 0,
+       "heartbeats": 0,
+       "lost_packets": 0,
+       "nackfrags": 0,
+       "resent_datas": 0
+      },
+      "throughput_bytes_per_s": 4676923.0,
+      "transports": [
+       "SHM"
+      ]
+     },
+     "reader_guid": "01.0f.40.ec.38.00.58.91.00.00.00.00|00.00.11.04",
+     "reader_host": "d87e498ecc1f",
+     "reader_node": "/bounded_sub",
+     "reasons": [
+      "same-host-guid",
+      "datasharing-disabled-writer",
+      "both-shm-locators",
+      "measured-shm-traffic"
+     ],
+     "transport": "SHM",
+     "warnings": [],
+     "writer_guid": "01.0f.40.ec.37.00.26.ca.00.00.00.00|00.00.10.03",
+     "writer_host": "d87e498ecc1f",
+     "writer_node": "/talker"
+    },
+    {
+     "confidence": "certain",
+     "locator": {
+      "address": "",
+      "kind": "SHM",
+      "multicast": false,
       "port": 7419
+     },
+     "measured": {
+      "available": true,
+      "bytes": 0.0,
+      "bytes_total": 0.0,
+      "data_submessages": 0,
+      "delivered": false,
+      "delivered_samples": 0,
+      "latency_s": null,
+      "locators": [],
+      "packets": 0,
+      "packets_total": 0,
+      "reliability": {
+       "acknacks": 2,
+       "gaps": 0,
+       "heartbeats": 0,
+       "lost_packets": 0,
+       "nackfrags": 0,
+       "resent_datas": 0
+      },
+      "throughput_bytes_per_s": 4676923.0,
+      "transports": []
+     },
+     "reader_guid": "01.0f.40.ec.52.00.86.93.00.00.00.00|00.00.11.04",
+     "reader_host": "d87e498ecc1f",
+     "reader_node": "/bounded_pub",
+     "reasons": [
+      "same-host-guid",
+      "datasharing-disabled-writer",
+      "both-shm-locators"
+     ],
+     "transport": "SHM",
+     "warnings": [
+      "stats-writer-instance-limit-suspected"
+     ],
+     "writer_guid": "01.0f.40.ec.37.00.26.ca.00.00.00.00|00.00.10.03",
+     "writer_host": "d87e498ecc1f",
+     "writer_node": "/talker"
+    },
+    {
+     "confidence": "certain",
+     "locator": {
+      "address": "",
+      "kind": "SHM",
+      "multicast": false,
+      "port": 7413
      },
      "measured": {
       "available": true,
@@ -2106,42 +2305,134 @@ window.TRANSPORT_VIZ_SAMPLE = {
       "latency_s": null,
       "locators": [
        {
-        "address": "127.0.0.1",
+        "address": "",
         "bytes": 124.0,
-        "kind": "UDPv4",
+        "kind": "SHM",
         "packets": 1,
-        "port": 7419
+        "port": 7413
        }
       ],
       "packets": 1,
       "packets_total": 9,
       "reliability": {
-       "acknacks": 0,
+       "acknacks": 1,
        "gaps": 0,
        "heartbeats": 0,
        "lost_packets": 0,
        "nackfrags": 0,
        "resent_datas": 0
       },
-      "throughput_bytes_per_s": 23412350.0,
+      "throughput_bytes_per_s": 23852116.0,
       "transports": [
-       "UDPv4"
+       "SHM"
       ]
      },
-     "reader_guid": "01.0f.40.ec.ba.00.5e.4c.00.00.00.00|00.00.11.04",
-     "reader_host": "f46a48ca8c49",
+     "reader_guid": "01.0f.40.ec.35.00.5d.09.00.00.00.00|00.00.11.04",
+     "reader_host": "d87e498ecc1f",
+     "reader_node": "/listener",
+     "reasons": [
+      "same-host-guid",
+      "datasharing-disabled-writer",
+      "both-shm-locators",
+      "measured-shm-traffic"
+     ],
+     "transport": "SHM",
+     "warnings": [],
+     "writer_guid": "01.0f.40.ec.38.00.58.91.00.00.00.00|00.00.10.03",
+     "writer_host": "d87e498ecc1f",
+     "writer_node": "/bounded_sub"
+    },
+    {
+     "confidence": "certain",
+     "locator": {
+      "address": "127.0.0.1",
+      "kind": "UDPv4",
+      "multicast": false,
+      "port": 7411
+     },
+     "measured": {
+      "available": true,
+      "bytes": 0.0,
+      "bytes_total": 0.0,
+      "data_submessages": 0,
+      "delivered": false,
+      "delivered_samples": 0,
+      "latency_s": null,
+      "locators": [],
+      "packets": 0,
+      "packets_total": 0,
+      "reliability": {
+       "acknacks": 1,
+       "gaps": 0,
+       "heartbeats": 0,
+       "lost_packets": 0,
+       "nackfrags": 0,
+       "resent_datas": 0
+      },
+      "throughput_bytes_per_s": 23852116.0,
+      "transports": []
+     },
+     "reader_guid": "01.0f.40.ec.36.00.87.0c.00.00.00.00|00.00.11.04",
+     "reader_host": "d87e498ecc1f",
      "reader_node": "/listener_udp",
      "reasons": [
       "same-host-guid",
       "datasharing-disabled-writer",
       "reader-no-shm-locator",
-      "common-udpv4-locator",
-      "measured-udpv4-traffic"
+      "common-udpv4-locator"
      ],
      "transport": "UDPv4",
-     "warnings": [],
-     "writer_guid": "01.0f.40.ec.ae.00.87.b3.00.00.00.00|00.00.10.03",
-     "writer_host": "f46a48ca8c49",
+     "warnings": [
+      "stats-writer-instance-limit-suspected"
+     ],
+     "writer_guid": "01.0f.40.ec.38.00.58.91.00.00.00.00|00.00.10.03",
+     "writer_host": "d87e498ecc1f",
+     "writer_node": "/bounded_sub"
+    },
+    {
+     "confidence": "certain",
+     "locator": {
+      "address": "",
+      "kind": "SHM",
+      "multicast": false,
+      "port": 7415
+     },
+     "measured": {
+      "available": true,
+      "bytes": 0.0,
+      "bytes_total": 0.0,
+      "data_submessages": 0,
+      "delivered": false,
+      "delivered_samples": 0,
+      "latency_s": null,
+      "locators": [],
+      "packets": 0,
+      "packets_total": 0,
+      "reliability": {
+       "acknacks": 2,
+       "gaps": 0,
+       "heartbeats": 0,
+       "lost_packets": 0,
+       "nackfrags": 0,
+       "resent_datas": 0
+      },
+      "throughput_bytes_per_s": 23852116.0,
+      "transports": []
+     },
+     "reader_guid": "01.0f.40.ec.37.00.26.ca.00.00.00.00|00.00.11.04",
+     "reader_host": "d87e498ecc1f",
+     "reader_node": "/talker",
+     "reasons": [
+      "same-host-guid",
+      "datasharing-disabled-writer",
+      "both-shm-locators"
+     ],
+     "transport": "SHM",
+     "warnings": [
+      "stats-writer-instance-limit-suspected"
+     ],
+     "writer_guid": "01.0f.40.ec.38.00.58.91.00.00.00.00|00.00.10.03",
+     "writer_host": "d87e498ecc1f",
      "writer_node": "/bounded_sub"
     },
     {
@@ -2154,90 +2445,35 @@ window.TRANSPORT_VIZ_SAMPLE = {
      },
      "measured": {
       "available": true,
-      "bytes": 124.0,
-      "bytes_total": 880.0,
-      "data_submessages": 0,
-      "delivered": false,
-      "delivered_samples": 0,
-      "latency_s": null,
-      "locators": [
-       {
-        "address": "",
-        "bytes": 124.0,
-        "kind": "SHM",
-        "packets": 1,
-        "port": 7417
-       }
-      ],
-      "packets": 1,
-      "packets_total": 7,
-      "reliability": {
-       "acknacks": 1,
-       "gaps": 0,
-       "heartbeats": 1,
-       "lost_packets": 0,
-       "nackfrags": 0,
-       "resent_datas": 0
-      },
-      "throughput_bytes_per_s": 22798860.0,
-      "transports": [
-       "SHM"
-      ]
-     },
-     "reader_guid": "01.0f.40.ec.ae.00.87.b3.00.00.00.00|00.00.11.04",
-     "reader_host": "f46a48ca8c49",
-     "reader_node": "/bounded_sub",
-     "reasons": [
-      "same-host-guid",
-      "datasharing-disabled-writer",
-      "both-shm-locators",
-      "measured-shm-traffic"
-     ],
-     "transport": "SHM",
-     "warnings": [],
-     "writer_guid": "01.0f.40.ec.af.00.82.c7.00.00.00.00|00.00.10.03",
-     "writer_host": "f46a48ca8c49",
-     "writer_node": "/talker"
-    },
-    {
-     "confidence": "certain",
-     "locator": {
-      "address": "",
-      "kind": "SHM",
-      "multicast": false,
-      "port": 7411
-     },
-     "measured": {
-      "available": true,
       "bytes": 0.0,
       "bytes_total": 0.0,
       "data_submessages": 0,
       "delivered": true,
       "delivered_samples": 1,
       "latency_s": {
-       "last": 7.900000000000001e-07,
-       "max": 7.900000000000001e-07,
-       "mean": 7.900000000000001e-07,
-       "min": 7.900000000000001e-07,
+       "last": 8.33e-07,
+       "max": 8.33e-07,
+       "mean": 8.33e-07,
+       "min": 8.33e-07,
        "samples": 1
       },
       "locators": [],
       "packets": 0,
       "packets_total": 0,
       "reliability": {
-       "acknacks": 1,
+       "acknacks": 2,
        "gaps": 0,
-       "heartbeats": 1,
+       "heartbeats": 0,
        "lost_packets": 0,
        "nackfrags": 0,
        "resent_datas": 0
       },
-      "throughput_bytes_per_s": 22798860.0,
+      "throughput_bytes_per_s": 23852116.0,
       "transports": []
      },
-     "reader_guid": "01.0f.40.ec.af.00.82.c7.00.00.00.00|00.00.11.04",
-     "reader_host": "f46a48ca8c49",
-     "reader_node": "/talker",
+     "reader_guid": "01.0f.40.ec.38.00.58.91.00.00.00.00|00.00.11.04",
+     "reader_host": "d87e498ecc1f",
+     "reader_node": "/bounded_sub",
      "reasons": [
       "same-host-guid",
       "datasharing-disabled-writer",
@@ -2247,607 +2483,52 @@ window.TRANSPORT_VIZ_SAMPLE = {
      "warnings": [
       "stats-writer-instance-limit-suspected"
      ],
-     "writer_guid": "01.0f.40.ec.af.00.82.c7.00.00.00.00|00.00.10.03",
-     "writer_host": "f46a48ca8c49",
-     "writer_node": "/talker"
+     "writer_guid": "01.0f.40.ec.38.00.58.91.00.00.00.00|00.00.10.03",
+     "writer_host": "d87e498ecc1f",
+     "writer_node": "/bounded_sub"
     },
     {
      "confidence": "certain",
      "locator": {
       "address": "",
       "kind": "SHM",
-      "multicast": false,
-      "port": 7415
-     },
-     "measured": {
-      "available": true,
-      "bytes": 124.0,
-      "bytes_total": 1252.0,
-      "data_submessages": 0,
-      "delivered": false,
-      "delivered_samples": 0,
-      "latency_s": null,
-      "locators": [
-       {
-        "address": "",
-        "bytes": 124.0,
-        "kind": "SHM",
-        "packets": 1,
-        "port": 7415
-       }
-      ],
-      "packets": 1,
-      "packets_total": 10,
-      "reliability": {
-       "acknacks": 1,
-       "gaps": 0,
-       "heartbeats": 1,
-       "lost_packets": 0,
-       "nackfrags": 0,
-       "resent_datas": 0
-      },
-      "throughput_bytes_per_s": 22798860.0,
-      "transports": [
-       "SHM"
-      ]
-     },
-     "reader_guid": "01.0f.40.ec.b0.00.fe.65.00.00.00.00|00.00.11.04",
-     "reader_host": "f46a48ca8c49",
-     "reader_node": "/bounded_pub",
-     "reasons": [
-      "same-host-guid",
-      "datasharing-disabled-writer",
-      "both-shm-locators",
-      "measured-shm-traffic"
-     ],
-     "transport": "SHM",
-     "warnings": [],
-     "writer_guid": "01.0f.40.ec.af.00.82.c7.00.00.00.00|00.00.10.03",
-     "writer_host": "f46a48ca8c49",
-     "writer_node": "/talker"
-    },
-    {
-     "confidence": "certain",
-     "locator": {
-      "address": "",
-      "kind": "SHM",
-      "multicast": false,
-      "port": 7413
-     },
-     "measured": {
-      "available": true,
-      "bytes": 1188.0,
-      "bytes_total": 3400.0,
-      "data_submessages": 0,
-      "delivered": false,
-      "delivered_samples": 0,
-      "latency_s": null,
-      "locators": [
-       {
-        "address": "",
-        "bytes": 1188.0,
-        "kind": "SHM",
-        "packets": 9,
-        "port": 7413
-       }
-      ],
-      "packets": 9,
-      "packets_total": 26,
-      "reliability": {
-       "acknacks": 1,
-       "gaps": 0,
-       "heartbeats": 1,
-       "lost_packets": 0,
-       "nackfrags": 0,
-       "resent_datas": 0
-      },
-      "throughput_bytes_per_s": 22798860.0,
-      "transports": [
-       "SHM"
-      ]
-     },
-     "reader_guid": "01.0f.40.ec.b3.00.2e.41.00.00.00.00|00.00.11.04",
-     "reader_host": "f46a48ca8c49",
-     "reader_node": "/listener",
-     "reasons": [
-      "same-host-guid",
-      "datasharing-disabled-writer",
-      "both-shm-locators",
-      "measured-shm-traffic"
-     ],
-     "transport": "SHM",
-     "warnings": [],
-     "writer_guid": "01.0f.40.ec.af.00.82.c7.00.00.00.00|00.00.10.03",
-     "writer_host": "f46a48ca8c49",
-     "writer_node": "/talker"
-    },
-    {
-     "confidence": "certain",
-     "locator": {
-      "address": "127.0.0.1",
-      "kind": "UDPv4",
-      "multicast": false,
-      "port": 7419
-     },
-     "measured": {
-      "available": true,
-      "bytes": 1312.0,
-      "bytes_total": 3272.0,
-      "data_submessages": 0,
-      "delivered": false,
-      "delivered_samples": 0,
-      "latency_s": null,
-      "locators": [
-       {
-        "address": "127.0.0.1",
-        "bytes": 1312.0,
-        "kind": "UDPv4",
-        "packets": 10,
-        "port": 7419
-       }
-      ],
-      "packets": 10,
-      "packets_total": 25,
-      "reliability": {
-       "acknacks": 0,
-       "gaps": 0,
-       "heartbeats": 1,
-       "lost_packets": 0,
-       "nackfrags": 0,
-       "resent_datas": 0
-      },
-      "throughput_bytes_per_s": 22798860.0,
-      "transports": [
-       "UDPv4"
-      ]
-     },
-     "reader_guid": "01.0f.40.ec.ba.00.5e.4c.00.00.00.00|00.00.11.04",
-     "reader_host": "f46a48ca8c49",
-     "reader_node": "/listener_udp",
-     "reasons": [
-      "same-host-guid",
-      "datasharing-disabled-writer",
-      "reader-no-shm-locator",
-      "common-udpv4-locator",
-      "measured-udpv4-traffic"
-     ],
-     "transport": "UDPv4",
-     "warnings": [],
-     "writer_guid": "01.0f.40.ec.af.00.82.c7.00.00.00.00|00.00.10.03",
-     "writer_host": "f46a48ca8c49",
-     "writer_node": "/talker"
-    },
-    {
-     "confidence": "certain",
-     "locator": {
-      "address": "",
-      "kind": "SHM",
-      "multicast": false,
-      "port": 7417
-     },
-     "measured": {
-      "available": true,
-      "bytes": 8672.0,
-      "bytes_total": 21220.0,
-      "data_submessages": 0,
-      "delivered": true,
-      "delivered_samples": 1,
-      "latency_s": {
-       "last": 0.185525088,
-       "max": 0.185525088,
-       "mean": 0.185525088,
-       "min": 0.185525088,
-       "samples": 1
-      },
-      "locators": [
-       {
-        "address": "",
-        "bytes": 8672.0,
-        "kind": "SHM",
-        "packets": 61,
-        "port": 7417
-       }
-      ],
-      "packets": 61,
-      "packets_total": 139,
-      "reliability": {
-       "acknacks": 1,
-       "gaps": 0,
-       "heartbeats": 1,
-       "lost_packets": 0,
-       "nackfrags": 0,
-       "resent_datas": 0
-      },
-      "throughput_bytes_per_s": 8000000.0,
-      "transports": [
-       "SHM"
-      ]
-     },
-     "reader_guid": "01.0f.40.ec.ae.00.87.b3.00.00.00.00|00.00.11.04",
-     "reader_host": "f46a48ca8c49",
-     "reader_node": "/bounded_sub",
-     "reasons": [
-      "same-host-guid",
-      "datasharing-disabled-writer",
-      "both-shm-locators",
-      "measured-shm-traffic"
-     ],
-     "transport": "SHM",
-     "warnings": [],
-     "writer_guid": "01.0f.40.ec.b0.00.fe.65.00.00.00.00|00.00.10.03",
-     "writer_host": "f46a48ca8c49",
-     "writer_node": "/bounded_pub"
-    },
-    {
-     "confidence": "certain",
-     "locator": {
-      "address": "",
-      "kind": "SHM",
-      "multicast": false,
-      "port": 7411
-     },
-     "measured": {
-      "available": true,
-      "bytes": 124.0,
-      "bytes_total": 896.0,
-      "data_submessages": 0,
-      "delivered": false,
-      "delivered_samples": 0,
-      "latency_s": null,
-      "locators": [
-       {
-        "address": "",
-        "bytes": 124.0,
-        "kind": "SHM",
-        "packets": 1,
-        "port": 7411
-       }
-      ],
-      "packets": 1,
-      "packets_total": 7,
-      "reliability": {
-       "acknacks": 1,
-       "gaps": 0,
-       "heartbeats": 1,
-       "lost_packets": 0,
-       "nackfrags": 0,
-       "resent_datas": 0
-      },
-      "throughput_bytes_per_s": 8000000.0,
-      "transports": [
-       "SHM"
-      ]
-     },
-     "reader_guid": "01.0f.40.ec.af.00.82.c7.00.00.00.00|00.00.11.04",
-     "reader_host": "f46a48ca8c49",
-     "reader_node": "/talker",
-     "reasons": [
-      "same-host-guid",
-      "datasharing-disabled-writer",
-      "both-shm-locators",
-      "measured-shm-traffic"
-     ],
-     "transport": "SHM",
-     "warnings": [],
-     "writer_guid": "01.0f.40.ec.b0.00.fe.65.00.00.00.00|00.00.10.03",
-     "writer_host": "f46a48ca8c49",
-     "writer_node": "/bounded_pub"
-    },
-    {
-     "confidence": "certain",
-     "locator": {
-      "address": "",
-      "kind": "SHM",
-      "multicast": false,
-      "port": 7415
-     },
-     "measured": {
-      "available": true,
-      "bytes": 0.0,
-      "bytes_total": 0.0,
-      "data_submessages": 0,
-      "delivered": true,
-      "delivered_samples": 1,
-      "latency_s": {
-       "last": 1.3320000000000001e-06,
-       "max": 1.3320000000000001e-06,
-       "mean": 1.3320000000000001e-06,
-       "min": 1.3320000000000001e-06,
-       "samples": 1
-      },
-      "locators": [],
-      "packets": 0,
-      "packets_total": 0,
-      "reliability": {
-       "acknacks": 1,
-       "gaps": 0,
-       "heartbeats": 1,
-       "lost_packets": 0,
-       "nackfrags": 0,
-       "resent_datas": 0
-      },
-      "throughput_bytes_per_s": 8000000.0,
-      "transports": []
-     },
-     "reader_guid": "01.0f.40.ec.b0.00.fe.65.00.00.00.00|00.00.11.04",
-     "reader_host": "f46a48ca8c49",
-     "reader_node": "/bounded_pub",
-     "reasons": [
-      "same-host-guid",
-      "datasharing-disabled-writer",
-      "both-shm-locators"
-     ],
-     "transport": "SHM",
-     "warnings": [
-      "stats-writer-instance-limit-suspected"
-     ],
-     "writer_guid": "01.0f.40.ec.b0.00.fe.65.00.00.00.00|00.00.10.03",
-     "writer_host": "f46a48ca8c49",
-     "writer_node": "/bounded_pub"
-    },
-    {
-     "confidence": "certain",
-     "locator": {
-      "address": "",
-      "kind": "SHM",
-      "multicast": false,
-      "port": 7413
-     },
-     "measured": {
-      "available": true,
-      "bytes": 124.0,
-      "bytes_total": 896.0,
-      "data_submessages": 0,
-      "delivered": false,
-      "delivered_samples": 0,
-      "latency_s": null,
-      "locators": [
-       {
-        "address": "",
-        "bytes": 124.0,
-        "kind": "SHM",
-        "packets": 1,
-        "port": 7413
-       }
-      ],
-      "packets": 1,
-      "packets_total": 7,
-      "reliability": {
-       "acknacks": 1,
-       "gaps": 0,
-       "heartbeats": 1,
-       "lost_packets": 0,
-       "nackfrags": 0,
-       "resent_datas": 0
-      },
-      "throughput_bytes_per_s": 8000000.0,
-      "transports": [
-       "SHM"
-      ]
-     },
-     "reader_guid": "01.0f.40.ec.b3.00.2e.41.00.00.00.00|00.00.11.04",
-     "reader_host": "f46a48ca8c49",
-     "reader_node": "/listener",
-     "reasons": [
-      "same-host-guid",
-      "datasharing-disabled-writer",
-      "both-shm-locators",
-      "measured-shm-traffic"
-     ],
-     "transport": "SHM",
-     "warnings": [],
-     "writer_guid": "01.0f.40.ec.b0.00.fe.65.00.00.00.00|00.00.10.03",
-     "writer_host": "f46a48ca8c49",
-     "writer_node": "/bounded_pub"
-    },
-    {
-     "confidence": "certain",
-     "locator": {
-      "address": "127.0.0.1",
-      "kind": "UDPv4",
       "multicast": false,
       "port": 7419
      },
      "measured": {
       "available": true,
       "bytes": 248.0,
-      "bytes_total": 1272.0,
+      "bytes_total": 1872.0,
       "data_submessages": 0,
       "delivered": false,
       "delivered_samples": 0,
       "latency_s": null,
       "locators": [
        {
-        "address": "127.0.0.1",
+        "address": "",
         "bytes": 248.0,
-        "kind": "UDPv4",
+        "kind": "SHM",
         "packets": 2,
         "port": 7419
        }
       ],
       "packets": 2,
-      "packets_total": 10,
+      "packets_total": 15,
       "reliability": {
-       "acknacks": 0,
+       "acknacks": 2,
        "gaps": 0,
-       "heartbeats": 1,
+       "heartbeats": 0,
        "lost_packets": 0,
        "nackfrags": 0,
        "resent_datas": 0
       },
-      "throughput_bytes_per_s": 8000000.0,
-      "transports": [
-       "UDPv4"
-      ]
-     },
-     "reader_guid": "01.0f.40.ec.ba.00.5e.4c.00.00.00.00|00.00.11.04",
-     "reader_host": "f46a48ca8c49",
-     "reader_node": "/listener_udp",
-     "reasons": [
-      "same-host-guid",
-      "datasharing-disabled-writer",
-      "reader-no-shm-locator",
-      "common-udpv4-locator",
-      "measured-udpv4-traffic"
-     ],
-     "transport": "UDPv4",
-     "warnings": [],
-     "writer_guid": "01.0f.40.ec.b0.00.fe.65.00.00.00.00|00.00.10.03",
-     "writer_host": "f46a48ca8c49",
-     "writer_node": "/bounded_pub"
-    },
-    {
-     "confidence": "certain",
-     "locator": {
-      "address": "",
-      "kind": "SHM",
-      "multicast": false,
-      "port": 7417
-     },
-     "measured": {
-      "available": true,
-      "bytes": 124.0,
-      "bytes_total": 880.0,
-      "data_submessages": 0,
-      "delivered": false,
-      "delivered_samples": 0,
-      "latency_s": null,
-      "locators": [
-       {
-        "address": "",
-        "bytes": 124.0,
-        "kind": "SHM",
-        "packets": 1,
-        "port": 7417
-       }
-      ],
-      "packets": 1,
-      "packets_total": 7,
-      "reliability": {
-       "acknacks": 1,
-       "gaps": 0,
-       "heartbeats": 1,
-       "lost_packets": 0,
-       "nackfrags": 0,
-       "resent_datas": 0
-      },
-      "throughput_bytes_per_s": 21211274.0,
+      "throughput_bytes_per_s": 23852116.0,
       "transports": [
        "SHM"
       ]
      },
-     "reader_guid": "01.0f.40.ec.ae.00.87.b3.00.00.00.00|00.00.11.04",
-     "reader_host": "f46a48ca8c49",
-     "reader_node": "/bounded_sub",
-     "reasons": [
-      "same-host-guid",
-      "datasharing-disabled-writer",
-      "both-shm-locators",
-      "measured-shm-traffic"
-     ],
-     "transport": "SHM",
-     "warnings": [],
-     "writer_guid": "01.0f.40.ec.b3.00.2e.41.00.00.00.00|00.00.10.03",
-     "writer_host": "f46a48ca8c49",
-     "writer_node": "/listener"
-    },
-    {
-     "confidence": "certain",
-     "locator": {
-      "address": "",
-      "kind": "SHM",
-      "multicast": false,
-      "port": 7411
-     },
-     "measured": {
-      "available": true,
-      "bytes": 372.0,
-      "bytes_total": 1372.0,
-      "data_submessages": 0,
-      "delivered": false,
-      "delivered_samples": 0,
-      "latency_s": null,
-      "locators": [
-       {
-        "address": "",
-        "bytes": 372.0,
-        "kind": "SHM",
-        "packets": 3,
-        "port": 7411
-       }
-      ],
-      "packets": 3,
-      "packets_total": 11,
-      "reliability": {
-       "acknacks": 1,
-       "gaps": 0,
-       "heartbeats": 1,
-       "lost_packets": 0,
-       "nackfrags": 0,
-       "resent_datas": 0
-      },
-      "throughput_bytes_per_s": 21211274.0,
-      "transports": [
-       "SHM"
-      ]
-     },
-     "reader_guid": "01.0f.40.ec.af.00.82.c7.00.00.00.00|00.00.11.04",
-     "reader_host": "f46a48ca8c49",
-     "reader_node": "/talker",
-     "reasons": [
-      "same-host-guid",
-      "datasharing-disabled-writer",
-      "both-shm-locators",
-      "measured-shm-traffic"
-     ],
-     "transport": "SHM",
-     "warnings": [],
-     "writer_guid": "01.0f.40.ec.b3.00.2e.41.00.00.00.00|00.00.10.03",
-     "writer_host": "f46a48ca8c49",
-     "writer_node": "/listener"
-    },
-    {
-     "confidence": "certain",
-     "locator": {
-      "address": "",
-      "kind": "SHM",
-      "multicast": false,
-      "port": 7415
-     },
-     "measured": {
-      "available": true,
-      "bytes": 124.0,
-      "bytes_total": 1004.0,
-      "data_submessages": 0,
-      "delivered": false,
-      "delivered_samples": 0,
-      "latency_s": null,
-      "locators": [
-       {
-        "address": "",
-        "bytes": 124.0,
-        "kind": "SHM",
-        "packets": 1,
-        "port": 7415
-       }
-      ],
-      "packets": 1,
-      "packets_total": 8,
-      "reliability": {
-       "acknacks": 1,
-       "gaps": 0,
-       "heartbeats": 1,
-       "lost_packets": 0,
-       "nackfrags": 0,
-       "resent_datas": 0
-      },
-      "throughput_bytes_per_s": 21211274.0,
-      "transports": [
-       "SHM"
-      ]
-     },
-     "reader_guid": "01.0f.40.ec.b0.00.fe.65.00.00.00.00|00.00.11.04",
-     "reader_host": "f46a48ca8c49",
+     "reader_guid": "01.0f.40.ec.52.00.86.93.00.00.00.00|00.00.11.04",
+     "reader_host": "d87e498ecc1f",
      "reader_node": "/bounded_pub",
      "reasons": [
       "same-host-guid",
@@ -2857,9 +2538,9 @@ window.TRANSPORT_VIZ_SAMPLE = {
      ],
      "transport": "SHM",
      "warnings": [],
-     "writer_guid": "01.0f.40.ec.b3.00.2e.41.00.00.00.00|00.00.10.03",
-     "writer_host": "f46a48ca8c49",
-     "writer_node": "/listener"
+     "writer_guid": "01.0f.40.ec.38.00.58.91.00.00.00.00|00.00.10.03",
+     "writer_host": "d87e498ecc1f",
+     "writer_node": "/bounded_sub"
     },
     {
      "confidence": "certain",
@@ -2871,47 +2552,50 @@ window.TRANSPORT_VIZ_SAMPLE = {
      },
      "measured": {
       "available": true,
-      "bytes": 0.0,
-      "bytes_total": 0.0,
+      "bytes": 248.0,
+      "bytes_total": 1128.0,
       "data_submessages": 0,
-      "delivered": true,
-      "delivered_samples": 1,
-      "latency_s": {
-       "last": 8.74e-07,
-       "max": 8.74e-07,
-       "mean": 8.74e-07,
-       "min": 8.74e-07,
-       "samples": 1
-      },
-      "locators": [],
-      "packets": 0,
-      "packets_total": 0,
+      "delivered": false,
+      "delivered_samples": 0,
+      "latency_s": null,
+      "locators": [
+       {
+        "address": "",
+        "bytes": 248.0,
+        "kind": "SHM",
+        "packets": 2,
+        "port": 7413
+       }
+      ],
+      "packets": 2,
+      "packets_total": 9,
       "reliability": {
        "acknacks": 1,
        "gaps": 0,
-       "heartbeats": 1,
+       "heartbeats": 0,
        "lost_packets": 0,
        "nackfrags": 0,
        "resent_datas": 0
       },
-      "throughput_bytes_per_s": 21211274.0,
-      "transports": []
+      "throughput_bytes_per_s": 23412350.0,
+      "transports": [
+       "SHM"
+      ]
      },
-     "reader_guid": "01.0f.40.ec.b3.00.2e.41.00.00.00.00|00.00.11.04",
-     "reader_host": "f46a48ca8c49",
+     "reader_guid": "01.0f.40.ec.35.00.5d.09.00.00.00.00|00.00.11.04",
+     "reader_host": "d87e498ecc1f",
      "reader_node": "/listener",
      "reasons": [
       "same-host-guid",
       "datasharing-disabled-writer",
-      "both-shm-locators"
+      "both-shm-locators",
+      "measured-shm-traffic"
      ],
      "transport": "SHM",
-     "warnings": [
-      "stats-writer-instance-limit-suspected"
-     ],
-     "writer_guid": "01.0f.40.ec.b3.00.2e.41.00.00.00.00|00.00.10.03",
-     "writer_host": "f46a48ca8c49",
-     "writer_node": "/listener"
+     "warnings": [],
+     "writer_guid": "01.0f.40.ec.52.00.86.93.00.00.00.00|00.00.10.03",
+     "writer_host": "d87e498ecc1f",
+     "writer_node": "/bounded_pub"
     },
     {
      "confidence": "certain",
@@ -2919,7 +2603,7 @@ window.TRANSPORT_VIZ_SAMPLE = {
       "address": "127.0.0.1",
       "kind": "UDPv4",
       "multicast": false,
-      "port": 7419
+      "port": 7411
      },
      "measured": {
       "available": true,
@@ -2935,26 +2619,26 @@ window.TRANSPORT_VIZ_SAMPLE = {
         "bytes": 248.0,
         "kind": "UDPv4",
         "packets": 2,
-        "port": 7419
+        "port": 7411
        }
       ],
       "packets": 2,
       "packets_total": 10,
       "reliability": {
-       "acknacks": 0,
+       "acknacks": 1,
        "gaps": 0,
-       "heartbeats": 1,
+       "heartbeats": 0,
        "lost_packets": 0,
        "nackfrags": 0,
        "resent_datas": 0
       },
-      "throughput_bytes_per_s": 21211274.0,
+      "throughput_bytes_per_s": 23412350.0,
       "transports": [
        "UDPv4"
       ]
      },
-     "reader_guid": "01.0f.40.ec.ba.00.5e.4c.00.00.00.00|00.00.11.04",
-     "reader_host": "f46a48ca8c49",
+     "reader_guid": "01.0f.40.ec.36.00.87.0c.00.00.00.00|00.00.11.04",
+     "reader_host": "d87e498ecc1f",
      "reader_node": "/listener_udp",
      "reasons": [
       "same-host-guid",
@@ -2965,251 +2649,107 @@ window.TRANSPORT_VIZ_SAMPLE = {
      ],
      "transport": "UDPv4",
      "warnings": [],
-     "writer_guid": "01.0f.40.ec.b3.00.2e.41.00.00.00.00|00.00.10.03",
-     "writer_host": "f46a48ca8c49",
-     "writer_node": "/listener"
+     "writer_guid": "01.0f.40.ec.52.00.86.93.00.00.00.00|00.00.10.03",
+     "writer_host": "d87e498ecc1f",
+     "writer_node": "/bounded_pub"
     },
     {
      "confidence": "certain",
      "locator": {
-      "address": "127.0.0.1",
-      "kind": "UDPv4",
-      "multicast": false,
-      "port": 7417
-     },
-     "measured": {
-      "available": true,
-      "bytes": 112.0,
-      "bytes_total": 3920.0,
-      "data_submessages": 0,
-      "delivered": true,
-      "delivered_samples": 1,
-      "latency_s": {
-       "last": 0.188190496,
-       "max": 0.188190496,
-       "mean": 0.188190496,
-       "min": 0.188190496,
-       "samples": 1
-      },
-      "locators": [
-       {
-        "address": "127.0.0.1",
-        "bytes": 112.0,
-        "kind": "UDPv4",
-        "packets": 1,
-        "port": 7417
-       }
-      ],
-      "packets": 1,
-      "packets_total": 17,
-      "reliability": {
-       "acknacks": 1,
-       "gaps": 0,
-       "heartbeats": 1,
-       "lost_packets": 0,
-       "nackfrags": 0,
-       "resent_datas": 0
-      },
-      "throughput_bytes_per_s": 8533333.0,
-      "transports": [
-       "UDPv4"
-      ]
-     },
-     "reader_guid": "01.0f.40.ec.ae.00.87.b3.00.00.00.00|00.00.11.04",
-     "reader_host": "f46a48ca8c49",
-     "reader_node": "/bounded_sub",
-     "reasons": [
-      "same-host-guid",
-      "datasharing-disabled-writer",
-      "writer-no-shm-locator",
-      "common-udpv4-locator",
-      "measured-udpv4-traffic"
-     ],
-     "transport": "UDPv4",
-     "warnings": [],
-     "writer_guid": "01.0f.40.ec.ba.00.5e.4c.00.00.00.00|00.00.10.03",
-     "writer_host": "f46a48ca8c49",
-     "writer_node": "/listener_udp"
-    },
-    {
-     "confidence": "certain",
-     "locator": {
-      "address": "127.0.0.1",
-      "kind": "UDPv4",
-      "multicast": false,
-      "port": 7411
-     },
-     "measured": {
-      "available": true,
-      "bytes": 236.0,
-      "bytes_total": 1760.0,
-      "data_submessages": 0,
-      "delivered": false,
-      "delivered_samples": 0,
-      "latency_s": null,
-      "locators": [
-       {
-        "address": "127.0.0.1",
-        "bytes": 236.0,
-        "kind": "UDPv4",
-        "packets": 2,
-        "port": 7411
-       }
-      ],
-      "packets": 2,
-      "packets_total": 14,
-      "reliability": {
-       "acknacks": 1,
-       "gaps": 0,
-       "heartbeats": 1,
-       "lost_packets": 0,
-       "nackfrags": 0,
-       "resent_datas": 0
-      },
-      "throughput_bytes_per_s": 8533333.0,
-      "transports": [
-       "UDPv4"
-      ]
-     },
-     "reader_guid": "01.0f.40.ec.af.00.82.c7.00.00.00.00|00.00.11.04",
-     "reader_host": "f46a48ca8c49",
-     "reader_node": "/talker",
-     "reasons": [
-      "same-host-guid",
-      "datasharing-disabled-writer",
-      "writer-no-shm-locator",
-      "common-udpv4-locator",
-      "measured-udpv4-traffic"
-     ],
-     "transport": "UDPv4",
-     "warnings": [],
-     "writer_guid": "01.0f.40.ec.ba.00.5e.4c.00.00.00.00|00.00.10.03",
-     "writer_host": "f46a48ca8c49",
-     "writer_node": "/listener_udp"
-    },
-    {
-     "confidence": "certain",
-     "locator": {
-      "address": "127.0.0.1",
-      "kind": "UDPv4",
+      "address": "",
+      "kind": "SHM",
       "multicast": false,
       "port": 7415
      },
      "measured": {
       "available": true,
-      "bytes": 112.0,
-      "bytes_total": 3876.0,
-      "data_submessages": 0,
-      "delivered": true,
-      "delivered_samples": 1,
-      "latency_s": {
-       "last": 0.18818241600000002,
-       "max": 0.18818241600000002,
-       "mean": 0.18818241600000002,
-       "min": 0.18818241600000002,
-       "samples": 1
-      },
-      "locators": [
-       {
-        "address": "127.0.0.1",
-        "bytes": 112.0,
-        "kind": "UDPv4",
-        "packets": 1,
-        "port": 7415
-       }
-      ],
-      "packets": 1,
-      "packets_total": 18,
-      "reliability": {
-       "acknacks": 1,
-       "gaps": 0,
-       "heartbeats": 1,
-       "lost_packets": 0,
-       "nackfrags": 0,
-       "resent_datas": 0
-      },
-      "throughput_bytes_per_s": 8533333.0,
-      "transports": [
-       "UDPv4"
-      ]
-     },
-     "reader_guid": "01.0f.40.ec.b0.00.fe.65.00.00.00.00|00.00.11.04",
-     "reader_host": "f46a48ca8c49",
-     "reader_node": "/bounded_pub",
-     "reasons": [
-      "same-host-guid",
-      "datasharing-disabled-writer",
-      "writer-no-shm-locator",
-      "common-udpv4-locator",
-      "measured-udpv4-traffic"
-     ],
-     "transport": "UDPv4",
-     "warnings": [],
-     "writer_guid": "01.0f.40.ec.ba.00.5e.4c.00.00.00.00|00.00.10.03",
-     "writer_host": "f46a48ca8c49",
-     "writer_node": "/listener_udp"
-    },
-    {
-     "confidence": "certain",
-     "locator": {
-      "address": "127.0.0.1",
-      "kind": "UDPv4",
-      "multicast": false,
-      "port": 7413
-     },
-     "measured": {
-      "available": true,
-      "bytes": 112.0,
-      "bytes_total": 1264.0,
+      "bytes": 0.0,
+      "bytes_total": 0.0,
       "data_submessages": 0,
       "delivered": false,
       "delivered_samples": 0,
       "latency_s": null,
-      "locators": [
-       {
-        "address": "127.0.0.1",
-        "bytes": 112.0,
-        "kind": "UDPv4",
-        "packets": 1,
-        "port": 7413
-       }
-      ],
-      "packets": 1,
-      "packets_total": 10,
+      "locators": [],
+      "packets": 0,
+      "packets_total": 0,
       "reliability": {
-       "acknacks": 1,
+       "acknacks": 2,
        "gaps": 0,
-       "heartbeats": 1,
+       "heartbeats": 0,
        "lost_packets": 0,
        "nackfrags": 0,
        "resent_datas": 0
       },
-      "throughput_bytes_per_s": 8533333.0,
-      "transports": [
-       "UDPv4"
-      ]
+      "throughput_bytes_per_s": 23412350.0,
+      "transports": []
      },
-     "reader_guid": "01.0f.40.ec.b3.00.2e.41.00.00.00.00|00.00.11.04",
-     "reader_host": "f46a48ca8c49",
-     "reader_node": "/listener",
+     "reader_guid": "01.0f.40.ec.37.00.26.ca.00.00.00.00|00.00.11.04",
+     "reader_host": "d87e498ecc1f",
+     "reader_node": "/talker",
      "reasons": [
       "same-host-guid",
       "datasharing-disabled-writer",
-      "writer-no-shm-locator",
-      "common-udpv4-locator",
-      "measured-udpv4-traffic"
+      "both-shm-locators"
      ],
-     "transport": "UDPv4",
-     "warnings": [],
-     "writer_guid": "01.0f.40.ec.ba.00.5e.4c.00.00.00.00|00.00.10.03",
-     "writer_host": "f46a48ca8c49",
-     "writer_node": "/listener_udp"
+     "transport": "SHM",
+     "warnings": [
+      "stats-writer-instance-limit-suspected"
+     ],
+     "writer_guid": "01.0f.40.ec.52.00.86.93.00.00.00.00|00.00.10.03",
+     "writer_host": "d87e498ecc1f",
+     "writer_node": "/bounded_pub"
     },
     {
      "confidence": "certain",
      "locator": {
-      "address": "127.0.0.1",
-      "kind": "UDPv4",
+      "address": "",
+      "kind": "SHM",
+      "multicast": false,
+      "port": 7417
+     },
+     "measured": {
+      "available": true,
+      "bytes": 0.0,
+      "bytes_total": 0.0,
+      "data_submessages": 0,
+      "delivered": false,
+      "delivered_samples": 0,
+      "latency_s": null,
+      "locators": [],
+      "packets": 0,
+      "packets_total": 0,
+      "reliability": {
+       "acknacks": 2,
+       "gaps": 0,
+       "heartbeats": 0,
+       "lost_packets": 0,
+       "nackfrags": 0,
+       "resent_datas": 0
+      },
+      "throughput_bytes_per_s": 23412350.0,
+      "transports": []
+     },
+     "reader_guid": "01.0f.40.ec.38.00.58.91.00.00.00.00|00.00.11.04",
+     "reader_host": "d87e498ecc1f",
+     "reader_node": "/bounded_sub",
+     "reasons": [
+      "same-host-guid",
+      "datasharing-disabled-writer",
+      "both-shm-locators"
+     ],
+     "transport": "SHM",
+     "warnings": [
+      "stats-writer-instance-limit-suspected"
+     ],
+     "writer_guid": "01.0f.40.ec.52.00.86.93.00.00.00.00|00.00.10.03",
+     "writer_host": "d87e498ecc1f",
+     "writer_node": "/bounded_pub"
+    },
+    {
+     "confidence": "certain",
+     "locator": {
+      "address": "",
+      "kind": "SHM",
       "multicast": false,
       "port": 7419
      },
@@ -3221,43 +2761,41 @@ window.TRANSPORT_VIZ_SAMPLE = {
       "delivered": true,
       "delivered_samples": 1,
       "latency_s": {
-       "last": 2.0830000000000002e-06,
-       "max": 2.0830000000000002e-06,
-       "mean": 2.0830000000000002e-06,
-       "min": 2.0830000000000002e-06,
+       "last": 7.92e-07,
+       "max": 7.92e-07,
+       "mean": 7.92e-07,
+       "min": 7.92e-07,
        "samples": 1
       },
       "locators": [],
       "packets": 0,
       "packets_total": 0,
       "reliability": {
-       "acknacks": 0,
+       "acknacks": 2,
        "gaps": 0,
-       "heartbeats": 1,
+       "heartbeats": 0,
        "lost_packets": 0,
        "nackfrags": 0,
        "resent_datas": 0
       },
-      "throughput_bytes_per_s": 8533333.0,
+      "throughput_bytes_per_s": 23412350.0,
       "transports": []
      },
-     "reader_guid": "01.0f.40.ec.ba.00.5e.4c.00.00.00.00|00.00.11.04",
-     "reader_host": "f46a48ca8c49",
-     "reader_node": "/listener_udp",
+     "reader_guid": "01.0f.40.ec.52.00.86.93.00.00.00.00|00.00.11.04",
+     "reader_host": "d87e498ecc1f",
+     "reader_node": "/bounded_pub",
      "reasons": [
       "same-host-guid",
       "datasharing-disabled-writer",
-      "writer-no-shm-locator",
-      "reader-no-shm-locator",
-      "common-udpv4-locator"
+      "both-shm-locators"
      ],
-     "transport": "UDPv4",
+     "transport": "SHM",
      "warnings": [
       "stats-writer-instance-limit-suspected"
      ],
-     "writer_guid": "01.0f.40.ec.ba.00.5e.4c.00.00.00.00|00.00.10.03",
-     "writer_host": "f46a48ca8c49",
-     "writer_node": "/listener_udp"
+     "writer_guid": "01.0f.40.ec.52.00.86.93.00.00.00.00|00.00.10.03",
+     "writer_host": "d87e498ecc1f",
+     "writer_node": "/bounded_pub"
     }
    ],
    "readers": [
@@ -3265,128 +2803,14 @@ window.TRANSPORT_VIZ_SAMPLE = {
      "datasharing_history_bytes": null,
      "dds_topic": "rt/parameter_events",
      "dds_type": "rcl_interfaces::msg::dds_::ParameterEvent_",
-     "guid": "01.0f.40.ec.ae.00.87.b3.00.00.00.00|00.00.11.04",
-     "host": "f46a48ca8c49",
+     "guid": "01.0f.40.ec.35.00.5d.09.00.00.00.00|00.00.11.04",
+     "host": "d87e498ecc1f",
      "host_id": "010f40ec",
-     "host_name": "f46a48ca8c49:11219936903513702400",
-     "multicast_locators": [],
-     "node": "/bounded_sub",
-     "participant_guid_prefix": "01.0f.40.ec.ae.00.87.b3.00.00.00.00",
-     "process": "174",
-     "qos": {
-      "data_sharing": "OFF",
-      "data_sharing_domain_ids": [],
-      "deadline_s": null,
-      "durability": "VOLATILE",
-      "liveliness": "AUTOMATIC",
-      "liveliness_lease_s": null,
-      "ownership": "SHARED",
-      "partitions": [],
-      "reliability": "RELIABLE"
-     },
-     "ros_topic": "/parameter_events",
-     "ros_type": "rcl_interfaces/msg/ParameterEvent",
-     "unicast_locators": [
-      {
-       "address": "",
-       "kind": "SHM",
-       "port": 7417
-      },
-      {
-       "address": "127.0.0.1",
-       "kind": "UDPv4",
-       "port": 7417
-      }
-     ]
-    },
-    {
-     "datasharing_history_bytes": null,
-     "dds_topic": "rt/parameter_events",
-     "dds_type": "rcl_interfaces::msg::dds_::ParameterEvent_",
-     "guid": "01.0f.40.ec.af.00.82.c7.00.00.00.00|00.00.11.04",
-     "host": "f46a48ca8c49",
-     "host_id": "010f40ec",
-     "host_name": "f46a48ca8c49:11219936903513702400",
-     "multicast_locators": [],
-     "node": "/talker",
-     "participant_guid_prefix": "01.0f.40.ec.af.00.82.c7.00.00.00.00",
-     "process": "175",
-     "qos": {
-      "data_sharing": "OFF",
-      "data_sharing_domain_ids": [],
-      "deadline_s": null,
-      "durability": "VOLATILE",
-      "liveliness": "AUTOMATIC",
-      "liveliness_lease_s": null,
-      "ownership": "SHARED",
-      "partitions": [],
-      "reliability": "RELIABLE"
-     },
-     "ros_topic": "/parameter_events",
-     "ros_type": "rcl_interfaces/msg/ParameterEvent",
-     "unicast_locators": [
-      {
-       "address": "",
-       "kind": "SHM",
-       "port": 7411
-      },
-      {
-       "address": "127.0.0.1",
-       "kind": "UDPv4",
-       "port": 7411
-      }
-     ]
-    },
-    {
-     "datasharing_history_bytes": null,
-     "dds_topic": "rt/parameter_events",
-     "dds_type": "rcl_interfaces::msg::dds_::ParameterEvent_",
-     "guid": "01.0f.40.ec.b0.00.fe.65.00.00.00.00|00.00.11.04",
-     "host": "f46a48ca8c49",
-     "host_id": "010f40ec",
-     "host_name": "f46a48ca8c49:11219936903513702400",
-     "multicast_locators": [],
-     "node": "/bounded_pub",
-     "participant_guid_prefix": "01.0f.40.ec.b0.00.fe.65.00.00.00.00",
-     "process": "176",
-     "qos": {
-      "data_sharing": "OFF",
-      "data_sharing_domain_ids": [],
-      "deadline_s": null,
-      "durability": "VOLATILE",
-      "liveliness": "AUTOMATIC",
-      "liveliness_lease_s": null,
-      "ownership": "SHARED",
-      "partitions": [],
-      "reliability": "RELIABLE"
-     },
-     "ros_topic": "/parameter_events",
-     "ros_type": "rcl_interfaces/msg/ParameterEvent",
-     "unicast_locators": [
-      {
-       "address": "",
-       "kind": "SHM",
-       "port": 7415
-      },
-      {
-       "address": "127.0.0.1",
-       "kind": "UDPv4",
-       "port": 7415
-      }
-     ]
-    },
-    {
-     "datasharing_history_bytes": null,
-     "dds_topic": "rt/parameter_events",
-     "dds_type": "rcl_interfaces::msg::dds_::ParameterEvent_",
-     "guid": "01.0f.40.ec.b3.00.2e.41.00.00.00.00|00.00.11.04",
-     "host": "f46a48ca8c49",
-     "host_id": "010f40ec",
-     "host_name": "f46a48ca8c49:11219936903513702400",
+     "host_name": "d87e498ecc1f:14564170186182098944",
      "multicast_locators": [],
      "node": "/listener",
-     "participant_guid_prefix": "01.0f.40.ec.b3.00.2e.41.00.00.00.00",
-     "process": "179",
+     "participant_guid_prefix": "01.0f.40.ec.35.00.5d.09.00.00.00.00",
+     "process": "53",
      "qos": {
       "data_sharing": "OFF",
       "data_sharing_domain_ids": [],
@@ -3417,14 +2841,14 @@ window.TRANSPORT_VIZ_SAMPLE = {
      "datasharing_history_bytes": null,
      "dds_topic": "rt/parameter_events",
      "dds_type": "rcl_interfaces::msg::dds_::ParameterEvent_",
-     "guid": "01.0f.40.ec.ba.00.5e.4c.00.00.00.00|00.00.11.04",
-     "host": "f46a48ca8c49",
+     "guid": "01.0f.40.ec.36.00.87.0c.00.00.00.00|00.00.11.04",
+     "host": "d87e498ecc1f",
      "host_id": "010f40ec",
-     "host_name": "f46a48ca8c49:11219936903513702400",
+     "host_name": "d87e498ecc1f:14564170186182098944",
      "multicast_locators": [],
      "node": "/listener_udp",
-     "participant_guid_prefix": "01.0f.40.ec.ba.00.5e.4c.00.00.00.00",
-     "process": "186",
+     "participant_guid_prefix": "01.0f.40.ec.36.00.87.0c.00.00.00.00",
+     "process": "54",
      "qos": {
       "data_sharing": "OFF",
       "data_sharing_domain_ids": [],
@@ -3439,6 +2863,120 @@ window.TRANSPORT_VIZ_SAMPLE = {
      "ros_topic": "/parameter_events",
      "ros_type": "rcl_interfaces/msg/ParameterEvent",
      "unicast_locators": [
+      {
+       "address": "127.0.0.1",
+       "kind": "UDPv4",
+       "port": 7411
+      }
+     ]
+    },
+    {
+     "datasharing_history_bytes": null,
+     "dds_topic": "rt/parameter_events",
+     "dds_type": "rcl_interfaces::msg::dds_::ParameterEvent_",
+     "guid": "01.0f.40.ec.37.00.26.ca.00.00.00.00|00.00.11.04",
+     "host": "d87e498ecc1f",
+     "host_id": "010f40ec",
+     "host_name": "d87e498ecc1f:14564170186182098944",
+     "multicast_locators": [],
+     "node": "/talker",
+     "participant_guid_prefix": "01.0f.40.ec.37.00.26.ca.00.00.00.00",
+     "process": "55",
+     "qos": {
+      "data_sharing": "OFF",
+      "data_sharing_domain_ids": [],
+      "deadline_s": null,
+      "durability": "VOLATILE",
+      "liveliness": "AUTOMATIC",
+      "liveliness_lease_s": null,
+      "ownership": "SHARED",
+      "partitions": [],
+      "reliability": "RELIABLE"
+     },
+     "ros_topic": "/parameter_events",
+     "ros_type": "rcl_interfaces/msg/ParameterEvent",
+     "unicast_locators": [
+      {
+       "address": "",
+       "kind": "SHM",
+       "port": 7415
+      },
+      {
+       "address": "127.0.0.1",
+       "kind": "UDPv4",
+       "port": 7415
+      }
+     ]
+    },
+    {
+     "datasharing_history_bytes": null,
+     "dds_topic": "rt/parameter_events",
+     "dds_type": "rcl_interfaces::msg::dds_::ParameterEvent_",
+     "guid": "01.0f.40.ec.38.00.58.91.00.00.00.00|00.00.11.04",
+     "host": "d87e498ecc1f",
+     "host_id": "010f40ec",
+     "host_name": "d87e498ecc1f:14564170186182098944",
+     "multicast_locators": [],
+     "node": "/bounded_sub",
+     "participant_guid_prefix": "01.0f.40.ec.38.00.58.91.00.00.00.00",
+     "process": "56",
+     "qos": {
+      "data_sharing": "OFF",
+      "data_sharing_domain_ids": [],
+      "deadline_s": null,
+      "durability": "VOLATILE",
+      "liveliness": "AUTOMATIC",
+      "liveliness_lease_s": null,
+      "ownership": "SHARED",
+      "partitions": [],
+      "reliability": "RELIABLE"
+     },
+     "ros_topic": "/parameter_events",
+     "ros_type": "rcl_interfaces/msg/ParameterEvent",
+     "unicast_locators": [
+      {
+       "address": "",
+       "kind": "SHM",
+       "port": 7417
+      },
+      {
+       "address": "127.0.0.1",
+       "kind": "UDPv4",
+       "port": 7417
+      }
+     ]
+    },
+    {
+     "datasharing_history_bytes": null,
+     "dds_topic": "rt/parameter_events",
+     "dds_type": "rcl_interfaces::msg::dds_::ParameterEvent_",
+     "guid": "01.0f.40.ec.52.00.86.93.00.00.00.00|00.00.11.04",
+     "host": "d87e498ecc1f",
+     "host_id": "010f40ec",
+     "host_name": "d87e498ecc1f:14564170186182098944",
+     "multicast_locators": [],
+     "node": "/bounded_pub",
+     "participant_guid_prefix": "01.0f.40.ec.52.00.86.93.00.00.00.00",
+     "process": "82",
+     "qos": {
+      "data_sharing": "OFF",
+      "data_sharing_domain_ids": [],
+      "deadline_s": null,
+      "durability": "VOLATILE",
+      "liveliness": "AUTOMATIC",
+      "liveliness_lease_s": null,
+      "ownership": "SHARED",
+      "partitions": [],
+      "reliability": "RELIABLE"
+     },
+     "ros_topic": "/parameter_events",
+     "ros_type": "rcl_interfaces/msg/ParameterEvent",
+     "unicast_locators": [
+      {
+       "address": "",
+       "kind": "SHM",
+       "port": 7419
+      },
       {
        "address": "127.0.0.1",
        "kind": "UDPv4",
@@ -3448,7 +2986,7 @@ window.TRANSPORT_VIZ_SAMPLE = {
     }
    ],
    "resent_datas": 0,
-   "throughput_bytes_per_s": 83955817.0,
+   "throughput_bytes_per_s": 66066327.25,
    "topic": "/parameter_events",
    "type": "rcl_interfaces/msg/ParameterEvent",
    "unmatched_reasons": [],
@@ -3457,128 +2995,14 @@ window.TRANSPORT_VIZ_SAMPLE = {
      "datasharing_history_bytes": null,
      "dds_topic": "rt/parameter_events",
      "dds_type": "rcl_interfaces::msg::dds_::ParameterEvent_",
-     "guid": "01.0f.40.ec.ae.00.87.b3.00.00.00.00|00.00.10.03",
-     "host": "f46a48ca8c49",
+     "guid": "01.0f.40.ec.35.00.5d.09.00.00.00.00|00.00.10.03",
+     "host": "d87e498ecc1f",
      "host_id": "010f40ec",
-     "host_name": "f46a48ca8c49:11219936903513702400",
-     "multicast_locators": [],
-     "node": "/bounded_sub",
-     "participant_guid_prefix": "01.0f.40.ec.ae.00.87.b3.00.00.00.00",
-     "process": "174",
-     "qos": {
-      "data_sharing": "OFF",
-      "data_sharing_domain_ids": [],
-      "deadline_s": null,
-      "durability": "VOLATILE",
-      "liveliness": "AUTOMATIC",
-      "liveliness_lease_s": null,
-      "ownership": "SHARED",
-      "partitions": [],
-      "reliability": "RELIABLE"
-     },
-     "ros_topic": "/parameter_events",
-     "ros_type": "rcl_interfaces/msg/ParameterEvent",
-     "unicast_locators": [
-      {
-       "address": "",
-       "kind": "SHM",
-       "port": 7417
-      },
-      {
-       "address": "127.0.0.1",
-       "kind": "UDPv4",
-       "port": 7417
-      }
-     ]
-    },
-    {
-     "datasharing_history_bytes": null,
-     "dds_topic": "rt/parameter_events",
-     "dds_type": "rcl_interfaces::msg::dds_::ParameterEvent_",
-     "guid": "01.0f.40.ec.af.00.82.c7.00.00.00.00|00.00.10.03",
-     "host": "f46a48ca8c49",
-     "host_id": "010f40ec",
-     "host_name": "f46a48ca8c49:11219936903513702400",
-     "multicast_locators": [],
-     "node": "/talker",
-     "participant_guid_prefix": "01.0f.40.ec.af.00.82.c7.00.00.00.00",
-     "process": "175",
-     "qos": {
-      "data_sharing": "OFF",
-      "data_sharing_domain_ids": [],
-      "deadline_s": null,
-      "durability": "VOLATILE",
-      "liveliness": "AUTOMATIC",
-      "liveliness_lease_s": null,
-      "ownership": "SHARED",
-      "partitions": [],
-      "reliability": "RELIABLE"
-     },
-     "ros_topic": "/parameter_events",
-     "ros_type": "rcl_interfaces/msg/ParameterEvent",
-     "unicast_locators": [
-      {
-       "address": "",
-       "kind": "SHM",
-       "port": 7411
-      },
-      {
-       "address": "127.0.0.1",
-       "kind": "UDPv4",
-       "port": 7411
-      }
-     ]
-    },
-    {
-     "datasharing_history_bytes": null,
-     "dds_topic": "rt/parameter_events",
-     "dds_type": "rcl_interfaces::msg::dds_::ParameterEvent_",
-     "guid": "01.0f.40.ec.b0.00.fe.65.00.00.00.00|00.00.10.03",
-     "host": "f46a48ca8c49",
-     "host_id": "010f40ec",
-     "host_name": "f46a48ca8c49:11219936903513702400",
-     "multicast_locators": [],
-     "node": "/bounded_pub",
-     "participant_guid_prefix": "01.0f.40.ec.b0.00.fe.65.00.00.00.00",
-     "process": "176",
-     "qos": {
-      "data_sharing": "OFF",
-      "data_sharing_domain_ids": [],
-      "deadline_s": null,
-      "durability": "VOLATILE",
-      "liveliness": "AUTOMATIC",
-      "liveliness_lease_s": null,
-      "ownership": "SHARED",
-      "partitions": [],
-      "reliability": "RELIABLE"
-     },
-     "ros_topic": "/parameter_events",
-     "ros_type": "rcl_interfaces/msg/ParameterEvent",
-     "unicast_locators": [
-      {
-       "address": "",
-       "kind": "SHM",
-       "port": 7415
-      },
-      {
-       "address": "127.0.0.1",
-       "kind": "UDPv4",
-       "port": 7415
-      }
-     ]
-    },
-    {
-     "datasharing_history_bytes": null,
-     "dds_topic": "rt/parameter_events",
-     "dds_type": "rcl_interfaces::msg::dds_::ParameterEvent_",
-     "guid": "01.0f.40.ec.b3.00.2e.41.00.00.00.00|00.00.10.03",
-     "host": "f46a48ca8c49",
-     "host_id": "010f40ec",
-     "host_name": "f46a48ca8c49:11219936903513702400",
+     "host_name": "d87e498ecc1f:14564170186182098944",
      "multicast_locators": [],
      "node": "/listener",
-     "participant_guid_prefix": "01.0f.40.ec.b3.00.2e.41.00.00.00.00",
-     "process": "179",
+     "participant_guid_prefix": "01.0f.40.ec.35.00.5d.09.00.00.00.00",
+     "process": "53",
      "qos": {
       "data_sharing": "OFF",
       "data_sharing_domain_ids": [],
@@ -3609,14 +3033,14 @@ window.TRANSPORT_VIZ_SAMPLE = {
      "datasharing_history_bytes": null,
      "dds_topic": "rt/parameter_events",
      "dds_type": "rcl_interfaces::msg::dds_::ParameterEvent_",
-     "guid": "01.0f.40.ec.ba.00.5e.4c.00.00.00.00|00.00.10.03",
-     "host": "f46a48ca8c49",
+     "guid": "01.0f.40.ec.36.00.87.0c.00.00.00.00|00.00.10.03",
+     "host": "d87e498ecc1f",
      "host_id": "010f40ec",
-     "host_name": "f46a48ca8c49:11219936903513702400",
+     "host_name": "d87e498ecc1f:14564170186182098944",
      "multicast_locators": [],
      "node": "/listener_udp",
-     "participant_guid_prefix": "01.0f.40.ec.ba.00.5e.4c.00.00.00.00",
-     "process": "186",
+     "participant_guid_prefix": "01.0f.40.ec.36.00.87.0c.00.00.00.00",
+     "process": "54",
      "qos": {
       "data_sharing": "OFF",
       "data_sharing_domain_ids": [],
@@ -3631,6 +3055,120 @@ window.TRANSPORT_VIZ_SAMPLE = {
      "ros_topic": "/parameter_events",
      "ros_type": "rcl_interfaces/msg/ParameterEvent",
      "unicast_locators": [
+      {
+       "address": "127.0.0.1",
+       "kind": "UDPv4",
+       "port": 7411
+      }
+     ]
+    },
+    {
+     "datasharing_history_bytes": null,
+     "dds_topic": "rt/parameter_events",
+     "dds_type": "rcl_interfaces::msg::dds_::ParameterEvent_",
+     "guid": "01.0f.40.ec.37.00.26.ca.00.00.00.00|00.00.10.03",
+     "host": "d87e498ecc1f",
+     "host_id": "010f40ec",
+     "host_name": "d87e498ecc1f:14564170186182098944",
+     "multicast_locators": [],
+     "node": "/talker",
+     "participant_guid_prefix": "01.0f.40.ec.37.00.26.ca.00.00.00.00",
+     "process": "55",
+     "qos": {
+      "data_sharing": "OFF",
+      "data_sharing_domain_ids": [],
+      "deadline_s": null,
+      "durability": "VOLATILE",
+      "liveliness": "AUTOMATIC",
+      "liveliness_lease_s": null,
+      "ownership": "SHARED",
+      "partitions": [],
+      "reliability": "RELIABLE"
+     },
+     "ros_topic": "/parameter_events",
+     "ros_type": "rcl_interfaces/msg/ParameterEvent",
+     "unicast_locators": [
+      {
+       "address": "",
+       "kind": "SHM",
+       "port": 7415
+      },
+      {
+       "address": "127.0.0.1",
+       "kind": "UDPv4",
+       "port": 7415
+      }
+     ]
+    },
+    {
+     "datasharing_history_bytes": null,
+     "dds_topic": "rt/parameter_events",
+     "dds_type": "rcl_interfaces::msg::dds_::ParameterEvent_",
+     "guid": "01.0f.40.ec.38.00.58.91.00.00.00.00|00.00.10.03",
+     "host": "d87e498ecc1f",
+     "host_id": "010f40ec",
+     "host_name": "d87e498ecc1f:14564170186182098944",
+     "multicast_locators": [],
+     "node": "/bounded_sub",
+     "participant_guid_prefix": "01.0f.40.ec.38.00.58.91.00.00.00.00",
+     "process": "56",
+     "qos": {
+      "data_sharing": "OFF",
+      "data_sharing_domain_ids": [],
+      "deadline_s": null,
+      "durability": "VOLATILE",
+      "liveliness": "AUTOMATIC",
+      "liveliness_lease_s": null,
+      "ownership": "SHARED",
+      "partitions": [],
+      "reliability": "RELIABLE"
+     },
+     "ros_topic": "/parameter_events",
+     "ros_type": "rcl_interfaces/msg/ParameterEvent",
+     "unicast_locators": [
+      {
+       "address": "",
+       "kind": "SHM",
+       "port": 7417
+      },
+      {
+       "address": "127.0.0.1",
+       "kind": "UDPv4",
+       "port": 7417
+      }
+     ]
+    },
+    {
+     "datasharing_history_bytes": null,
+     "dds_topic": "rt/parameter_events",
+     "dds_type": "rcl_interfaces::msg::dds_::ParameterEvent_",
+     "guid": "01.0f.40.ec.52.00.86.93.00.00.00.00|00.00.10.03",
+     "host": "d87e498ecc1f",
+     "host_id": "010f40ec",
+     "host_name": "d87e498ecc1f:14564170186182098944",
+     "multicast_locators": [],
+     "node": "/bounded_pub",
+     "participant_guid_prefix": "01.0f.40.ec.52.00.86.93.00.00.00.00",
+     "process": "82",
+     "qos": {
+      "data_sharing": "OFF",
+      "data_sharing_domain_ids": [],
+      "deadline_s": null,
+      "durability": "VOLATILE",
+      "liveliness": "AUTOMATIC",
+      "liveliness_lease_s": null,
+      "ownership": "SHARED",
+      "partitions": [],
+      "reliability": "RELIABLE"
+     },
+     "ros_topic": "/parameter_events",
+     "ros_type": "rcl_interfaces/msg/ParameterEvent",
+     "unicast_locators": [
+      {
+       "address": "",
+       "kind": "SHM",
+       "port": 7419
+      },
       {
        "address": "127.0.0.1",
        "kind": "UDPv4",
@@ -3648,7 +3186,7 @@ window.TRANSPORT_VIZ_SAMPLE = {
    "pairs": [],
    "readers": [],
    "resent_datas": null,
-   "throughput_bytes_per_s": 410.73293072836736,
+   "throughput_bytes_per_s": 412.8910312652588,
    "topic": "/rosout",
    "type": "rcl_interfaces/msg/Log",
    "unmatched_reasons": [
@@ -3659,128 +3197,14 @@ window.TRANSPORT_VIZ_SAMPLE = {
      "datasharing_history_bytes": null,
      "dds_topic": "rt/rosout",
      "dds_type": "rcl_interfaces::msg::dds_::Log_",
-     "guid": "01.0f.40.ec.ae.00.87.b3.00.00.00.00|00.00.03.03",
-     "host": "f46a48ca8c49",
+     "guid": "01.0f.40.ec.35.00.5d.09.00.00.00.00|00.00.03.03",
+     "host": "d87e498ecc1f",
      "host_id": "010f40ec",
-     "host_name": "f46a48ca8c49:11219936903513702400",
-     "multicast_locators": [],
-     "node": "/bounded_sub",
-     "participant_guid_prefix": "01.0f.40.ec.ae.00.87.b3.00.00.00.00",
-     "process": "174",
-     "qos": {
-      "data_sharing": "OFF",
-      "data_sharing_domain_ids": [],
-      "deadline_s": null,
-      "durability": "TRANSIENT_LOCAL",
-      "liveliness": "AUTOMATIC",
-      "liveliness_lease_s": null,
-      "ownership": "SHARED",
-      "partitions": [],
-      "reliability": "RELIABLE"
-     },
-     "ros_topic": "/rosout",
-     "ros_type": "rcl_interfaces/msg/Log",
-     "unicast_locators": [
-      {
-       "address": "",
-       "kind": "SHM",
-       "port": 7417
-      },
-      {
-       "address": "127.0.0.1",
-       "kind": "UDPv4",
-       "port": 7417
-      }
-     ]
-    },
-    {
-     "datasharing_history_bytes": null,
-     "dds_topic": "rt/rosout",
-     "dds_type": "rcl_interfaces::msg::dds_::Log_",
-     "guid": "01.0f.40.ec.af.00.82.c7.00.00.00.00|00.00.03.03",
-     "host": "f46a48ca8c49",
-     "host_id": "010f40ec",
-     "host_name": "f46a48ca8c49:11219936903513702400",
-     "multicast_locators": [],
-     "node": "/talker",
-     "participant_guid_prefix": "01.0f.40.ec.af.00.82.c7.00.00.00.00",
-     "process": "175",
-     "qos": {
-      "data_sharing": "OFF",
-      "data_sharing_domain_ids": [],
-      "deadline_s": null,
-      "durability": "TRANSIENT_LOCAL",
-      "liveliness": "AUTOMATIC",
-      "liveliness_lease_s": null,
-      "ownership": "SHARED",
-      "partitions": [],
-      "reliability": "RELIABLE"
-     },
-     "ros_topic": "/rosout",
-     "ros_type": "rcl_interfaces/msg/Log",
-     "unicast_locators": [
-      {
-       "address": "",
-       "kind": "SHM",
-       "port": 7411
-      },
-      {
-       "address": "127.0.0.1",
-       "kind": "UDPv4",
-       "port": 7411
-      }
-     ]
-    },
-    {
-     "datasharing_history_bytes": null,
-     "dds_topic": "rt/rosout",
-     "dds_type": "rcl_interfaces::msg::dds_::Log_",
-     "guid": "01.0f.40.ec.b0.00.fe.65.00.00.00.00|00.00.03.03",
-     "host": "f46a48ca8c49",
-     "host_id": "010f40ec",
-     "host_name": "f46a48ca8c49:11219936903513702400",
-     "multicast_locators": [],
-     "node": "/bounded_pub",
-     "participant_guid_prefix": "01.0f.40.ec.b0.00.fe.65.00.00.00.00",
-     "process": "176",
-     "qos": {
-      "data_sharing": "OFF",
-      "data_sharing_domain_ids": [],
-      "deadline_s": null,
-      "durability": "TRANSIENT_LOCAL",
-      "liveliness": "AUTOMATIC",
-      "liveliness_lease_s": null,
-      "ownership": "SHARED",
-      "partitions": [],
-      "reliability": "RELIABLE"
-     },
-     "ros_topic": "/rosout",
-     "ros_type": "rcl_interfaces/msg/Log",
-     "unicast_locators": [
-      {
-       "address": "",
-       "kind": "SHM",
-       "port": 7415
-      },
-      {
-       "address": "127.0.0.1",
-       "kind": "UDPv4",
-       "port": 7415
-      }
-     ]
-    },
-    {
-     "datasharing_history_bytes": null,
-     "dds_topic": "rt/rosout",
-     "dds_type": "rcl_interfaces::msg::dds_::Log_",
-     "guid": "01.0f.40.ec.b3.00.2e.41.00.00.00.00|00.00.03.03",
-     "host": "f46a48ca8c49",
-     "host_id": "010f40ec",
-     "host_name": "f46a48ca8c49:11219936903513702400",
+     "host_name": "d87e498ecc1f:14564170186182098944",
      "multicast_locators": [],
      "node": "/listener",
-     "participant_guid_prefix": "01.0f.40.ec.b3.00.2e.41.00.00.00.00",
-     "process": "179",
+     "participant_guid_prefix": "01.0f.40.ec.35.00.5d.09.00.00.00.00",
+     "process": "53",
      "qos": {
       "data_sharing": "OFF",
       "data_sharing_domain_ids": [],
@@ -3811,14 +3235,14 @@ window.TRANSPORT_VIZ_SAMPLE = {
      "datasharing_history_bytes": null,
      "dds_topic": "rt/rosout",
      "dds_type": "rcl_interfaces::msg::dds_::Log_",
-     "guid": "01.0f.40.ec.ba.00.5e.4c.00.00.00.00|00.00.03.03",
-     "host": "f46a48ca8c49",
+     "guid": "01.0f.40.ec.36.00.87.0c.00.00.00.00|00.00.03.03",
+     "host": "d87e498ecc1f",
      "host_id": "010f40ec",
-     "host_name": "f46a48ca8c49:11219936903513702400",
+     "host_name": "d87e498ecc1f:14564170186182098944",
      "multicast_locators": [],
      "node": "/listener_udp",
-     "participant_guid_prefix": "01.0f.40.ec.ba.00.5e.4c.00.00.00.00",
-     "process": "186",
+     "participant_guid_prefix": "01.0f.40.ec.36.00.87.0c.00.00.00.00",
+     "process": "54",
      "qos": {
       "data_sharing": "OFF",
       "data_sharing_domain_ids": [],
@@ -3833,6 +3257,120 @@ window.TRANSPORT_VIZ_SAMPLE = {
      "ros_topic": "/rosout",
      "ros_type": "rcl_interfaces/msg/Log",
      "unicast_locators": [
+      {
+       "address": "127.0.0.1",
+       "kind": "UDPv4",
+       "port": 7411
+      }
+     ]
+    },
+    {
+     "datasharing_history_bytes": null,
+     "dds_topic": "rt/rosout",
+     "dds_type": "rcl_interfaces::msg::dds_::Log_",
+     "guid": "01.0f.40.ec.37.00.26.ca.00.00.00.00|00.00.03.03",
+     "host": "d87e498ecc1f",
+     "host_id": "010f40ec",
+     "host_name": "d87e498ecc1f:14564170186182098944",
+     "multicast_locators": [],
+     "node": "/talker",
+     "participant_guid_prefix": "01.0f.40.ec.37.00.26.ca.00.00.00.00",
+     "process": "55",
+     "qos": {
+      "data_sharing": "OFF",
+      "data_sharing_domain_ids": [],
+      "deadline_s": null,
+      "durability": "TRANSIENT_LOCAL",
+      "liveliness": "AUTOMATIC",
+      "liveliness_lease_s": null,
+      "ownership": "SHARED",
+      "partitions": [],
+      "reliability": "RELIABLE"
+     },
+     "ros_topic": "/rosout",
+     "ros_type": "rcl_interfaces/msg/Log",
+     "unicast_locators": [
+      {
+       "address": "",
+       "kind": "SHM",
+       "port": 7415
+      },
+      {
+       "address": "127.0.0.1",
+       "kind": "UDPv4",
+       "port": 7415
+      }
+     ]
+    },
+    {
+     "datasharing_history_bytes": null,
+     "dds_topic": "rt/rosout",
+     "dds_type": "rcl_interfaces::msg::dds_::Log_",
+     "guid": "01.0f.40.ec.38.00.58.91.00.00.00.00|00.00.03.03",
+     "host": "d87e498ecc1f",
+     "host_id": "010f40ec",
+     "host_name": "d87e498ecc1f:14564170186182098944",
+     "multicast_locators": [],
+     "node": "/bounded_sub",
+     "participant_guid_prefix": "01.0f.40.ec.38.00.58.91.00.00.00.00",
+     "process": "56",
+     "qos": {
+      "data_sharing": "OFF",
+      "data_sharing_domain_ids": [],
+      "deadline_s": null,
+      "durability": "TRANSIENT_LOCAL",
+      "liveliness": "AUTOMATIC",
+      "liveliness_lease_s": null,
+      "ownership": "SHARED",
+      "partitions": [],
+      "reliability": "RELIABLE"
+     },
+     "ros_topic": "/rosout",
+     "ros_type": "rcl_interfaces/msg/Log",
+     "unicast_locators": [
+      {
+       "address": "",
+       "kind": "SHM",
+       "port": 7417
+      },
+      {
+       "address": "127.0.0.1",
+       "kind": "UDPv4",
+       "port": 7417
+      }
+     ]
+    },
+    {
+     "datasharing_history_bytes": null,
+     "dds_topic": "rt/rosout",
+     "dds_type": "rcl_interfaces::msg::dds_::Log_",
+     "guid": "01.0f.40.ec.52.00.86.93.00.00.00.00|00.00.03.03",
+     "host": "d87e498ecc1f",
+     "host_id": "010f40ec",
+     "host_name": "d87e498ecc1f:14564170186182098944",
+     "multicast_locators": [],
+     "node": "/bounded_pub",
+     "participant_guid_prefix": "01.0f.40.ec.52.00.86.93.00.00.00.00",
+     "process": "82",
+     "qos": {
+      "data_sharing": "OFF",
+      "data_sharing_domain_ids": [],
+      "deadline_s": null,
+      "durability": "TRANSIENT_LOCAL",
+      "liveliness": "AUTOMATIC",
+      "liveliness_lease_s": null,
+      "ownership": "SHARED",
+      "partitions": [],
+      "reliability": "RELIABLE"
+     },
+     "ros_topic": "/rosout",
+     "ros_type": "rcl_interfaces/msg/Log",
+     "unicast_locators": [
+      {
+       "address": "",
+       "kind": "SHM",
+       "port": 7419
+      },
       {
        "address": "127.0.0.1",
        "kind": "UDPv4",

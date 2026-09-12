@@ -12,6 +12,7 @@
     "local_host_id",
     "topics",
     "reason_code_descriptions",
+    "reason_code_remedies",
     "stats"
   ],
   "properties": {
@@ -43,6 +44,13 @@
       "type": "object",
       "additionalProperties": {
         "type": "string"
+      }
+    },
+    "reason_code_remedies": {
+      "description": "What to change to get past each code of reason_code_descriptions (same keys); null when the code describes a normal state or asks for a bug report.",
+      "type": "object",
+      "additionalProperties": {
+        "type": ["string", "null"]
       }
     },
     "stats": {

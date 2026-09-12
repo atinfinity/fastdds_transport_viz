@@ -2,7 +2,7 @@
 
 [English](README.md) | 日本語
 
-> 英語版が正です。この文書は 2026-09-10 時点の英語版に対応しています。
+> 英語版が正です。この文書は 2026-09-12 時点の英語版に対応しています。
 
 [![CI](https://github.com/atinfinity/fastdds_transport_viz/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/atinfinity/fastdds_transport_viz/actions/workflows/ci.yml)
 
@@ -62,7 +62,7 @@ shared memory: /dev/shm 371 MB used of 16.7 GB (16.3 GB free) | Fast DDS 6.36 MB
 - **複数のフロントエンド。** 色付きの表、`--watch` (変化を強調するライブ表示)、スキーマ付きの
   `--json`、`ros2 transport` コマンド、web viewer (グラフと表、`transport_viz_web` によるライブ更新)。
 - **絞り込み。** `--topic` / `--node` の正規表現フィルタ、使われたコードの説明を出す `--explain`、
-  全コードを一覧する `ros2 transport codes`。
+  そのコードを解消するには何を変えるかを出す `--advise`、全コードを一覧する `ros2 transport codes`。
 - **環境の共有メモリ。** `/dev/shm` の容量、そこにある Fast DDS のセグメント・ポート・data-sharing
   履歴、残骸 (stale)、観測対象ノードがそれを共有しているかどうか。
 - **検証済みの環境:** Jazzy (Fast DDS 2.14) と Lyrical / Rolling (Fast DDS 3.x)、x86_64 と arm64、
@@ -89,7 +89,7 @@ ros2 transport list -v --explain
 
 ```
 ros2 transport list [--domain N] [--timeout S] [--quiet S] [--topic REGEX] [--node REGEX]
-                    [--all] [-v] [--explain] [--locators] [--stats] [--json]
+                    [--all] [-v] [--explain] [--locators] [--advise] [--stats] [--json]
                     [--color auto|always|never] [--watch [--interval S]]
 ros2 transport codes
 ```
@@ -104,6 +104,7 @@ ros2 transport codes
 | `-v` | 各トピックの下に writer → reader のペアを展開する |
 | `--explain` | 使われている理由コードの凡例を末尾に付ける |
 | `--locators` | ツールが選んだ locator と、実際にパケットを運んだ locator を ペアごとに 1 行追加する (`-v` を暗黙に有効化。`--json` では無視され、JSON は常に同じ情報を持つ) |
+| `--advise` | ペアごとに、対処のある理由コードについて `fix <code>: …` 行を追加し、凡例の各コードの下にも対処を出す (`-v` と `--explain` を暗黙に有効化。`--json` では無視され、JSON は常に `reason_code_remedies` を持つ) |
 | `--stats` | 実測の transport と `RATE` 列 (トピック/writer ごとの payload バイト数/秒) も表示する (観測対象ノードに `FASTDDS_STATISTICS` が必要。[docs/statistics.ja.md](docs/statistics.ja.md)) |
 | `--json` | 機械可読な出力 (`schema_version: 1`、`schema/` 参照)。[web viewer](docs/web-viewer.ja.md) で開ける |
 | `--topic REGEX` | 名前が一致するトピックだけ表示する |

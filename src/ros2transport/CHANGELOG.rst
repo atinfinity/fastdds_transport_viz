@@ -2,6 +2,11 @@
 Changelog for package ros2transport
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Pass ``--advise`` through to ``transport_viz``; ``ros2 transport codes`` prints the
+  remedy of each code after its description.
+
 1.1.0 (2026-09-12)
 -------------------
 * Pass ``--locators`` through to ``transport_viz``.
