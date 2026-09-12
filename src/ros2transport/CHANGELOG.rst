@@ -2,8 +2,8 @@
 Changelog for package ros2transport
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+1.1.0 (2026-09-12)
+-------------------
 * Pass ``--locators`` through to ``transport_viz``.
 * Supported distributions: ROS 2 Lyrical Luth replaces Kilted (EOL December 2026).
 

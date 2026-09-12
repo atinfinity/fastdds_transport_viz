@@ -263,7 +263,7 @@ the Fast DDS 2.14 / 3.x compatibility layer, the repository layout and extension
 
 ## Roadmap
 
-As of 2026-09-10. The [issue tracker](https://github.com/atinfinity/fastdds_transport_viz/issues)
+As of 2026-09-12. The [issue tracker](https://github.com/atinfinity/fastdds_transport_viz/issues)
 is the source of truth; update this list when closing an issue.
 
 Done:
@@ -309,11 +309,36 @@ Done:
   [#63](https://github.com/atinfinity/fastdds_transport_viz/issues/63)
 - ROS 2 Lyrical Luth (Fast DDS 3.6) in place of Kilted, which reaches EOL in December
   2026 — [#68](https://github.com/atinfinity/fastdds_transport_viz/issues/68)
+- Release 1.1.0: `--locators`, the locator fields in the JSON, Lyrical in place of
+  Kilted — [#70](https://github.com/atinfinity/fastdds_transport_viz/issues/70)
 
-Open, in priority order (labels `priority/1-high` … `priority/3-low` on the issues):
+Open, by priority (labels `priority/1-high` … `priority/3-low` on the issues):
 
-1. Distribution: CHANGELOG, ament lint, bloom release for Jazzy/Humble/Lyrical —
-   [#50](https://github.com/atinfinity/fastdds_transport_viz/issues/50).
-2. DDS Security (SROS2) — [#49](https://github.com/atinfinity/fastdds_transport_viz/issues/49).
-3. Same host id, separate IPC namespace in the shared-memory line —
-   [#51](https://github.com/atinfinity/fastdds_transport_viz/issues/51).
+`priority/1-high`:
+
+- Fast DDS 3.x Easy Mode (`ROS2_EASY_MODE`) and the `P2P` builtin transport verified — [#71](https://github.com/atinfinity/fastdds_transport_viz/issues/71)
+
+`priority/2-medium`:
+
+- Distribution: bloom release for Jazzy/Humble/Lyrical — [#50](https://github.com/atinfinity/fastdds_transport_viz/issues/50)
+- Warn and exit when `RMW_IMPLEMENTATION` is not `rmw_fastrtps_cpp` — [#72](https://github.com/atinfinity/fastdds_transport_viz/issues/72)
+- `rmw_fastrtps_dynamic_cpp` verified — [#73](https://github.com/atinfinity/fastdds_transport_viz/issues/73)
+- Verification on a large real system (Nav2 / Autoware scale) — [#74](https://github.com/atinfinity/fastdds_transport_viz/issues/74)
+- CI on arm64 runners — [#75](https://github.com/atinfinity/fastdds_transport_viz/issues/75)
+- `--advise`: what to change to get the intended transport — [#76](https://github.com/atinfinity/fastdds_transport_viz/issues/76)
+- `transport_viz diff`: compare two `--json` snapshots — [#77](https://github.com/atinfinity/fastdds_transport_viz/issues/77)
+
+`priority/3-low`:
+
+- DDS Security (SROS2) — [#49](https://github.com/atinfinity/fastdds_transport_viz/issues/49)
+- Same host id, separate IPC namespace in the shared-memory line — [#51](https://github.com/atinfinity/fastdds_transport_viz/issues/51)
+- Ready-to-run Docker image on GHCR — [#78](https://github.com/atinfinity/fastdds_transport_viz/issues/78)
+- Dependabot for GitHub Actions, weekly scheduled run for Rolling — [#79](https://github.com/atinfinity/fastdds_transport_viz/issues/79)
+- Coverage report and badge from `scripts/coverage.sh` in CI — [#80](https://github.com/atinfinity/fastdds_transport_viz/issues/80)
+- Web viewer: browser-level test of rendering and filters — [#81](https://github.com/atinfinity/fastdds_transport_viz/issues/81)
+- Record and replay `--watch` frames with a timeline in the web viewer — [#82](https://github.com/atinfinity/fastdds_transport_viz/issues/82)
+- Metrics export: Prometheus endpoint in `transport_viz_web`, CSV output — [#83](https://github.com/atinfinity/fastdds_transport_viz/issues/83)
+- Group service and action endpoints under `--all` — [#84](https://github.com/atinfinity/fastdds_transport_viz/issues/84)
+- Type mismatches on the same topic (type name / type hash) — [#85](https://github.com/atinfinity/fastdds_transport_viz/issues/85)
+- Web viewer: Discovery Servers and the clients they serve — [#86](https://github.com/atinfinity/fastdds_transport_viz/issues/86)
+- `QUALITY_DECLARATION.md` (REP 2004) for both packages — [#87](https://github.com/atinfinity/fastdds_transport_viz/issues/87)

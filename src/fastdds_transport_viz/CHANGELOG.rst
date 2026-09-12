@@ -2,8 +2,8 @@
 Changelog for package fastdds_transport_viz
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+1.1.0 (2026-09-12)
+-------------------
 * ``--locators``: a line under each pair of the verbose table with the locator the tool
   selected from the reader's announced locators and, with ``--stats``, the locators that
   actually carried packets. Implies ``-v``; ignored with ``--json``. Toggled with ``l``
