@@ -215,8 +215,8 @@ def test_diff_json_is_the_after_document_plus_changes():
 
 
 def test_diff_json_matches_the_shipped_diff_sample():
-    """web/sample/diff.json is what the binary prints for the fixture pair with --all; the web
-    viewer's JavaScript port of the comparison is tested against the same file."""
+    """The binary reproduces web/sample/diff.json (what it printed for the fixtures with --all)."""
+    # the web viewer's JavaScript port of the comparison is tested against the same file
     r = run('diff', '--all', '--json', BEFORE, AFTER)
     assert r.returncode == 1, r
     with open(SAMPLES / 'diff.json') as f:
