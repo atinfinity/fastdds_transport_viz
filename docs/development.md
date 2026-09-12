@@ -191,17 +191,22 @@ exercised through `test_web_live.py`.
 `.github/workflows/ci.yml` runs `rosdep install`, `colcon build`, `colcon test` inside
 `ros:humble`, `ros:jazzy`, `ros:lyrical` and `ros:rolling` containers for every pull request that touches
 code (docs-only changes skip the job); Rolling may break with upstream changes and does
-not block (`continue-on-error`). Test result XML files and launch logs are uploaded as a
-workflow artifact per distribution. `main` is protected: pull requests merge only when
-the `CI result` and `Docs result` jobs are green; they succeed when every job of their
-workflow passed or was skipped for a change that does not concern it (Rolling does not
-count).
+not block (`continue-on-error`). Jazzy and Lyrical are built and tested twice, on the
+x86_64 runner and on GitHub's `ubuntu-24.04-arm` runner (the `ros:<distro>` images are
+multi-arch); the arm64 jobs block pull requests like the x86_64 ones. Humble on arm64 is
+not run (Fast DDS 2.6, prediction only), and Rolling on arm64 is left to the scheduled
+Rolling run ([#79](https://github.com/atinfinity/fastdds_transport_viz/issues/79)). Test
+result XML files and launch logs are uploaded as a workflow artifact per distribution and
+architecture. `main` is protected: pull requests merge only when the `CI result` and
+`Docs result` jobs are green; they succeed when every job of their workflow passed or was
+skipped for a change that does not concern it (Rolling does not count).
 
-A second job, `integration`, runs `scripts/integration_test.sh all` on the x86_64 runner
-VM for the merge commit on `main` and on `workflow_dispatch` (not for pull requests, to
-keep PR CI short); the `transport_viz` JSON of each scenario is uploaded as an artifact.
-The matrix itself does not run again on `main`: each change is built once, in its pull
-request.
+A second job, `integration`, runs `scripts/integration_test.sh all` on the runner VM,
+once on x86_64 and once on arm64, for the merge commit on `main` and on
+`workflow_dispatch` (not for pull requests, to keep PR CI short); the `transport_viz` JSON
+of each scenario is uploaded as an artifact per architecture. The matrix itself does not
+run again on `main`: each change is built once, in its pull request. Every job has a
+30-minute `timeout-minutes` (queue time excluded).
 
 ## Verification results
 
@@ -309,6 +314,8 @@ Done:
   [#63](https://github.com/atinfinity/fastdds_transport_viz/issues/63)
 - ROS 2 Lyrical Luth (Fast DDS 3.6) in place of Kilted, which reaches EOL in December
   2026 — [#68](https://github.com/atinfinity/fastdds_transport_viz/issues/68)
+- CI on arm64 runners (Jazzy / Lyrical build & test, integration scenarios) —
+  [#75](https://github.com/atinfinity/fastdds_transport_viz/issues/75)
 - Release 1.1.0: `--locators`, the locator fields in the JSON, Lyrical in place of
   Kilted — [#70](https://github.com/atinfinity/fastdds_transport_viz/issues/70)
 
@@ -324,7 +331,6 @@ Open, by priority (labels `priority/1-high` … `priority/3-low` on the issues):
 - Warn and exit when `RMW_IMPLEMENTATION` is not `rmw_fastrtps_cpp` — [#72](https://github.com/atinfinity/fastdds_transport_viz/issues/72)
 - `rmw_fastrtps_dynamic_cpp` verified — [#73](https://github.com/atinfinity/fastdds_transport_viz/issues/73)
 - Verification on a large real system (Nav2 / Autoware scale) — [#74](https://github.com/atinfinity/fastdds_transport_viz/issues/74)
-- CI on arm64 runners — [#75](https://github.com/atinfinity/fastdds_transport_viz/issues/75)
 - `--advise`: what to change to get the intended transport — [#76](https://github.com/atinfinity/fastdds_transport_viz/issues/76)
 - `transport_viz diff`: compare two `--json` snapshots — [#77](https://github.com/atinfinity/fastdds_transport_viz/issues/77)
 
