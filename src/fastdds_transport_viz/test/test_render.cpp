@@ -542,7 +542,8 @@ TEST(RenderTable, AdviseLinesForNoneVerdictsAndNotForGhosts)
   opt.advise = true;
   opt.verbose = true;
   const auto out = render_table(s, opt);
-  EXPECT_NE(out.find("fix qos-incompatible-reliability: Offer RELIABLE on the writer"),
+  EXPECT_NE(
+    out.find("fix qos-incompatible-reliability: Offer RELIABLE on the writer"),
     std::string::npos) << out;
   EXPECT_EQ(out.find("fix qos-incompatible:"), std::string::npos) <<
     "the warning has no remedy of its own";
