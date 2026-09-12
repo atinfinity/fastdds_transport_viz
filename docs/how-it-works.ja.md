@@ -1,6 +1,6 @@
 # 仕組み
 
-> 英語版が正です。この文書は 2026-09-10 時点の英語版に対応しています。
+> 英語版が正です。この文書は 2026-09-12 時点の英語版に対応しています。
 
 このツールは Fast DDS 2.14 (ROS 2 Jazzy) と 3.x (Lyrical、Rolling) の両方に対してビルドできます。
 API の差分は `include/fastdds_transport_viz/fastdds_compat.hpp` に閉じ込めてあり、以下の判定ルールは
@@ -63,6 +63,18 @@ statistics が無ければ 3 つの列とも `-` です。ペア行の `measured
 必要に応じて `!` で始まる警告も付きます。`--explain` は現在の出力で使われているコードの凡例を
 末尾に付け、`transport_viz --list-codes` は全コードを表示します。transport の後ろの `?` は
 確信度が `certain` ではなく `likely` であることを意味します。
+
+コードは「何が起きたか」を示し、`--advise` は「何を変えるか」を加えます。すべてのコードには
+対処 (環境変数名・XML 要素名・QoS ポリシー名を挙げる 1 文。例: `reader-no-shm-locator` →
+`FASTDDS_BUILTIN_TRANSPORTS` を外すか reader のプロファイルに SHM transport descriptor を足す、
+`shm-stale-files` → `fastdds shm clean`) があるか、正常な状態 (`same-host-guid`)・実測の事実
+(`measured-shm-traffic`)・バグ報告の依頼 (`measured-transport-mismatch`) を表すコードには
+対処がありません。対処は目標の transport に依存しません。ツールは意図する transport を知らないので、
+各文はそのコードが何を妨げているかを名指しし、選ぶのは読み手です。`--advise` はペアごとに
+対処のあるコードについて `fix <code>: …` 行を出し (QoS の対処が最も役立つ `NONE` のペアにも)、
+凡例の各コードの下にも対処を出します。`--list-codes` / `ros2 transport codes` は各説明の後に、
+`--json` は `reason_code_remedies` (`reason_code_descriptions` と同じキー、対処なしは `null`) に、
+web viewer は説明の下に表示します。説明文自体には対処を含めないので、それぞれ 1 回だけ現れます。
 
 判定ロジックは `src/fastdds_transport_viz/src/decision.cpp` に DDS 依存の無い純粋関数として
 実装され、`test/test_decision.cpp` でテストされています。

@@ -5,7 +5,7 @@ from ros2transport.verb import VerbExtension
 
 
 class CodesVerb(VerbExtension):
-    """List all reason codes with their descriptions (transport_viz --list-codes)."""
+    """List all reason codes with descriptions and remedies (transport_viz --list-codes)."""
 
     def main(self, *, args):
         return exec_binary(['--list-codes'])

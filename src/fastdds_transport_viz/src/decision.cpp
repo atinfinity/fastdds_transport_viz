@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <functional>
 #include <map>
+#include <optional>
 #include <set>
 #include <string>
 #include <vector>
@@ -733,182 +734,295 @@ Changes diff(
 
 namespace
 {
-const std::map<std::string, std::string> & explanations()
+/// Description ("what happened") and remedy ("what to change") of a code. Every code has
+/// a remedy or an explicit std::nullopt: a normal state (same-host-guid), a measured fact
+/// (measured-shm-traffic) or a request for a bug report has nothing to change.
+struct CodeInfo
 {
-  static const std::map<std::string, std::string> m = {
-    {"same-host-guid",
-      "Writer and reader GUID prefixes share the same first 4 bytes, which is how Fast DDS "
-      "decides both participants run on the same host."},
-    {"different-host",
-      "GUID prefixes differ in the first 4 bytes, so Fast DDS treats the endpoints as being on "
-      "different hosts; shared memory is not an option."},
-    {"both-shm-locators",
-      "Both endpoints announce a SHM locator. On the same host Fast DDS then uses the shared "
-      "memory transport exclusively for user data (discovery still goes over UDP)."},
-    {"writer-no-shm-locator",
-      "The writer's participant announces no SHM locator: SHM transport is not instantiated on "
-      "its side (e.g. FASTDDS_BUILTIN_TRANSPORTS=UDPv4, or an XML profile without SHM)."},
-    {"reader-no-shm-locator",
-      "The reader's participant announces no SHM locator: SHM transport is not instantiated on "
-      "its side (e.g. FASTDDS_BUILTIN_TRANSPORTS=UDPv4, or an XML profile without SHM)."},
-    {"shm-locators-ignored-across-hosts",
-      "Both endpoints announce SHM locators, but they are on different hosts so the SHM "
-      "locators are discarded."},
-    {"common-udpv4-locator", "The reader announces a UDPv4 locator and the writer speaks UDPv4."},
-    {"common-udpv6-locator", "The reader announces a UDPv6 locator and the writer speaks UDPv6."},
-    {"common-tcpv4-locator", "The reader announces a TCPv4 locator and the writer speaks TCPv4."},
-    {"common-tcpv6-locator", "The reader announces a TCPv6 locator and the writer speaks TCPv6."},
-    {"no-common-transport",
-      "No locator kind is shared by both endpoints; user data cannot flow between them."},
-    {"datasharing-disabled-writer",
-      "The writer announces data-sharing OFF (explicitly disabled, or AUTO resolved to OFF "
-      "because the type is unbounded / the history memory policy is not preallocated)."},
-    {"datasharing-disabled-reader",
-      "The reader announces data-sharing OFF (explicitly disabled, or AUTO resolved to OFF "
-      "because the type is unbounded / the history memory policy is not preallocated)."},
-    {"datasharing-qos-unknown",
-      "The data-sharing QoS of at least one endpoint could not be read from discovery data."},
-    {"datasharing-qos-enabled-both",
-      "Both endpoints announce data-sharing ON or AUTO. Fast DDS resolves AUTO before "
-      "discovery, so this means both sides consider themselves data-sharing capable."},
-    {"datasharing-domain-ids-match",
-      "The data-sharing domain ids announced by writer and reader intersect, which is required "
-      "for zero-copy delivery to be matched."},
-    {"datasharing-domain-ids-unknown",
-      "At least one side announced no data-sharing domain id; matching cannot be confirmed "
-      "from discovery data alone."},
-    {"datasharing-domain-ids-mismatch",
-      "Both sides are data-sharing capable but their domain ids do not intersect, so Fast DDS "
-      "falls back to the transports."},
-    {"datasharing-unverified-by-traffic",
-      "Zero-copy delivery produces no RTPS traffic; run with --stats to confirm that no user "
-      "data is sent over a transport for this pair."},
-    {"qos-incompatible-reliability",
-      "The writer offers BEST_EFFORT while the reader requests RELIABLE; Fast DDS does not "
-      "match them."},
-    {"qos-incompatible-durability",
-      "The writer offers a weaker durability (VOLATILE < TRANSIENT_LOCAL < TRANSIENT < PERSISTENT) "
-      "than the reader requests; Fast DDS does not match them."},
-    {"qos-incompatible-deadline",
-      "The writer's deadline period is longer than the one the reader requests; Fast DDS does not "
-      "match them."},
-    {"qos-incompatible-liveliness",
-      "The writer's liveliness kind is weaker "
-      "(AUTOMATIC < MANUAL_BY_PARTICIPANT < MANUAL_BY_TOPIC) "
-      "or its lease duration longer than the reader requests; Fast DDS does not match them."},
-    {"qos-incompatible-ownership",
-      "Writer and reader announce different ownership kinds (SHARED / EXCLUSIVE); Fast DDS does "
-      "not match them."},
-    {"qos-incompatible-partition",
-      "No partition name of the writer matches one of the reader (an empty list is the default "
-      "partition); Fast DDS does not match them."},
-    {"qos-incompatible",
-      "The pair's QoS are incompatible, so the endpoints are never matched and no data flows; "
-      "the ROS 2 side reports this as an incompatible QoS event."},
-    {"qos-incompatible-but-delivered",
-      "HISTORY_LATENCY statistics prove that samples reached the reader although the QoS were "
-      "judged incompatible: the tool's matching rules disagree with this Fast DDS version. "
-      "Please report this with the --json output."},
-    {"latency-clock-skew-suspected",
-      "The mean HISTORY_LATENCY of this pair is negative: the reader's host clock is behind the "
-      "writer's. The latency is write time on the writer's host minus notification time on the "
-      "reader's host, so across hosts it includes their clock offset (synchronize the clocks, or "
-      "read the value only on one host)."},
-    {"same-host-locators-hidden",
-      "Fast DDS below 2.10 (ROS 2 Humble) announces only the SHM locator of a participant on the "
-      "same host to this tool, so the network locators of one side are not visible. The other "
-      "side has no SHM locator, and both keep the builtin UDPv4 transport, so Fast DDS falls "
-      "back to UDPv4 between them; the tool cannot see it in discovery data."},
-    {"rtps-packets-lost",
-      "The reader's participant reported RTPS packets from the writer's locators as lost "
-      "(RTPS_LOST, sequence-number gaps) during the observation: the link drops packets. "
-      "Reliable pairs recover them by resends (RESENT_DATAS), best-effort pairs lose the samples."},
-    {"no-matching-writer", "No publisher was discovered for this topic."},
-    {"no-matching-reader", "No subscription was discovered for this topic."},
-    {"type-name-mismatch",
-      "A writer and a reader on this topic announce different type names, so they do not match."},
-    {"measured-udpv4-traffic",
-      "Statistics show RTPS packets from the writer's participant to the reader's UDPv4 "
-      "locator."},
-    {"measured-udpv6-traffic",
-      "Statistics show RTPS packets from the writer's participant to the reader's UDPv6 "
-      "locator."},
-    {"measured-tcpv4-traffic",
-      "Statistics show RTPS packets from the writer's participant to the reader's TCPv4 "
-      "locator."},
-    {"measured-tcpv6-traffic",
-      "Statistics show RTPS packets from the writer's participant to the reader's TCPv6 "
-      "locator."},
-    {"measured-shm-traffic",
-      "Statistics show RTPS packets from the writer's participant to the reader's SHM "
-      "locator."},
-    {"measured-unknown-traffic", "Statistics show RTPS packets to a locator of unknown kind."},
-    {"measured-transport-mismatch",
-      "The transport predicted from discovery data differs from the locator kind(s) that actually "
-      "carried packets. Please report this with the --json output."},
-    {"measured-locator-mismatch",
-      "The locator the tool selected from the reader's announced locators carried no packets; "
-      "the traffic went to another locator of the same kind that the reader also announced - "
-      "for example a multi-homed host reached over a different interface."},
-    {"stats-writer-instance-limit-suspected",
-      "The writer's participant reports traffic to 10 or more locators but none to this reader. "
-      "The Fast DDS statistics DataWriter keeps the default resource limit of 10 instances "
-      "(one per destination locator), so counters for further locators are never published. "
-      "Raise it with a data_writer XML profile named after the alias used in FASTDDS_STATISTICS "
-      "(RTPS_SENT_TOPIC) whose <resourceLimitsQos> sets max_instances to 0; the package ships "
-      "config/statistics.xml for this."},
-    {"delivered-without-measured-traffic",
-      "HISTORY_LATENCY statistics prove that samples reached the reader, but RTPS_SENT reported no "
-      "packets to any of the reader's locators during the observation, so the transport that "
-      "carried them could not be measured (seen with large samples over SHM on slow machines)."},
-    {"no-traffic-observed",
-      "The writer's participant publishes statistics but sent no packets to any locator of the "
-      "reader during the observation window (idle topic, or a longer --timeout is needed)."},
-    {"stats-not-enabled-on-writer",
-      "No statistics were received from the writer's participant. Start it with "
-      "FASTDDS_STATISTICS=\"RTPS_SENT_TOPIC;RTPS_LOST_TOPIC;HISTORY_LATENCY_TOPIC;"
-      "PHYSICAL_DATA_TOPIC;DATA_COUNT_TOPIC;PUBLICATION_THROUGHPUT_TOPIC;RESENT_DATAS_TOPIC;"
-      "HEARTBEAT_COUNT_TOPIC;ACKNACK_COUNT_TOPIC;NACKFRAG_COUNT_TOPIC;GAP_COUNT_TOPIC\"."},
-    {"datasharing-confirmed-no-traffic",
-      "HISTORY_LATENCY statistics prove samples reached the reader while no RTPS packets went to "
-      "any of its locators: zero-copy data-sharing delivery is confirmed."},
-    {"datasharing-confirmed-no-data-submessages",
-      "HISTORY_LATENCY statistics prove samples reached the reader while the writer's DATA_COUNT "
-      "did not grow: no DATA submessage left through a transport, so zero-copy data-sharing "
-      "delivery is confirmed (needs DATA_COUNT_TOPIC on the observed nodes)."},
-    {"datasharing-ambiguous-mixed-readers",
-      "The writer also serves readers without data-sharing, so its DATA_COUNT mixes both delivery "
-      "paths and cannot confirm zero-copy for this pair."},
-    {"datasharing-data-submessages-sent",
-      "Every reader of this writer announces data-sharing, yet the writer sent DATA submessages "
-      "through a transport during the observation: Fast DDS did not use zero-copy delivery."},
-    {"datasharing-not-used",
-      "Data-sharing was announced by both sides but the writer's DATA_COUNT grew while it only had "
-      "data-sharing readers; the verdict shows the transport that was measured instead."},
-    {"datasharing-ambiguous-participant-traffic",
-      "The writer's participant did send packets to the reader's locators. Statistics are per "
-      "participant, and reliable data-sharing endpoints still exchange heartbeats/acknacks over "
-      "the transport, so this does not disprove zero-copy delivery; it just cannot confirm it."},
-    {"datasharing-no-delivery-observed",
-      "No HISTORY_LATENCY sample for this pair yet (needs HISTORY_LATENCY_TOPIC enabled and at "
-      "least one published sample), so data-sharing remains unconfirmed."},
-    {"shm-stale-files",
-      "Fast DDS files in the shared-memory directory whose lock nobody holds: their owner "
-      "process ended without cleaning up (a crash or a kill). They keep consuming /dev/shm; "
-      "remove them with 'fastdds shm clean'."},
-    {"shm-nearly-full",
-      "The shared-memory directory is at least 90% full or has less than 16 MB free. Fast DDS "
-      "cannot create its segment when /dev/shm is full, so participants fail to start or fall "
-      "back to UDP (Docker's default /dev/shm is only 64 MB: use --shm-size or --ipc=host)."},
-    {"shm-not-visible",
-      "Observed nodes announce SHM locators that are not open in this process's shared-memory "
-      "directory (nobody holds the port's lock, the port number collides with the tool's own, "
-      "or the node has another host id): they run in another IPC namespace or on another host, "
-      "so the shared-memory figures describe this environment, not theirs, and SHM cannot be "
-      "used between them and here."},
-    {"host-id-match-but-ip-differs",
-      "The endpoints share a host id but announce no common IP address (typical for containers "
-      "with separate network namespaces on one machine). SHM works only if /dev/shm is shared."},
+  std::string description;
+  std::optional<std::string> remedy;
+};
+
+const char kStatsEnv[] =
+  "FASTDDS_STATISTICS=\"RTPS_SENT_TOPIC;RTPS_LOST_TOPIC;HISTORY_LATENCY_TOPIC;"
+  "PHYSICAL_DATA_TOPIC;DATA_COUNT_TOPIC;PUBLICATION_THROUGHPUT_TOPIC;RESENT_DATAS_TOPIC;"
+  "HEARTBEAT_COUNT_TOPIC;ACKNACK_COUNT_TOPIC;NACKFRAG_COUNT_TOPIC;GAP_COUNT_TOPIC\"";
+
+const std::map<std::string, CodeInfo> & explanations()
+{
+  static const std::map<std::string, CodeInfo> m = {
+    // ---- transport selection
+    {"same-host-guid", {
+        "Writer and reader GUID prefixes share the same first 4 bytes, which is how Fast DDS "
+        "decides both participants run on the same host.",
+        std::nullopt}},
+    {"different-host", {
+        "GUID prefixes differ in the first 4 bytes, so Fast DDS treats the endpoints as being on "
+        "different hosts; shared memory is not an option.",
+        "For SHM between containers on one machine, run them in the host's network and IPC "
+        "namespaces (--network host --ipc host); between machines only network transports "
+        "apply."}},
+    {"both-shm-locators", {
+        "Both endpoints announce a SHM locator. On the same host Fast DDS then uses the shared "
+        "memory transport exclusively for user data (discovery still goes over UDP).",
+        std::nullopt}},
+    {"writer-no-shm-locator", {
+        "The writer's participant announces no SHM locator: SHM transport is not instantiated on "
+        "its side (e.g. FASTDDS_BUILTIN_TRANSPORTS=UDPv4, or an XML profile without SHM).",
+        "Enable SHM on the writer's participant: unset FASTDDS_BUILTIN_TRANSPORTS or set it to "
+        "DEFAULT / LARGE_DATA (Fast DDS >= 2.11), or add a SHM <transport_descriptor> to its "
+        "XML participant profile."}},
+    {"reader-no-shm-locator", {
+        "The reader's participant announces no SHM locator: SHM transport is not instantiated on "
+        "its side (e.g. FASTDDS_BUILTIN_TRANSPORTS=UDPv4, or an XML profile without SHM).",
+        "Enable SHM on the reader's participant: unset FASTDDS_BUILTIN_TRANSPORTS or set it to "
+        "DEFAULT / LARGE_DATA (Fast DDS >= 2.11), or add a SHM <transport_descriptor> to its "
+        "XML participant profile."}},
+    {"shm-locators-ignored-across-hosts", {
+        "Both endpoints announce SHM locators, but they are on different hosts so the SHM "
+        "locators are discarded.",
+        std::nullopt}},
+    {"common-udpv4-locator", {
+        "The reader announces a UDPv4 locator and the writer speaks UDPv4.", std::nullopt}},
+    {"common-udpv6-locator", {
+        "The reader announces a UDPv6 locator and the writer speaks UDPv6.", std::nullopt}},
+    {"common-tcpv4-locator", {
+        "The reader announces a TCPv4 locator and the writer speaks TCPv4.", std::nullopt}},
+    {"common-tcpv6-locator", {
+        "The reader announces a TCPv6 locator and the writer speaks TCPv6.", std::nullopt}},
+    {"no-common-transport", {
+        "No locator kind is shared by both endpoints; user data cannot flow between them.",
+        "Give both participants a transport in common: the same FASTDDS_BUILTIN_TRANSPORTS "
+        "value on both nodes (Fast DDS >= 2.11), or matching <transport_descriptor> entries in "
+        "both XML participant profiles."}},
+    {"host-id-match-but-ip-differs", {
+        "The endpoints share a host id but announce no common IP address (typical for containers "
+        "with separate network namespaces on one machine). SHM works only if /dev/shm is shared.",
+        "Share /dev/shm between the containers (--ipc host on both, or --ipc container:<name>) so "
+        "that the SHM verdict holds; otherwise put them on one network for UDP."}},
+    {"same-host-locators-hidden", {
+        "Fast DDS below 2.10 (ROS 2 Humble) announces only the SHM locator of a participant on the "
+        "same host to this tool, so the network locators of one side are not visible. The other "
+        "side has no SHM locator, and both keep the builtin UDPv4 transport, so Fast DDS falls "
+        "back to UDPv4 between them; the tool cannot see it in discovery data.",
+        "Observe with Fast DDS >= 2.10 (ROS 2 Jazzy or newer) to see the network locators of "
+        "same-host participants; on Humble the verdict stays 'likely'."}},
+    // ---- data-sharing (prediction)
+    {"datasharing-disabled-writer", {
+        "The writer announces data-sharing OFF (explicitly disabled, or AUTO resolved to OFF "
+        "because the type is unbounded / the history memory policy is not preallocated).",
+        "Enable data-sharing on the writer: <data_sharing><kind>ON</kind> in its data_writer XML "
+        "profile, a bounded (fixed-size) message type and a PREALLOCATED or "
+        "PREALLOCATED_WITH_REALLOC <historyMemoryPolicy>."}},
+    {"datasharing-disabled-reader", {
+        "The reader announces data-sharing OFF (explicitly disabled, or AUTO resolved to OFF "
+        "because the type is unbounded / the history memory policy is not preallocated).",
+        "Enable data-sharing on the reader: <data_sharing><kind>ON</kind> in its data_reader XML "
+        "profile, a bounded (fixed-size) message type and a PREALLOCATED or "
+        "PREALLOCATED_WITH_REALLOC <historyMemoryPolicy>."}},
+    {"datasharing-qos-unknown", {
+        "The data-sharing QoS of at least one endpoint could not be read from discovery data.",
+        std::nullopt}},
+    {"datasharing-qos-enabled-both", {
+        "Both endpoints announce data-sharing ON or AUTO. Fast DDS resolves AUTO before "
+        "discovery, so this means both sides consider themselves data-sharing capable.",
+        std::nullopt}},
+    {"datasharing-domain-ids-match", {
+        "The data-sharing domain ids announced by writer and reader intersect, which is required "
+        "for zero-copy delivery to be matched.",
+        std::nullopt}},
+    {"datasharing-domain-ids-unknown", {
+        "At least one side announced no data-sharing domain id; matching cannot be confirmed "
+        "from discovery data alone.",
+        std::nullopt}},
+    {"datasharing-domain-ids-mismatch", {
+        "Both sides are data-sharing capable but their domain ids do not intersect, so Fast DDS "
+        "falls back to the transports.",
+        "Make the <data_sharing><domain_ids> lists of writer and reader intersect, or leave both "
+        "empty so that Fast DDS derives the id from the host."}},
+    {"datasharing-unverified-by-traffic", {
+        "Zero-copy delivery produces no RTPS traffic, so discovery data alone cannot tell whether "
+        "user data is sent over a transport for this pair.",
+        "Run the tool with --stats (the observed nodes need FASTDDS_STATISTICS, see --help) to "
+        "confirm that no user data crosses a transport."}},
+    // ---- data-sharing (measured)
+    {"datasharing-confirmed-no-traffic", {
+        "HISTORY_LATENCY statistics prove samples reached the reader while no RTPS packets went to "
+        "any of its locators: zero-copy data-sharing delivery is confirmed.",
+        std::nullopt}},
+    {"datasharing-confirmed-no-data-submessages", {
+        "HISTORY_LATENCY statistics prove samples reached the reader while the writer's DATA_COUNT "
+        "did not grow: no DATA submessage left through a transport, so zero-copy data-sharing "
+        "delivery is confirmed (needs DATA_COUNT_TOPIC on the observed nodes).",
+        std::nullopt}},
+    {"datasharing-ambiguous-mixed-readers", {
+        "The writer also serves readers without data-sharing, so its DATA_COUNT mixes both "
+        "delivery paths and cannot confirm zero-copy for this pair.",
+        "To confirm zero-copy, observe while every reader of this writer announces data-sharing "
+        "(stop or --node-filter the others), or enable data-sharing on those readers too."}},
+    {"datasharing-data-submessages-sent", {
+        "Every reader of this writer announces data-sharing, yet the writer sent DATA submessages "
+        "through a transport during the observation: Fast DDS did not use zero-copy delivery.",
+        "Check that writer and reader share a data-sharing domain id and that the sample fits the "
+        "preallocated payload of the writer's history; otherwise Fast DDS falls back to the "
+        "transport."}},
+    {"datasharing-not-used", {
+        "Data-sharing was announced by both sides but the writer's DATA_COUNT grew while it only "
+        "had data-sharing readers; the verdict shows the transport that was measured instead.",
+        std::nullopt}},
+    {"datasharing-ambiguous-participant-traffic", {
+        "The writer's participant did send packets to the reader's locators. Statistics are per "
+        "participant, and reliable data-sharing endpoints still exchange heartbeats/acknacks over "
+        "the transport, so this does not disprove zero-copy delivery; it just cannot confirm it.",
+        "Enable DATA_COUNT_TOPIC in FASTDDS_STATISTICS on the observed nodes so that DATA "
+        "submessages can be told from heartbeats and acknacks, or use BEST_EFFORT reliability on "
+        "the pair."}},
+    {"datasharing-no-delivery-observed", {
+        "No HISTORY_LATENCY sample for this pair yet (needs HISTORY_LATENCY_TOPIC enabled and at "
+        "least one published sample), so data-sharing remains unconfirmed.",
+        "Start the observed nodes with HISTORY_LATENCY_TOPIC in FASTDDS_STATISTICS and let the "
+        "writer publish at least one sample during the observation (longer --timeout)."}},
+    // ---- QoS request/offer
+    {"qos-incompatible-reliability", {
+        "The writer offers BEST_EFFORT while the reader requests RELIABLE; Fast DDS does not "
+        "match them.",
+        "Offer RELIABLE on the writer or request BEST_EFFORT on the reader: the reliability of the "
+        "QoS profile passed to create_publisher / create_subscription in ROS 2."}},
+    {"qos-incompatible-durability", {
+        "The writer offers a weaker durability (VOLATILE < TRANSIENT_LOCAL < TRANSIENT < "
+        "PERSISTENT) than the reader requests; Fast DDS does not match them.",
+        "Offer at least the requested durability on the writer (e.g. TRANSIENT_LOCAL) or request "
+        "VOLATILE on the reader: the durability of the ROS 2 QoS profile."}},
+    {"qos-incompatible-deadline", {
+        "The writer's deadline period is longer than the one the reader requests; Fast DDS does "
+        "not match them.",
+        "Shorten the writer's deadline period to at most the reader's, or lengthen the reader's "
+        "request: the deadline of the ROS 2 QoS profile."}},
+    {"qos-incompatible-liveliness", {
+        "The writer's liveliness kind is weaker "
+        "(AUTOMATIC < MANUAL_BY_PARTICIPANT < MANUAL_BY_TOPIC) "
+        "or its lease duration longer than the reader requests; Fast DDS does not match them.",
+        "Offer at least the requested liveliness kind and a lease no longer than requested on the "
+        "writer, or relax the reader's request: liveliness / liveliness_lease_duration of the "
+        "ROS 2 QoS profile."}},
+    {"qos-incompatible-ownership", {
+        "Writer and reader announce different ownership kinds (SHARED / EXCLUSIVE); Fast DDS does "
+        "not match them.",
+        "Use the same ownership kind (SHARED or EXCLUSIVE) on both sides; ROS 2 does not expose "
+        "it, so check the <ownership> element of the nodes' XML profiles."}},
+    {"qos-incompatible-partition", {
+        "No partition name of the writer matches one of the reader (an empty list is the default "
+        "partition); Fast DDS does not match them.",
+        "Give writer and reader a common partition name, or none on both; ROS 2 does not set "
+        "partitions, so check the <partition> element of the nodes' XML profiles."}},
+    {"qos-incompatible", {
+        "The pair's QoS are incompatible, so the endpoints are never matched and no data flows; "
+        "the ROS 2 side reports this as an incompatible QoS event.",
+        std::nullopt}},
+    {"qos-incompatible-but-delivered", {
+        "HISTORY_LATENCY statistics prove that samples reached the reader although the QoS were "
+        "judged incompatible: the tool's matching rules disagree with this Fast DDS version. "
+        "Please report this with the --json output.",
+        std::nullopt}},
+    // ---- topics without pairs
+    {"no-matching-writer", {
+        "No publisher was discovered for this topic.",
+        "Start a publisher on this topic, or check the topic name, namespace and remappings of "
+        "the node expected to publish it."}},
+    {"no-matching-reader", {
+        "No subscription was discovered for this topic.",
+        "Start a subscription on this topic, or check the topic name, namespace and remappings of "
+        "the node expected to subscribe to it."}},
+    {"type-name-mismatch", {
+        "A writer and a reader on this topic announce different type names, so they do not match.",
+        "Use the same message type (package and name) on both sides of the topic; ROS 2 announces "
+        "it as <pkg>::msg::dds_::<Name>_."}},
+    // ---- measured traffic
+    {"measured-udpv4-traffic", {
+        "Statistics show RTPS packets from the writer's participant to the reader's UDPv4 "
+        "locator.", std::nullopt}},
+    {"measured-udpv6-traffic", {
+        "Statistics show RTPS packets from the writer's participant to the reader's UDPv6 "
+        "locator.", std::nullopt}},
+    {"measured-tcpv4-traffic", {
+        "Statistics show RTPS packets from the writer's participant to the reader's TCPv4 "
+        "locator.", std::nullopt}},
+    {"measured-tcpv6-traffic", {
+        "Statistics show RTPS packets from the writer's participant to the reader's TCPv6 "
+        "locator.", std::nullopt}},
+    {"measured-shm-traffic", {
+        "Statistics show RTPS packets from the writer's participant to the reader's SHM "
+        "locator.", std::nullopt}},
+    {"measured-unknown-traffic", {
+        "Statistics show RTPS packets to a locator of unknown kind.", std::nullopt}},
+    {"measured-transport-mismatch", {
+        "The transport predicted from discovery data differs from the locator kind(s) that "
+        "actually carried packets. Please report this with the --json output.",
+        std::nullopt}},
+    {"measured-locator-mismatch", {
+        "The locator the tool selected from the reader's announced locators carried no packets; "
+        "the traffic went to another locator of the same kind that the reader also announced - "
+        "for example a multi-homed host reached over a different interface.",
+        "If one interface is intended, restrict the reader's participant to it with an "
+        "<interfaceWhiteList> in the <transport_descriptor> of its XML profile; otherwise nothing "
+        "needs to change."}},
+    // ---- statistics availability
+    {"stats-writer-instance-limit-suspected", {
+        "The writer's participant reports traffic to 10 or more locators but none to this reader. "
+        "The Fast DDS statistics DataWriter keeps the default resource limit of 10 instances "
+        "(one per destination locator), so counters for further locators are never published.",
+        "Start the observed nodes with FASTDDS_DEFAULT_PROFILES_FILE pointing at this package's "
+        "config/statistics.xml (a data_writer profile per statistics alias whose "
+        "<resourceLimitsQos> sets max_instances to 0)."}},
+    {"delivered-without-measured-traffic", {
+        "HISTORY_LATENCY statistics prove that samples reached the reader, but RTPS_SENT reported "
+        "no packets to any of the reader's locators during the observation, so the transport that "
+        "carried them could not be measured (seen with large samples over SHM on slow machines).",
+        "Repeat with a longer --timeout so that RTPS_SENT catches up with the delivery; if it "
+        "persists, the transport of this pair cannot be measured."}},
+    {"no-traffic-observed", {
+        "The writer's participant publishes statistics but sent no packets to any locator of the "
+        "reader during the observation window.",
+        "Make the writer publish during the observation (an idle topic has nothing to measure), "
+        "or use a longer --timeout."}},
+    {"stats-not-enabled-on-writer", {
+        "No statistics were received from the writer's participant: it was started without "
+        "FASTDDS_STATISTICS, or its Fast DDS has no statistics module (ROS 2 Humble).",
+        std::string("Start the writer's node with ") + kStatsEnv +
+        " set before it creates its participant."}},
+    {"latency-clock-skew-suspected", {
+        "The mean HISTORY_LATENCY of this pair is negative: the reader's host clock is behind the "
+        "writer's. The latency is write time on the writer's host minus notification time on the "
+        "reader's host, so across hosts it includes their clock offset.",
+        "Synchronize the clocks of the two hosts (chrony / PTP), or read the latency only between "
+        "nodes on one host."}},
+    {"rtps-packets-lost", {
+        "The reader's participant reported RTPS packets from the writer's locators as lost "
+        "(RTPS_LOST, sequence-number gaps) during the observation: the link drops packets. "
+        "Reliable pairs recover them by resends (RESENT_DATAS), best-effort pairs lose the "
+        "samples.",
+        "Check the link (Wi-Fi, MTU, switch), raise the socket buffers (<sendBufferSize> / "
+        "<receiveBufferSize> of the transport descriptor, net.core.rmem_max), and use RELIABLE "
+        "reliability where samples must not be lost."}},
+    // ---- shared memory of the environment
+    {"shm-stale-files", {
+        "Fast DDS files in the shared-memory directory whose lock nobody holds: their owner "
+        "process ended without cleaning up (a crash or a kill). They keep consuming /dev/shm.",
+        "Run 'fastdds shm clean' to remove the files whose owner is gone."}},
+    {"shm-nearly-full", {
+        "The shared-memory directory is at least 90% full or has less than 16 MB free. Fast DDS "
+        "cannot create its segment when /dev/shm is full, so participants fail to start or fall "
+        "back to UDP.",
+        "Free /dev/shm ('fastdds shm clean' removes stale Fast DDS files) or enlarge it; Docker's "
+        "default is only 64 MB, so start the container with --shm-size or --ipc=host."}},
+    {"shm-not-visible", {
+        "Observed nodes announce SHM locators that are not open in this process's shared-memory "
+        "directory (nobody holds the port's lock, the port number collides with the tool's own, "
+        "or the node has another host id): they run in another IPC namespace or on another host, "
+        "so the shared-memory figures describe this environment, not theirs, and SHM cannot be "
+        "used between them and here.",
+        "Run the tool where the nodes run (same host and IPC namespace: the same container, or "
+        "--ipc=host on both) if the shared-memory line should describe their /dev/shm."}},
   };
   return m;
 }
@@ -918,7 +1032,14 @@ std::string explain(const std::string & code)
 {
   const auto & m = explanations();
   auto it = m.find(code);
-  return it == m.end() ? std::string("(no description)") : it->second;
+  return it == m.end() ? std::string("(no description)") : it->second.description;
+}
+
+std::optional<std::string> remedy(const std::string & code)
+{
+  const auto & m = explanations();
+  auto it = m.find(code);
+  return it == m.end() ? std::nullopt : it->second.remedy;
 }
 
 std::vector<std::string> known_codes()

@@ -6,6 +6,7 @@
 
 #include <gtest/gtest.h>
 
+#include <set>
 #include <string>
 #include <vector>
 
@@ -135,6 +136,17 @@ TEST(RenderJson, DocumentKeys)
   EXPECT_EQ(doc["shm"]["warnings"], json::array({"shm-stale-files"}));
   EXPECT_TRUE(doc["reason_code_descriptions"].contains("shm-stale-files"));
   EXPECT_TRUE(doc["reason_code_descriptions"].contains("measured-shm-traffic"));
+  // remedies: same keys as the descriptions, null where there is nothing to change
+  std::set<std::string> desc_keys, remedy_keys;
+  for (const auto & kv : doc["reason_code_descriptions"].items()) {
+    desc_keys.insert(kv.key());
+  }
+  for (const auto & kv : doc["reason_code_remedies"].items()) {
+    remedy_keys.insert(kv.key());
+  }
+  EXPECT_EQ(desc_keys, remedy_keys);
+  EXPECT_TRUE(doc["reason_code_remedies"]["shm-stale-files"].is_string());
+  EXPECT_TRUE(doc["reason_code_remedies"]["measured-shm-traffic"].is_null());
 }
 
 TEST(RenderJson, ShmUnavailableOmitsSizes)

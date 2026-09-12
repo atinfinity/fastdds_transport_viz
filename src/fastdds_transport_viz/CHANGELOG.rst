@@ -2,6 +2,21 @@
 Changelog for package fastdds_transport_viz
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* ``--advise``: what to change to get past the reason codes in use. Every code now has a
+  remedy (one sentence naming the environment variable, XML element or QoS policy) or an
+  explicit none. The flag adds a ``fix <code>: ...`` line under each pair for its codes
+  that have one and the remedy under each code of the legend (implies ``-v`` and
+  ``--explain``; toggled with ``f`` in ``--watch``). ``--list-codes`` prints the remedy after
+  each description, ``--json`` carries ``reason_code_remedies`` (same keys as
+  ``reason_code_descriptions``, ``null`` for none; always emitted, ``schema_version``
+  stays 1) and the web viewer shows them under the descriptions. The remedies that a few
+  descriptions used to contain (``shm-stale-files``, ``shm-nearly-full``,
+  ``stats-not-enabled-on-writer``, ``stats-writer-instance-limit-suspected``,
+  ``datasharing-unverified-by-traffic``, ``no-traffic-observed``,
+  ``latency-clock-skew-suspected``) moved into the remedy, so each is said once.
+
 1.1.0 (2026-09-12)
 -------------------
 * ``--locators``: a line under each pair of the verbose table with the locator the tool

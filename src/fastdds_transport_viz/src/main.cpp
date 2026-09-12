@@ -59,6 +59,7 @@ struct Options
   bool verbose{false};
   bool explain{false};
   bool locators{false};
+  bool advise{false};
   bool all{false};
   bool watch{false};
   double interval{2.0};
@@ -92,6 +93,10 @@ void usage()
     "  --locators         add a line under each pair with the locator the tool selected\n"
     "                     and the locators that actually carried packets (implies -v;\n"
     "                     ignored with --json, which always carries them)\n"
+    "  --advise           add a 'fix <code>: ...' line under each pair for its reason codes\n"
+    "                     that have a remedy, and the remedy under each code of the legend\n"
+    "                     (implies -v and --explain; ignored with --json, which always\n"
+    "                     carries them as reason_code_remedies)\n"
     "  --json             emit JSON (schema_version 1) instead of a table\n"
     "  --stats            also subscribe to the Fast DDS statistics topics and show the\n"
     "                     transport that actually carried packets; observed nodes must run\n"
@@ -103,11 +108,11 @@ void usage()
     "                     (default: auto = only when stdout is a terminal; honours NO_COLOR)\n"
     "  --watch            keep observing and re-render every --interval seconds, marking\n"
     "                     added (+), changed (~) and removed (-) pairs; on a terminal, keys:\n"
-    "                     q quit, p pause, v pairs, e legend, a all, l locators. With\n"
-    "                     --json, emits one\n"
+    "                     q quit, p pause, v pairs, e legend, a all, l locators, f fixes.\n"
+    "                     With --json, emits one\n"
     "                     compact document per line (JSON Lines) with a `changes` object\n"
     "  --interval <sec>   refresh period for --watch (default: 2)\n"
-    "  --list-codes       list all reason codes with descriptions and exit\n"
+    "  --list-codes       list all reason codes with descriptions and remedies and exit\n"
     "  -h, --help         this help\n";
 }
 
@@ -145,6 +150,10 @@ bool parse(int argc, char ** argv, Options & o)
     } else if (a == "--locators") {
       o.locators = true;
       o.verbose = true;   // the line hangs under a pair row, which only -v prints
+    } else if (a == "--advise") {
+      o.advise = true;
+      o.verbose = true;   // same: the fix lines hang under pair rows
+      o.explain = true;   // and the legend carries the remedy of every code in use
     } else if (a == "--json") {
       o.json = true;
     } else if (a == "--stats") {
@@ -513,6 +522,9 @@ int main(int argc, char ** argv)
   if (o.list_codes) {
     for (const auto & c : fastdds_transport_viz::known_codes()) {
       std::cout << c << "\n    " << fastdds_transport_viz::explain(c) << "\n";
+      if (auto r = fastdds_transport_viz::remedy(c)) {
+        std::cout << "    fix: " << *r << "\n";
+      }
     }
     return 0;
   }
@@ -576,6 +588,7 @@ int main(int argc, char ** argv)
     ropt.verbose = o.verbose;
     ropt.explain = o.explain;
     ropt.locators = o.locators;
+    ropt.advise = o.advise;
     ropt.compact = o.json && o.watch;   // JSON Lines: one document per line
     ropt.color = o.color == Options::Color::Always ||
       (o.color == Options::Color::Auto && isatty(STDOUT_FILENO) &&
@@ -621,6 +634,7 @@ int main(int argc, char ** argv)
           ropt.verbose = o.verbose;
           ropt.explain = o.explain;
           ropt.locators = o.locators;
+          ropt.advise = o.advise;
           ws.update(snap, ropt, o);
           if (o.json) {
             std::cout << fastdds_transport_viz::render_json(snap, ropt) << std::flush;
@@ -639,8 +653,10 @@ int main(int argc, char ** argv)
             frame << fastdds_transport_viz::truncate_visible(header.str(), cols) << "\n\n";
             frame << fastdds_transport_viz::render_table(snap, ropt);
             if (term.enabled()) {
-              frame << "\n q quit   p " << (paused ? "resume" : "pause") <<
-                "   v pairs   e legend   a all   l locators\n";
+              const std::string keys = std::string(" q quit   p ") +
+                (paused ? "resume" : "pause") +
+                "   v pairs   e legend   a all   l locators   f fixes";
+              frame << "\n" << fastdds_transport_viz::truncate_visible(keys, cols) << "\n";
               term.paint(frame.str(), rows);
             } else {
               std::cout << frame.str() << "\n" << std::flush;
@@ -657,6 +673,11 @@ int main(int argc, char ** argv)
           case 'l': case 'L':
             o.locators = !o.locators;
             if (o.locators) {o.verbose = true;}
+            force = true;
+            break;
+          case 'f': case 'F':
+            o.advise = !o.advise;
+            if (o.advise) {o.verbose = true; o.explain = true;}
             force = true;
             break;
           default: break;

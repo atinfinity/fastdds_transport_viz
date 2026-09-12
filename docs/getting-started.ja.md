@@ -1,6 +1,6 @@
 # はじめに
 
-> 英語版が正です。この文書は 2026-09-10 時点の英語版に対応しています。
+> 英語版が正です。この文書は 2026-09-12 時点の英語版に対応しています。
 
 このページでは、素の ROS 2 環境から、最初の `ros2 transport list`、statistics、web viewer
 までを通します。動作環境は Linux です。ツールは Fast DDS を観測するので、観測対象のノードは
@@ -147,7 +147,7 @@ URL を開くと、ホストが列、ノードが箱、ペアが transport ご�
 
 ```
 ros2 transport list [--domain N] [--timeout S] [--quiet S] [--topic REGEX] [--node REGEX]
-                    [--all] [-v] [--explain] [--locators] [--stats] [--json]
+                    [--all] [-v] [--explain] [--locators] [--advise] [--stats] [--json]
                     [--color auto|always|never] [--watch [--interval S]]
 ros2 transport codes
 ```
@@ -158,6 +158,11 @@ ros2 transport codes
 できないときは `ros2 transport` が 1。
 
 ## うまくいかないときの最初の確認
+
+`ros2 transport list --advise` は、使われている理由コードを解消するには何を変えるかを
+ペアの下と凡例に出します (`fix reader-no-shm-locator: Enable SHM on the reader's
+participant: unset FASTDDS_BUILTIN_TRANSPORTS ...`)。`ros2 transport codes` は全コードの対処を
+一覧します。下の表は理由コードにならないものを扱います。
 
 | 症状 | 確認すること |
 |---|---|

@@ -173,17 +173,31 @@
 
   function escapeHtml(s) { return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 
+  /**
+   * Reason / warning codes as HTML: the code, its description and, when the document knows
+   * one, its remedy (`reason_code_descriptions` / `reason_code_remedies`; both optional).
+   */
+  function codeListHtml(codes, descriptions, remedies, warn) {
+    const desc = descriptions || {};
+    const rem = remedies || {};
+    return (codes || []).map(c => `<span class="code ${warn ? 'warn' : ''}"><b>${warn ? '!' : ''}${escapeHtml(c)}</b>` +
+      `<span class="desc">${escapeHtml(desc[c] || '')}</span>` +
+      (rem[c] ? `<span class="fix">fix: ${escapeHtml(rem[c])}</span>` : '') + '</span>').join('');
+  }
+
   /** Shared memory of the environment transport_viz ran in (the `shm` object), as HTML. */
-  function shmText(shm, descriptions) {
+  function shmText(shm, descriptions, remedies) {
     if (!shm || !shm.available) return '';
     const stale = shm.stale_segments + shm.stale_ports;
     const desc = descriptions || {};
-    const warnings = (shm.warnings || []).map(w => `<span class="code warn" title="${escapeHtml(desc[w] || '')}"><b>!${escapeHtml(w)}</b></span>`).join(' ');
+    const rem = remedies || {};
+    const tip = w => (desc[w] || '') + (rem[w] ? ` Fix: ${rem[w]}` : '');
+    const warnings = (shm.warnings || []).map(w => `<span class="code warn" title="${escapeHtml(tip(w))}"><b>!${escapeHtml(w)}</b></span>`).join(' ');
     return `shared memory: ${escapeHtml(shm.path)} ${humanBytes(shm.used_bytes, 'B')} used of ${humanBytes(shm.total_bytes, 'B')}` +
       ` · Fast DDS ${humanBytes(shm.fastdds_bytes, 'B')} in ${shm.segments} segment(s), ${shm.ports} port(s), ${shm.datasharing_histories} data-sharing histor${shm.datasharing_histories === 1 ? 'y' : 'ies'}` +
       (stale ? ` (${stale} stale)` : '') + (shm.nodes_visible === false ? ' · nodes in another IPC namespace' : '') +
       (warnings ? ` ${warnings}` : '');
   }
 
-  return { TRANSPORTS, INTERNAL_TOPICS, buildModel, filterRegex, visiblePairs, visibleNodesModel, bundle, humanBytes, humanSeconds, measuredText, rateText, latencyText, lossText, escapeHtml, shmText };
+  return { TRANSPORTS, INTERNAL_TOPICS, buildModel, filterRegex, visiblePairs, visibleNodesModel, bundle, humanBytes, humanSeconds, measuredText, rateText, latencyText, lossText, escapeHtml, codeListHtml, shmText };
 });

@@ -21,8 +21,8 @@ def test_help_exits_zero_with_usage():
         assert r.returncode == 0, r
         assert r.stdout.startswith('Usage: transport_viz [options]'), r.stdout
         for opt in ('--domain', '--timeout', '--quiet', '--topic', '--node', '--all', '--explain',
-                    '--locators', '--stats', '--json', '--color', '--watch', '--interval',
-                    '--list-codes'):
+                    '--locators', '--advise', '--stats', '--json', '--color', '--watch',
+                    '--interval', '--list-codes'):
             assert opt in r.stdout, opt
 
 
@@ -31,10 +31,17 @@ def test_list_codes_prints_every_code_with_a_description():
     assert r.returncode == 0, r
     lines = r.stdout.splitlines()
     codes = [ln for ln in lines if ln and not ln.startswith(' ')]
-    descs = [ln for ln in lines if ln.startswith('    ')]
+    fixes = [ln for ln in lines if ln.startswith('    fix: ')]
+    descs = [ln for ln in lines if ln.startswith('    ') and not ln.startswith('    fix: ')]
     assert len(codes) == len(descs) >= 40, (len(codes), len(descs))
+    # a remedy line follows the description of the codes that have one, not of every code
+    assert 25 <= len(fixes) < len(codes), (len(fixes), len(codes))
     assert 'same-host-guid' in codes and 'shm-not-visible' in codes
     assert codes == sorted(codes)
+    i = lines.index('shm-stale-files')
+    assert lines[i + 2].startswith("    fix: Run 'fastdds shm clean'"), lines[i:i + 3]
+    i = lines.index('same-host-guid')
+    assert not lines[i + 2].startswith('    fix:'), lines[i:i + 3]
 
 
 def test_unknown_option_exits_2():
@@ -76,6 +83,10 @@ def test_color_modes_are_accepted_and_always_paints_without_a_terminal():
 
 def test_explain_ros_args_and_default_timeout():
     r = run('--explain', '--timeout', '0.5', '--quiet', '0')
+    assert r.returncode == 0, r
+    assert "Legend: '?' after a transport" in r.stdout
+    # --advise implies --explain (the legend is where the remedies of the codes in use go)
+    r = run('--advise', '--timeout', '0.5', '--quiet', '0')
     assert r.returncode == 0, r
     assert "Legend: '?' after a transport" in r.stdout
     # everything after --ros-args is left to rclcpp

@@ -265,6 +265,21 @@ std::string locator_text(const Locator & l, bool multicast = false)
   return s;
 }
 
+/// The --advise lines under a pair row: one "fix <code>: <remedy>" per reason / warning code
+/// of the pair that has a remedy, reasons first, in the order the verdict lists them.
+std::vector<std::string> fix_lines_for(const Pair & p)
+{
+  std::vector<std::string> out;
+  for (const auto * codes : {&p.verdict.reasons, &p.verdict.warnings}) {
+    for (const auto & c : *codes) {
+      if (auto r = remedy(c)) {
+        out.push_back("fix " + c + ": " + *r);
+      }
+    }
+  }
+  return out;
+}
+
 /// The --locators line under a pair row, empty when there is nothing to say. The word
 /// "selected" only appears where a measured side is printed next to it.
 std::string locators_line(const Pair & p)
@@ -443,6 +458,7 @@ std::string render_table(const Snapshot & snap, const RenderOptions & opt)
       emit_row(os, rows[idx++], widths, opt.max_width);
       std::vector<std::vector<std::string>> pair_rows;
       std::vector<std::string> locator_lines;   // parallel to pair_rows, "" when not shown
+      std::vector<std::vector<std::string>> fix_lines;   // parallel to pair_rows, --advise
       for (const auto & p : t.pairs) {
         std::string reasons = join(p.verdict.reasons, ",");
         for (const auto & w : p.verdict.warnings) {
@@ -473,19 +489,25 @@ std::string render_table(const Snapshot & snap, const RenderOptions & opt)
         row.push_back(reasons);
         pair_rows.push_back(row);
         locator_lines.push_back(opt.locators ? locators_line(p) : "");
+        fix_lines.push_back(opt.advise ? fix_lines_for(p) : std::vector<std::string>{});
       }
-      // Ghost pairs are gone, so their locators are stale by definition: no line for them.
+      // Ghost pairs are gone, so their locators are stale by definition and there is nothing
+      // left to fix: no line for them.
       for (auto & g : ghost_rows_for(t.display_topic)) {
         pair_rows.push_back(g);
         locator_lines.push_back("");
+        fix_lines.push_back({});
       }
-      // The locator lines are emitted raw rather than as rows, so that their length does
-      // not widen the pair rows' first column.
+      // The locator and fix lines are emitted raw rather than as rows, so that their length
+      // does not widen the pair rows' first column.
       const auto pair_widths = column_widths(pair_rows);
       for (size_t i = 0; i < pair_rows.size(); ++i) {
         emit_row(os, pair_rows[i], pair_widths, opt.max_width);
         if (!locator_lines[i].empty()) {
           os << truncate_visible(locator_indent + locator_lines[i], opt.max_width) << '\n';
+        }
+        for (const auto & f : fix_lines[i]) {
+          os << truncate_visible(locator_indent + f, opt.max_width) << '\n';
         }
       }
     }
@@ -571,6 +593,11 @@ std::string render_table(const Snapshot & snap, const RenderOptions & opt)
       os << "\nReason codes:\n";
       for (const auto & code : used) {
         os << "  " << code << "\n      " << explain(code) << "\n";
+        if (opt.advise) {
+          if (auto r = remedy(code)) {
+            os << "      fix: " << *r << "\n";
+          }
+        }
       }
     }
     os << "\nLegend: '?' after a transport = confidence 'likely' (see reason codes);"

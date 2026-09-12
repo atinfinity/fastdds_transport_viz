@@ -11,7 +11,7 @@
 
   // pure model / formatting functions live in model.js (unit-tested under Node)
   const { TRANSPORTS, INTERNAL_TOPICS, buildModel, filterRegex, visiblePairs, visibleNodesModel, bundle,
-    humanBytes, measuredText, rateText, latencyText, lossText, escapeHtml, shmText } = globalThis.TransportVizModel;
+    humanBytes, measuredText, rateText, latencyText, lossText, escapeHtml, codeListHtml, shmText } = globalThis.TransportVizModel;
   const COLORS = {
     UDPv4: 'var(--c-udpv4)', UDPv6: 'var(--c-udpv6)', TCPv4: 'var(--c-tcp)', TCPv6: 'var(--c-tcp)',
     SHM: 'var(--c-shm)', DATA_SHARING: 'var(--c-ds)', NONE: 'var(--c-none)',
@@ -199,8 +199,7 @@
   }
 
   function codeList(codes, warn) {
-    const desc = state.doc.reason_code_descriptions || {};
-    return codes.map(c => `<span class="code ${warn ? 'warn' : ''}"><b>${warn ? '!' : ''}${escapeHtml(c)}</b><span class="desc">${escapeHtml(desc[c] || '')}</span></span>`).join('');
+    return codeListHtml(codes, state.doc.reason_code_descriptions, state.doc.reason_code_remedies, warn);
   }
 
   /** `selected` is the pair's chosen locator (reader side only); it is marked in the list. */
@@ -289,7 +288,7 @@
     const n = d.topics.reduce((a, t) => a + t.pairs.length, 0);
     d3.select('#meta').text(`domain ${d.domain} · ${d.observed_at} · ${d.topics.length} topics, ${n} pairs · ` +
       (d.stats && d.stats.enabled ? `statistics: ${d.stats.samples} samples` : 'no statistics'));
-    d3.select('#shm').html(shmText(d.shm, d.reason_code_descriptions));
+    d3.select('#shm').html(shmText(d.shm, d.reason_code_descriptions, d.reason_code_remedies));
   }
 
   function render() {
