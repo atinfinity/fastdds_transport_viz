@@ -146,7 +146,7 @@ def find_binary():
 def rmw_error():
     """Return the message to print instead of running the binary on another RMW, or None."""
     # An unset RMW_IMPLEMENTATION (the distro's default RMW) is left to the binary, which
-    # asks the RMW layer itself; so is rmw_fastrtps_dynamic_cpp, which it warns about.
+    # asks the RMW layer itself.
     rmw = os.environ.get('RMW_IMPLEMENTATION')
     if not rmw or rmw in SUPPORTED_RMW:
         return None

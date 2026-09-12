@@ -45,7 +45,7 @@ VIZ_ENV=()
 run_viz() {
   local service="$1" out="$2"; shift 2
   echo "== running transport_viz ($service) $*"
-  docker compose run --rm -T "${VIZ_ENV[@]}" "$service" \
+  docker compose run --rm -T ${VIZ_ENV[@]+"${VIZ_ENV[@]}"} "$service" \
     ros2 run fastdds_transport_viz transport_viz --json --timeout 6 --quiet 0 "$@" > "$out"
   jq '.topics[] | select(.topic=="/chatter") | .pairs[] | {transport, measured: .measured.transports, reasons, warnings, writer_host, reader_host}' "$out"
 }

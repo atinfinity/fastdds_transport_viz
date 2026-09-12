@@ -20,12 +20,12 @@ TEST(RmwCheck, FastrtpsCppIsAcceptedSilently)
   EXPECT_EQ(rmw_verdict(std::string("rmw_fastrtps_cpp"), "", "").kind, RmwVerdictKind::Accept);
 }
 
-TEST(RmwCheck, FastrtpsDynamicCppRunsWithAWarning)
+TEST(RmwCheck, FastrtpsDynamicCppIsAcceptedSilently)
 {
-  const auto v = rmw_verdict(std::string("rmw_fastrtps_dynamic_cpp"), "", "");
-  EXPECT_EQ(v.kind, RmwVerdictKind::Warn);
-  EXPECT_EQ(v.message.rfind("warning: RMW is rmw_fastrtps_dynamic_cpp", 0), 0u) << v.message;
-  EXPECT_NE(v.message.find("#73"), std::string::npos);
+  const auto v = rmw_verdict(
+    std::string("rmw_fastrtps_dynamic_cpp"), "rmw_fastrtps_dynamic_cpp", "");
+  EXPECT_EQ(v.kind, RmwVerdictKind::Accept);
+  EXPECT_TRUE(v.message.empty()) << v.message;
 }
 
 TEST(RmwCheck, OtherMiddlewareIsRejectedNamingItAndTheFix)

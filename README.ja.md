@@ -2,7 +2,7 @@
 
 [English](README.md) | 日本語
 
-> 英語版が正です。この文書は 2026-09-12 時点の英語版に対応しています。
+> 英語版が正です。この文書は 2026-09-13 時点の英語版に対応しています。
 
 [![CI](https://github.com/atinfinity/fastdds_transport_viz/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/atinfinity/fastdds_transport_viz/actions/workflows/ci.yml)
 
@@ -11,7 +11,7 @@
 **ROS 2 の各トピックが Fast DDS のどの transport で通信しているか** — UDPv4、UDPv6、TCP、
 共有メモリ (SHM)、zero-copy の data-sharing — を、**その理由とともに**表示します。
 
-いずれも `rmw_fastrtps_cpp` を使用します:
+いずれも `rmw_fastrtps_cpp` を使用します (`rmw_fastrtps_dynamic_cpp` でも同じです):
 
 | ROS 2 ディストリ | Fast DDS | 備考 |
 |---|---|---|
@@ -125,10 +125,10 @@ ros2 transport codes
 
 ## 制限事項
 
-- **`rmw_fastrtps_cpp` 専用。** CycloneDDS、Connext、`rmw_fastrtps_dynamic_cpp` のノードは対象外です。
-  別の RMW ではツールは起動しません (その RMW 名を示して exit 1)。`rmw_fastrtps_dynamic_cpp` は
-  検証が済むまで警告付きで動きます ([#73](https://github.com/atinfinity/fastdds_transport_viz/issues/73))。
+- **Fast DDS の RMW 専用。** `rmw_fastrtps_cpp` と `rmw_fastrtps_dynamic_cpp` に対応しています
+  (launch テスト一式が両方で通ります。CI 参照)。CycloneDDS、Connext のノードは対象外で、
   ROS ノードでない Fast DDS participant は `--all` でのみ表示されます。
+  別の RMW ではツールは起動しません (その RMW 名を示して exit 1)。
 - **Linux 専用。** macOS には `/dev/shm` が無く、Docker Desktop からホスト上のノードは観測できません。
 - **ノードと同じ場所で実行する必要があります。** 同じドメイン、同じ環境変数と XML プロファイル、
   同じネットワーク/IPC 名前空間。`ROS_AUTOMATIC_DISCOVERY_RANGE=OFF` では何も見えません。

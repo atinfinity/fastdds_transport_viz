@@ -14,7 +14,8 @@ import pytest
 
 @pytest.mark.launch_test
 def generate_test_description():
-    env = dict(os.environ, RMW_IMPLEMENTATION='rmw_fastrtps_cpp')
+    env = dict(os.environ)
+    env.setdefault('RMW_IMPLEMENTATION', 'rmw_fastrtps_cpp')
     return launch.LaunchDescription([
         launch_ros.actions.Node(package='demo_nodes_cpp', executable='talker', name='talker',
                                 output='screen', env=env),
@@ -27,7 +28,8 @@ def generate_test_description():
 class TestListLive(unittest.TestCase):
 
     def test_chatter_pair(self):
-        env = dict(os.environ, RMW_IMPLEMENTATION='rmw_fastrtps_cpp')
+        env = dict(os.environ)
+        env.setdefault('RMW_IMPLEMENTATION', 'rmw_fastrtps_cpp')
         doc = None
         for _ in range(4):        # nodes may still be starting
             out = subprocess.run(

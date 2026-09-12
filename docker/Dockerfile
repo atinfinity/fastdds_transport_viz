@@ -17,6 +17,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         python3-jsonschema \
         python3-pytest \
         ros-${ROS_DISTRO}-demo-nodes-cpp \
+        ros-${ROS_DISTRO}-rmw-fastrtps-dynamic-cpp \
         ros-${ROS_DISTRO}-launch-testing \
         ros-${ROS_DISTRO}-launch-testing-ros \
         ros-${ROS_DISTRO}-ament-cmake-gtest \

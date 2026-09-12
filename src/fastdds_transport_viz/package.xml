@@ -24,6 +24,9 @@
   <exec_depend>rmw_fastrtps_cpp</exec_depend>
   <exec_depend>demo_nodes_cpp</exec_depend>
 
+  <!-- The launch tests run under whichever RMW is set; CI also runs them on the dynamic one. -->
+  <test_depend>rmw_fastrtps_dynamic_cpp</test_depend>
+
   <test_depend>ament_cmake_gtest</test_depend>
   <test_depend>ament_cmake_pytest</test_depend>
   <test_depend>ament_lint_auto</test_depend>
