@@ -353,12 +353,14 @@ Done:
 - `transport_viz diff` / `ros2 transport diff`: compare two `--json` snapshots; the web
   viewer compares two documents and highlights `changes` —
   [#77](https://github.com/atinfinity/fastdds_transport_viz/issues/77)
+- Fast DDS 3.x Easy Mode (`ROS2_EASY_MODE`) and the `P2P` builtin transport verified on
+  Kilted 3.2.4 and Lyrical 3.6.2 (launch test, `easy_mode_shm` / `easy_mode_tcp`
+  scenarios); the discovery CLI no longer corrupts `--json` —
+  [#71](https://github.com/atinfinity/fastdds_transport_viz/issues/71)
 
 Open, by priority (labels `priority/1-high` … `priority/3-low` on the issues):
 
-`priority/1-high`:
-
-- Fast DDS 3.x Easy Mode (`ROS2_EASY_MODE`) and the `P2P` builtin transport verified — [#71](https://github.com/atinfinity/fastdds_transport_viz/issues/71)
+`priority/1-high`: none open.
 
 `priority/2-medium`:
 

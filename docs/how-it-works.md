@@ -99,7 +99,7 @@ discovery listener is never touched.
 The tool reads the same environment Fast DDS reads and never modifies it: run it in the
 same shell environment as the nodes you observe — same `FASTDDS_BUILTIN_TRANSPORTS`,
 `FASTRTPS_DEFAULT_PROFILES_FILE` (the observer participant takes the default participant
-profile from it, like the nodes), `ROS_DISCOVERY_SERVER`, `ROS_AUTOMATIC_DISCOVERY_RANGE`,
+profile from it, like the nodes), `ROS_DISCOVERY_SERVER`, `ROS2_EASY_MODE`, `ROS_AUTOMATIC_DISCOVERY_RANGE`,
 `ROS_STATIC_PEERS`, and the same network and IPC namespace (for containers:
 `network_mode` / `ipc`). If the tool cannot see the nodes, `ros2 topic list` in that
 environment will not either. For hosts on a network without multicast see
@@ -119,6 +119,23 @@ see [development.md](development.md#verification-results)):
   `SUPER_CLIENT` when the variable is set (a message on stderr says so). An explicit
   `ROS_SUPER_CLIENT` is respected. The server is `fastdds discovery -i 0 -l <ip> -p <port>`
   on Jazzy and `fastdds discovery -l <ip> -p <port>` on Lyrical / Rolling.
+- `ROS2_EASY_MODE=<ip>` (Fast DDS 3.2+: Kilted, Lyrical, Rolling) makes Fast DDS spawn one
+  Discovery Server per host and domain (port 7400 + 250 × domain + 2, `fastdds discovery
+  list` shows it; the CLI finds a running server with `ss`, so `iproute2` must be
+  installed) and switch every participant to the `P2P` builtin transport: SHM and
+  TCPv4 for user data, UDPv4 unicast to the local server for discovery, no multicast at
+  all. The verdicts are those of `LARGE_DATA`: `SHM` on one host, `TCPv4`
+  (`common-tcpv4-locator`) between hosts, `--stats` measures the TCP traffic. Start the
+  tool with the same `ROS2_EASY_MODE` value as the nodes (a note on stderr confirms it); a
+  participant without it cannot see them. Run it on a host where the nodes run, the master
+  host is a good choice: Fast DDS 3 hands an endpoint to the tool only once its type is
+  resolved, and a host without a node of that type never gets it resolved through the
+  server mesh, so from such a host the tool, like `ros2 topic list`, sees the nodes but
+  none of their topics. The auto-started server is a participant without endpoints, so it
+  never appears in the table, `--all` included; with `--stats` it shows up among the
+  statistics participants when the node that spawned it had `FASTDDS_STATISTICS` set. The
+  `fastdds discovery` CLI that Fast DDS runs for every participant prints on stdout; the
+  tool sends that to stderr so that `--json` stays parseable.
 - `ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST` works unchanged (nodes announce loopback
   locators only). `OFF` limits every participant to itself, so nothing can be observed;
   the tool prints a warning in that case.
