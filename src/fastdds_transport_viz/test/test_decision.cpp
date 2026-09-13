@@ -535,6 +535,67 @@ TEST(ApplyStats, IpcSplitKeepsNoneDespiteShmTraffic)
     topics[0].pairs[0].verdict.warnings, (std::vector<std::string>{"shm-ipc-namespace-split"}));
 }
 
+TEST(ApplyStats, IpcSplitWarnsAboutNonShmTrafficInTheWindow)
+{
+  std::vector<Endpoint> eps;
+  eps.push_back(make(true, HOST_A, {udp4("10.0.0.1"), shm(16161)}));
+  eps.push_back(make(false, HOST_A, {udp4("10.0.0.1", 16163), shm(16163)}));
+  eps[0].participant_guid_prefix = "P1";
+  eps[1].participant_guid_prefix = "P2";
+  eps[0].participant_shm_visibility = ShmVisibility::Visible;
+  eps[1].participant_shm_visibility = ShmVisibility::NotVisible;
+  const auto udp = udp4("10.0.0.1", 16163);
+  const std::string split = "shm-ipc-namespace-split";
+  const std::string non_shm = "shm-ipc-namespace-split-but-non-shm-traffic";
+  auto verdict_with = [&eps](std::vector<TrafficSample> traffic, bool delivered) {
+      auto topics = summarize(eps);
+      const auto stats = stats_with(eps[0], std::move(traffic), delivered, &eps[1]);
+      apply_stats(topics, stats);
+      return topics[0].pairs[0].verdict;
+    };
+
+  // Fast DDS keeps same-host traffic of two SHM participants on SHM: UDP contradicts the split
+  auto v = verdict_with(
+    {TrafficSample{"P1", shm(16163), 10, 1632.0}, TrafficSample{"P1", udp, 4, 400.0}}, false);
+  EXPECT_EQ(v.transport, Transport::None);
+  EXPECT_EQ(v.confidence, Confidence::Certain);
+  EXPECT_TRUE(has(v.reasons, "measured-udpv4-traffic"));
+  EXPECT_EQ(v.warnings, (std::vector<std::string>{split, non_shm}));
+
+  // UDP packets from before the observation only: the kind is measured, the link is quiet now
+  v = verdict_with({TrafficSample{"P1", udp, 4, 400.0, 4, 400.0}}, false);
+  EXPECT_TRUE(has(v.reasons, "measured-udpv4-traffic"));
+  EXPECT_EQ(v.warnings, (std::vector<std::string>{split}));
+
+  // SHM traffic alone is expected
+  v = verdict_with({TrafficSample{"P1", shm(16163), 10, 1632.0}}, false);
+  EXPECT_EQ(v.warnings, (std::vector<std::string>{split}));
+
+  // a proven delivery is reported on its own
+  v = verdict_with({TrafficSample{"P1", udp, 4, 400.0}}, true);
+  EXPECT_EQ(
+    v.warnings,
+    (std::vector<std::string>{split, "shm-ipc-namespace-split-but-delivered", non_shm}));
+  EXPECT_EQ(v.transport, Transport::None);
+
+  // a data-sharing split whose reader has no SHM: the two participants' other endpoints use UDP
+  std::vector<Endpoint> ds;
+  ds.push_back(make(true, HOST_A, {udp4("10.0.0.1"), shm(7415)}, DataSharingKind::On, {1}));
+  ds.push_back(make(false, HOST_A, {udp4("10.0.0.1", 7413)}, DataSharingKind::On, {1}));
+  ds[0].participant_guid_prefix = "P1";
+  ds[1].participant_guid_prefix = "P2";
+  ds[0].datasharing_segment_visibility = ShmVisibility::Visible;
+  ds[1].datasharing_segment_visibility = ShmVisibility::NotVisible;
+  auto topics = summarize(ds);
+  const auto stats = stats_with(ds[0], {TrafficSample{"P1", udp4("10.0.0.1", 7413), 4, 400.0}});
+  apply_stats(topics, stats);
+  const auto & dv = topics[0].pairs[0].verdict;
+  EXPECT_EQ(dv.transport, Transport::None);
+  EXPECT_FALSE(has(dv.reasons, "both-shm-locators"));
+  EXPECT_TRUE(has(dv.reasons, "measured-udpv4-traffic"));
+  EXPECT_EQ(dv.warnings, (std::vector<std::string>{split}));
+}
+
 TEST(ApplyStats, LoopbackReaderLocatorMatchesTrafficToLocalAddress)
 {
   // A reader on the tool's host is announced with 127.0.0.1 (Fast DDS's localhost
@@ -1040,7 +1101,7 @@ TEST(Codes, RemediesAreOneSentenceAndExplicitPerCode)
       "qos-incompatible", "datasharing-confirmed-no-traffic", "shm-port-collision",
       "shm-reader-port-not-visible", "shm-writer-port-not-visible",
       "datasharing-reader-segment-not-visible", "datasharing-writer-segment-not-visible",
-      "shm-ipc-namespace-split-but-delivered"})
+      "shm-ipc-namespace-split-but-delivered", "shm-ipc-namespace-split-but-non-shm-traffic"})
   {
     EXPECT_FALSE(remedy(c).has_value()) << c;
   }

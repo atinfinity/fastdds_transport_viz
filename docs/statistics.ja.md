@@ -29,7 +29,8 @@ export FASTDDS_STATISTICS="RTPS_SENT_TOPIC;RTPS_LOST_TOPIC;HISTORY_LATENCY_TOPIC
 警告 `qos-incompatible-but-delivered` でマッチング規則の穴を知らせます。
 `shm-ipc-namespace-split` のペアも、writer の SHM トラフィック (data-sharing のペアではハートビート) が
 計測されても `NONE` のままで、配送が
-証明されると `shm-ipc-namespace-split-but-delivered` が付きます
+証明されると `shm-ipc-namespace-split-but-delivered` が付きます。両端が SHM を広告するペアで
+観測中に SHM 以外のパケットが流れると `shm-ipc-namespace-split-but-non-shm-traffic` が付きます
 ([IPC 名前空間の分断](how-it-works.ja.md#ipc-名前空間の分断) を参照)。
 *writer* がこれ無しで起動されたペアには警告 `stats-not-enabled-on-writer` が付きます (statistics の
 無い reader は警告されません)。ツールの statistics reader は UDP (または TCP) の locator だけを広告し

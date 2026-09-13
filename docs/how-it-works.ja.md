@@ -315,7 +315,12 @@ IPC 名前空間にいるノードは、検出の有無にかかわらず、`ros
 `--stats` 付きでは、このペアで writer の SHM トラフィックが計測されても想定どおり (writer は自分の
 `/dev/shm` のポートファイルに書き込むため。data-sharing の writer もハートビートは送る) なので、ペアは
 `NONE` のままです。配送が証明された場合に
-限り、分断の判定と矛盾するため `shm-ipc-namespace-split-but-delivered` が付きます。statistics 自体は
+限り、分断の判定と矛盾するため `shm-ipc-namespace-split-but-delivered` が付きます。両端が SHM を
+広告するペアで観測中に SHM 以外のパケットが流れた場合も矛盾です (Fast DDS は同一ホストの両者の
+トラフィックを SHM だけで送ります)。この場合は `shm-ipc-namespace-split-but-non-shm-traffic` が
+付きます ([#111](https://github.com/atinfinity/fastdds_transport_viz/issues/111))。どちらの警告も判定は
+変えず、報告を求めるものです。片側が SHM を持たない data-sharing のペアには付きません。statistics は
+participant 単位で、2 つのノードの他のエンドポイントは正当に UDP で通信するためです。statistics 自体は
 IPC 名前空間をまたいでも失われません。ツールの statistics reader は participant の UDP (または TCP) の
 locator だけを広告し SHM の locator を広告しないので、同一ホストの writer はツールがどこにいても
 statistics をネットワークスタック経由で送ります ([#106](https://github.com/atinfinity/fastdds_transport_viz/issues/106))。

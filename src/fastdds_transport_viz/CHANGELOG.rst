@@ -4,6 +4,14 @@ Changelog for package fastdds_transport_viz
 
 Forthcoming
 -----------
+* ``--stats`` on a split IPC pair: the new warning
+  ``shm-ipc-namespace-split-but-non-shm-traffic`` flags non-SHM packets (UDP, TCP) measured
+  during the observation between endpoints that both announce SHM and were judged to be in
+  different IPC namespaces. Fast DDS sends same-host traffic between them over SHM only, so
+  the split detection may be wrong; the verdict stays ``NONE`` / ``certain`` and the
+  description asks for a report. Data-sharing splits without SHM on one side are not flagged
+  (the other endpoints of the two participants use UDP), nor are kinds seen only before the
+  observation (#111).
 * Same host id, separate IPC namespaces, data-sharing: a data-sharing pair whose endpoints
   use different ``/dev/shm`` is ``NONE`` / ``certain`` with ``shm-ipc-namespace-split``
   instead of ``DATA_SHARING`` (Fast DDS pairs them on QoS alone, the reader cannot open the
