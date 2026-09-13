@@ -78,6 +78,14 @@ networks (`iptables: can't initialize iptables table 'raw'`), so build the image
 -f docker/Dockerfile .` instead of `docker compose build`; `hostnet` itself needs no
 bridge. The image build takes about 10 minutes on the Orin NX.
 
+Easy Mode (Fast DDS 3.2+) is the built-in answer to a LAN without multicast: set
+`ROS2_EASY_MODE=<address of host A>` on both hosts and the tool, nothing else. Verified on
+2026-09-13 with the same two machines (Jetson re-installed with Ubuntu 24.04, Lyrical
+image on both, started with `docker run --rm --network host --ipc host -v
+$PWD:/ws fastdds_transport_viz:lyrical ros2 run ...` on the Jetson): `TCPv4`, measured
+`TCPv4` in both directions, seen from either host (see the results table and
+[how-it-works.md](how-it-works.md#run-it-where-the-nodes-run)).
+
 Things learned while trying this on a Wi-Fi LAN with a Mac as host B
 ([#15](https://github.com/atinfinity/fastdds_transport_viz/issues/15)):
 
@@ -256,6 +264,7 @@ run again on `main`: each change is built once, in its pull request. Every job h
 | 2026-09-06 | two physical hosts on one Wi-Fi LAN: x86_64 Ubuntu 24.04 (Docker `hostnet`) ↔ Jetson Orin NX, JetPack 6 / Ubuntu 22.04 arm64 (Docker `hostnet`, Jazzy image), plain multicast discovery, `--stats` on both nodes, tool on the x86 host | x86_64 + arm64 | 2.14.6 both | both directions: `UDPv4`, `different-host`, `certain`, measured `UDPv4` (`measured=UDPv4 7pkt 1.06 kB` Jetson → x86, `8pkt 1.16 kB` x86 → Jetson), hosts `jetson-orin-nx01` / `ubuntu2404-desktop01` from `PHYSICAL_DATA`, `RATE` 24 B/s. Found and fixed: a reader on the tool's host is announced as `127.0.0.1`, so the remote writer's `RTPS_SENT` did not match (`delivered-without-measured-traffic`) | "Two physical hosts" below |
 | 2026-09-13 | Easy Mode (`ROS2_EASY_MODE=127.0.0.1`), one host: two `hostnet` containers, and the launch test on a private domain | x86_64 | 3.6.2 (`ros:lyrical`), 3.2.4 (`ros:kilted`) | `SHM`, `same-host-guid`, `both-shm-locators`; every endpoint announces `SHM` + `TCPv4` unicast and no multicast (P2P); the auto-started server listens on 7400 + 250 × domain + 2. Found and fixed: the `fastdds discovery` CLI that Fast DDS runs for every participant printed on stdout and corrupted `--json` | `ROS_DISTRO=lyrical scripts/integration_test.sh easy_mode_shm`, `test_easy_mode.py` |
 | 2026-09-13 | Easy Mode, two hosts: bridged containers with fixed addresses, `ROS2_EASY_MODE=<talker address>`, `--stats`, tool on the talker's host | x86_64 | 3.6.2 (`ros:lyrical`), 3.2.4 (`ros:kilted`) | `TCPv4`, `different-host`, `common-tcpv4-locator`, measured `TCPv4`; the remote endpoint shows its `TCPv4` locator only. From a third host without a node of the topic's type the tool (and `ros2 topic list`) never see `/chatter`: Fast DDS 3 relays an endpoint only once its type is resolved and the server-to-server lookup does not complete (see how-it-works.md, Easy Mode) | `ROS_DISTRO=lyrical scripts/integration_test.sh easy_mode_tcp` |
+| 2026-09-13 | Easy Mode on two physical hosts over Wi-Fi: x86_64 Ubuntu 24.04 (Docker `hostnet`, master, `ROS2_EASY_MODE=192.168.1.8`) ↔ Jetson Orin NX, Ubuntu 24.04 arm64 (`docker run --network host --ipc host`, same variable), Lyrical image on both, `--stats` on both nodes, both directions | x86_64 + arm64 | 3.6.2 both | both directions: `TCPv4`, `different-host`, `common-tcpv4-locator`, measured `TCPv4` (23–49 packets per 8 s observation), hosts `ubuntu2404-desktop01` / `jetson-orin-nx-16gb` from `PHYSICAL_DATA`, `LATENCY` ≈ 94 ms with the clock offset (`latency-clock-skew-suspected` in one run); the tool saw the pair from the master host and from the Jetson alike, each next to one of the nodes; the remote endpoint shows its `TCPv4` locator only, no multicast anywhere | "Two physical hosts" below |
 | 2026-09-05 | two physical hosts on one Wi-Fi LAN: x86_64 Ubuntu (Docker `hostnet`) ↔ macOS arm64 (native RoboStack Jazzy), Discovery Server on the x86 host | x86_64 + arm64 | 2.14.6 both | `UDPv4`, `different-host`, `common-udpv4-locator` observed (writer `host:010f0956`, reader on `ubuntu2404-desktop01`); no `--stats` measurement: the Mac's Fast DDS `sendto()` intermittently fails with `EHOSTUNREACH` while plain UDP from the Mac works ([#15](https://github.com/atinfinity/fastdds_transport_viz/issues/15)) | see "Two physical hosts" |
 
 ## Documentation site
