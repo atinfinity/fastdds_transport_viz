@@ -30,7 +30,11 @@ A pair with `shm-ipc-namespace-split` stays `NONE` too, although the writer's SH
 is measured; a proven delivery adds `shm-ipc-namespace-split-but-delivered` (see
 [Split IPC namespaces](how-it-works.md#split-ipc-namespaces)).
 Pairs whose *writer* was started without it are reported with the warning
-`stats-not-enabled-on-writer` (a reader without statistics is not flagged).
+`stats-not-enabled-on-writer` (a reader without statistics is not flagged). The tool's
+statistics readers announce UDP (or TCP) locators but no SHM locator, so a same-host
+writer in another IPC namespace still gets its statistics through. A writer whose
+participant has the SHM transport only shares no transport with them and shows the same
+warning.
 
 ## What the counters cover
 

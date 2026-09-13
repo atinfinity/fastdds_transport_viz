@@ -293,13 +293,14 @@ Fast DDS はホスト id が同じなら共有メモリで相手の participant 
 どちらも分からない場合 (たとえばツールが 3 つ目の IPC 名前空間にいて、両側のポート番号が違う
 場合) はペアは `SHM` のままで、手がかりは共有メモリ行の `shm-not-visible` だけです。ツールと別の
 IPC 名前空間にいるノードは、検出の有無にかかわらず、`ros_discovery_info` のサンプルも同じように
-失われるため、ノード名がしばしば不明と表示されます。
+失われるため、ノード名がしばしば不明と表示されます ([#112](https://github.com/atinfinity/fastdds_transport_viz/issues/112))。
 
 `--stats` 付きでは、このペアで writer の SHM トラフィックが計測されても想定どおり (writer は自分の
 `/dev/shm` のポートファイルに書き込むため) なので、ペアは `NONE` のままです。配送が証明された場合に
-限り、分断の判定と矛盾するため `shm-ipc-namespace-split-but-delivered` が付きます。同一ホストの writer と
-別の IPC 名前空間にいるツールは、同じ理由でその writer の statistics を受け取れません
-([#106](https://github.com/atinfinity/fastdds_transport_viz/issues/106))。
+限り、分断の判定と矛盾するため `shm-ipc-namespace-split-but-delivered` が付きます。statistics 自体は
+IPC 名前空間をまたいでも失われません。ツールの statistics reader は participant の UDP (または TCP) の
+locator だけを広告し SHM の locator を広告しないので、同一ホストの writer はツールがどこにいても
+statistics をネットワークスタック経由で送ります ([#106](https://github.com/atinfinity/fastdds_transport_viz/issues/106))。
 
 ## Watch モード
 

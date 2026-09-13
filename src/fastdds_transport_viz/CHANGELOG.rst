@@ -4,6 +4,14 @@ Changelog for package fastdds_transport_viz
 
 Forthcoming
 -----------
+* ``--stats`` across IPC namespaces: the statistics readers announce only the non-SHM
+  unicast locators the tool's participant listens on (UDP, or TCP with ``LARGE_DATA``),
+  read once from a probe reader. A same-host writer in another IPC namespace than the tool
+  selected SHM for its statistics, wrote them into its own ``/dev/shm`` and showed
+  ``stats-not-enabled-on-writer``; they now arrive over the network stack, and a split
+  pair shows its undelivered SHM traffic. The ``stats-not-enabled-on-writer`` description
+  adds a writer with no transport in common with the statistics readers (SHM only).
+  Integration scenario ``hostnet_split_stats`` (#106).
 * Same host id, separate IPC namespaces: a pair whose participants listen for SHM in
   different ``/dev/shm`` is ``NONE`` / ``certain`` with the warning
   ``shm-ipc-namespace-split`` instead of ``SHM`` (Fast DDS selects SHM there and every

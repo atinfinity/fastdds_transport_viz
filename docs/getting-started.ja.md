@@ -170,7 +170,7 @@ participant: unset FASTDDS_BUILTIN_TRANSPORTS ...`)。`ros2 transport codes` は
 | `RMW is rmw_cyclonedds_cpp; this tool observes Fast DDS ...` (exit 1) | ツールは Fast DDS でしか動きません。ツールを実行するシェルで `RMW_IMPLEMENTATION=rmw_fastrtps_cpp` (または `rmw_fastrtps_dynamic_cpp`) を設定する (既定が Fast DDS の distro なら未設定でもよい)。 |
 | トピックが 1 つも出ない | ノードと同じ `ROS_DOMAIN_ID` か。`ROS_AUTOMATIC_DISCOVERY_RANGE=OFF` は各 participant を自分だけに限定する。Discovery Server 使用時はツールにも同じ `ROS_DISCOVERY_SERVER` が必要 (自動で SUPER_CLIENT になる)。 |
 | 別マシンのノードが出ない | 相手のマシンにマルチキャストで届くか、`ROS_STATIC_PEERS` に列挙するか、双方が Discovery Server を使う。[development.md](development.md#two-physical-hosts) (英語) 参照。 |
-| `--stats` で `!stats-not-enabled-on-writer` | ノードが `FASTDDS_STATISTICS` 無しで起動された。変数はノードの起動前に設定する。 |
+| `--stats` で `!stats-not-enabled-on-writer` | ノードが `FASTDDS_STATISTICS` 無しで起動された (変数はノードの起動前に設定する) か、その participant が SHM transport しか持たない。ツールの statistics reader は UDP か TCP で受信する。 |
 | `!shm-not-visible` | ノードが別の `/dev/shm` (別コンテナまたは別ホスト) を使っている。共有メモリの行はツールの環境だけを表す。 |
 | `NONE` のペアに `!shm-ipc-namespace-split` | 2 つのノードのホスト id は同じだが `/dev/shm` が別 (ホストネットワークで IPC 名前空間が別) なので、Fast DDS が SHM を選んでも受信側には何も届かない。両方のコンテナに `ipc: host` を付けるか、片側の SHM を無効にする (`--advise` で対処を表示できる)。 |
 | `!shm-stale-files` | クラッシュしたプロセスがセグメントを残している。`fastdds shm clean` で削除できる。 |
