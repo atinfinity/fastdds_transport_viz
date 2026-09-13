@@ -26,6 +26,9 @@ export FASTDDS_STATISTICS="RTPS_SENT_TOPIC;RTPS_LOST_TOPIC;HISTORY_LATENCY_TOPIC
 
 A pair judged `qos-incompatible` is not measured; if `HISTORY_LATENCY` nevertheless proves
 delivery, the warning `qos-incompatible-but-delivered` flags a gap in the matching rules.
+A pair with `shm-ipc-namespace-split` stays `NONE` too, although the writer's SHM traffic
+is measured; a proven delivery adds `shm-ipc-namespace-split-but-delivered` (see
+[Split IPC namespaces](how-it-works.md#split-ipc-namespaces)).
 Pairs whose *writer* was started without it are reported with the warning
 `stats-not-enabled-on-writer` (a reader without statistics is not flagged).
 

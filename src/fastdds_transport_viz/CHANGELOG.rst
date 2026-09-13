@@ -4,6 +4,18 @@ Changelog for package fastdds_transport_viz
 
 Forthcoming
 -----------
+* Same host id, separate IPC namespaces: a pair whose participants listen for SHM in
+  different ``/dev/shm`` is ``NONE`` / ``certain`` with the warning
+  ``shm-ipc-namespace-split`` instead of ``SHM`` (Fast DDS selects SHM there and every
+  sample is lost). The evidence is ``shm-port-collision`` (both announce the same SHM port
+  number, which one participant per IPC namespace can listen on) or
+  ``shm-reader-port-not-visible`` / ``shm-writer-port-not-visible`` (from the tool's IPC
+  namespace every port of one side is held and a port of the other is not). ``--stats``
+  keeps such a pair ``NONE``, since the writer's SHM traffic is expected, and adds
+  ``shm-ipc-namespace-split-but-delivered`` when a delivery is proven. New sample
+  ``web/sample/shm_split.json``; integration scenarios ``hostnet_split_shm`` and
+  ``hostnet_split_shm_visible``. The descriptions of ``shm-not-visible`` and
+  ``host-id-match-but-ip-differs`` point to the new warning (#101).
 * Shared-memory line: the tool's own participants are found with
   ``DomainParticipantFactory::lookup_participants()`` instead of through endpoints that
   resolve to its node name (on Lyrical and Rolling rclcpp creates none, so the tool's rmw

@@ -28,6 +28,8 @@ to select a transport for each writer → reader pair.
    see [data-sharing.md](data-sharing.md)). Announced but disjoint domain ids fall through.
 3. Same host and both announce a SHM locator → `SHM`. Fast DDS then uses shared memory
    exclusively for user data between those participants; discovery still goes over UDP.
+   When the two participants are seen to listen in different IPC namespaces, the pair is
+   `NONE` instead (see [Split IPC namespaces](#split-ipc-namespaces)).
 4. Otherwise the first network locator kind the reader announces that the writer also
    speaks → `UDPv4` / `UDPv6` / `TCPv4` / `TCPv6`.
 5. Nothing in common → `NONE`.
@@ -275,12 +277,51 @@ shared memory: /dev/shm 396 MB used of 16.7 GB (16.3 GB free) | Fast DDS 63.4 MB
   tool's host id in a separate IPC namespace (`network_mode: host` without `ipc: host`)
   are reported as well.
   Between two such nodes Fast DDS still picks SHM (same host id), but their ports are in
-  different `/dev/shm` and every message is lost while the pair's verdict says `SHM`
-  ([#101](https://github.com/atinfinity/fastdds_transport_viz/issues/101)).
+  different `/dev/shm` and every message is lost; the pair is `NONE` with
+  `shm-ipc-namespace-split` when the tool can tell (see
+  [Split IPC namespaces](#split-ipc-namespaces)).
 - `shm-nearly-full` warns at 90 % usage or less than 16 MiB free.
 
 The line is omitted where there is no `/dev/shm` (macOS). In JSON the same data is the
 `shm` object; `--watch` refreshes it every frame.
+
+### Split IPC namespaces
+
+Fast DDS takes the same host id as proof that shared memory reaches the other
+participant. With `network_mode: host`, containers share the host id, but each one without
+`ipc: host` (or a common `ipc: service:…` / `ipc: container:…`) has its own `/dev/shm`.
+A writer then writes into a port file that no reader listens on and the listener receives
+nothing, with no error on either side. The tool reports such a pair as `NONE`, `certain`,
+with the warning `shm-ipc-namespace-split`, when one of these holds:
+
+- `shm-port-collision`: the writer's and the reader's participants announce the same SHM
+  port number. Only one participant per IPC namespace can listen on a port, so equal
+  numbers mean two namespaces. This is the usual case with one node per container, because
+  each namespace numbers its ports from the same start (on Jazzy and newer the
+  `ros_discovery_info` reader's port, 7000 for the first node). It does not depend on the
+  tool's IPC namespace, but the tool needs the nodes' host id (the host network), because
+  it gathers the SHM ports of the participants on its own host only.
+- `shm-reader-port-not-visible` / `shm-writer-port-not-visible`: from the tool's IPC
+  namespace, every SHM port of one participant is held (and announced by nobody else),
+  while a port of the other has no lock file here or is one of the tool's own ports. It
+  needs the tool in the IPC namespace of one side. A free lock (left by a node that just
+  died) decides nothing, and neither does a held port whose number a third participant
+  announces too.
+
+For a pair reported this way, `--advise` gives the remedy: put both nodes in one IPC
+namespace (`ipc: host`), or disable SHM on one side so that UDPv4 is selected.
+
+When neither can be told, for example with the tool in a third IPC namespace and
+different port numbers on the two sides, the pair stays `SHM`, and `shm-not-visible` on
+the shared-memory line is the only hint. A node in another IPC namespace than the tool
+often shows with an unknown node name, detected or not, because its `ros_discovery_info`
+samples are lost the same way.
+
+With `--stats` the writer's SHM traffic on such a pair is expected (it writes into the
+port file in its own `/dev/shm`), so the pair stays `NONE`. Only a proven delivery adds
+`shm-ipc-namespace-split-but-delivered`, since it contradicts the split. A tool in another
+IPC namespace than a same-host writer loses that writer's statistics the same way
+([#106](https://github.com/atinfinity/fastdds_transport_viz/issues/106)).
 
 ## Watch mode
 
