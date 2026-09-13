@@ -28,9 +28,6 @@ public:
   /// Fully qualified node name ("/ns/node") for an endpoint GUID, or "".
   std::string node_for_guid(const std::array<uint8_t, 16> & guid) const;
 
-  /// This tool's own fully qualified node name.
-  std::string own_node_name() const;
-
 private:
   rclcpp::Node::SharedPtr node_;
   std::map<std::array<uint8_t, 16>, std::string> guid_to_node_;

@@ -11,6 +11,7 @@
 #include <array>
 #include <cstdint>
 #include <map>
+#include <optional>
 #include <set>
 #include <string>
 
@@ -31,10 +32,10 @@ struct ShmScanInput
 {
   /// SHM locator ports announced by observed endpoints with the tool's host id. Such a
   /// port is "visible" when its `fastrtps_port<N>_el` lock is held by a living process
-  /// (every user of a port holds it) and it is not one of the tool's own ports (the same
-  /// port number in another network namespace).
+  /// (the port's listener holds it; senders do not) and it is not one of the tool's own
+  /// ports (then the lock is the tool's: the same port number in another IPC namespace).
   std::set<uint32_t> node_ports;
-  /// SHM ports of the tool's own participant.
+  /// SHM ports of the tool's own participants.
   std::set<uint32_t> own_ports;
   /// Participants of observed endpoints with another host id: never in this /dev/shm
   /// (they do not even announce SHM locators to us).
@@ -46,6 +47,11 @@ struct ShmScanInput
 
 /// Scan `path` (statvfs + directory listing + lock probes).
 ShmInfo scan_shm(const std::string & path, const ShmScanInput & in);
+
+/// SHM ports whose `fastrtps_port<N>_el` / `fastdds_port<N>_el` lock file this process
+/// holds open, from the fd links in `fd_dir`: the ports the tool's own participants
+/// listen on, including those no discovered endpoint announces. nullopt without procfs.
+std::optional<std::set<uint32_t>> held_port_locks(const std::string & fd_dir = "/proc/self/fd");
 
 /// Adds `shm-nearly-full` from total/used/free (90 % used or less than 16 MiB free).
 void add_capacity_warning(ShmInfo & info);

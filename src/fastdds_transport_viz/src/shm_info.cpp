@@ -10,8 +10,10 @@
 #include <sys/statvfs.h>
 #include <unistd.h>
 
+#include <climits>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <string>
 
 namespace fastdds_transport_viz
@@ -188,6 +190,33 @@ ShmInfo scan_shm(const std::string & path, const ShmScanInput & in)
   }
   add_capacity_warning(info);
   return info;
+}
+
+std::optional<std::set<uint32_t>> held_port_locks(const std::string & fd_dir)
+{
+  DIR * dir = ::opendir(fd_dir.c_str());
+  if (dir == nullptr) {
+    return std::nullopt;   // no procfs (macOS, or a restricted environment)
+  }
+  std::set<uint32_t> ports;
+  while (struct dirent * ent = ::readdir(dir)) {
+    const std::string link = fd_dir + "/" + ent->d_name;
+    char target[PATH_MAX];
+    const ssize_t n = ::readlink(link.c_str(), target, sizeof(target) - 1);
+    if (n <= 0) {continue;}
+    target[n] = '\0';
+    std::string name(target);
+    name = name.substr(name.rfind('/') + 1);   // a removed file reads "... (deleted)"
+    const char * prefix = prefix_of(name, kPortPrefixes);
+    if (prefix == nullptr || !ends_with(name, kLockSuffix)) {continue;}
+    const size_t begin = std::strlen(prefix);
+    const std::string port = name.substr(begin, name.size() - begin - std::strlen(kLockSuffix));
+    if (is_digits(port)) {
+      ports.insert(static_cast<uint32_t>(std::strtoul(port.c_str(), nullptr, 10)));
+    }
+  }
+  ::closedir(dir);
+  return ports;
 }
 
 void add_capacity_warning(ShmInfo & info)

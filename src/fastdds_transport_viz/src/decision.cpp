@@ -1102,7 +1102,8 @@ const std::map<std::string, CodeInfo> & explanations()
         "directory (nobody holds the port's lock, the port number collides with the tool's own, "
         "or the node has another host id): they run in another IPC namespace or on another host, "
         "so the shared-memory figures describe this environment, not theirs, and SHM cannot be "
-        "used between them and here.",
+        "used between them and here. Nodes with the same host id in different IPC namespaces "
+        "still pick SHM between themselves, and every message between them is lost.",
         "Run the tool where the nodes run (same host and IPC namespace: the same container, or "
         "--ipc=host on both) if the shared-memory line should describe their /dev/shm."}},
   };

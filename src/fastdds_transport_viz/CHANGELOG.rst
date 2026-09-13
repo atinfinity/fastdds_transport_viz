@@ -4,6 +4,14 @@ Changelog for package fastdds_transport_viz
 
 Forthcoming
 -----------
+* Shared-memory line: the tool's own participants are found with
+  ``DomainParticipantFactory::lookup_participants()`` instead of through endpoints that
+  resolve to its node name (on Lyrical and Rolling rclcpp creates none, so the tool's rmw
+  participant counted as a node), and its own SHM ports include every port lock the
+  process holds (the discovery participant announces none). Either gap let a node in
+  another IPC namespace with a colliding port number look visible. The ``shm-not-visible``
+  description adds that nodes with the same host id in different IPC namespaces still
+  pick SHM between themselves and lose every message (#51).
 * Web viewer: compare two documents (``Compare with…``, ``?src=a&diff=b[&key=guid]``) and
   highlight the ``changes`` object of a ``transport_viz diff --json`` file or a live frame:
   ``+`` / ``~`` / ``-`` marks in the table with ``before → after`` transports and ghost

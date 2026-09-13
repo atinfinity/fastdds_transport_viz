@@ -302,7 +302,7 @@ struct ShmInfo
   size_t datasharing_histories{0};   // fast_datasharing_<writer guid>
   size_t datasharing_unmatched{0};   // ... not belonging to a discovered writer
   std::vector<uint32_t> checked_ports;   // SHM ports of observed nodes with the tool's host id
-  std::vector<uint32_t> missing_ports;   // ... not held by a living process here, or the tool's own
+  std::vector<uint32_t> missing_ports;   // ... not held here by a living node process
   size_t other_host_participants{0};  // observed participants with another host id
   bool nodes_visible{true};          // missing_ports.empty() && other_host_participants == 0
   std::vector<std::string> warnings;  // shm-stale-files, shm-nearly-full, shm-not-visible
