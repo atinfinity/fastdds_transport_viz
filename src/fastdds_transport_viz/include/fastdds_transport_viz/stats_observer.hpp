@@ -23,6 +23,7 @@
 #include <fastdds/dds/subscriber/DataReader.hpp>
 #include <fastdds/dds/subscriber/Subscriber.hpp>
 #include <fastdds/dds/topic/Topic.hpp>
+#include <fastdds/rtps/common/LocatorList.hpp>
 
 #include "fastdds_transport_viz/model.hpp"
 
@@ -47,6 +48,9 @@ public:
   /// keep only the latest sample per instance).
   void poll();
 
+  /// The subscriber holding the statistics readers (for tests).
+  eprosima::fastdds::dds::Subscriber * subscriber() const {return subscriber_;}
+
   /// Value for FASTDDS_STATISTICS that monitored nodes need.
   static std::string required_env_value();
 
@@ -63,6 +67,9 @@ private:
 
   eprosima::fastdds::dds::DomainParticipant * participant_;
   eprosima::fastdds::dds::Subscriber * subscriber_{nullptr};
+  // unicast locators every statistics reader announces (empty: the participant's defaults)
+  eprosima::fastdds::rtps::LocatorList reader_locators_;
+  bool reader_locators_probed_{false};
   Reader rtps_sent_;
   Reader history_latency_;
   Reader physical_data_;

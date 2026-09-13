@@ -80,6 +80,18 @@ Locator convert_locator(const rtps::Locator_t & l)
   return out;
 }
 
+eprosima::fastdds::rtps::LocatorList non_shm_unicast_locators(
+  const eprosima::fastdds::rtps::LocatorList & listening)
+{
+  eprosima::fastdds::rtps::LocatorList out;
+  for (const auto & l : listening) {
+    if (l.kind != LOCATOR_KIND_SHM && !rtps::IPLocator::isMulticast(l)) {
+      out.push_back(l);
+    }
+  }
+  return out;
+}
+
 namespace
 {
 

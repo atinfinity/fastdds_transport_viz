@@ -1158,7 +1158,9 @@ const std::map<std::string, CodeInfo> & explanations()
         "or use a longer --timeout."}},
     {"stats-not-enabled-on-writer", {
         "No statistics were received from the writer's participant: it was started without "
-        "FASTDDS_STATISTICS, or its Fast DDS has no statistics module (ROS 2 Humble).",
+        "FASTDDS_STATISTICS, its Fast DDS has no statistics module (ROS 2 Humble), or it has "
+        "no transport in common with the tool's statistics readers, which announce no SHM "
+        "locator (a participant with the SHM transport only).",
         std::string("Start the writer's node with ") + kStatsEnv +
         " set before it creates its participant."}},
     {"latency-clock-skew-suspected", {
