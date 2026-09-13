@@ -137,6 +137,7 @@ Snapshot stats_snapshot()
   s.stats.samples = 12;
   s.stats.participants_with_stats.insert("P1");
   s.endpoints[0].participant_guid_prefix = "P1";
+  s.endpoints[1].unicast[0].port = 7413;   // another participant, so another SHM port
   s.topics = summarize(s.endpoints);
   return s;
 }

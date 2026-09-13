@@ -190,6 +190,16 @@ test('codeListHtml: description, remedy line only when known, warning prefix, es
   assert.deepEqual(Object.keys(sample.reason_code_remedies).sort(), Object.keys(sample.reason_code_descriptions).sort());
 });
 
+test('split IPC sample: the lost SHM pair is NONE with its warning, description and fix', () => {
+  const doc = load('shm_split.json');
+  const vp = M.buildModel(doc).pairs.find(p => p.pair.warnings.includes('shm-ipc-namespace-split') && p.topic.topic === '/chatter');
+  assert.ok(vp, 'split pair on /chatter');
+  assert.equal(vp.pair.transport, 'NONE');
+  const html = M.codeListHtml(vp.pair.warnings, doc.reason_code_descriptions, doc.reason_code_remedies, true);
+  assert.match(html, /<b>!shm-ipc-namespace-split<\/b><span class="desc">The writer and the reader have the same host id/);
+  assert.match(html, /<span class="fix">fix: Put both nodes in one IPC namespace/);
+});
+
 test('humanSeconds / latencyText', () => {
   assert.equal(M.humanSeconds(0.00042), '420 µs');
   assert.equal(M.humanSeconds(0.0013), '1.30 ms');

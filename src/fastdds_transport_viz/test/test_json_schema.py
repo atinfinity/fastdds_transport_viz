@@ -33,8 +33,9 @@ def test_sample_matches_schema(sample):
     VALIDATOR(load(SCHEMA)).validate(load(sample))
 
 
-def test_sample_descriptions_cover_used_codes():
-    doc = load(REPO / 'web' / 'sample' / 'sample.json')
+@pytest.mark.parametrize('name', ['sample.json', 'shm_split.json'])
+def test_sample_descriptions_cover_used_codes(name):
+    doc = load(REPO / 'web' / 'sample' / name)
     used = set()
     for t in doc['topics']:
         used.update(t['unmatched_reasons'])
@@ -50,3 +51,13 @@ def test_sample_remedies_share_the_keys_of_the_descriptions():
     # a normal state has nothing to change, a reader without SHM does
     assert doc['reason_code_remedies']['same-host-guid'] is None
     assert 'FASTDDS_BUILTIN_TRANSPORTS' in doc['reason_code_remedies']['reader-no-shm-locator']
+
+
+def test_split_sample_has_the_lost_shm_pair():
+    doc = load(REPO / 'web' / 'sample' / 'shm_split.json')
+    chatter = next(t for t in doc['topics'] if t['topic'] == '/chatter')
+    [pair] = chatter['pairs']
+    assert pair['transport'] == 'NONE'
+    assert pair['warnings'] == ['shm-ipc-namespace-split']
+    assert 'shm-port-collision' in pair['reasons']
+    assert 'ipc: host' in doc['reason_code_remedies']['shm-ipc-namespace-split']

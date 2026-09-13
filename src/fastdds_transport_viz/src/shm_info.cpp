@@ -10,6 +10,7 @@
 #include <sys/statvfs.h>
 #include <unistd.h>
 
+#include <algorithm>
 #include <climits>
 #include <cstdio>
 #include <cstdlib>
@@ -129,6 +130,9 @@ ShmInfo scan_shm(const std::string & path, const ShmScanInput & in)
     return info;
   }
   std::set<std::string> ports_held;   // port files whose lock a living process holds
+  // port files whose lock could not be probed, or is free: a node that just died may still
+  // be discovered, so a free lock does not prove that its owner lives in another namespace
+  std::set<std::string> ports_undecided;
   while (struct dirent * ent = ::readdir(dir)) {
     const std::string name = ent->d_name;
     const char * segment_prefix = prefix_of(name, kSegmentPrefixes);
@@ -149,6 +153,7 @@ ShmInfo scan_shm(const std::string & path, const ShmScanInput & in)
       const auto st = probe_lock(full + kLockSuffix);
       if (st == LockState::Free) {++info.stale_ports;}
       if (st == LockState::Held) {ports_held.insert(port);}
+      if (st == LockState::Free || st == LockState::Unknown) {ports_undecided.insert(port);}
     } else if (segment_prefix != nullptr) {
       if (!is_hex(name.substr(std::string(segment_prefix).size()))) {continue;}
       ++info.segments;
@@ -173,6 +178,9 @@ ShmInfo scan_shm(const std::string & path, const ShmScanInput & in)
     info.checked_ports.push_back(port);
     if (in.own_ports.count(port) || !ports_held.count(std::to_string(port))) {
       info.missing_ports.push_back(port);
+      if (!in.own_ports.count(port) && ports_undecided.count(std::to_string(port))) {
+        info.unknown_ports.push_back(port);
+      }
     }
   }
   info.other_host_participants = in.other_host_participants;
@@ -190,6 +198,34 @@ ShmInfo scan_shm(const std::string & path, const ShmScanInput & in)
   }
   add_capacity_warning(info);
   return info;
+}
+
+ShmVisibility participant_shm_visibility(
+  const std::set<uint32_t> & ports, const ShmInfo & info,
+  const std::map<uint32_t, size_t> & participants_per_port)
+{
+  auto contains = [](const std::vector<uint32_t> & v, uint32_t p) {
+      return std::find(v.begin(), v.end(), p) != v.end();
+    };
+  bool all_held = !ports.empty();
+  for (uint32_t port : ports) {
+    if (!contains(info.checked_ports, port)) {
+      all_held = false;   // not probed
+    } else if (contains(info.missing_ports, port)) {
+      // A unicast SHM port is listened on by one participant per IPC namespace, so a
+      // port that is absent or the tool's own here proves another namespace.
+      if (!contains(info.unknown_ports, port)) {
+        return ShmVisibility::NotVisible;
+      }
+      all_held = false;
+    } else {
+      auto it = participants_per_port.find(port);
+      if (it != participants_per_port.end() && it->second > 1) {
+        all_held = false;   // held here, but by which of the participants announcing it?
+      }
+    }
+  }
+  return all_held ? ShmVisibility::Visible : ShmVisibility::Unprobed;
 }
 
 std::optional<std::set<uint32_t>> held_port_locks(const std::string & fd_dir)

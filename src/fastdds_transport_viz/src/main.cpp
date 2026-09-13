@@ -375,6 +375,9 @@ Snapshot collect(
   // parameter services off), so ask the factory for every participant of this process.
   std::set<std::string> own_prefixes;
   std::set<std::string> other_host_prefixes;
+  // SHM ports per participant with our host id, from every endpoint (ros_discovery_info
+  // is the only one announcing the 7000+ port on Jazzy and newer)
+  std::map<std::string, std::set<uint32_t>> shm_ports_by_participant;
   for (const auto * p : eprosima::fastdds::dds::DomainParticipantFactory::get_instance()->
     lookup_participants(static_cast<eprosima::fastdds::dds::DomainId_t>(domain)))
   {
@@ -405,6 +408,7 @@ Snapshot collect(
         shm_in.own_ports.insert(l.port);
       } else if (e.host_id == local_host) {
         shm_in.node_ports.insert(l.port);
+        shm_ports_by_participant[e.participant_guid_prefix].insert(l.port);
       }
     }
     if (ours) {
@@ -446,11 +450,23 @@ Snapshot collect(
     }
     shm_in.other_host_participants = other_host_prefixes.size();
     snap.shm = fastdds_transport_viz::scan_shm(fastdds_transport_viz::kDefaultShmDir, shm_in);
+    std::map<uint32_t, size_t> participants_per_port;
+    for (const auto & kv : shm_ports_by_participant) {
+      for (uint32_t port : kv.second) {
+        ++participants_per_port[port];
+      }
+    }
     for (auto & e : snap.endpoints) {
       auto it = snap.shm.datasharing_by_writer.find(e.guid);
       if (it != snap.shm.datasharing_by_writer.end()) {
         e.datasharing_history_available = true;
         e.datasharing_history_bytes = it->second;
+      }
+      auto ports = shm_ports_by_participant.find(e.participant_guid_prefix);
+      if (ports != shm_ports_by_participant.end()) {
+        e.participant_shm_ports = ports->second;
+        e.participant_shm_visibility = fastdds_transport_viz::participant_shm_visibility(
+          ports->second, snap.shm, participants_per_port);
       }
     }
   }

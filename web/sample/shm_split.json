@@ -1,0 +1,969 @@
+{
+  "domain": 77,
+  "local_host_id": "010fba00",
+  "observation_seconds": 5.000024169,
+  "observed_at": "2026-09-13T11:28:53Z",
+  "reason_code_descriptions": {
+    "both-shm-locators": "Both endpoints announce a SHM locator. On the same host Fast DDS then uses the shared memory transport exclusively for user data (discovery still goes over UDP).",
+    "datasharing-disabled-writer": "The writer announces data-sharing OFF (explicitly disabled, or AUTO resolved to OFF because the type is unbounded / the history memory policy is not preallocated).",
+    "delivered-without-measured-traffic": "HISTORY_LATENCY statistics prove that samples reached the reader, but RTPS_SENT reported no packets to any of the reader's locators during the observation, so the transport that carried them could not be measured (seen with large samples over SHM on slow machines).",
+    "measured-shm-traffic": "Statistics show RTPS packets from the writer's participant to the reader's SHM locator.",
+    "no-matching-reader": "No subscription was discovered for this topic.",
+    "no-traffic-observed": "The writer's participant publishes statistics but sent no packets to any locator of the reader during the observation window.",
+    "same-host-guid": "Writer and reader GUID prefixes share the same first 4 bytes, which is how Fast DDS decides both participants run on the same host.",
+    "shm-ipc-namespace-split": "The writer and the reader have the same host id and both announce SHM, but their shared-memory ports are in different IPC namespaces: Fast DDS still selects SHM and every sample between them is lost.",
+    "shm-not-visible": "Observed nodes announce SHM locators that are not open in this process's shared-memory directory (nobody holds the port's lock, the port number collides with the tool's own, or the node has another host id): they run in another IPC namespace or on another host, so the shared-memory figures describe this environment, not theirs, and SHM cannot be used between them and here. Nodes with the same host id in different IPC namespaces still pick SHM between themselves and lose every message; their pairs get shm-ipc-namespace-split when the nodes announce the same SHM port number or the tool shares the IPC namespace of one of them, and cannot be checked from here otherwise.",
+    "shm-port-collision": "The writer's and the reader's participants announce the same SHM port number. Only one participant per IPC namespace can listen on a port, so the two use different /dev/shm."
+  },
+  "reason_code_remedies": {
+    "both-shm-locators": null,
+    "datasharing-disabled-writer": "Enable data-sharing on the writer: <data_sharing><kind>ON</kind> in its data_writer XML profile, a bounded (fixed-size) message type and a PREALLOCATED or PREALLOCATED_WITH_REALLOC <historyMemoryPolicy>.",
+    "delivered-without-measured-traffic": "Repeat with a longer --timeout so that RTPS_SENT catches up with the delivery; if it persists, the transport of this pair cannot be measured.",
+    "measured-shm-traffic": null,
+    "no-matching-reader": "Start a subscription on this topic, or check the topic name, namespace and remappings of the node expected to subscribe to it.",
+    "no-traffic-observed": "Make the writer publish during the observation (an idle topic has nothing to measure), or use a longer --timeout.",
+    "same-host-guid": null,
+    "shm-ipc-namespace-split": "Put both nodes in one IPC namespace (ipc: host on both containers, or the same container), or disable SHM on one side (FASTDDS_BUILTIN_TRANSPORTS=UDPv4 on Fast DDS >= 2.11, or an XML transport profile).",
+    "shm-not-visible": "Run the tool where the nodes run (same host and IPC namespace: the same container, or --ipc=host on both) if the shared-memory line should describe their /dev/shm.",
+    "shm-port-collision": null
+  },
+  "schema_version": 1,
+  "shm": {
+    "available": true,
+    "checked_ports": [
+      7000,
+      26661,
+      26663
+    ],
+    "datasharing_histories": 0,
+    "datasharing_unmatched": 0,
+    "fastdds_bytes": 1962912,
+    "free_bytes": 65097728,
+    "missing_ports": [
+      26663
+    ],
+    "nodes_visible": false,
+    "other_host_participants": 0,
+    "path": "/dev/shm",
+    "ports": 6,
+    "segments": 3,
+    "stale_ports": 0,
+    "stale_segments": 0,
+    "total_bytes": 67108864,
+    "used_bytes": 2011136,
+    "warnings": [
+      "shm-not-visible"
+    ]
+  },
+  "stats": {
+    "data_count": {
+      "01.0f.ba.00.1a.00.33.0e.00.00.00.00|00.00.01.03": {
+        "first": 2,
+        "last": 2,
+        "samples": 1
+      },
+      "01.0f.ba.00.1a.00.33.0e.00.00.00.00|00.00.14.03": {
+        "first": 11,
+        "last": 16,
+        "samples": 6
+      }
+    },
+    "enabled": true,
+    "lost": [
+      {
+        "bytes": 0.0,
+        "bytes_first": 0.0,
+        "from_locator": {
+          "address": "239.255.0.1",
+          "kind": "UDPv4",
+          "port": 26650
+        },
+        "packets": 0,
+        "packets_first": 0,
+        "receiver_participant_guid_prefix": "01.0f.ba.00.18.00.0a.cf.00.00.00.00"
+      },
+      {
+        "bytes": 0.0,
+        "bytes_first": 0.0,
+        "from_locator": {
+          "address": "239.255.0.1",
+          "kind": "UDPv4",
+          "port": 26650
+        },
+        "packets": 0,
+        "packets_first": 0,
+        "receiver_participant_guid_prefix": "01.0f.ba.00.18.00.0a.cf.01.00.00.00"
+      },
+      {
+        "bytes": 0.0,
+        "bytes_first": 0.0,
+        "from_locator": {
+          "address": "239.255.0.1",
+          "kind": "UDPv4",
+          "port": 26650
+        },
+        "packets": 0,
+        "packets_first": 0,
+        "receiver_participant_guid_prefix": "01.0f.ba.00.18.00.ab.c5.00.00.00.00"
+      },
+      {
+        "bytes": 0.0,
+        "bytes_first": 0.0,
+        "from_locator": {
+          "address": "239.255.0.1",
+          "kind": "UDPv4",
+          "port": 26650
+        },
+        "packets": 0,
+        "packets_first": 0,
+        "receiver_participant_guid_prefix": "01.0f.ba.00.18.00.ab.c5.01.00.00.00"
+      },
+      {
+        "bytes": 0.0,
+        "bytes_first": 0.0,
+        "from_locator": {
+          "address": "239.255.0.1",
+          "kind": "UDPv4",
+          "port": 26650
+        },
+        "packets": 0,
+        "packets_first": 0,
+        "receiver_participant_guid_prefix": "01.0f.ba.00.1a.00.33.0e.00.00.00.00"
+      },
+      {
+        "bytes": 0.0,
+        "bytes_first": 0.0,
+        "from_locator": {
+          "address": "239.255.0.1",
+          "kind": "UDPv4",
+          "port": 26650
+        },
+        "packets": 0,
+        "packets_first": 0,
+        "receiver_participant_guid_prefix": "01.0f.ba.00.1a.00.8f.0d.00.00.00.00"
+      }
+    ],
+    "participants_with_stats": [
+      "01.0f.ba.00.18.00.0a.cf.00.00.00.00",
+      "01.0f.ba.00.18.00.0a.cf.01.00.00.00",
+      "01.0f.ba.00.18.00.ab.c5.00.00.00.00",
+      "01.0f.ba.00.18.00.ab.c5.01.00.00.00",
+      "01.0f.ba.00.1a.00.33.0e.00.00.00.00",
+      "01.0f.ba.00.1a.00.8f.0d.00.00.00.00"
+    ],
+    "physical": {
+      "01.0f.ba.00.1a.00.33.0e.00.00.00.00": {
+        "host": "docker-desktop:4156124696635834368",
+        "process": "26",
+        "user": "root"
+      }
+    },
+    "samples": 79,
+    "statistics_writers": [
+      {
+        "participant_guid_prefix": "01.0f.ba.00.1a.00.33.0e.00.00.00.00",
+        "topic": "_fastdds_statistics_acknack_count"
+      },
+      {
+        "participant_guid_prefix": "01.0f.ba.00.1a.00.33.0e.00.00.00.00",
+        "topic": "_fastdds_statistics_data_count"
+      },
+      {
+        "participant_guid_prefix": "01.0f.ba.00.1a.00.33.0e.00.00.00.00",
+        "topic": "_fastdds_statistics_gap_count"
+      },
+      {
+        "participant_guid_prefix": "01.0f.ba.00.1a.00.33.0e.00.00.00.00",
+        "topic": "_fastdds_statistics_heartbeat_count"
+      },
+      {
+        "participant_guid_prefix": "01.0f.ba.00.1a.00.33.0e.00.00.00.00",
+        "topic": "_fastdds_statistics_history2history_latency"
+      },
+      {
+        "participant_guid_prefix": "01.0f.ba.00.1a.00.33.0e.00.00.00.00",
+        "topic": "_fastdds_statistics_nackfrag_count"
+      },
+      {
+        "participant_guid_prefix": "01.0f.ba.00.1a.00.33.0e.00.00.00.00",
+        "topic": "_fastdds_statistics_physical_data"
+      },
+      {
+        "participant_guid_prefix": "01.0f.ba.00.1a.00.33.0e.00.00.00.00",
+        "topic": "_fastdds_statistics_publication_throughput"
+      },
+      {
+        "participant_guid_prefix": "01.0f.ba.00.1a.00.33.0e.00.00.00.00",
+        "topic": "_fastdds_statistics_resent_datas"
+      },
+      {
+        "participant_guid_prefix": "01.0f.ba.00.1a.00.33.0e.00.00.00.00",
+        "topic": "_fastdds_statistics_rtps_lost"
+      },
+      {
+        "participant_guid_prefix": "01.0f.ba.00.1a.00.33.0e.00.00.00.00",
+        "topic": "_fastdds_statistics_rtps_sent"
+      },
+      {
+        "participant_guid_prefix": "01.0f.ba.00.1a.00.8f.0d.00.00.00.00",
+        "topic": "_fastdds_statistics_acknack_count"
+      },
+      {
+        "participant_guid_prefix": "01.0f.ba.00.1a.00.8f.0d.00.00.00.00",
+        "topic": "_fastdds_statistics_data_count"
+      },
+      {
+        "participant_guid_prefix": "01.0f.ba.00.1a.00.8f.0d.00.00.00.00",
+        "topic": "_fastdds_statistics_gap_count"
+      },
+      {
+        "participant_guid_prefix": "01.0f.ba.00.1a.00.8f.0d.00.00.00.00",
+        "topic": "_fastdds_statistics_heartbeat_count"
+      },
+      {
+        "participant_guid_prefix": "01.0f.ba.00.1a.00.8f.0d.00.00.00.00",
+        "topic": "_fastdds_statistics_history2history_latency"
+      },
+      {
+        "participant_guid_prefix": "01.0f.ba.00.1a.00.8f.0d.00.00.00.00",
+        "topic": "_fastdds_statistics_nackfrag_count"
+      },
+      {
+        "participant_guid_prefix": "01.0f.ba.00.1a.00.8f.0d.00.00.00.00",
+        "topic": "_fastdds_statistics_physical_data"
+      },
+      {
+        "participant_guid_prefix": "01.0f.ba.00.1a.00.8f.0d.00.00.00.00",
+        "topic": "_fastdds_statistics_publication_throughput"
+      },
+      {
+        "participant_guid_prefix": "01.0f.ba.00.1a.00.8f.0d.00.00.00.00",
+        "topic": "_fastdds_statistics_resent_datas"
+      },
+      {
+        "participant_guid_prefix": "01.0f.ba.00.1a.00.8f.0d.00.00.00.00",
+        "topic": "_fastdds_statistics_rtps_lost"
+      },
+      {
+        "participant_guid_prefix": "01.0f.ba.00.1a.00.8f.0d.00.00.00.00",
+        "topic": "_fastdds_statistics_rtps_sent"
+      }
+    ],
+    "throughput": {
+      "01.0f.ba.00.1a.00.33.0e.00.00.00.00|00.00.01.03": {
+        "last": 997433.0625,
+        "mean": 997433.0625,
+        "samples": 1
+      },
+      "01.0f.ba.00.1a.00.33.0e.00.00.00.00|00.00.03.03": {
+        "last": 111.69404602050781,
+        "mean": 112.0186055501302,
+        "samples": 6
+      },
+      "01.0f.ba.00.1a.00.33.0e.00.00.00.00|00.00.10.03": {
+        "last": 24816328.0,
+        "mean": 24816328.0,
+        "samples": 1
+      },
+      "01.0f.ba.00.1a.00.33.0e.00.00.00.00|00.00.14.03": {
+        "last": 23.92991828918457,
+        "mean": 24.00385506947835,
+        "samples": 6
+      }
+    },
+    "traffic": [
+      {
+        "bytes": 28624.0,
+        "bytes_first": 27384.0,
+        "dst_locator": {
+          "address": "127.0.0.1",
+          "kind": "UDPv4",
+          "port": 26662
+        },
+        "packets": 41,
+        "packets_first": 39,
+        "src_participant_guid_prefix": "01.0f.ba.00.1a.00.33.0e.00.00.00.00"
+      },
+      {
+        "bytes": 45344.0,
+        "bytes_first": 44104.0,
+        "dst_locator": {
+          "address": "127.0.0.1",
+          "kind": "UDPv4",
+          "port": 26664
+        },
+        "packets": 56,
+        "packets_first": 54,
+        "src_participant_guid_prefix": "01.0f.ba.00.1a.00.33.0e.00.00.00.00"
+      },
+      {
+        "bytes": 45344.0,
+        "bytes_first": 44104.0,
+        "dst_locator": {
+          "address": "127.0.0.1",
+          "kind": "UDPv4",
+          "port": 26666
+        },
+        "packets": 56,
+        "packets_first": 54,
+        "src_participant_guid_prefix": "01.0f.ba.00.1a.00.33.0e.00.00.00.00"
+      },
+      {
+        "bytes": 6200.0,
+        "bytes_first": 4960.0,
+        "dst_locator": {
+          "address": "239.255.0.1",
+          "kind": "UDPv4",
+          "port": 26650
+        },
+        "packets": 10,
+        "packets_first": 8,
+        "src_participant_guid_prefix": "01.0f.ba.00.1a.00.33.0e.00.00.00.00"
+      },
+      {
+        "bytes": 912.0,
+        "bytes_first": 576.0,
+        "dst_locator": {
+          "address": "",
+          "kind": "SHM",
+          "port": 7000
+        },
+        "packets": 8,
+        "packets_first": 5,
+        "src_participant_guid_prefix": "01.0f.ba.00.1a.00.33.0e.00.00.00.00"
+      },
+      {
+        "bytes": 2016.0,
+        "bytes_first": 1080.0,
+        "dst_locator": {
+          "address": "",
+          "kind": "SHM",
+          "port": 7001
+        },
+        "packets": 11,
+        "packets_first": 6,
+        "src_participant_guid_prefix": "01.0f.ba.00.1a.00.33.0e.00.00.00.00"
+      },
+      {
+        "bytes": 5448.0,
+        "bytes_first": 4252.0,
+        "dst_locator": {
+          "address": "",
+          "kind": "SHM",
+          "port": 26663
+        },
+        "packets": 37,
+        "packets_first": 30,
+        "src_participant_guid_prefix": "01.0f.ba.00.1a.00.33.0e.00.00.00.00"
+      },
+      {
+        "bytes": 1512.0,
+        "bytes_first": 1260.0,
+        "dst_locator": {
+          "address": "",
+          "kind": "SHM",
+          "port": 26665
+        },
+        "packets": 12,
+        "packets_first": 10,
+        "src_participant_guid_prefix": "01.0f.ba.00.1a.00.33.0e.00.00.00.00"
+      }
+    ]
+  },
+  "topics": [
+    {
+      "dds_topic": "rt/chatter",
+      "is_ros_topic": true,
+      "latency_s": null,
+      "lost_packets": 0,
+      "pairs": [
+        {
+          "confidence": "certain",
+          "locator": null,
+          "measured": {
+            "available": true,
+            "bytes": 1196.0,
+            "bytes_total": 5448.0,
+            "data_submessages": 5,
+            "delivered": false,
+            "delivered_samples": 0,
+            "latency_s": null,
+            "locators": [
+              {
+                "address": "",
+                "bytes": 1196.0,
+                "kind": "SHM",
+                "packets": 7,
+                "port": 26663
+              }
+            ],
+            "packets": 7,
+            "packets_total": 37,
+            "reliability": {
+              "acknacks": 0,
+              "gaps": 0,
+              "heartbeats": 7,
+              "lost_packets": 0,
+              "nackfrags": 0,
+              "resent_datas": 0
+            },
+            "throughput_bytes_per_s": 24.00385506947835,
+            "transports": [
+              "SHM"
+            ]
+          },
+          "reader_guid": "01.0f.ba.00.1a.00.8f.0d.00.00.00.00|00.00.14.04",
+          "reader_host": "local",
+          "reader_node": "_NODE_NAMESPACE_UNKNOWN_/_NODE_NAME_UNKNOWN_",
+          "reasons": [
+            "same-host-guid",
+            "datasharing-disabled-writer",
+            "both-shm-locators",
+            "shm-port-collision",
+            "measured-shm-traffic"
+          ],
+          "transport": "NONE",
+          "warnings": [
+            "shm-ipc-namespace-split"
+          ],
+          "writer_guid": "01.0f.ba.00.1a.00.33.0e.00.00.00.00|00.00.14.03",
+          "writer_host": "docker-desktop",
+          "writer_node": "/talker"
+        }
+      ],
+      "readers": [
+        {
+          "datasharing_history_bytes": null,
+          "dds_topic": "rt/chatter",
+          "dds_type": "std_msgs::msg::dds_::String_",
+          "guid": "01.0f.ba.00.1a.00.8f.0d.00.00.00.00|00.00.14.04",
+          "host": "local",
+          "host_id": "010fba00",
+          "host_name": "",
+          "multicast_locators": [],
+          "node": "_NODE_NAMESPACE_UNKNOWN_/_NODE_NAME_UNKNOWN_",
+          "participant_guid_prefix": "01.0f.ba.00.1a.00.8f.0d.00.00.00.00",
+          "process": "",
+          "qos": {
+            "data_sharing": "OFF",
+            "data_sharing_domain_ids": [],
+            "deadline_s": null,
+            "durability": "VOLATILE",
+            "liveliness": "AUTOMATIC",
+            "liveliness_lease_s": null,
+            "ownership": "SHARED",
+            "partitions": [],
+            "reliability": "RELIABLE"
+          },
+          "ros_topic": "/chatter",
+          "ros_type": "std_msgs/msg/String",
+          "unicast_locators": [
+            {
+              "address": "",
+              "kind": "SHM",
+              "port": 26663
+            },
+            {
+              "address": "127.0.0.1",
+              "kind": "UDPv4",
+              "port": 26663
+            }
+          ]
+        }
+      ],
+      "resent_datas": 0,
+      "throughput_bytes_per_s": 24.00385506947835,
+      "topic": "/chatter",
+      "type": "std_msgs/msg/String",
+      "unmatched_reasons": [],
+      "writers": [
+        {
+          "datasharing_history_bytes": null,
+          "dds_topic": "rt/chatter",
+          "dds_type": "std_msgs::msg::dds_::String_",
+          "guid": "01.0f.ba.00.1a.00.33.0e.00.00.00.00|00.00.14.03",
+          "host": "docker-desktop",
+          "host_id": "010fba00",
+          "host_name": "docker-desktop:4156124696635834368",
+          "multicast_locators": [],
+          "node": "/talker",
+          "participant_guid_prefix": "01.0f.ba.00.1a.00.33.0e.00.00.00.00",
+          "process": "26",
+          "qos": {
+            "data_sharing": "OFF",
+            "data_sharing_domain_ids": [],
+            "deadline_s": null,
+            "durability": "VOLATILE",
+            "liveliness": "AUTOMATIC",
+            "liveliness_lease_s": null,
+            "ownership": "SHARED",
+            "partitions": [],
+            "reliability": "RELIABLE"
+          },
+          "ros_topic": "/chatter",
+          "ros_type": "std_msgs/msg/String",
+          "unicast_locators": [
+            {
+              "address": "",
+              "kind": "SHM",
+              "port": 26661
+            },
+            {
+              "address": "127.0.0.1",
+              "kind": "UDPv4",
+              "port": 26661
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "dds_topic": "rt/parameter_events",
+      "is_ros_topic": true,
+      "latency_s": 7.49e-07,
+      "lost_packets": 0,
+      "pairs": [
+        {
+          "confidence": "certain",
+          "locator": {
+            "address": "",
+            "kind": "SHM",
+            "multicast": false,
+            "port": 26661
+          },
+          "measured": {
+            "available": true,
+            "bytes": 0.0,
+            "bytes_total": 0.0,
+            "data_submessages": 0,
+            "delivered": true,
+            "delivered_samples": 1,
+            "latency_s": {
+              "last": 7.49e-07,
+              "max": 7.49e-07,
+              "mean": 7.49e-07,
+              "min": 7.49e-07,
+              "samples": 1
+            },
+            "locators": [],
+            "packets": 0,
+            "packets_total": 0,
+            "reliability": {
+              "acknacks": 0,
+              "gaps": 0,
+              "heartbeats": 0,
+              "lost_packets": 0,
+              "nackfrags": 0,
+              "resent_datas": 0
+            },
+            "throughput_bytes_per_s": 24816328.0,
+            "transports": []
+          },
+          "reader_guid": "01.0f.ba.00.1a.00.33.0e.00.00.00.00|00.00.11.04",
+          "reader_host": "docker-desktop",
+          "reader_node": "/talker",
+          "reasons": [
+            "same-host-guid",
+            "datasharing-disabled-writer",
+            "both-shm-locators"
+          ],
+          "transport": "SHM",
+          "warnings": [
+            "delivered-without-measured-traffic"
+          ],
+          "writer_guid": "01.0f.ba.00.1a.00.33.0e.00.00.00.00|00.00.10.03",
+          "writer_host": "docker-desktop",
+          "writer_node": "/talker"
+        },
+        {
+          "confidence": "certain",
+          "locator": null,
+          "measured": {
+            "available": true,
+            "bytes": 1196.0,
+            "bytes_total": 5448.0,
+            "data_submessages": 0,
+            "delivered": false,
+            "delivered_samples": 0,
+            "latency_s": null,
+            "locators": [
+              {
+                "address": "",
+                "bytes": 1196.0,
+                "kind": "SHM",
+                "packets": 7,
+                "port": 26663
+              }
+            ],
+            "packets": 7,
+            "packets_total": 37,
+            "reliability": {
+              "acknacks": 0,
+              "gaps": 0,
+              "heartbeats": 0,
+              "lost_packets": 0,
+              "nackfrags": 0,
+              "resent_datas": 0
+            },
+            "throughput_bytes_per_s": 24816328.0,
+            "transports": [
+              "SHM"
+            ]
+          },
+          "reader_guid": "01.0f.ba.00.1a.00.8f.0d.00.00.00.00|00.00.11.04",
+          "reader_host": "local",
+          "reader_node": "_NODE_NAMESPACE_UNKNOWN_/_NODE_NAME_UNKNOWN_",
+          "reasons": [
+            "same-host-guid",
+            "datasharing-disabled-writer",
+            "both-shm-locators",
+            "shm-port-collision",
+            "measured-shm-traffic"
+          ],
+          "transport": "NONE",
+          "warnings": [
+            "shm-ipc-namespace-split"
+          ],
+          "writer_guid": "01.0f.ba.00.1a.00.33.0e.00.00.00.00|00.00.10.03",
+          "writer_host": "docker-desktop",
+          "writer_node": "/talker"
+        },
+        {
+          "confidence": "certain",
+          "locator": null,
+          "measured": {
+            "available": true,
+            "bytes": 0.0,
+            "bytes_total": 0.0,
+            "data_submessages": 0,
+            "delivered": false,
+            "delivered_samples": 0,
+            "latency_s": null,
+            "locators": [],
+            "packets": 0,
+            "packets_total": 0,
+            "reliability": {
+              "acknacks": 0,
+              "gaps": 0,
+              "heartbeats": 0,
+              "lost_packets": 0,
+              "nackfrags": 0,
+              "resent_datas": 0
+            },
+            "throughput_bytes_per_s": null,
+            "transports": []
+          },
+          "reader_guid": "01.0f.ba.00.1a.00.33.0e.00.00.00.00|00.00.11.04",
+          "reader_host": "docker-desktop",
+          "reader_node": "/talker",
+          "reasons": [
+            "same-host-guid",
+            "datasharing-disabled-writer",
+            "both-shm-locators",
+            "shm-port-collision"
+          ],
+          "transport": "NONE",
+          "warnings": [
+            "shm-ipc-namespace-split"
+          ],
+          "writer_guid": "01.0f.ba.00.1a.00.8f.0d.00.00.00.00|00.00.10.03",
+          "writer_host": "local",
+          "writer_node": "_NODE_NAMESPACE_UNKNOWN_/_NODE_NAME_UNKNOWN_"
+        },
+        {
+          "confidence": "certain",
+          "locator": {
+            "address": "",
+            "kind": "SHM",
+            "multicast": false,
+            "port": 26663
+          },
+          "measured": {
+            "available": true,
+            "bytes": 0.0,
+            "bytes_total": 0.0,
+            "data_submessages": 0,
+            "delivered": false,
+            "delivered_samples": 0,
+            "latency_s": null,
+            "locators": [],
+            "packets": 0,
+            "packets_total": 0,
+            "reliability": null,
+            "throughput_bytes_per_s": null,
+            "transports": []
+          },
+          "reader_guid": "01.0f.ba.00.1a.00.8f.0d.00.00.00.00|00.00.11.04",
+          "reader_host": "local",
+          "reader_node": "_NODE_NAMESPACE_UNKNOWN_/_NODE_NAME_UNKNOWN_",
+          "reasons": [
+            "same-host-guid",
+            "datasharing-disabled-writer",
+            "both-shm-locators"
+          ],
+          "transport": "SHM",
+          "warnings": [
+            "no-traffic-observed"
+          ],
+          "writer_guid": "01.0f.ba.00.1a.00.8f.0d.00.00.00.00|00.00.10.03",
+          "writer_host": "local",
+          "writer_node": "_NODE_NAMESPACE_UNKNOWN_/_NODE_NAME_UNKNOWN_"
+        }
+      ],
+      "readers": [
+        {
+          "datasharing_history_bytes": null,
+          "dds_topic": "rt/parameter_events",
+          "dds_type": "rcl_interfaces::msg::dds_::ParameterEvent_",
+          "guid": "01.0f.ba.00.1a.00.33.0e.00.00.00.00|00.00.11.04",
+          "host": "docker-desktop",
+          "host_id": "010fba00",
+          "host_name": "docker-desktop:4156124696635834368",
+          "multicast_locators": [],
+          "node": "/talker",
+          "participant_guid_prefix": "01.0f.ba.00.1a.00.33.0e.00.00.00.00",
+          "process": "26",
+          "qos": {
+            "data_sharing": "OFF",
+            "data_sharing_domain_ids": [],
+            "deadline_s": null,
+            "durability": "VOLATILE",
+            "liveliness": "AUTOMATIC",
+            "liveliness_lease_s": null,
+            "ownership": "SHARED",
+            "partitions": [],
+            "reliability": "RELIABLE"
+          },
+          "ros_topic": "/parameter_events",
+          "ros_type": "rcl_interfaces/msg/ParameterEvent",
+          "unicast_locators": [
+            {
+              "address": "",
+              "kind": "SHM",
+              "port": 26661
+            },
+            {
+              "address": "127.0.0.1",
+              "kind": "UDPv4",
+              "port": 26661
+            }
+          ]
+        },
+        {
+          "datasharing_history_bytes": null,
+          "dds_topic": "rt/parameter_events",
+          "dds_type": "rcl_interfaces::msg::dds_::ParameterEvent_",
+          "guid": "01.0f.ba.00.1a.00.8f.0d.00.00.00.00|00.00.11.04",
+          "host": "local",
+          "host_id": "010fba00",
+          "host_name": "",
+          "multicast_locators": [],
+          "node": "_NODE_NAMESPACE_UNKNOWN_/_NODE_NAME_UNKNOWN_",
+          "participant_guid_prefix": "01.0f.ba.00.1a.00.8f.0d.00.00.00.00",
+          "process": "",
+          "qos": {
+            "data_sharing": "OFF",
+            "data_sharing_domain_ids": [],
+            "deadline_s": null,
+            "durability": "VOLATILE",
+            "liveliness": "AUTOMATIC",
+            "liveliness_lease_s": null,
+            "ownership": "SHARED",
+            "partitions": [],
+            "reliability": "RELIABLE"
+          },
+          "ros_topic": "/parameter_events",
+          "ros_type": "rcl_interfaces/msg/ParameterEvent",
+          "unicast_locators": [
+            {
+              "address": "",
+              "kind": "SHM",
+              "port": 26663
+            },
+            {
+              "address": "127.0.0.1",
+              "kind": "UDPv4",
+              "port": 26663
+            }
+          ]
+        }
+      ],
+      "resent_datas": 0,
+      "throughput_bytes_per_s": 24816328.0,
+      "topic": "/parameter_events",
+      "type": "rcl_interfaces/msg/ParameterEvent",
+      "unmatched_reasons": [],
+      "writers": [
+        {
+          "datasharing_history_bytes": null,
+          "dds_topic": "rt/parameter_events",
+          "dds_type": "rcl_interfaces::msg::dds_::ParameterEvent_",
+          "guid": "01.0f.ba.00.1a.00.33.0e.00.00.00.00|00.00.10.03",
+          "host": "docker-desktop",
+          "host_id": "010fba00",
+          "host_name": "docker-desktop:4156124696635834368",
+          "multicast_locators": [],
+          "node": "/talker",
+          "participant_guid_prefix": "01.0f.ba.00.1a.00.33.0e.00.00.00.00",
+          "process": "26",
+          "qos": {
+            "data_sharing": "OFF",
+            "data_sharing_domain_ids": [],
+            "deadline_s": null,
+            "durability": "VOLATILE",
+            "liveliness": "AUTOMATIC",
+            "liveliness_lease_s": null,
+            "ownership": "SHARED",
+            "partitions": [],
+            "reliability": "RELIABLE"
+          },
+          "ros_topic": "/parameter_events",
+          "ros_type": "rcl_interfaces/msg/ParameterEvent",
+          "unicast_locators": [
+            {
+              "address": "",
+              "kind": "SHM",
+              "port": 26661
+            },
+            {
+              "address": "127.0.0.1",
+              "kind": "UDPv4",
+              "port": 26661
+            }
+          ]
+        },
+        {
+          "datasharing_history_bytes": null,
+          "dds_topic": "rt/parameter_events",
+          "dds_type": "rcl_interfaces::msg::dds_::ParameterEvent_",
+          "guid": "01.0f.ba.00.1a.00.8f.0d.00.00.00.00|00.00.10.03",
+          "host": "local",
+          "host_id": "010fba00",
+          "host_name": "",
+          "multicast_locators": [],
+          "node": "_NODE_NAMESPACE_UNKNOWN_/_NODE_NAME_UNKNOWN_",
+          "participant_guid_prefix": "01.0f.ba.00.1a.00.8f.0d.00.00.00.00",
+          "process": "",
+          "qos": {
+            "data_sharing": "OFF",
+            "data_sharing_domain_ids": [],
+            "deadline_s": null,
+            "durability": "VOLATILE",
+            "liveliness": "AUTOMATIC",
+            "liveliness_lease_s": null,
+            "ownership": "SHARED",
+            "partitions": [],
+            "reliability": "RELIABLE"
+          },
+          "ros_topic": "/parameter_events",
+          "ros_type": "rcl_interfaces/msg/ParameterEvent",
+          "unicast_locators": [
+            {
+              "address": "",
+              "kind": "SHM",
+              "port": 26663
+            },
+            {
+              "address": "127.0.0.1",
+              "kind": "UDPv4",
+              "port": 26663
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "dds_topic": "rt/rosout",
+      "is_ros_topic": true,
+      "latency_s": null,
+      "lost_packets": null,
+      "pairs": [],
+      "readers": [],
+      "resent_datas": null,
+      "throughput_bytes_per_s": 112.0186055501302,
+      "topic": "/rosout",
+      "type": "rcl_interfaces/msg/Log",
+      "unmatched_reasons": [
+        "no-matching-reader"
+      ],
+      "writers": [
+        {
+          "datasharing_history_bytes": null,
+          "dds_topic": "rt/rosout",
+          "dds_type": "rcl_interfaces::msg::dds_::Log_",
+          "guid": "01.0f.ba.00.1a.00.33.0e.00.00.00.00|00.00.03.03",
+          "host": "docker-desktop",
+          "host_id": "010fba00",
+          "host_name": "docker-desktop:4156124696635834368",
+          "multicast_locators": [],
+          "node": "/talker",
+          "participant_guid_prefix": "01.0f.ba.00.1a.00.33.0e.00.00.00.00",
+          "process": "26",
+          "qos": {
+            "data_sharing": "OFF",
+            "data_sharing_domain_ids": [],
+            "deadline_s": null,
+            "durability": "TRANSIENT_LOCAL",
+            "liveliness": "AUTOMATIC",
+            "liveliness_lease_s": null,
+            "ownership": "SHARED",
+            "partitions": [],
+            "reliability": "RELIABLE"
+          },
+          "ros_topic": "/rosout",
+          "ros_type": "rcl_interfaces/msg/Log",
+          "unicast_locators": [
+            {
+              "address": "",
+              "kind": "SHM",
+              "port": 26661
+            },
+            {
+              "address": "127.0.0.1",
+              "kind": "UDPv4",
+              "port": 26661
+            }
+          ]
+        },
+        {
+          "datasharing_history_bytes": null,
+          "dds_topic": "rt/rosout",
+          "dds_type": "rcl_interfaces::msg::dds_::Log_",
+          "guid": "01.0f.ba.00.1a.00.8f.0d.00.00.00.00|00.00.03.03",
+          "host": "local",
+          "host_id": "010fba00",
+          "host_name": "",
+          "multicast_locators": [],
+          "node": "_NODE_NAMESPACE_UNKNOWN_/_NODE_NAME_UNKNOWN_",
+          "participant_guid_prefix": "01.0f.ba.00.1a.00.8f.0d.00.00.00.00",
+          "process": "",
+          "qos": {
+            "data_sharing": "OFF",
+            "data_sharing_domain_ids": [],
+            "deadline_s": null,
+            "durability": "TRANSIENT_LOCAL",
+            "liveliness": "AUTOMATIC",
+            "liveliness_lease_s": null,
+            "ownership": "SHARED",
+            "partitions": [],
+            "reliability": "RELIABLE"
+          },
+          "ros_topic": "/rosout",
+          "ros_type": "rcl_interfaces/msg/Log",
+          "unicast_locators": [
+            {
+              "address": "",
+              "kind": "SHM",
+              "port": 26663
+            },
+            {
+              "address": "127.0.0.1",
+              "kind": "UDPv4",
+              "port": 26663
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

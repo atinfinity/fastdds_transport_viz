@@ -25,7 +25,10 @@ namespace fastdds_transport_viz
 std::vector<std::string> qos_incompatibilities(const Endpoint & writer, const Endpoint & reader);
 
 /// Predict the transport for one writer -> reader pair. An incompatible QoS gives NONE
-/// with qos-incompatible-<policy> reasons and the warning qos-incompatible.
+/// with qos-incompatible-<policy> reasons and the warning qos-incompatible; a same-host SHM
+/// pair whose participants listen in different IPC namespaces (the same SHM port number, or
+/// Endpoint::participant_shm_visibility Visible on one side and NotVisible on the other)
+/// gives NONE with the warning shm-ipc-namespace-split.
 Verdict decide(const Endpoint & writer, const Endpoint & reader);
 
 /// Build topic summaries (writer x reader pairs + verdicts) from endpoints.

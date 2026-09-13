@@ -182,6 +182,45 @@ std::vector<std::string> qos_incompatibilities(const Endpoint & writer, const En
   return out;
 }
 
+namespace
+{
+
+std::set<uint32_t> shm_ports(const Endpoint & e)
+{
+  std::set<uint32_t> out = e.participant_shm_ports;
+  for (const auto & l : e.unicast) {
+    if (l.kind == LocatorKind::SHM) {out.insert(l.port);}
+  }
+  return out;
+}
+
+/// Evidence that two same-host participants listen for SHM in different IPC namespaces.
+/// A unicast SHM port is listened on by one participant per namespace, so the same number
+/// announced by both proves it from any of the host's IPC namespaces; otherwise one side
+/// visible from the tool's namespace and the other not does.
+std::vector<std::string> ipc_split_reasons(const Endpoint & writer, const Endpoint & reader)
+{
+  std::vector<std::string> out;
+  if (writer.participant_guid_prefix == reader.participant_guid_prefix) {
+    return out;
+  }
+  const auto wp = shm_ports(writer);
+  const auto rp = shm_ports(reader);
+  if (std::any_of(wp.begin(), wp.end(), [&rp](uint32_t p) {return rp.count(p) > 0;})) {
+    out.push_back("shm-port-collision");
+  }
+  const auto wv = writer.participant_shm_visibility;
+  const auto rv = reader.participant_shm_visibility;
+  if (wv == ShmVisibility::Visible && rv == ShmVisibility::NotVisible) {
+    out.push_back("shm-reader-port-not-visible");
+  } else if (wv == ShmVisibility::NotVisible && rv == ShmVisibility::Visible) {
+    out.push_back("shm-writer-port-not-visible");
+  }
+  return out;
+}
+
+}  // namespace
+
 Verdict decide(const Endpoint & writer, const Endpoint & reader)
 {
   Verdict v;
@@ -246,11 +285,21 @@ Verdict decide(const Endpoint & writer, const Endpoint & reader)
     }
 
     if (w_shm && r_shm) {
+      v.reasons.push_back("both-shm-locators");
+      const auto split = ipc_split_reasons(writer, reader);
+      if (!split.empty()) {
+        // Fast DDS still selects SHM, but the writer pushes into a port of its own
+        // /dev/shm that nobody on the reader's side listens to: nothing arrives.
+        v.transport = Transport::None;
+        v.confidence = Confidence::Certain;
+        v.reasons.insert(v.reasons.end(), split.begin(), split.end());
+        v.warnings.push_back("shm-ipc-namespace-split");
+        return v;
+      }
       v.transport = Transport::SHM;
       // The reader's SHM locator names the /dev/shm port the writer will write into,
       // exactly as a network locator names the address it will send to.
       if (const Locator * l = find_locator(reader, LocatorKind::SHM)) {v.locator = *l;}
-      v.reasons.push_back("both-shm-locators");
       return v;
     }
     if (!w_shm) {
@@ -593,6 +642,19 @@ void apply_stats(std::vector<TopicSummary> & topics, const StatsData & stats)
         }
         continue;
       }
+      if (std::find(v.warnings.begin(), v.warnings.end(), "shm-ipc-namespace-split") !=
+        v.warnings.end())
+      {
+        // The writer does send over SHM (into its own /dev/shm), so traffic is expected and
+        // confirms nothing; only a delivery proof contradicts the split.
+        for (auto tr : m.transports) {
+          v.reasons.push_back(measured_reason(tr));
+        }
+        if (m.delivered) {
+          v.warnings.push_back("shm-ipc-namespace-split-but-delivered");
+        }
+        continue;
+      }
       if (!m.available) {
         v.warnings.push_back("stats-not-enabled-on-writer");
         continue;
@@ -864,6 +926,32 @@ const std::map<std::string, CodeInfo> & explanations()
         "Both endpoints announce SHM locators, but they are on different hosts so the SHM "
         "locators are discarded.",
         std::nullopt}},
+    {"shm-ipc-namespace-split", {
+        "The writer and the reader have the same host id and both announce SHM, but their "
+        "shared-memory ports are in different IPC namespaces: Fast DDS still selects SHM and "
+        "every sample between them is lost.",
+        "Put both nodes in one IPC namespace (ipc: host on both containers, or the same "
+        "container), or disable SHM on one side (FASTDDS_BUILTIN_TRANSPORTS=UDPv4 on Fast DDS "
+        ">= 2.11, or an XML transport profile)."}},
+    {"shm-port-collision", {
+        "The writer's and the reader's participants announce the same SHM port number. Only one "
+        "participant per IPC namespace can listen on a port, so the two use different /dev/shm.",
+        std::nullopt}},
+    {"shm-reader-port-not-visible", {
+        "The writer's SHM ports are open in the tool's IPC namespace and a port of the reader's "
+        "is not (no lock file here, or it is one of the tool's own ports), so the two use "
+        "different /dev/shm.",
+        std::nullopt}},
+    {"shm-writer-port-not-visible", {
+        "The reader's SHM ports are open in the tool's IPC namespace and a port of the writer's "
+        "is not (no lock file here, or it is one of the tool's own ports), so the two use "
+        "different /dev/shm.",
+        std::nullopt}},
+    {"shm-ipc-namespace-split-but-delivered", {
+        "HISTORY_LATENCY statistics prove that samples reached the reader although the writer and "
+        "the reader were judged to be in different IPC namespaces: the tool's split detection is "
+        "wrong for this setup. Please report this with the --json output.",
+        std::nullopt}},
     {"common-udpv4-locator", {
         "The reader announces a UDPv4 locator and the writer speaks UDPv4.", std::nullopt}},
     {"common-udpv6-locator", {
@@ -879,7 +967,8 @@ const std::map<std::string, CodeInfo> & explanations()
         "both XML participant profiles."}},
     {"host-id-match-but-ip-differs", {
         "The endpoints share a host id but announce no common IP address (typical for containers "
-        "with separate network namespaces on one machine). SHM works only if /dev/shm is shared.",
+        "with separate network namespaces on one machine). SHM works only if /dev/shm is shared "
+        "(the pair gets shm-ipc-namespace-split when the tool can tell that it is not).",
         "Share /dev/shm between the containers (--ipc host on both, or --ipc container:<name>) so "
         "that the SHM verdict holds; otherwise put them on one network for UDP."}},
     {"same-host-locators-hidden", {
@@ -1103,7 +1192,9 @@ const std::map<std::string, CodeInfo> & explanations()
         "or the node has another host id): they run in another IPC namespace or on another host, "
         "so the shared-memory figures describe this environment, not theirs, and SHM cannot be "
         "used between them and here. Nodes with the same host id in different IPC namespaces "
-        "still pick SHM between themselves, and every message between them is lost.",
+        "still pick SHM between themselves and lose every message; their pairs get "
+        "shm-ipc-namespace-split when the nodes announce the same SHM port number or the tool "
+        "shares the IPC namespace of one of them, and cannot be checked from here otherwise.",
         "Run the tool where the nodes run (same host and IPC namespace: the same container, or "
         "--ipc=host on both) if the shared-memory line should describe their /dev/shm."}},
   };
