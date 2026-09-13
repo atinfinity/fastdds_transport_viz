@@ -45,6 +45,16 @@ x-large-data-env: &large_data_env
   FASTDDS_STATISTICS: RTPS_SENT_TOPIC;RTPS_LOST_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC;DATA_COUNT_TOPIC;PUBLICATION_THROUGHPUT_TOPIC;RESENT_DATAS_TOPIC;HEARTBEAT_COUNT_TOPIC;ACKNACK_COUNT_TOPIC;NACKFRAG_COUNT_TOPIC;GAP_COUNT_TOPIC
   FASTRTPS_DEFAULT_PROFILES_FILE: /ws/src/fastdds_transport_viz/config/statistics.xml
 
+# Fast DDS 3.2+ Easy Mode (ROS2_EASY_MODE, Kilted / Lyrical / Rolling): every container
+# spawns its own Discovery Server and points it at the talker's fixed address; user data
+# goes over TCPv4 (P2P builtin transport, no multicast at all). Statistics enabled.
+x-easy-mode-env: &easy_mode_env
+  ROS_DOMAIN_ID: ${ROS_DOMAIN_ID:-0}
+  RMW_IMPLEMENTATION: ${RMW_IMPLEMENTATION:-rmw_fastrtps_cpp}
+  ROS2_EASY_MODE: 172.28.0.10
+  FASTDDS_STATISTICS: RTPS_SENT_TOPIC;RTPS_LOST_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC;DATA_COUNT_TOPIC;PUBLICATION_THROUGHPUT_TOPIC;RESENT_DATAS_TOPIC;HEARTBEAT_COUNT_TOPIC;ACKNACK_COUNT_TOPIC;NACKFRAG_COUNT_TOPIC;GAP_COUNT_TOPIC
+  FASTRTPS_DEFAULT_PROFILES_FILE: /ws/src/fastdds_transport_viz/config/statistics.xml
+
 services:
   dev:
     <<: *base
@@ -99,6 +109,23 @@ services:
       - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-0}
       - RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION:-rmw_fastrtps_cpp}
       - FASTDDS_BUILTIN_TRANSPORTS=DEFAULTv6
+    command: ros2 run demo_nodes_cpp listener
+
+  # Same two containers in Easy Mode (Fast DDS 3.2+ only): fixed addresses so that
+  # ROS2_EASY_MODE can name the talker's host; the listener's server meshes with it.
+  talker_easy_mode:
+    <<: *base
+    environment: *easy_mode_env
+    networks:
+      default:
+        ipv4_address: 172.28.0.10
+    command: ros2 run demo_nodes_cpp talker
+  listener_easy_mode:
+    <<: *base
+    environment: *easy_mode_env
+    networks:
+      default:
+        ipv4_address: 172.28.0.11
     command: ros2 run demo_nodes_cpp listener
 
   # Shares the Docker host's network and IPC namespaces: two of these get the
