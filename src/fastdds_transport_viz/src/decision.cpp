@@ -698,6 +698,17 @@ void apply_stats(std::vector<TopicSummary> & topics, const StatsData & stats)
         if (m.delivered) {
           v.warnings.push_back("shm-ipc-namespace-split-but-delivered");
         }
+        // Fast DDS keeps same-host traffic between two SHM participants on SHM, so non-SHM
+        // packets in the window contradict the split too. Not without SHM on one side: the
+        // other endpoints of the two participants then legitimately talk over UDP.
+        const auto & rs = v.reasons;
+        const bool both_shm = std::find(rs.begin(), rs.end(), "both-shm-locators") != rs.end();
+        auto non_shm_in_window = [](const MeasuredLocator & l) {
+            return l.locator.kind != LocatorKind::SHM && l.packets > 0;
+          };
+        if (both_shm && std::any_of(m.locators.begin(), m.locators.end(), non_shm_in_window)) {
+          v.warnings.push_back("shm-ipc-namespace-split-but-non-shm-traffic");
+        }
         continue;
       }
       if (!m.available) {
@@ -1010,6 +1021,13 @@ const std::map<std::string, CodeInfo> & explanations()
         "HISTORY_LATENCY statistics prove that samples reached the reader although the writer and "
         "the reader were judged to be in different IPC namespaces: the tool's split detection is "
         "wrong for this setup. Please report this with the --json output.",
+        std::nullopt}},
+    {"shm-ipc-namespace-split-but-non-shm-traffic", {
+        "RTPS_SENT statistics show non-SHM packets from the writer's participant to the "
+        "reader's locators during the observation, although both announce SHM and were judged "
+        "to be in different IPC namespaces: Fast DDS sends same-host traffic over SHM only, so "
+        "the split detection may be wrong for this setup. Please report this with the --json "
+        "output.",
         std::nullopt}},
     {"common-udpv4-locator", {
         "The reader announces a UDPv4 locator and the writer speaks UDPv4.", std::nullopt}},

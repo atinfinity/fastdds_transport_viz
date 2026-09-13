@@ -337,7 +337,13 @@ samples are lost the same way ([#112](https://github.com/atinfinity/fastdds_tran
 With `--stats` the writer's SHM traffic on such a pair is expected (it writes into the
 port file in its own `/dev/shm`; a data-sharing writer still sends heartbeats), so the pair
 stays `NONE`. Only a proven delivery adds
-`shm-ipc-namespace-split-but-delivered`, since it contradicts the split. The statistics
+`shm-ipc-namespace-split-but-delivered`, since it contradicts the split. So do non-SHM
+packets during the observation when both endpoints announce SHM: Fast DDS sends same-host
+traffic between them over SHM only, and the pair gets
+`shm-ipc-namespace-split-but-non-shm-traffic` ([#111](https://github.com/atinfinity/fastdds_transport_viz/issues/111)).
+Both warnings keep the verdict and ask for a report. A data-sharing pair without SHM on one
+side is not flagged: the statistics are per participant, and the other endpoints of the two
+nodes legitimately talk over UDP. The statistics
 themselves are not lost across IPC namespaces: the tool's statistics readers announce the
 participant's UDP (or TCP) locators but no SHM locator, so a same-host writer sends its
 statistics over the network stack wherever the tool runs ([#106](https://github.com/atinfinity/fastdds_transport_viz/issues/106)).
