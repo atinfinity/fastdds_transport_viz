@@ -45,6 +45,38 @@
 #include "fastdds_transport_viz/shm_info.hpp"
 #include "fastdds_transport_viz/stats_observer.hpp"
 
+namespace
+{
+
+// Sends fd 1 to fd 2 for the lifetime of the object (or until restore()).
+class StdoutToStderr
+{
+public:
+  explicit StdoutToStderr(bool enable)
+  {
+    if (enable) {
+      std::fflush(stdout);
+      saved_ = dup(STDOUT_FILENO);
+      dup2(STDERR_FILENO, STDOUT_FILENO);
+    }
+  }
+  ~StdoutToStderr() {restore();}
+  void restore()
+  {
+    if (saved_ >= 0) {
+      std::fflush(stdout);
+      dup2(saved_, STDOUT_FILENO);
+      close(saved_);
+      saved_ = -1;
+    }
+  }
+
+private:
+  int saved_ = -1;
+};
+
+}  // namespace
+
 using namespace std::chrono_literals;
 using fastdds_transport_viz::Endpoint;
 using fastdds_transport_viz::GhostPair;
@@ -739,6 +771,14 @@ int main(int argc, char ** argv)
         "(set ROS_SUPER_CLIENT to override)\n";
     }
   }
+  // Easy Mode (Fast DDS 3.2+): the nodes are SUPER_CLIENTs of a Discovery Server that Fast
+  // DDS spawns per host; our participants get the same treatment from the environment.
+  const char * easy_mode = std::getenv("ROS2_EASY_MODE");
+  const bool easy_mode_on = easy_mode != nullptr && *easy_mode != '\0';
+  if (easy_mode_on) {
+    std::cerr << "ROS2_EASY_MODE=" << easy_mode
+              << ": observing through this host's Discovery Server (Easy Mode)\n";
+  }
   if (const char * range = std::getenv("ROS_AUTOMATIC_DISCOVERY_RANGE");
     range != nullptr && std::string(range) == "OFF")
   {
@@ -753,6 +793,10 @@ int main(int argc, char ** argv)
     .start_parameter_event_publisher(false)
     .enable_rosout(false)
     .parameter_overrides({rclcpp::Parameter("start_type_description_service", false)});
+    // In Easy Mode Fast DDS runs `fastdds discovery auto` for every participant it creates,
+    // and that CLI reports on stdout ("The Fast DDS daemon is already running." ...), which
+    // would corrupt --json: route stdout to stderr while the participants come up.
+    StdoutToStderr cli_noise(easy_mode_on);
     auto node = std::make_shared<rclcpp::Node>(
       "_transport_viz_" + std::to_string(getpid()), node_opts);
     fastdds_transport_viz::RosGraphResolver resolver(node);
@@ -761,6 +805,7 @@ int main(int argc, char ** argv)
     if (o.stats) {
       stats = std::make_unique<fastdds_transport_viz::StatsObserver>(observer.participant());
     }
+    cli_noise.restore();
 
     RenderOptions ropt;
     ropt.verbose = o.verbose;
