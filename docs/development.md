@@ -54,7 +54,10 @@ in a third container on the same scope and asserts the verdict:
 | `easy_mode_tcp` | `talker_easy_mode`, `listener_easy_mode`: bridged with fixed addresses, `ROS2_EASY_MODE` pointing at the talker's, statistics; the tool runs on the talker's host | `TCPv4`, `common-tcpv4-locator`, measured `TCPv4`, no multicast locator |
 | `all` | the thirteen above in sequence | |
 
-Output goes to `${TMPDIR:-/tmp}/transport_viz_<scenario>.json`.
+Output goes to `${TMPDIR:-/tmp}/transport_viz_<scenario>.json`. `hostnet_noipc_shm` and
+every `hostnet_split_*` scenario also assert the real `writer_node` / `reader_node`, which
+reach the tool only through its own `ros_discovery_info` reader
+([#112](https://github.com/atinfinity/fastdds_transport_viz/issues/112)).
 
 ## Two physical hosts
 

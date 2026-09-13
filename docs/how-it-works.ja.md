@@ -96,8 +96,8 @@ publish します。rclcpp の participant は SHM を広告するため、ツ�
 `ros_discovery_info` を自分で読みます。その reader は統計の reader と同じく、participant の SHM 以外の
 unicast locator (UDP、`LARGE_DATA` では TCP) だけを広告します。Humble ではこの reader は SHM
 トランスポートを持たない専用の participant に置きます。Fast DDS 2.6 は、SHM を持つ participant が受け取る
-discovery データから同一ホストのエンドポイントの SHM 以外の locator を取り除くため、生の participant からは
-ノードの writer に SHM でしか届かないからです。この名前でグラフ API が名前を返さない
+discovery データから同一ホストのエンドポイントの SHM 以外の locator を取り除くため、ノードの writer は
+生の participant 上の reader に SHM でしか送れないからです。この名前でグラフ API が名前を返さない
 エンドポイントを補い、両方で分かる場合はグラフ API の名前を使います。ノードかツールに SHM 以外の
 トランスポートが無い場合 (`FASTDDS_BUILTIN_TRANSPORTS=SHM`) や、ノードのサンプルを復号できない場合
 (別の ROS ディストリビューションのノード。GID は Humble で 24 バイト、Jazzy 以降で 16 バイト) は、
