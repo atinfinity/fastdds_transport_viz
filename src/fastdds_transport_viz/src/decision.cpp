@@ -196,8 +196,8 @@ std::set<uint32_t> shm_ports(const Endpoint & e)
 
 /// Evidence that two same-host participants listen for SHM in different IPC namespaces.
 /// A unicast SHM port is listened on by one participant per namespace, so the same number
-/// announced by both proves it wherever the tool runs; otherwise one side visible from the
-/// tool's namespace and the other not does.
+/// announced by both proves it from any of the host's IPC namespaces; otherwise one side
+/// visible from the tool's namespace and the other not does.
 std::vector<std::string> ipc_split_reasons(const Endpoint & writer, const Endpoint & reader)
 {
   std::vector<std::string> out;
@@ -938,14 +938,14 @@ const std::map<std::string, CodeInfo> & explanations()
         "participant per IPC namespace can listen on a port, so the two use different /dev/shm.",
         std::nullopt}},
     {"shm-reader-port-not-visible", {
-        "The writer's SHM ports are open in the tool's IPC namespace and the reader's are not "
-        "(nobody holds their lock here, or they collide with the tool's own ports), so the two "
-        "use different /dev/shm.",
+        "The writer's SHM ports are open in the tool's IPC namespace and a port of the reader's "
+        "is not (no lock file here, or it is one of the tool's own ports), so the two use "
+        "different /dev/shm.",
         std::nullopt}},
     {"shm-writer-port-not-visible", {
-        "The reader's SHM ports are open in the tool's IPC namespace and the writer's are not "
-        "(nobody holds their lock here, or they collide with the tool's own ports), so the two "
-        "use different /dev/shm.",
+        "The reader's SHM ports are open in the tool's IPC namespace and a port of the writer's "
+        "is not (no lock file here, or it is one of the tool's own ports), so the two use "
+        "different /dev/shm.",
         std::nullopt}},
     {"shm-ipc-namespace-split-but-delivered", {
         "HISTORY_LATENCY statistics prove that samples reached the reader although the writer and "

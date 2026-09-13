@@ -229,6 +229,50 @@ TEST(Decision, OneSideVisibleFromTheToolIsAnIpcSplit)
   }
 }
 
+TEST(Decision, IpcSplitRuleOrderAndScope)
+{
+  auto split_pair = [](DataSharingKind ds) {
+      auto w = make(true, HOST_A, {shm(16911)}, ds);
+      auto r = make(false, HOST_A, {shm(16911)}, ds);
+      w.participant_guid_prefix = "P1";
+      r.participant_guid_prefix = "P2";
+      return std::pair{w, r};
+    };
+
+  // QoS incompatibility wins: the endpoints do not even match
+  auto [w, r] = split_pair(DataSharingKind::Off);
+  w.qos.reliability = "BEST_EFFORT";
+  r.qos.reliability = "RELIABLE";
+  auto v = decide(w, r);
+  EXPECT_TRUE(has(v.warnings, "qos-incompatible"));
+  EXPECT_FALSE(has(v.warnings, "shm-ipc-namespace-split"));
+  EXPECT_FALSE(has(v.reasons, "shm-port-collision"));
+
+  // data-sharing is decided before the transports
+  std::tie(w, r) = split_pair(DataSharingKind::On);
+  v = decide(w, r);
+  EXPECT_EQ(v.transport, Transport::DataSharing);
+  EXPECT_FALSE(has(v.warnings, "shm-ipc-namespace-split"));
+
+  // another host id: not an SHM pair at all
+  std::tie(w, r) = split_pair(DataSharingKind::Off);
+  r.host_id = HOST_B;
+  v = decide(w, r);
+  EXPECT_FALSE(has(v.warnings, "shm-ipc-namespace-split"));
+  EXPECT_FALSE(has(v.reasons, "shm-port-collision"));
+
+  // multicast SHM numbers are shared on purpose: only unicast ports collide
+  w = make(true, HOST_A, {shm(16161)});
+  r = make(false, HOST_A, {shm(16163)});
+  w.participant_guid_prefix = "P1";
+  r.participant_guid_prefix = "P2";
+  w.multicast.push_back(shm(7400));
+  r.multicast.push_back(shm(7400));
+  v = decide(w, r);
+  EXPECT_EQ(v.transport, Transport::SHM);
+  EXPECT_TRUE(v.warnings.empty());
+}
+
 TEST(Decision, EveryEmittedCodeHasAnExplanation)
 {
   for (const auto & code : known_codes()) {
@@ -415,6 +459,14 @@ TEST(ApplyStats, IpcSplitKeepsNoneDespiteShmTraffic)
   apply_stats(topics, stats);
   EXPECT_TRUE(has(topics[0].pairs[0].verdict.warnings, "shm-ipc-namespace-split-but-delivered"));
   EXPECT_EQ(topics[0].pairs[0].verdict.transport, Transport::None);
+
+  // nothing is expected to flow, so a writer without statistics is not worth a warning
+  topics = summarize(eps);
+  StatsData none;
+  none.enabled = true;
+  apply_stats(topics, none);
+  EXPECT_EQ(
+    topics[0].pairs[0].verdict.warnings, (std::vector<std::string>{"shm-ipc-namespace-split"}));
 }
 
 TEST(ApplyStats, LoopbackReaderLocatorMatchesTrafficToLocalAddress)

@@ -130,7 +130,9 @@ ShmInfo scan_shm(const std::string & path, const ShmScanInput & in)
     return info;
   }
   std::set<std::string> ports_held;   // port files whose lock a living process holds
-  std::set<std::string> ports_unknown;   // port files whose lock could not be probed
+  // port files whose lock could not be probed, or is free: a node that just died may still
+  // be discovered, so a free lock does not prove that its owner lives in another namespace
+  std::set<std::string> ports_undecided;
   while (struct dirent * ent = ::readdir(dir)) {
     const std::string name = ent->d_name;
     const char * segment_prefix = prefix_of(name, kSegmentPrefixes);
@@ -151,7 +153,7 @@ ShmInfo scan_shm(const std::string & path, const ShmScanInput & in)
       const auto st = probe_lock(full + kLockSuffix);
       if (st == LockState::Free) {++info.stale_ports;}
       if (st == LockState::Held) {ports_held.insert(port);}
-      if (st == LockState::Unknown) {ports_unknown.insert(port);}
+      if (st == LockState::Free || st == LockState::Unknown) {ports_undecided.insert(port);}
     } else if (segment_prefix != nullptr) {
       if (!is_hex(name.substr(std::string(segment_prefix).size()))) {continue;}
       ++info.segments;
@@ -176,7 +178,7 @@ ShmInfo scan_shm(const std::string & path, const ShmScanInput & in)
     info.checked_ports.push_back(port);
     if (in.own_ports.count(port) || !ports_held.count(std::to_string(port))) {
       info.missing_ports.push_back(port);
-      if (!in.own_ports.count(port) && ports_unknown.count(std::to_string(port))) {
+      if (!in.own_ports.count(port) && ports_undecided.count(std::to_string(port))) {
         info.unknown_ports.push_back(port);
       }
     }
@@ -211,7 +213,7 @@ ShmVisibility participant_shm_visibility(
       all_held = false;   // not probed
     } else if (contains(info.missing_ports, port)) {
       // A unicast SHM port is listened on by one participant per IPC namespace, so a
-      // port that is free, absent or the tool's own here proves another namespace.
+      // port that is absent or the tool's own here proves another namespace.
       if (!contains(info.unknown_ports, port)) {
         return ShmVisibility::NotVisible;
       }

@@ -193,6 +193,27 @@ TEST_F(FakeShmDir, UnreadableLockIsUnknownNotMissing)
   auto info = scan_shm(dir, in);
   EXPECT_EQ(info.missing_ports, (std::vector<uint32_t>{7411, 7415}));
   EXPECT_EQ(info.unknown_ports, (std::vector<uint32_t>{7415}));
+
+  // the tool's own port is another namespace's whatever its lock says
+  in.own_ports = {7415};
+  info = scan_shm(dir, in);
+  EXPECT_EQ(info.missing_ports, (std::vector<uint32_t>{7411, 7415}));
+  EXPECT_TRUE(info.unknown_ports.empty());
+}
+
+TEST_F(FakeShmDir, FreeLockIsUndecided)
+{
+  // a node that just died leaves a free lock and may still be discovered: not proof
+  // that it listens in another IPC namespace
+  file("fastdds_port7417", 10);
+  file("fastdds_port7417_el", 0);
+  ShmScanInput in;
+  in.node_ports = {7417};
+  auto info = scan_shm(dir, in);
+  EXPECT_EQ(info.missing_ports, (std::vector<uint32_t>{7417}));
+  EXPECT_EQ(info.unknown_ports, (std::vector<uint32_t>{7417}));
+  EXPECT_FALSE(info.nodes_visible);
+  EXPECT_EQ(participant_shm_visibility({7417}, info, {}), ShmVisibility::Unprobed);
 }
 
 TEST(ParticipantShmVisibility, FromTheScanResult)
