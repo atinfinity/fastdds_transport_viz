@@ -120,7 +120,8 @@ jobs:
   integration:
     # Multi-container scenarios (scripts/integration_test.sh) on the runner VM, once per
     # architecture: bridged containers => UDPv4, --stats across containers, host
-    # network/IPC => SHM, host network without its IPC => shm-not-visible, LARGE_DATA => TCPv4, DEFAULTv6 => UDPv6, plus the Easy Mode pair
+    # network/IPC => SHM, host network without its IPC => shm-not-visible, host network with an IPC namespace per
+    # node => shm-ipc-namespace-split, LARGE_DATA => TCPv4, DEFAULTv6 => UDPv6, plus the Easy Mode pair
     # on the lyrical image. Runs for the merge commit on main (and workflow_dispatch), not
     # for pull requests, to keep PR CI short.
     name: multi-container integration (${{ matrix.arch }}, ${{ matrix.distro }})
@@ -140,10 +141,17 @@ jobs:
         include:
           # Easy Mode (ROS2_EASY_MODE) needs Fast DDS 3.2+: the two scenarios that the
           # jazzy image skips, on the lyrical image, plus hostnet_noipc_shm (rclcpp there
-          # creates no endpoint on the tool's rmw participant, #51).
+          # creates no endpoint on the tool's rmw participant, #51) and the split IPC
+          # scenarios (#101).
           - arch: x86_64
             distro: lyrical
-            scenarios: easy_mode_shm easy_mode_tcp hostnet_noipc_shm
+            scenarios: easy_mode_shm easy_mode_tcp hostnet_noipc_shm hostnet_split_shm hostnet_split_shm_visible
+          # Humble (Fast DDS 2.6): its only SHM port is numbered per IPC namespace too, so
+          # the split shows as a port collision; there is no 7000+ port for the visible
+          # variant, which skips on Humble.
+          - arch: x86_64
+            distro: humble
+            scenarios: hostnet_split_shm hostnet_noipc_shm
     env:
       ROS_DISTRO: ${{ matrix.distro }}
     steps:

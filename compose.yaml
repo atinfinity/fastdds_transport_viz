@@ -14,6 +14,9 @@
 #                                               # host network + IPC => same host id => SHM
 #   docker compose up pair_hostnet_noipc        # host network, own IPC => the tool in hostnet
 #                                               # sees none of their SHM ports (shm-not-visible)
+#   docker compose up talker_hostnet_split listener_hostnet_split
+#                                               # host network, an IPC namespace each => Fast DDS
+#                                               # picks SHM and nothing arrives (shm-ipc-namespace-split)
 #
 # Run transport_viz from inside the same network/IPC scope as the nodes you
 # want to observe (see README). scripts/integration_test.sh drives these
@@ -151,6 +154,33 @@ services:
     <<: *base
     network_mode: host
     command: bash -c "ros2 run demo_nodes_cpp talker & exec ros2 run demo_nodes_cpp listener"
+
+  # Host network, an IPC namespace each: the same host id but two /dev/shm. Fast DDS still
+  # selects SHM between them and the listener hears nothing; both announce the same SHM
+  # port number (shm-port-collision), so a tool in `hostnet` tells the split (#101).
+  talker_hostnet_split:
+    <<: *base
+    network_mode: host
+    command: ros2 run demo_nodes_cpp talker
+  listener_hostnet_split:
+    <<: *base
+    network_mode: host
+    command: ros2 run demo_nodes_cpp listener
+
+  # The same split seen from the talker's IPC namespace (`hostnet_in_talker_ipc`). A node
+  # started first takes the 7000 port there, so the talker's numbers differ from the
+  # listener's and only visibility tells the split (shm-reader-port-not-visible; Jazzy and
+  # newer, Humble has no 7000 port to shift).
+  talker_hostnet_split_visible:
+    <<: *base
+    network_mode: host
+    ipc: shareable
+    command: bash -c "ros2 run demo_nodes_cpp add_two_ints_server & sleep 3; exec ros2 run demo_nodes_cpp talker"
+  hostnet_in_talker_ipc:
+    <<: *base
+    network_mode: host
+    ipc: service:talker_hostnet_split_visible
+    command: sleep infinity
 
 # IPv6 on the project network so that UDPv6 / DEFAULTv6 can be exercised (Docker >= 27
 # needs no daemon configuration for this).
