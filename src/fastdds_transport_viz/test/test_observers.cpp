@@ -14,6 +14,7 @@
 #include <cstring>
 #include <stdexcept>
 #include <string>
+#include <vector>
 
 #include "fastdds_transport_viz/fastdds_compat.hpp"
 
@@ -68,6 +69,37 @@ TEST(FastDdsUtil, ConvertLocatorKinds)
 
   l.kind = 99;
   EXPECT_EQ(convert_locator(l).kind, LocatorKind::Invalid);
+}
+
+TEST(FastDdsUtil, NonShmUnicastLocators)
+{
+  ftv_rtps::Locator_t shm;
+  shm.kind = LOCATOR_KIND_SHM;
+  shm.port = 7411;
+  ftv_rtps::Locator_t udp;
+  udp.kind = LOCATOR_KIND_UDPv4;
+  ftv_rtps::IPLocator::setIPv4(udp, "10.0.0.1");
+  udp.port = 7413;
+  ftv_rtps::Locator_t multicast = udp;
+  ftv_rtps::IPLocator::setIPv4(multicast, "239.255.0.1");
+  ftv_rtps::Locator_t tcp;
+  tcp.kind = LOCATOR_KIND_TCPv4;
+  ftv_rtps::IPLocator::setIPv4(tcp, "10.0.0.2");
+  ftv_rtps::IPLocator::setPhysicalPort(tcp, 7500);
+
+  eprosima::fastdds::rtps::LocatorList listening;
+  for (const auto & l : {shm, udp, multicast, tcp}) {
+    listening.push_back(l);
+  }
+  const auto kept = non_shm_unicast_locators(listening);
+  const std::vector<ftv_rtps::Locator_t> out(kept.begin(), kept.end());
+  ASSERT_EQ(out.size(), 2u);
+  EXPECT_EQ(out[0], udp);
+  EXPECT_EQ(out[1], tcp);
+
+  eprosima::fastdds::rtps::LocatorList only_shm;
+  only_shm.push_back(shm);
+  EXPECT_TRUE(non_shm_unicast_locators(only_shm).empty());
 }
 
 TEST(FastDdsUtil, QosMapping)
@@ -204,6 +236,25 @@ TEST(StatsObserver, ReusesAnExistingTopicAndRejectsANonTopicDescription)
     "_fastdds_statistics_history2history_latency", base, "", {});
   ASSERT_NE(filtered, nullptr);
   EXPECT_THROW(StatsObserver{participant}, std::runtime_error);
+}
+
+TEST(StatsObserver, ReadersAnnounceNoShmLocator)
+{
+  // a same-host writer in another IPC namespace would pick SHM and lose its statistics (#106)
+  DiscoveryObserver obs(202);
+  StatsObserver stats(obs.participant());
+  std::vector<fdds::DataReader *> readers;
+  ASSERT_NE(stats.subscriber(), nullptr);
+  ASSERT_TRUE(retcode_ok(stats.subscriber()->get_datareaders(readers)));
+  EXPECT_EQ(readers.size(), 11u);   // the probe reader is gone
+  for (auto * r : readers) {
+    eprosima::fastdds::rtps::LocatorList locators;
+    ASSERT_TRUE(retcode_ok(r->get_listening_locators(locators)));
+    EXPECT_FALSE(locators.empty());
+    for (const auto & l : locators) {
+      EXPECT_NE(l.kind, LOCATOR_KIND_SHM) << r->get_topicdescription()->get_name();
+    }
+  }
 }
 
 TEST(FastDdsUtil, LivelinessOwnershipAndDurations)

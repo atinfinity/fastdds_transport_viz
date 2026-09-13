@@ -10,6 +10,7 @@
 #include <string>
 
 #include <fastdds/dds/core/policy/QosPolicies.hpp>
+#include <fastdds/rtps/common/LocatorList.hpp>
 
 #include "fastdds_transport_viz/fastdds_compat.hpp"
 #include "fastdds_transport_viz/model.hpp"
@@ -21,6 +22,9 @@ namespace fastdds_transport_viz
 std::string guid_to_string(const ftv_rtps::GUID_t & guid);
 std::string prefix_to_string(const ftv_rtps::GuidPrefix_t & prefix);
 Locator convert_locator(const ftv_rtps::Locator_t & l);
+/// The unicast locators of `listening` that are not SHM (what the statistics readers announce).
+eprosima::fastdds::rtps::LocatorList non_shm_unicast_locators(
+  const eprosima::fastdds::rtps::LocatorList & listening);
 
 /// Announced QoS -> model strings / kinds.
 std::string reliability_to_string(const eprosima::fastdds::dds::ReliabilityQosPolicy & q);

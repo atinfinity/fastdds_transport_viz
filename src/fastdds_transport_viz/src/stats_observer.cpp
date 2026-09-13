@@ -144,6 +144,23 @@ StatsObserver::Reader StatsObserver::create_reader(
   qos.resource_limits().max_samples_per_instance = 0;
   qos.resource_limits().allocated_samples = 100;
   qos.endpoint().history_memory_policy = rtps::PREALLOCATED_WITH_REALLOC_MEMORY_MODE;
+  // A writer with our host id picks SHM when the reader announces it. From another IPC
+  // namespace it then writes into its own /dev/shm and its statistics never arrive. So
+  // the readers announce only the non-SHM unicast locators the participant listens on
+  // (UDP, or TCP with LARGE_DATA), read once from a probe reader.
+  if (!reader_locators_probed_) {
+    reader_locators_probed_ = true;
+    if (auto * probe = subscriber_->create_datareader(r.topic, qos); probe != nullptr) {
+      eprosima::fastdds::rtps::LocatorList listening;
+      if (retcode_ok(probe->get_listening_locators(listening))) {
+        reader_locators_ = non_shm_unicast_locators(listening);
+      }
+      subscriber_->delete_datareader(probe);
+    }
+  }
+  if (!reader_locators_.empty()) {
+    qos.endpoint().unicast_locator_list = reader_locators_;
+  }
   r.reader = subscriber_->create_datareader(r.topic, qos);
   if (r.reader == nullptr) {
     throw std::runtime_error("failed to create statistics reader for " + topic_name);
