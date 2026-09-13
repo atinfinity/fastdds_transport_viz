@@ -1,6 +1,6 @@
 # 仕組み
 
-> 英語版が正です。この文書は 2026-09-12 時点の英語版に対応しています。
+> 英語版が正です。この文書は 2026-09-13 時点の英語版に対応しています。
 
 このツールは Fast DDS 2.14 (ROS 2 Jazzy) と 3.x (Lyrical、Rolling) の両方に対してビルドできます。
 API の差分は `include/fastdds_transport_viz/fastdds_compat.hpp` に閉じ込めてあり、以下の判定ルールは
@@ -90,7 +90,7 @@ discovery の観測は別の生の Fast DDS participant で行い、rmw 自身�
 ツールは Fast DDS が読む環境をそのまま読み、変更はしません。観測したいノードと同じシェル環境で
 実行してください。`FASTDDS_BUILTIN_TRANSPORTS`、`FASTRTPS_DEFAULT_PROFILES_FILE` (観測用
 participant もノードと同様に既定の participant プロファイルをここから取ります)、
-`ROS_DISCOVERY_SERVER`、`ROS_AUTOMATIC_DISCOVERY_RANGE`、`ROS_STATIC_PEERS` を揃え、ネットワークと
+`ROS_DISCOVERY_SERVER`、`ROS2_EASY_MODE`、`ROS_AUTOMATIC_DISCOVERY_RANGE`、`ROS_STATIC_PEERS` を揃え、ネットワークと
 IPC の名前空間も同じにします (コンテナなら `network_mode` / `ipc`)。ツールからノードが見えない
 環境では `ros2 topic list` でも見えません。マルチキャストの通らないネットワーク上のホストについては
 [development.md](development.md#two-physical-hosts) (英語) を参照してください。
@@ -109,6 +109,22 @@ transport ごとの注意点 (いずれも launch テストかマルチコンテ
   自分を `SUPER_CLIENT` にします (stderr にその旨を出します)。`ROS_SUPER_CLIENT` を明示していれば
   それを尊重します。サーバーは Jazzy では `fastdds discovery -i 0 -l <ip> -p <port>`、
   Lyrical / Rolling では `fastdds discovery -l <ip> -p <port>` です。
+- `ROS2_EASY_MODE=<ip>` (Fast DDS 3.2 以降: Kilted、Lyrical、Rolling) を設定すると、Fast DDS は
+  ホストとドメインごとに Discovery Server を 1 つ自動起動し (ポートは 7400 + 250 × ドメイン + 2、
+  `fastdds discovery list` で確認できます。CLI は起動済みのサーバーを `ss` で探すので `iproute2` が
+  必要です)、すべての participant を `P2P` builtin transport に
+  切り替えます。ユーザーデータは SHM と TCPv4、discovery はローカルサーバーへの UDPv4 ユニキャストで、
+  マルチキャストは一切使いません。判定は `LARGE_DATA` と同じで、同一ホストでは `SHM`、ホスト間では
+  `TCPv4` (`common-tcpv4-locator`)、`--stats` は TCP のトラフィックを測定します。ツールもノードと
+  同じ値の `ROS2_EASY_MODE` で起動してください (stderr にその旨を出します)。設定していない
+  participant からはノードが見えません。実行するのはノードが動いているホスト、特にマスターの
+  ホストが適しています。Fast DDS 3 はエンドポイントの型を解決してからでないとツールに渡さず、
+  その型を使うノードのないホストではサーバー同士の中継を通じても解決されないため、そのような
+  ホストからはツールも `ros2 topic list` もノードは見えてもトピックが 1 つも見えません。自動起動した
+  サーバーはエンドポイントを持たない participant なので、`--all` を付けても表には現れません。
+  `--stats` では、それを起動したノードに `FASTDDS_STATISTICS` が設定されていれば statistics の
+  participant として現れます。Fast DDS が participant ごとに実行する `fastdds discovery` CLI は
+  stdout に出力しますが、ツールはそれを stderr に回して `--json` を壊さないようにしています。
 - `ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST` はそのまま動きます (ノードはループバックの locator だけ
   を広告します)。`OFF` はすべての participant を自分自身に閉じ込めるので何も観測できません。
   その場合ツールは警告を出します。
