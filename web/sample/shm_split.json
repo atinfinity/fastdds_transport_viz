@@ -415,7 +415,7 @@
           },
           "reader_guid": "01.0f.ba.00.1a.00.8f.0d.00.00.00.00|00.00.14.04",
           "reader_host": "local",
-          "reader_node": "_NODE_NAMESPACE_UNKNOWN_/_NODE_NAME_UNKNOWN_",
+          "reader_node": "",
           "reasons": [
             "same-host-guid",
             "datasharing-disabled-writer",
@@ -442,7 +442,7 @@
           "host_id": "010fba00",
           "host_name": "",
           "multicast_locators": [],
-          "node": "_NODE_NAMESPACE_UNKNOWN_/_NODE_NAME_UNKNOWN_",
+          "node": "",
           "participant_guid_prefix": "01.0f.ba.00.1a.00.8f.0d.00.00.00.00",
           "process": "",
           "qos": {
@@ -613,7 +613,7 @@
           },
           "reader_guid": "01.0f.ba.00.1a.00.8f.0d.00.00.00.00|00.00.11.04",
           "reader_host": "local",
-          "reader_node": "_NODE_NAMESPACE_UNKNOWN_/_NODE_NAME_UNKNOWN_",
+          "reader_node": "",
           "reasons": [
             "same-host-guid",
             "datasharing-disabled-writer",
@@ -669,7 +669,7 @@
           ],
           "writer_guid": "01.0f.ba.00.1a.00.8f.0d.00.00.00.00|00.00.10.03",
           "writer_host": "local",
-          "writer_node": "_NODE_NAMESPACE_UNKNOWN_/_NODE_NAME_UNKNOWN_"
+          "writer_node": ""
         },
         {
           "confidence": "certain",
@@ -696,7 +696,7 @@
           },
           "reader_guid": "01.0f.ba.00.1a.00.8f.0d.00.00.00.00|00.00.11.04",
           "reader_host": "local",
-          "reader_node": "_NODE_NAMESPACE_UNKNOWN_/_NODE_NAME_UNKNOWN_",
+          "reader_node": "",
           "reasons": [
             "same-host-guid",
             "datasharing-disabled-writer",
@@ -708,7 +708,7 @@
           ],
           "writer_guid": "01.0f.ba.00.1a.00.8f.0d.00.00.00.00|00.00.10.03",
           "writer_host": "local",
-          "writer_node": "_NODE_NAMESPACE_UNKNOWN_/_NODE_NAME_UNKNOWN_"
+          "writer_node": ""
         }
       ],
       "readers": [
@@ -759,7 +759,7 @@
           "host_id": "010fba00",
           "host_name": "",
           "multicast_locators": [],
-          "node": "_NODE_NAMESPACE_UNKNOWN_/_NODE_NAME_UNKNOWN_",
+          "node": "",
           "participant_guid_prefix": "01.0f.ba.00.1a.00.8f.0d.00.00.00.00",
           "process": "",
           "qos": {
@@ -842,7 +842,7 @@
           "host_id": "010fba00",
           "host_name": "",
           "multicast_locators": [],
-          "node": "_NODE_NAMESPACE_UNKNOWN_/_NODE_NAME_UNKNOWN_",
+          "node": "",
           "participant_guid_prefix": "01.0f.ba.00.1a.00.8f.0d.00.00.00.00",
           "process": "",
           "qos": {
@@ -935,7 +935,7 @@
           "host_id": "010fba00",
           "host_name": "",
           "multicast_locators": [],
-          "node": "_NODE_NAMESPACE_UNKNOWN_/_NODE_NAME_UNKNOWN_",
+          "node": "",
           "participant_guid_prefix": "01.0f.ba.00.1a.00.8f.0d.00.00.00.00",
           "process": "",
           "qos": {

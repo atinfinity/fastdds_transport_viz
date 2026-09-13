@@ -10,6 +10,9 @@
 #include <string>
 
 #include <fastdds/dds/core/policy/QosPolicies.hpp>
+#include <fastdds/dds/subscriber/Subscriber.hpp>
+#include <fastdds/dds/subscriber/qos/DataReaderQos.hpp>
+#include <fastdds/dds/topic/Topic.hpp>
 #include <fastdds/rtps/common/LocatorList.hpp>
 
 #include "fastdds_transport_viz/fastdds_compat.hpp"
@@ -25,6 +28,13 @@ Locator convert_locator(const ftv_rtps::Locator_t & l);
 /// The unicast locators of `listening` that are not SHM (what the statistics readers announce).
 eprosima::fastdds::rtps::LocatorList non_shm_unicast_locators(
   const eprosima::fastdds::rtps::LocatorList & listening);
+/// The non-SHM unicast locators a reader of `topic` with `qos` listens on, read from a
+/// probe reader that is deleted again; empty when there is none or the probe fails.
+/// A same-host writer in another IPC namespace picks SHM when a reader announces it and
+/// writes into its own /dev/shm, so the tool's readers announce only these.
+eprosima::fastdds::rtps::LocatorList probe_non_shm_unicast_locators(
+  eprosima::fastdds::dds::Subscriber * subscriber, eprosima::fastdds::dds::Topic * topic,
+  const eprosima::fastdds::dds::DataReaderQos & qos);
 
 /// Announced QoS -> model strings / kinds.
 std::string reliability_to_string(const eprosima::fastdds::dds::ReliabilityQosPolicy & q);

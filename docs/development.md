@@ -406,5 +406,4 @@ Open, by priority (labels `priority/1-high` … `priority/3-low` on the issues):
 - Type mismatches on the same topic (type name / type hash) — [#85](https://github.com/atinfinity/fastdds_transport_viz/issues/85)
 - Web viewer: Discovery Servers and the clients they serve — [#86](https://github.com/atinfinity/fastdds_transport_viz/issues/86)
 - `QUALITY_DECLARATION.md` (REP 2004) for both packages — [#87](https://github.com/atinfinity/fastdds_transport_viz/issues/87)
-- Nodes in another IPC namespace than the tool show unknown node names — [#112](https://github.com/atinfinity/fastdds_transport_viz/issues/112)
 - `participants_with_stats` lists the tool's own participants — [#113](https://github.com/atinfinity/fastdds_transport_viz/issues/113)

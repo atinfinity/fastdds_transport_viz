@@ -30,7 +30,13 @@
 
 #include "fastdds_transport_viz/discovery_observer.hpp"
 #include "fastdds_transport_viz/fastdds_util.hpp"
+#include "fastdds_transport_viz/ros_discovery_info_observer.hpp"
 #include "fastdds_transport_viz/stats_observer.hpp"
+
+#include <fastdds/dds/publisher/DataWriter.hpp>
+#include <fastdds/dds/publisher/Publisher.hpp>
+#include <fastdds/dds/publisher/qos/DataWriterQos.hpp>
+#include <rmw_dds_common/msg/participant_entities_info.hpp>
 
 using namespace fastdds_transport_viz;  // NOLINT
 namespace fdds = eprosima::fastdds::dds;
@@ -255,6 +261,76 @@ TEST(StatsObserver, ReadersAnnounceNoShmLocator)
       EXPECT_NE(l.kind, LOCATOR_KIND_SHM) << r->get_topicdescription()->get_name();
     }
   }
+}
+
+TEST(RosDiscoveryInfoObserver, ReaderAnnouncesNoShmLocator)
+{
+  // a same-host node in another IPC namespace would write its samples into its own /dev/shm
+  DiscoveryObserver obs(203);
+  RosDiscoveryInfoObserver names(obs.participant());
+  ASSERT_NE(names.reader(), nullptr);
+  eprosima::fastdds::rtps::LocatorList locators;
+  ASSERT_TRUE(retcode_ok(names.reader()->get_listening_locators(locators)));
+  EXPECT_FALSE(locators.empty());
+  for (const auto & l : locators) {
+    EXPECT_NE(l.kind, LOCATOR_KIND_SHM);
+  }
+  const auto qos = names.reader()->get_qos();
+  EXPECT_EQ(qos.reliability().kind, fdds::RELIABLE_RELIABILITY_QOS);
+  EXPECT_EQ(qos.durability().kind, fdds::TRANSIENT_LOCAL_DURABILITY_QOS);
+  EXPECT_EQ(qos.history().kind, fdds::KEEP_ALL_HISTORY_QOS);
+}
+
+TEST(RosDiscoveryInfoObserver, ReadsWhatAnRmwWrites)
+{
+  DiscoveryObserver obs(204);
+  RosDiscoveryInfoObserver names(obs.participant());
+
+  // a stand-in for another process's rmw: same topic, type and QoS as rmw_dds_common's writer
+  auto * factory = fdds::DomainParticipantFactory::get_instance();
+  auto * node = factory->create_participant(204, fdds::PARTICIPANT_QOS_DEFAULT);
+  ASSERT_NE(node, nullptr);
+  auto type = RosDiscoveryInfoObserver::make_type_support();
+  type.register_type(node);
+  auto * topic = node->create_topic(
+    RosDiscoveryInfoObserver::kTopicName, RosDiscoveryInfoObserver::kTypeName,
+    fdds::TOPIC_QOS_DEFAULT);
+  ASSERT_NE(topic, nullptr);
+  auto * publisher = node->create_publisher(fdds::PUBLISHER_QOS_DEFAULT);
+  fdds::DataWriterQos wqos = fdds::DATAWRITER_QOS_DEFAULT;
+  wqos.reliability().kind = fdds::RELIABLE_RELIABILITY_QOS;
+  wqos.durability().kind = fdds::TRANSIENT_LOCAL_DURABILITY_QOS;
+  wqos.history().kind = fdds::KEEP_LAST_HISTORY_QOS;
+  wqos.history().depth = 1;
+  auto * writer = publisher->create_datawriter(topic, wqos);
+  ASSERT_NE(writer, nullptr);
+
+  rmw_dds_common::msg::ParticipantEntitiesInfo msg;
+  msg.gid.data.fill(0);
+  msg.gid.data[0] = 0x42;
+  rmw_dds_common::msg::NodeEntitiesInfo talker;
+  talker.node_namespace = "/robot";
+  talker.node_name = "talker";
+  auto gid = msg.gid;
+  gid.data[15] = 0x03;
+  talker.writer_gid_seq.push_back(gid);
+  msg.node_entities_info_seq.push_back(talker);
+  ASSERT_TRUE(retcode_ok(writer->write(&msg, fdds::HANDLE_NIL)));   // 2.x: write(data) is bool
+
+  EndpointGid wanted{};
+  wanted[0] = 0x42;
+  wanted[15] = 0x03;
+  std::string name;
+  for (int i = 0; i < 100 && name.empty(); ++i) {   // up to 10 s for discovery and delivery
+    usleep(100 * 1000);
+    names.poll();
+    name = names.node_for_guid(wanted);
+  }
+  EXPECT_EQ(name, "/robot/talker");
+  EXPECT_EQ(names.table().size(), 1u);
+
+  ASSERT_TRUE(retcode_ok(node->delete_contained_entities()));
+  ASSERT_TRUE(retcode_ok(factory->delete_participant(node)));
 }
 
 TEST(FastDdsUtil, LivelinessOwnershipAndDurations)

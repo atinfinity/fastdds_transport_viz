@@ -11,6 +11,7 @@
 #include <fastdds/dds/core/policy/QosPolicies.hpp>
 #include <fastdds/dds/domain/DomainParticipantFactory.hpp>
 #include <fastdds/dds/domain/qos/DomainParticipantQos.hpp>
+#include <fastdds/dds/subscriber/DataReader.hpp>
 
 #include "fastdds_transport_viz/fastdds_compat.hpp"
 #include "fastdds_transport_viz/fastdds_util.hpp"
@@ -88,6 +89,20 @@ eprosima::fastdds::rtps::LocatorList non_shm_unicast_locators(
     if (l.kind != LOCATOR_KIND_SHM && !rtps::IPLocator::isMulticast(l)) {
       out.push_back(l);
     }
+  }
+  return out;
+}
+
+eprosima::fastdds::rtps::LocatorList probe_non_shm_unicast_locators(
+  dds::Subscriber * subscriber, dds::Topic * topic, const dds::DataReaderQos & qos)
+{
+  eprosima::fastdds::rtps::LocatorList out;
+  if (auto * probe = subscriber->create_datareader(topic, qos); probe != nullptr) {
+    eprosima::fastdds::rtps::LocatorList listening;
+    if (retcode_ok(probe->get_listening_locators(listening))) {
+      out = non_shm_unicast_locators(listening);
+    }
+    subscriber->delete_datareader(probe);
   }
   return out;
 }

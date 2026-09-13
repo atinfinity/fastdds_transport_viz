@@ -356,6 +356,18 @@ TEST(ParseJson, ReadsTheLastDocumentOfJsonLinesAndIgnoresChanges)
   EXPECT_EQ(documents, 1u);
 }
 
+TEST(ParseJson, ReadsTheRmwUnknownNodeNameAsEmpty)
+{
+  // documents written before #112 carry the rmw's name for a node it knows nothing about
+  auto doc = json::parse(render_json(snapshot(), RenderOptions{}));
+  doc["topics"][0]["writers"][0]["node"] = "_NODE_NAMESPACE_UNKNOWN_/_NODE_NAME_UNKNOWN_";
+  doc["topics"][0]["pairs"][0]["writer_node"] = "_NODE_NAMESPACE_UNKNOWN_/_NODE_NAME_UNKNOWN_";
+  const auto parsed = parse_json(doc.dump());
+  ASSERT_EQ(parsed.topics[0].pairs.size(), 1u);
+  EXPECT_EQ(parsed.topics[0].pairs[0].writer->node_name, "");
+  EXPECT_EQ(parsed.topics[0].pairs[0].reader->node_name, "/listener");
+}
+
 TEST(ParseJson, RejectsForeignDocuments)
 {
   EXPECT_THROW(parse_json("not json"), ParseError);

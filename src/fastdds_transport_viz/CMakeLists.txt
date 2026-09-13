@@ -12,6 +12,9 @@ endif()
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rmw REQUIRED)
+# ros_discovery_info (node names) read with the generated Fast DDS type support of rmw_dds_common
+find_package(rmw_dds_common REQUIRED)
+find_package(rosidl_typesupport_fastrtps_cpp REQUIRED)
 find_package(std_msgs REQUIRED)
 # Fast DDS 3.x (Lyrical / Rolling) exports the `fastdds` package, 2.x (Jazzy) `fastrtps`.
 find_package(fastdds QUIET)
@@ -68,11 +71,16 @@ set_target_properties(${PROJECT_NAME}_stats_types PROPERTIES POSITION_INDEPENDEN
 add_library(${PROJECT_NAME}_lib
   src/discovery_observer.cpp
   src/ros_graph_resolver.cpp
+  src/ros_discovery_info_observer.cpp
   src/stats_observer.cpp
   src/render_table.cpp
   src/render_json.cpp
   src/parse_json.cpp)
-target_link_libraries(${PROJECT_NAME}_lib PRIVATE ${PROJECT_NAME}_stats_types)
+target_link_libraries(${PROJECT_NAME}_lib PRIVATE
+  ${PROJECT_NAME}_stats_types
+  rmw_dds_common::rmw_dds_common__rosidl_generator_cpp
+  rmw_dds_common::rmw_dds_common__rosidl_typesupport_fastrtps_cpp
+  rosidl_typesupport_fastrtps_cpp::rosidl_typesupport_fastrtps_cpp)
 target_link_libraries(${PROJECT_NAME}_lib PUBLIC
   ${PROJECT_NAME}_core
   rclcpp::rclcpp
@@ -135,7 +143,8 @@ if(BUILD_TESTING)
   target_link_libraries(test_render_json ${PROJECT_NAME}_lib)
   # real Fast DDS participants (no ROS nodes): conversions, error paths of the observers
   ament_add_gtest(test_observers test/test_observers.cpp)
-  target_link_libraries(test_observers ${PROJECT_NAME}_lib ${PROJECT_NAME}_stats_types)
+  target_link_libraries(test_observers ${PROJECT_NAME}_lib ${PROJECT_NAME}_stats_types
+    rmw_dds_common::rmw_dds_common__rosidl_generator_cpp)
 
   find_package(launch_testing_ament_cmake REQUIRED)
   add_launch_test(test/launch/test_same_host_shm.py TIMEOUT 60)

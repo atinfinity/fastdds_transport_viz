@@ -4,6 +4,19 @@ Changelog for package fastdds_transport_viz
 
 Forthcoming
 -----------
+* Node names across IPC namespaces: the tool reads ``ros_discovery_info`` itself, with a
+  reader on its raw participant that announces only the non-SHM unicast locators the
+  participant listens on (like the statistics readers), and names the endpoints the ROS
+  graph API cannot name from it. rclcpp's participant announces SHM, so a same-host node in
+  another IPC namespace than the tool wrote those samples into its own ``/dev/shm`` and the
+  tool showed ``_NODE_NAMESPACE_UNKNOWN_/_NODE_NAME_UNKNOWN_``. A name that is still unknown
+  (a node or tool with SHM only, or a node of another ROS distribution) is now empty, like a
+  raw DDS endpoint's, instead of merging every such endpoint into one node: the table labels
+  it by GUID and the web viewer shows its participant. ``diff`` and the web viewer read the
+  unknown name of older JSON documents as empty, so ``diff --key node`` matches such pairs by
+  GUID where it matched them by that name before. New dependencies ``rmw_dds_common`` and
+  ``rosidl_typesupport_fastrtps_cpp``. Integration scenarios ``hostnet_noipc_shm`` and
+  ``hostnet_split_*`` check the node names (#112).
 * ``--stats`` on a split IPC pair: the new warning
   ``shm-ipc-namespace-split-but-non-shm-traffic`` flags non-SHM packets (UDP, TCP) measured
   during the observation between endpoints that both announce SHM and were judged to be in

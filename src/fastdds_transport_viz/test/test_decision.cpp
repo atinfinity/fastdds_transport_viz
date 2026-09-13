@@ -462,6 +462,56 @@ TEST(RosNames, DemangleTypes)
   EXPECT_EQ(demangle_type("HelloWorld"), "");
 }
 
+TEST(RosNames, UnknownNodeNameBecomesEmpty)
+{
+  // what rclcpp reports without the node's ros_discovery_info sample (#112)
+  EXPECT_EQ(normalize_node_name("_NODE_NAMESPACE_UNKNOWN_/_NODE_NAME_UNKNOWN_"), "");
+  EXPECT_EQ(normalize_node_name("/talker"), "/talker");
+  EXPECT_EQ(normalize_node_name(""), "");
+  EXPECT_EQ(fully_qualified_node_name("", "talker"), "/talker");
+  EXPECT_EQ(fully_qualified_node_name("/", "talker"), "/talker");
+  EXPECT_EQ(fully_qualified_node_name("/robot1", "talker"), "/robot1/talker");
+  EXPECT_EQ(
+    fully_qualified_node_name("_NODE_NAMESPACE_UNKNOWN_", "_NODE_NAME_UNKNOWN_"), kUnknownNodeName);
+}
+
+TEST(RosNames, GraphNameWinsOverDiscoveryInfo)
+{
+  EXPECT_EQ(merge_node_name("/talker", "/other"), "/talker");
+  EXPECT_EQ(merge_node_name("", "/talker"), "/talker");
+  EXPECT_EQ(merge_node_name(kUnknownNodeName, "/talker"), "/talker");
+  EXPECT_EQ(merge_node_name(kUnknownNodeName, ""), "");
+  EXPECT_EQ(merge_node_name("", kUnknownNodeName), "");
+}
+
+TEST(RosNames, NodeNameTableReplacesAParticipantsEntries)
+{
+  const auto gid = [](uint8_t participant, uint8_t entity) {
+      EndpointGid g{};
+      g[0] = participant;
+      g[15] = entity;
+      return g;
+    };
+  const ParticipantPrefix p1{1}, p2{2};
+  NodeNameTable table;
+  table.update(p1, {{"", "talker", {gid(1, 4)}, {gid(1, 3)}}, {"/robot", "cam", {}, {gid(1, 7)}}});
+  table.update(p2, {{"/", "listener", {gid(2, 4)}, {}}});
+  EXPECT_EQ(table.size(), 4u);
+  EXPECT_EQ(table.lookup(gid(1, 3)), "/talker");     // writer
+  EXPECT_EQ(table.lookup(gid(1, 4)), "/talker");     // reader
+  EXPECT_EQ(table.lookup(gid(1, 7)), "/robot/cam");
+  EXPECT_EQ(table.lookup(gid(2, 4)), "/listener");
+  EXPECT_EQ(table.lookup(gid(3, 4)), "");
+  // the next sample of a participant lists all of its nodes: the camera node is gone
+  table.update(p1, {{"", "talker", {gid(1, 4)}, {gid(1, 3), gid(1, 9)}}});
+  EXPECT_EQ(table.size(), 4u);
+  EXPECT_EQ(table.lookup(gid(1, 7)), "");
+  EXPECT_EQ(table.lookup(gid(1, 9)), "/talker");
+  EXPECT_EQ(table.lookup(gid(2, 4)), "/listener");   // other participants untouched
+  table.update(p1, {});
+  EXPECT_EQ(table.size(), 1u);
+}
+
 // ---- statistics overlay --------------------------------------------------------
 
 namespace

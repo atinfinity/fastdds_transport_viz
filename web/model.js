@@ -15,6 +15,23 @@
   const TRANSPORTS = ['UDPv4', 'UDPv6', 'TCPv4', 'TCPv6', 'SHM', 'DATA_SHARING', 'NONE'];
   const INTERNAL_TOPICS = new Set(['/parameter_events', '/rosout']);
 
+  /** What the rmw reports for a node whose ros_discovery_info it has not received. */
+  const UNKNOWN_NODE_NAME = '_NODE_NAMESPACE_UNKNOWN_/_NODE_NAME_UNKNOWN_';
+
+  /**
+   * Documents written before transport_viz read ros_discovery_info itself (#112) carry the
+   * rmw's unknown node name: make it '' in place, so that such endpoints fall back to their
+   * participant instead of all merging into one node. Returns `doc`.
+   */
+  function normalizeDocument(doc) {
+    const clear = (o, k) => { if (o && o[k] === UNKNOWN_NODE_NAME) o[k] = ''; };
+    for (const t of (doc && doc.topics) || []) {
+      for (const ep of [...(t.writers || []), ...(t.readers || [])]) clear(ep, 'node');
+      for (const p of t.pairs || []) { clear(p, 'writer_node'); clear(p, 'reader_node'); }
+    }
+    return doc;
+  }
+
   /** Flatten the document into nodes, hosts and pairs with resolved endpoints. */
   function buildModel(doc) {
     const nodes = new Map();      // key -> {id, name, host, process, pubs:[], subs:[], unmatched:[]}
@@ -379,6 +396,6 @@
     return { ...model, nodes, hosts };
   }
 
-  return { TRANSPORTS, INTERNAL_TOPICS, buildModel, filterRegex, visiblePairs, visibleNodesModel, bundle, humanBytes, humanSeconds, measuredText, rateText, latencyText, lossText, escapeHtml, codeListHtml, shmText,
+  return { TRANSPORTS, INTERNAL_TOPICS, UNKNOWN_NODE_NAME, normalizeDocument, buildModel, filterRegex, visiblePairs, visibleNodesModel, bundle, humanBytes, humanSeconds, measuredText, rateText, latencyText, lossText, escapeHtml, codeListHtml, shmText,
     pairKey, keyId, pairState, sameState, diffDocuments, changeText, changesSummary, decorations, holdChanges, heldDecorations, markedPairs, pruneNodes };
 });

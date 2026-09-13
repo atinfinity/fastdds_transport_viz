@@ -89,6 +89,19 @@ ROS のノード名は rclcpp のグラフ API (エンドポイント GID → �
 隠しノード `_transport_viz_<pid>` を登録します。ツール自身のエンドポイントは出力から除外されます。
 discovery の観測は別の生の Fast DDS participant で行い、rmw 自身の discovery リスナには触れません。
 
+グラフ API は `ros_discovery_info` を読みます。各ノードの rmw はここにノード名とエンドポイント GID を
+publish します。rclcpp の participant は SHM を広告するため、ツールと同じ host id で別の IPC 名前空間に
+いるノードはこのサンプルを自分の `/dev/shm` に書き込み、rclcpp は rmw の
+`_NODE_NAMESPACE_UNKNOWN_/_NODE_NAME_UNKNOWN_` を返します。そこで生の participant も
+`ros_discovery_info` を自分で読みます。その reader は統計の reader と同じく、participant の SHM 以外の
+unicast locator (UDP、`LARGE_DATA` では TCP) だけを広告します。この名前でグラフ API が名前を返さない
+エンドポイントを補い、両方で分かる場合はグラフ API の名前を使います。ノードかツールに SHM 以外の
+トランスポートが無い場合 (`FASTDDS_BUILTIN_TRANSPORTS=SHM`) や、ノードのサンプルを復号できない場合
+(別の ROS ディストリビューションのノード。GID は Humble で 24 バイト、Jazzy 以降で 16 バイト) は、
+名前は読めません。そのようなエンドポイントのノード名は生の DDS エンドポイントと同じく空になり、表は
+GUID で表示し、`--node` には一致せず、`diff` は GUID で対応付け、web viewer は participant を表示します。
+以前のバージョンが書いた JSON の不明ノード名も空として読みます ([#112](https://github.com/atinfinity/fastdds_transport_viz/issues/112))。
+
 ## ノードと同じ場所で実行する
 
 ツールは Fast DDS が読む環境をそのまま読み、変更はしません。観測したいノードと同じシェル環境で
@@ -308,9 +321,8 @@ data-sharing も無効にします (QoS プロファイルで `data_sharing` を
 
 どちらも分からない場合 (たとえばツールが 3 つ目の IPC 名前空間にいて、両側のポート番号が違う
 場合) はペアは `SHM` (または `DATA_SHARING`) のままで、手がかりは共有メモリ行の `shm-not-visible`
-だけです。ツールと別の
-IPC 名前空間にいるノードは、検出の有無にかかわらず、`ros_discovery_info` のサンプルも同じように
-失われるため、ノード名がしばしば不明と表示されます ([#112](https://github.com/atinfinity/fastdds_transport_viz/issues/112))。
+だけです。両側のノード名は
+表示されます: ツールは UDP でノード名を読みます (上の「ノード名とツール自身の痕跡」、[#112](https://github.com/atinfinity/fastdds_transport_viz/issues/112))。
 
 `--stats` 付きでは、このペアで writer の SHM トラフィックが計測されても想定どおり (writer は自分の
 `/dev/shm` のポートファイルに書き込むため。data-sharing の writer もハートビートは送る) なので、ペアは
