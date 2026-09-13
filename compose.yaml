@@ -17,6 +17,9 @@
 #   docker compose up talker_hostnet_split listener_hostnet_split
 #                                               # host network, an IPC namespace each => Fast DDS
 #                                               # picks SHM and nothing arrives (shm-ipc-namespace-split)
+#   docker compose up talker_hostnet_split_stats listener_hostnet_split_stats
+#                                               # same, with FASTDDS_STATISTICS: --stats from `hostnet`
+#                                               # still receives their statistics (#106)
 #
 # Run transport_viz from inside the same network/IPC scope as the nodes you
 # want to observe (see README). scripts/integration_test.sh drives these
@@ -165,6 +168,20 @@ services:
   listener_hostnet_split:
     <<: *base
     network_mode: host
+    command: ros2 run demo_nodes_cpp listener
+
+  # The same split with the statistics module enabled. The tool in `hostnet` is in a third
+  # IPC namespace; its statistics readers announce no SHM locator, so the statistics come
+  # over UDPv4 and show SHM traffic that is never delivered (#106).
+  talker_hostnet_split_stats:
+    <<: *base
+    network_mode: host
+    environment: *stats_env
+    command: ros2 run demo_nodes_cpp talker
+  listener_hostnet_split_stats:
+    <<: *base
+    network_mode: host
+    environment: *stats_env
     command: ros2 run demo_nodes_cpp listener
 
   # The same split seen from the talker's IPC namespace (`hostnet_in_talker_ipc`). A node
