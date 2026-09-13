@@ -298,19 +298,24 @@ with the warning `shm-ipc-namespace-split`, when one of these holds:
   port number. Only one participant per IPC namespace can listen on a port, so equal
   numbers mean two namespaces. This is the usual case with one node per container, because
   each namespace numbers its ports from the same start (on Jazzy and newer the
-  `ros_discovery_info` reader's port, 7000 for the first node). It does not depend on where
-  the tool runs.
+  `ros_discovery_info` reader's port, 7000 for the first node). It does not depend on the
+  tool's IPC namespace, but the tool needs the nodes' host id (the host network), because
+  it gathers the SHM ports of the participants on its own host only.
 - `shm-reader-port-not-visible` / `shm-writer-port-not-visible`: from the tool's IPC
   namespace, every SHM port of one participant is held (and announced by nobody else),
-  while a port of the other is held by nobody here or is one of the tool's own ports. It
-  needs the tool in the IPC namespace of one side.
+  while a port of the other has no lock file here or is one of the tool's own ports. It
+  needs the tool in the IPC namespace of one side. A free lock (left by a node that just
+  died) decides nothing, and neither does a held port whose number a third participant
+  announces too.
+
+For a pair reported this way, `--advise` gives the remedy: put both nodes in one IPC
+namespace (`ipc: host`), or disable SHM on one side so that UDPv4 is selected.
 
 When neither can be told, for example with the tool in a third IPC namespace and
 different port numbers on the two sides, the pair stays `SHM`, and `shm-not-visible` on
-the shared-memory line is the only hint. The listener's node name then often shows as
-unknown too, because its `ros_discovery_info` samples are lost the same way. `--advise`
-gives the remedy: put both nodes in one IPC namespace (`ipc: host`), or disable SHM on one
-side so that UDPv4 is selected.
+the shared-memory line is the only hint. A node in another IPC namespace than the tool
+often shows with an unknown node name, detected or not, because its `ros_discovery_info`
+samples are lost the same way.
 
 With `--stats` the writer's SHM traffic on such a pair is expected (it writes into the
 port file in its own `/dev/shm`), so the pair stays `NONE`. Only a proven delivery adds

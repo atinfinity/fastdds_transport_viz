@@ -201,17 +201,19 @@ rules in user terms. Roughly: no common transport kind → `NONE`; different hos
 the common network locator kind (UDPv4, UDPv6, TCP) with SHM locators ignored across
 hosts; same host → data-sharing if both announce it for intersecting domain ids
 (`likely`, because discovery cannot prove zero-copy), else SHM if both announce SHM
-locators (`NONE` with `shm-ipc-namespace-split` when the SHM ports that `collect()` put on
-the endpoints, `participant_shm_ports` / `participant_shm_visibility`, show the two
-participants in different IPC namespaces), else the common network kind. Warnings cover the suspicious combinations
-(same host id but no common IP address, SHM announced by only one side, ...).
+locators (`NONE` with `shm-ipc-namespace-split` when the SHM ports and their visibility
+that `collect()` puts on the endpoints, `participant_shm_ports` /
+`participant_shm_visibility`, show the two participants in different IPC namespaces),
+else the common network kind. Warnings cover the suspicious combinations (same host id
+but no common IP address, SHM announced by only one side, ...).
 
 `apply_stats(topics, stats)` overlays the measurements: it matches `RTPS_SENT` traffic
 from the writer's participant to the reader's locators, reports the locator kinds that
 carried packets, upgrades `likely` to `certain` when the measurement agrees, flags
 `measured-transport-mismatch` when it does not, and decides the data-sharing questions
-from `HISTORY_LATENCY` and `DATA_COUNT`. It is pure too: `test_decision` feeds it
-hand-made `StatsData`.
+from `HISTORY_LATENCY` and `DATA_COUNT`. `qos-incompatible` and
+`shm-ipc-namespace-split` pairs stay `NONE`; only a proven delivery adds a warning. It is
+pure too: `test_decision` feeds it hand-made `StatsData`.
 
 ## Fast DDS 2.14 and 3.x
 

@@ -27,6 +27,9 @@ export FASTDDS_STATISTICS="RTPS_SENT_TOPIC;RTPS_LOST_TOPIC;HISTORY_LATENCY_TOPIC
 
 `qos-incompatible` と判定したペアは実測しません。それでも `HISTORY_LATENCY` が配送を証明した場合は
 警告 `qos-incompatible-but-delivered` でマッチング規則の穴を知らせます。
+`shm-ipc-namespace-split` のペアも、writer の SHM トラフィックが計測されても `NONE` のままで、配送が
+証明されると `shm-ipc-namespace-split-but-delivered` が付きます
+([IPC 名前空間の分断](how-it-works.ja.md#ipc-名前空間の分断) を参照)。
 *writer* がこれ無しで起動されたペアには警告 `stats-not-enabled-on-writer` が付きます (statistics の
 無い reader は警告されません)。
 

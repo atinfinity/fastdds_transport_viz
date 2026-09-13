@@ -14,7 +14,8 @@ Forthcoming
   keeps such a pair ``NONE``, since the writer's SHM traffic is expected, and adds
   ``shm-ipc-namespace-split-but-delivered`` when a delivery is proven. New sample
   ``web/sample/shm_split.json``; integration scenarios ``hostnet_split_shm`` and
-  ``hostnet_split_shm_visible`` (#101).
+  ``hostnet_split_shm_visible``. The descriptions of ``shm-not-visible`` and
+  ``host-id-match-but-ip-differs`` point to the new warning (#101).
 * Shared-memory line: the tool's own participants are found with
   ``DomainParticipantFactory::lookup_participants()`` instead of through endpoints that
   resolve to its node name (on Lyrical and Rolling rclcpp creates none, so the tool's rmw
