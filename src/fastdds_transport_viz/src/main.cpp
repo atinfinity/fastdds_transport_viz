@@ -30,12 +30,16 @@
 #include <thread>
 #include <vector>
 
+#include <fastdds/dds/domain/DomainParticipant.hpp>
+#include <fastdds/dds/domain/DomainParticipantFactory.hpp>
+
 #include "rclcpp/rclcpp.hpp"
 #include "rmw/error_handling.h"
 #include "rmw/rmw.h"
 
 #include "fastdds_transport_viz/decision.hpp"
 #include "fastdds_transport_viz/fastdds_compat.hpp"
+#include "fastdds_transport_viz/fastdds_util.hpp"
 #include "fastdds_transport_viz/discovery_observer.hpp"
 #include "fastdds_transport_viz/model.hpp"
 #include "fastdds_transport_viz/parse_json.hpp"
@@ -356,7 +360,6 @@ Snapshot collect(
     stats_data.local_addresses = local_ip_addresses();
   }
   resolver.refresh();
-  const std::string own = resolver.own_node_name();
 
   std::vector<Endpoint> endpoints = observer.snapshot();
   std::vector<Endpoint> kept;
@@ -366,28 +369,25 @@ Snapshot collect(
   }
   fastdds_transport_viz::ShmScanInput shm_in;   // SHM ports of every endpoint, filtered or not
   const auto local_host = observer.local_host_id();
-  // Participants of our own rclcpp node: the node's topic endpoints resolve to our name;
-  // its participant-level endpoints (ros_discovery_info) do not, so match by prefix too.
+  // Participants of the tool itself: the rmw participant of our rclcpp node and the
+  // discovery/statistics participant. Matching endpoints by our node name misses the rmw
+  // participant where rclcpp creates no endpoint on it (Lyrical/Rolling with rosout and
+  // parameter services off), so ask the factory for every participant of this process.
   std::set<std::string> own_prefixes;
   std::set<std::string> other_host_prefixes;
+  for (const auto * p : eprosima::fastdds::dds::DomainParticipantFactory::get_instance()->
+    lookup_participants(static_cast<eprosima::fastdds::dds::DomainId_t>(domain)))
   {
-    // ... and the discovery/statistics participant of the tool itself
-    const auto & prefix = observer.participant()->guid().guidPrefix;
-    std::string s;
-    char buf[4];
-    for (int i = 0; i < 12; ++i) {
-      std::snprintf(buf, sizeof(buf), "%02x", prefix.value[i]);
-      s += (i ? "." : "") + std::string(buf);
-    }
-    own_prefixes.insert(s);
+    own_prefixes.insert(fastdds_transport_viz::prefix_to_string(p->guid().guidPrefix));
+  }
+  // The lock files of the ports our participants listen on, including those no endpoint
+  // announces (the discovery participant has none), so a node port that collides with
+  // one of them in another IPC namespace is not taken for visible.
+  if (const auto held = fastdds_transport_viz::held_port_locks()) {
+    shm_in.own_ports = *held;
   }
   for (auto & e : endpoints) {
     e.node_name = resolver.node_for_guid(e.guid_bytes);
-    if (e.node_name == own || e.ros_topic.rfind(own + "/", 0) == 0) {
-      own_prefixes.insert(e.participant_guid_prefix);
-    }
-  }
-  for (auto & e : endpoints) {
     auto phys = stats_data.physical.find(e.participant_guid_prefix);
     if (phys != stats_data.physical.end()) {
       e.host_name = phys->second.host;
@@ -398,9 +398,6 @@ Snapshot collect(
       // change, so its mere presence matters)
       stats_data.statistics_writers.insert({e.participant_guid_prefix, e.dds_topic});
     }
-    // Our own rclcpp node's endpoints: topic endpoints resolve to our node
-    // name, service endpoints live under our node name (services are not
-    // covered by the graph API).
     const bool ours = own_prefixes.count(e.participant_guid_prefix) > 0;
     for (const auto & l : e.unicast) {
       if (l.kind != fastdds_transport_viz::LocatorKind::SHM) {continue;}

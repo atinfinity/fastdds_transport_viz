@@ -51,9 +51,4 @@ std::string RosGraphResolver::node_for_guid(const std::array<uint8_t, 16> & guid
   return it == guid_to_node_.end() ? std::string() : it->second;
 }
 
-std::string RosGraphResolver::own_node_name() const
-{
-  return node_->get_fully_qualified_name();
-}
-
 }  // namespace fastdds_transport_viz

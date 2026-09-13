@@ -10,7 +10,9 @@
 #include <algorithm>
 #include <cstdlib>
 #include <fstream>
+#include <set>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "fastdds_transport_viz/decision.hpp"
@@ -186,6 +188,41 @@ TEST_F(FakeShmDir, ExplanationsExistForShmWarnings)
   for (const char * code : {"shm-stale-files", "shm-nearly-full", "shm-not-visible"}) {
     EXPECT_NE(explain(code), "(no description)") << code;
   }
+}
+
+TEST_F(FakeShmDir, HeldPortLocksOfThisProcess)
+{
+  locked("fastdds_port7421");
+  const auto held = held_port_locks();
+  ASSERT_TRUE(held.has_value());
+  EXPECT_EQ(held->count(7421), 1u);
+}
+
+TEST(HeldPortLocks, OnlyPortLockFiles)
+{
+  char tmpl[] = "/tmp/ftv_fd_XXXXXX";
+  ASSERT_NE(::mkdtemp(tmpl), nullptr);
+  const std::string dir = tmpl;
+  const std::vector<std::pair<std::string, std::string>> links = {
+    {"3", "/dev/shm/fastrtps_port7411_el"},
+    {"4", "/dev/shm/fastdds_port17915_el"},
+    {"5", "/dev/shm/fastrtps_port7413"},              // the port itself, not its lock
+    {"6", "/dev/shm/fastrtps_port7400_sl"},           // multicast shared lock
+    {"7", "/dev/shm/fastrtps_aaaa_el"},               // segment lock
+    {"8", "/dev/shm/fastrtps_port7417_el (deleted)"},
+    {"9", "socket:[12345]"},
+  };
+  for (const auto & [fd, target] : links) {
+    ASSERT_EQ(::symlink(target.c_str(), (dir + "/" + fd).c_str()), 0);
+  }
+  const auto held = held_port_locks(dir);
+  for (const auto & l : links) {
+    ::unlink((dir + "/" + l.first).c_str());
+  }
+  ::rmdir(dir.c_str());
+  ASSERT_TRUE(held.has_value());
+  EXPECT_EQ(*held, (std::set<uint32_t>{7411, 17915}));
+  EXPECT_FALSE(held_port_locks(dir).has_value());   // no such directory
 }
 
 TEST(ScanShm, RegularFileIsNotADirectory)
