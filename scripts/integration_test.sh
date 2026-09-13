@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Multi-container integration tests (run on the Docker host, not inside a container).
 #
-#   scripts/integration_test.sh [multi_container|stats_multi_container|hostnet_shm|hostnet_noipc_shm|large_data_tcp|udpv6_multi_container|easy_mode_shm|easy_mode_tcp|all]
+#   scripts/integration_test.sh [multi_container|stats_multi_container|hostnet_shm|hostnet_noipc_shm|hostnet_split_shm|hostnet_split_shm_visible|large_data_tcp|udpv6_multi_container|easy_mode_shm|easy_mode_tcp|all]
 #
 #   multi_container        talker and listener in two bridged containers (separate
 #                          network and IPC namespaces => different Fast DDS host ids).
@@ -16,6 +16,14 @@
 #                          the host IPC namespace (the tool's host id, another /dev/shm);
 #                          transport_viz in `hostnet`. Expect /chatter = SHM and
 #                          shm-not-visible with every SHM port of the nodes missing.
+#   hostnet_split_shm      talker and listener in two containers on the host network, an
+#                          IPC namespace each (same host id, two /dev/shm); transport_viz in
+#                          `hostnet`. Expect /chatter = NONE, shm-ipc-namespace-split and
+#                          shm-port-collision (both take the same SHM port number).
+#   hostnet_split_shm_visible  the same with a node started before the talker in its
+#                          container and transport_viz in the talker's IPC namespace (Jazzy
+#                          or newer; skipped on Humble). Expect /chatter = NONE,
+#                          shm-reader-port-not-visible and no shm-port-collision.
 #   large_data_tcp         bridged containers with FASTDDS_BUILTIN_TRANSPORTS=LARGE_DATA
 #                          (UDPv4 discovery, TCPv4 + SHM user data) and statistics.
 #                          Expect /chatter = TCPv4, "common-tcpv4-locator", measured TCPv4.
@@ -144,6 +152,7 @@ elif scenario == 'hostnet_shm':
     assert shm['available'] and shm['nodes_visible'], shm
     assert 'shm-not-visible' not in shm['warnings'], shm
     assert shm['segments'] - shm['stale_segments'] >= 2, shm   # talker and listener alive
+    assert 'shm-ipc-namespace-split' not in p['warnings'], p   # one /dev/shm (#101)
     print('PASS: /chatter across host-network/IPC containers uses SHM (same-host-guid); their segments are visible')
 elif scenario == 'hostnet_noipc_shm':
     assert p['transport'] == 'SHM', p
@@ -155,8 +164,27 @@ elif scenario == 'hostnet_noipc_shm':
     assert shm['checked_ports'] and shm['missing_ports'] == shm['checked_ports'], shm
     assert shm['other_host_participants'] == 0, shm
     assert 'shm-not-visible' in shm['warnings'], shm
+    # talker and listener share that other IPC namespace: no split between them (#101)
+    assert 'shm-ipc-namespace-split' not in p['warnings'], p
     print('PASS: host-network nodes in their own IPC namespace: /chatter SHM (same-host-guid), '
           'every SHM port of theirs reported missing')
+elif scenario == 'hostnet_split_shm':
+    # same host id, an IPC namespace each: Fast DDS selects SHM and loses every sample;
+    # both take the same SHM port number (7000 on Jazzy+, the pid-based one on Humble)
+    assert p['transport'] == 'NONE' and p['confidence'] == 'certain', p
+    assert {'same-host-guid', 'both-shm-locators', 'shm-port-collision'} <= set(p['reasons']), p
+    assert p['warnings'] == ['shm-ipc-namespace-split'], p
+    assert 'shm-not-visible' in doc['shm']['warnings'], doc['shm']
+    print('PASS: host-network talker and listener in separate IPC namespaces: /chatter NONE '
+          '(shm-ipc-namespace-split, shm-port-collision)')
+elif scenario == 'hostnet_split_shm_visible':
+    # from the talker's IPC namespace: its ports are held, the listener's are not
+    assert p['transport'] == 'NONE' and p['confidence'] == 'certain', p
+    assert {'same-host-guid', 'shm-reader-port-not-visible'} <= set(p['reasons']), p
+    assert 'shm-port-collision' not in p['reasons'], p
+    assert p['warnings'] == ['shm-ipc-namespace-split'], p
+    print('PASS: split seen from the talker\'s IPC namespace: /chatter NONE '
+          '(shm-ipc-namespace-split, shm-reader-port-not-visible)')
 else:
     sys.exit(f'unknown scenario {scenario}')
 PY
@@ -231,6 +259,41 @@ scenario_hostnet_noipc_shm() {
   assert hostnet_noipc_shm "$out"
 }
 
+scenario_hostnet_split_shm() {
+  local out="$out_dir/transport_viz_hostnet_split_shm.json"
+  echo "== starting talker and listener on the host network, an IPC namespace each"
+  docker compose up -d talker_hostnet_split listener_hostnet_split
+  sleep 3
+  local attempt
+  for attempt in 1 2 3; do   # a node may not announce its SHM locator yet
+    run_viz hostnet "$out"
+    if assert hostnet_split_shm "$out"; then return 0; fi
+    echo "-- attempt $attempt: split not seen yet, retrying"
+  done
+  return 1
+}
+
+# Humble announces only the pid-based SHM port, numbered per IPC namespace: the node started
+# first in the talker's namespace would take the listener's number, and a number announced
+# by two participants does not say whose lock the tool sees.
+scenario_hostnet_split_shm_visible() {
+  if [ "${ROS_DISTRO:-jazzy}" = humble ]; then
+    echo "SKIP: hostnet_split_shm_visible needs the 7000+ SHM port of Jazzy or newer"
+    return 0
+  fi
+  local out="$out_dir/transport_viz_hostnet_split_shm_visible.json"
+  echo "== starting a node and the talker, and the listener, on the host network, an IPC namespace each"
+  docker compose up -d talker_hostnet_split_visible listener_hostnet_split
+  sleep 6
+  local attempt
+  for attempt in 1 2 3; do   # a node may not announce its SHM locator yet
+    run_viz hostnet_in_talker_ipc "$out"
+    if assert hostnet_split_shm_visible "$out"; then return 0; fi
+    echo "-- attempt $attempt: split not seen yet, retrying"
+  done
+  return 1
+}
+
 # Easy Mode needs Fast DDS 3.2+ (ROS 2 Kilted or later); the default jazzy image ignores it.
 has_easy_mode() {
   case "${ROS_DISTRO:-jazzy}" in kilted|lyrical|rolling) return 0 ;; *) return 1 ;; esac
@@ -275,14 +338,14 @@ scenario_easy_mode_tcp() {
 
 build
 case "$scenario" in
-  multi_container|stats_multi_container|hostnet_shm|hostnet_noipc_shm|large_data_tcp|udpv6_multi_container|easy_mode_shm|easy_mode_tcp)
+  multi_container|stats_multi_container|hostnet_shm|hostnet_noipc_shm|hostnet_split_shm|hostnet_split_shm_visible|large_data_tcp|udpv6_multi_container|easy_mode_shm|easy_mode_tcp)
     "scenario_$scenario" ;;
   all)
-    for s in multi_container stats_multi_container hostnet_shm hostnet_noipc_shm large_data_tcp udpv6_multi_container easy_mode_shm easy_mode_tcp; do
+    for s in multi_container stats_multi_container hostnet_shm hostnet_noipc_shm hostnet_split_shm hostnet_split_shm_visible large_data_tcp udpv6_multi_container easy_mode_shm easy_mode_tcp; do
       echo; echo "#### $s"
       "scenario_$s"
       cleanup
     done ;;
   *)
-    echo "usage: $0 [multi_container|stats_multi_container|hostnet_shm|hostnet_noipc_shm|large_data_tcp|udpv6_multi_container|easy_mode_shm|easy_mode_tcp|all]" >&2; exit 2 ;;
+    echo "usage: $0 [multi_container|stats_multi_container|hostnet_shm|hostnet_noipc_shm|hostnet_split_shm|hostnet_split_shm_visible|large_data_tcp|udpv6_multi_container|easy_mode_shm|easy_mode_tcp|all]" >&2; exit 2 ;;
 esac
