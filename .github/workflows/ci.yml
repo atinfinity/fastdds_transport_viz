@@ -120,7 +120,7 @@ jobs:
   integration:
     # Multi-container scenarios (scripts/integration_test.sh) on the runner VM, once per
     # architecture: bridged containers => UDPv4, --stats across containers, host
-    # network/IPC => SHM, LARGE_DATA => TCPv4, DEFAULTv6 => UDPv6, plus the Easy Mode pair
+    # network/IPC => SHM, host network without its IPC => shm-not-visible, LARGE_DATA => TCPv4, DEFAULTv6 => UDPv6, plus the Easy Mode pair
     # on the lyrical image. Runs for the merge commit on main (and workflow_dispatch), not
     # for pull requests, to keep PR CI short.
     name: multi-container integration (${{ matrix.arch }}, ${{ matrix.distro }})
@@ -138,11 +138,12 @@ jobs:
         distro: [jazzy]
         scenarios: [all]
         include:
-          # Easy Mode (ROS2_EASY_MODE) needs Fast DDS 3.2+: only the two scenarios that
-          # the jazzy image skips, on the lyrical image.
+          # Easy Mode (ROS2_EASY_MODE) needs Fast DDS 3.2+: the two scenarios that the
+          # jazzy image skips, on the lyrical image, plus hostnet_noipc_shm (rclcpp there
+          # creates no endpoint on the tool's rmw participant, #51).
           - arch: x86_64
             distro: lyrical
-            scenarios: easy_mode_shm easy_mode_tcp
+            scenarios: easy_mode_shm easy_mode_tcp hostnet_noipc_shm
     env:
       ROS_DISTRO: ${{ matrix.distro }}
     steps:

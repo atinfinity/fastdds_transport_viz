@@ -12,6 +12,8 @@
 #   docker compose run --rm -d hostnet ros2 run demo_nodes_cpp talker
 #   docker compose run --rm -d hostnet ros2 run demo_nodes_cpp listener
 #                                               # host network + IPC => same host id => SHM
+#   docker compose up pair_hostnet_noipc        # host network, own IPC => the tool in hostnet
+#                                               # sees none of their SHM ports (shm-not-visible)
 #
 # Run transport_viz from inside the same network/IPC scope as the nodes you
 # want to observe (see README). scripts/integration_test.sh drives these
@@ -140,6 +142,14 @@ services:
   # Same container: same host ID and shared /dev/shm => SHM.
   pair_shm:
     <<: *base
+    command: bash -c "ros2 run demo_nodes_cpp talker & exec ros2 run demo_nodes_cpp listener"
+
+  # Host network without the host IPC namespace: the Docker host's host id but a /dev/shm
+  # of its own. Talker and listener share it, so /chatter is SHM between them; a tool in
+  # `hostnet` holds none of their port locks (shm-not-visible).
+  pair_hostnet_noipc:
+    <<: *base
+    network_mode: host
     command: bash -c "ros2 run demo_nodes_cpp talker & exec ros2 run demo_nodes_cpp listener"
 
 # IPv6 on the project network so that UDPv6 / DEFAULTv6 can be exercised (Docker >= 27

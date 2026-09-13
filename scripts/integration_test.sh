@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Multi-container integration tests (run on the Docker host, not inside a container).
 #
-#   scripts/integration_test.sh [multi_container|stats_multi_container|hostnet_shm|large_data_tcp|udpv6_multi_container|easy_mode_shm|easy_mode_tcp|all]
+#   scripts/integration_test.sh [multi_container|stats_multi_container|hostnet_shm|hostnet_noipc_shm|large_data_tcp|udpv6_multi_container|easy_mode_shm|easy_mode_tcp|all]
 #
 #   multi_container        talker and listener in two bridged containers (separate
 #                          network and IPC namespaces => different Fast DDS host ids).
@@ -12,6 +12,10 @@
 #   hostnet_shm            talker and listener in two containers that share the Docker
 #                          host's network and IPC namespaces (same host id, same
 #                          /dev/shm). Expect /chatter = SHM, reason "same-host-guid".
+#   hostnet_noipc_shm      talker and listener in one container on the host network without
+#                          the host IPC namespace (the tool's host id, another /dev/shm);
+#                          transport_viz in `hostnet`. Expect /chatter = SHM and
+#                          shm-not-visible with every SHM port of the nodes missing.
 #   large_data_tcp         bridged containers with FASTDDS_BUILTIN_TRANSPORTS=LARGE_DATA
 #                          (UDPv4 discovery, TCPv4 + SHM user data) and statistics.
 #                          Expect /chatter = TCPv4, "common-tcpv4-locator", measured TCPv4.
@@ -137,6 +141,18 @@ elif scenario == 'hostnet_shm':
     assert 'shm-not-visible' not in shm['warnings'], shm
     assert shm['segments'] - shm['stale_segments'] >= 2, shm   # talker and listener alive
     print('PASS: /chatter across host-network/IPC containers uses SHM (same-host-guid); their segments are visible')
+elif scenario == 'hostnet_noipc_shm':
+    assert p['transport'] == 'SHM', p
+    assert 'same-host-guid' in p['reasons'], p
+    shm = doc['shm']
+    # same host id, another /dev/shm: none of the nodes' port locks is held here, and
+    # the tool's own ports (7000, 7001 on Jazzy+) are not taken for theirs (#51)
+    assert shm['available'] and not shm['nodes_visible'], shm
+    assert shm['checked_ports'] and shm['missing_ports'] == shm['checked_ports'], shm
+    assert shm['other_host_participants'] == 0, shm
+    assert 'shm-not-visible' in shm['warnings'], shm
+    print('PASS: host-network nodes in their own IPC namespace: /chatter SHM (same-host-guid), '
+          'every SHM port of theirs reported missing')
 else:
     sys.exit(f'unknown scenario {scenario}')
 PY
@@ -202,6 +218,15 @@ scenario_hostnet_shm() {
   assert hostnet_shm "$out"
 }
 
+scenario_hostnet_noipc_shm() {
+  local out="$out_dir/transport_viz_hostnet_noipc_shm.json"
+  echo "== starting talker + listener on the host network without the host IPC namespace"
+  docker compose up -d pair_hostnet_noipc
+  sleep 3
+  run_viz hostnet "$out"
+  assert hostnet_noipc_shm "$out"
+}
+
 # Easy Mode needs Fast DDS 3.2+ (ROS 2 Kilted or later); the default jazzy image ignores it.
 has_easy_mode() {
   case "${ROS_DISTRO:-jazzy}" in kilted|lyrical|rolling) return 0 ;; *) return 1 ;; esac
@@ -246,14 +271,14 @@ scenario_easy_mode_tcp() {
 
 build
 case "$scenario" in
-  multi_container|stats_multi_container|hostnet_shm|large_data_tcp|udpv6_multi_container|easy_mode_shm|easy_mode_tcp)
+  multi_container|stats_multi_container|hostnet_shm|hostnet_noipc_shm|large_data_tcp|udpv6_multi_container|easy_mode_shm|easy_mode_tcp)
     "scenario_$scenario" ;;
   all)
-    for s in multi_container stats_multi_container hostnet_shm large_data_tcp udpv6_multi_container easy_mode_shm easy_mode_tcp; do
+    for s in multi_container stats_multi_container hostnet_shm hostnet_noipc_shm large_data_tcp udpv6_multi_container easy_mode_shm easy_mode_tcp; do
       echo; echo "#### $s"
       "scenario_$s"
       cleanup
     done ;;
   *)
-    echo "usage: $0 [multi_container|stats_multi_container|hostnet_shm|large_data_tcp|udpv6_multi_container|easy_mode_shm|easy_mode_tcp|all]" >&2; exit 2 ;;
+    echo "usage: $0 [multi_container|stats_multi_container|hostnet_shm|hostnet_noipc_shm|large_data_tcp|udpv6_multi_container|easy_mode_shm|easy_mode_tcp|all]" >&2; exit 2 ;;
 esac
