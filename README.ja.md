@@ -159,8 +159,11 @@ ros2 transport codes
   secure enclave 内の participant は発見できません。
 - **ツール自身の痕跡。** ツールはドメインに自身の participant を 2 つ追加します (出力からは除外)。
 - **共有メモリの分断。** ホスト id が同じで IPC 名前空間が別のノード同士 (`ipc: host` の無い
-  `network_mode: host`) は `SHM` と表示されますが、その間のメッセージはすべて失われます。共有メモリ行の
-  `shm-not-visible` が示すのは、ツールがそのノードと別の名前空間にいることだけです
+  `network_mode: host`) でも Fast DDS は SHM を選び、その間のメッセージはすべて失われます。ツールが
+  見分けられる場合、つまり 2 つが同じ SHM ポート番号を広告している (`shm-port-collision`。コンテナに
+  ノードが 1 つずつの典型的な構成) か、ツールが片方と同じ IPC 名前空間にいる場合、ペアは `NONE` と
+  `shm-ipc-namespace-split` になります。それ以外では `SHM` のままで、手がかりは共有メモリ行の
+  `shm-not-visible` だけです
   ([#101](https://github.com/atinfinity/fastdds_transport_viz/issues/101))。
 
 ## ライセンス

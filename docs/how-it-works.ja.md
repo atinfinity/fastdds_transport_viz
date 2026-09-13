@@ -29,6 +29,8 @@ writer → reader の各ペアで transport を選ぶときと同じルールを
    [data-sharing.ja.md](data-sharing.ja.md) を参照)。広告された domain id が交わらない場合は次へ。
 3. 同じホストで、両方が SHM locator を広告している → `SHM`。このとき Fast DDS はその participant
    間のユーザーデータに共有メモリだけを使います。discovery は引き続き UDP で行われます。
+   2 つの participant が別々の IPC 名前空間で待ち受けていると分かる場合は、代わりに `NONE` に
+   なります (後述の「IPC 名前空間の分断」を参照)。
 4. それ以外は、reader が広告するネットワーク locator のうち writer も話せる最初の種類
    → `UDPv4` / `UDPv6` / `TCPv4` / `TCPv6`。
 5. 共通の locator が無い → `NONE`。
@@ -255,12 +257,43 @@ shared memory: /dev/shm 396 MB used of 16.7 GB (16.3 GB free) | Fast DDS 63.4 MB
   書き込み先のポートをロックしないため、ホスト id がツールと同じで IPC 名前空間だけが別
   (`ipc: host` の無い `network_mode: host`) のノードも検出されます。
   そのようなノード同士でも Fast DDS は SHM を選びます (ホスト id が同じ) が、ポートは別々の
-  `/dev/shm` にあるためメッセージはすべて失われ、ペアの判定は `SHM` のままです
-  ([#101](https://github.com/atinfinity/fastdds_transport_viz/issues/101))。
+  `/dev/shm` にあるためメッセージはすべて失われます。ツールが見分けられる場合、ペアは `NONE` と
+  `shm-ipc-namespace-split` になります (後述の「IPC 名前空間の分断」を参照)。
 - `shm-nearly-full` は使用率 90 % 以上、または空きが 16 MiB 未満で警告します。
 
 `/dev/shm` が無い環境 (macOS) では行自体を省きます。JSON では同じデータが `shm` オブジェクト
 になり、`--watch` ではフレームごとに更新されます。
+
+### IPC 名前空間の分断
+
+Fast DDS はホスト id が同じなら共有メモリで相手の participant に届くとみなします。
+`network_mode: host` のコンテナはホスト id を共有しますが、`ipc: host` (または共通の
+`ipc: service:…` / `ipc: container:…`) が無いコンテナはそれぞれ自分の `/dev/shm` を持ちます。
+すると writer は誰も待ち受けていないポートファイルに書き込み、listener には何も届きません。どちらの
+側にもエラーは出ません。次のいずれかが成り立つとき、ツールはそのペアを `NONE`、`certain`、警告
+`shm-ipc-namespace-split` と報告します:
+
+- `shm-port-collision`: writer と reader の participant が同じ SHM ポート番号を広告している。
+  1 つのポートで待ち受けられるのは IPC 名前空間ごとに 1 つの participant だけなので、番号が
+  等しいのは名前空間が 2 つある証拠です。コンテナにノードが 1 つずつの構成では典型的に起こります:
+  名前空間ごとに同じ番号からポートを割り当てるためです (Jazzy 以降では `ros_discovery_info` の
+  reader のポートで、最初のノードは 7000)。ツールをどこで動かしても判定できます。
+- `shm-reader-port-not-visible` / `shm-writer-port-not-visible`: ツールの IPC 名前空間から見て、
+  片方の participant の SHM ポートはすべて保持されていて (他の誰も広告していない)、もう片方の
+  ポートはここで誰も保持していないか、ツール自身のポートである。ツールがどちらかの側と同じ IPC
+  名前空間にいる必要があります。
+
+どちらも分からない場合 (たとえばツールが 3 つめの IPC 名前空間にいて、両側のポート番号が違う
+場合) はペアは `SHM` のままで、手がかりは共有メモリ行の `shm-not-visible` だけです。このとき
+listener の `ros_discovery_info` のサンプルも同じように失われるため、そのノード名もしばしば不明と
+表示されます。`--advise` が対処を示します: 両方のノードを 1 つの IPC 名前空間に入れる
+(`ipc: host`) か、片側の SHM を無効にして UDPv4 が選ばれるようにします。
+
+`--stats` 付きでは、このペアで writer の SHM トラフィックが計測されるのは想定どおりです (自分の
+`/dev/shm` のポートファイルに書き込むため) ので、ペアは `NONE` のままです。配送が証明されたとき
+だけ、分断と矛盾するので `shm-ipc-namespace-split-but-delivered` が付きます。同一ホストの writer と
+別の IPC 名前空間にいるツールは、同じ理由でその writer の statistics を受け取れません
+([#106](https://github.com/atinfinity/fastdds_transport_viz/issues/106))。
 
 ## Watch モード
 
