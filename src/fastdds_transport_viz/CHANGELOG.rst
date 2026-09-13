@@ -9,7 +9,9 @@ Forthcoming
   participant listens on (like the statistics readers), and names the endpoints the ROS
   graph API cannot name from it. rclcpp's participant announces SHM, so a same-host node in
   another IPC namespace than the tool wrote those samples into its own ``/dev/shm`` and the
-  tool showed ``_NODE_NAMESPACE_UNKNOWN_/_NODE_NAME_UNKNOWN_``. A name that is still unknown
+  tool showed ``_NODE_NAMESPACE_UNKNOWN_/_NODE_NAME_UNKNOWN_``. On Humble the reader has a
+  participant of its own without the SHM transport (Fast DDS 2.6 gives a participant with
+  SHM only the SHM locator of a same-host endpoint). A name that is still unknown
   (a node or tool with SHM only, or a node of another ROS distribution) is now empty, like a
   raw DDS endpoint's, instead of merging every such endpoint into one node: the table labels
   it by GUID and the web viewer shows its participant. ``diff`` and the web viewer read the

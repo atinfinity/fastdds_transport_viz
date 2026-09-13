@@ -269,6 +269,13 @@ TEST(RosDiscoveryInfoObserver, ReaderAnnouncesNoShmLocator)
   DiscoveryObserver obs(203);
   RosDiscoveryInfoObserver names(obs.participant());
   ASSERT_NE(names.reader(), nullptr);
+#if FTV_SAME_HOST_LOCATORS_FILTERED
+  // Fast DDS 2.6 would give the raw participant only a same-host node's SHM locator
+  EXPECT_NE(names.participant(), obs.participant());
+  EXPECT_EQ(names.participant()->get_domain_id(), 203u);
+#else
+  EXPECT_EQ(names.participant(), obs.participant());
+#endif
   eprosima::fastdds::rtps::LocatorList locators;
   ASSERT_TRUE(retcode_ok(names.reader()->get_listening_locators(locators)));
   EXPECT_FALSE(locators.empty());

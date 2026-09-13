@@ -73,7 +73,7 @@ sequenceDiagram
     participant R as renderer
     M->>N: rclcpp::init (domain, SUPER_CLIENT if ROS_DISCOVERY_SERVER)
     M->>D: create participant + listener
-    M->>I: add a ros_discovery_info reader to D's participant
+    M->>I: add a ros_discovery_info reader to D's participant (Humble: to its own participant without SHM)
     opt --stats
         M->>S: add statistics readers to D's participant
     end
@@ -109,6 +109,10 @@ sequenceDiagram
    participant that announces no SHM locator: rclcpp's participant does not receive that
    topic from a same-host node in another IPC namespace, which writes it into its own
    `/dev/shm` ([#112](https://github.com/atinfinity/fastdds_transport_viz/issues/112)).
+   On Fast DDS 2.6 (Humble) the reader gets a third participant of its own, created like the
+   raw one without the SHM transport: a participant with SHM receives only the SHM locator
+   of a same-host endpoint there (`FTV_SAME_HOST_LOCATORS_FILTERED`), so the nodes'
+   writers could not reach the reader.
 3. **Observation loop.** `DiscoveryObserver` records every remote writer and reader as an
    `Endpoint` (GUID, host id, locators, QoS, data-sharing settings) under a mutex.
    `StatsObserver::poll()` drains the statistics readers every 50 ms: they use

@@ -11,11 +11,14 @@
 #include <algorithm>
 #include <cstdint>
 #include <functional>
+#include <memory>
 #include <stdexcept>
 #include <string>
 #include <vector>
 
 #include <fastdds/dds/core/policy/QosPolicies.hpp>
+#include <fastdds/dds/domain/DomainParticipantFactory.hpp>
+#include <fastdds/dds/domain/qos/DomainParticipantQos.hpp>
 #include <fastdds/dds/subscriber/SampleInfo.hpp>
 #include <fastdds/dds/subscriber/qos/DataReaderQos.hpp>
 #include <fastdds/dds/subscriber/qos/SubscriberQos.hpp>
@@ -27,6 +30,11 @@
 
 #include "fastdds_transport_viz/fastdds_compat.hpp"
 #include "fastdds_transport_viz/fastdds_util.hpp"
+
+#if FTV_SAME_HOST_LOCATORS_FILTERED
+#include <fastdds/rtps/transport/UDPv4TransportDescriptor.h>
+#include <fastdds/rtps/transport/shared_mem/SharedMemTransportDescriptor.h>
+#endif
 
 namespace fastdds_transport_viz
 {
@@ -168,6 +176,32 @@ EndpointGid to_endpoint_gid(const Gid & gid)
   return out;
 }
 
+#if FTV_SAME_HOST_LOCATORS_FILTERED
+/// A participant like `like` (same domain and profile) without the SHM transport, or nullptr
+/// when SHM is its only transport.
+dds::DomainParticipant * create_participant_without_shm(dds::DomainParticipant * like)
+{
+  namespace transport = eprosima::fastdds::rtps;
+  dds::DomainParticipantQos qos = like->get_qos();
+  qos.name("fastdds_transport_viz_names");
+  auto & user = qos.transport().user_transports;
+  user.erase(
+    std::remove_if(
+      user.begin(), user.end(), [](const auto & t) {
+        return std::dynamic_pointer_cast<transport::SharedMemTransportDescriptor>(t) != nullptr;
+      }), user.end());
+  if (qos.transport().use_builtin_transports) {   // UDPv4 and SHM
+    qos.transport().use_builtin_transports = false;
+    user.push_back(std::make_shared<transport::UDPv4TransportDescriptor>());
+  }
+  if (user.empty()) {
+    return nullptr;
+  }
+  return dds::DomainParticipantFactory::get_instance()->create_participant(
+    like->get_domain_id(), qos);
+}
+#endif
+
 }  // namespace
 
 dds::TypeSupport RosDiscoveryInfoObserver::make_type_support()
@@ -178,10 +212,21 @@ dds::TypeSupport RosDiscoveryInfoObserver::make_type_support()
 RosDiscoveryInfoObserver::RosDiscoveryInfoObserver(dds::DomainParticipant * participant)
 : participant_(participant)
 {
+#if FTV_SAME_HOST_LOCATORS_FILTERED
+  // Fast DDS 2.6 keeps only the SHM locator of a same-host endpoint in the discovery data of a
+  // participant with SHM: from `participant` the nodes' writers are reachable over SHM alone,
+  // which a node in another IPC namespace never receives. Read with a participant without SHM.
+  owned_participant_ = create_participant_without_shm(participant);
+  if (owned_participant_ == nullptr) {
+    throw std::runtime_error("failed to create a participant without SHM for ros_discovery_info");
+  }
+  participant_ = owned_participant_;
+#endif
   make_type_support().register_type(participant_);
   topic_ = participant_->create_topic(kTopicName, kTypeName, dds::TOPIC_QOS_DEFAULT);
   subscriber_ = participant_->create_subscriber(dds::SUBSCRIBER_QOS_DEFAULT);
   if (topic_ == nullptr || subscriber_ == nullptr) {
+    release();
     throw std::runtime_error("failed to create the ros_discovery_info topic");
   }
   // the reader of rmw_dds_common's graph cache
@@ -199,15 +244,28 @@ RosDiscoveryInfoObserver::RosDiscoveryInfoObserver(dds::DomainParticipant * part
   }
   reader_ = subscriber_->create_datareader(topic_, qos);
   if (reader_ == nullptr) {
+    release();
     throw std::runtime_error("failed to create the ros_discovery_info reader");
   }
 }
 
 RosDiscoveryInfoObserver::~RosDiscoveryInfoObserver()
 {
+  release();
+}
+
+void RosDiscoveryInfoObserver::release()
+{
   if (reader_ != nullptr) {subscriber_->delete_datareader(reader_);}
   if (subscriber_ != nullptr) {participant_->delete_subscriber(subscriber_);}
   if (topic_ != nullptr) {participant_->delete_topic(topic_);}
+  if (owned_participant_ != nullptr) {
+    dds::DomainParticipantFactory::get_instance()->delete_participant(owned_participant_);
+  }
+  reader_ = nullptr;
+  subscriber_ = nullptr;
+  topic_ = nullptr;
+  owned_participant_ = nullptr;
 }
 
 void RosDiscoveryInfoObserver::poll()

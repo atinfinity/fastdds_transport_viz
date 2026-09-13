@@ -104,7 +104,10 @@ id in another IPC namespace writes those samples into its own `/dev/shm`, and rc
 reports the rmw's `_NODE_NAMESPACE_UNKNOWN_/_NODE_NAME_UNKNOWN_`. The raw participant
 therefore reads `ros_discovery_info` itself too, with a reader that announces only the
 participant's non-SHM unicast locators (UDP, or TCP with `LARGE_DATA`), like the
-statistics readers. Its names fill the endpoints the graph API cannot name; when both know
+statistics readers. On Humble that reader has a participant of its own without the SHM
+transport: Fast DDS 2.6 keeps only the SHM locator of a same-host endpoint in the
+discovery data of a participant with SHM, so from the raw participant the nodes' writers
+would be reachable over SHM alone. Its names fill the endpoints the graph API cannot name; when both know
 a name, the graph API's is used. A name still cannot be read when the node or the tool has
 no transport but SHM (`FASTDDS_BUILTIN_TRANSPORTS=SHM`), or when the node's samples do not
 decode (a node of another ROS distribution: the GIDs are 24 bytes on Humble, 16 on Jazzy
