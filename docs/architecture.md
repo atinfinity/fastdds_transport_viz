@@ -11,12 +11,14 @@ flowchart LR
         DDS["remote participants<br/>(discovery data)"]
         STATS["statistics topics<br/>(FASTDDS_STATISTICS on the nodes)"]
         GRAPH["ROS graph<br/>(rclcpp node)"]
+        DINFO["ros_discovery_info<br/>(node names, read without SHM)"]
         SHM["/dev/shm"]
     end
     subgraph observe["observers (Fast DDS / ROS dependent)"]
         DO["DiscoveryObserver<br/>DomainParticipantListener"]
         SO["StatsObserver<br/>DataReaders on the same participant"]
         RR["RosGraphResolver<br/>GUID → node name"]
+        RD["RosDiscoveryInfoObserver<br/>DataReader on the same participant"]
         SI["scan_shm()<br/>statvfs + flock probes"]
     end
     subgraph core["core (pure, unit-tested)"]
@@ -30,6 +32,7 @@ flowchart LR
     DDS --> DO --> SNAP
     STATS --> SO --> SNAP
     GRAPH --> RR --> SNAP
+    DINFO --> RD --> SNAP
     SHM --> SI --> SNAP
     SNAP --> DEC --> RT & RJ
     RT --> TTY["terminal / --watch"]
@@ -51,7 +54,7 @@ Inside the C++ package the sources are split into two libraries:
 | Library | Sources | Depends on |
 |---|---|---|
 | `fastdds_transport_viz_core` | `model.cpp`, `decision.cpp`, `ros_names.cpp`, `shm_info.cpp` | nothing but the C++ standard library and POSIX |
-| `fastdds_transport_viz_lib` | `discovery_observer.cpp`, `ros_graph_resolver.cpp`, `stats_observer.cpp`, `render_table.cpp`, `render_json.cpp` | core, rclcpp, Fast DDS, nlohmann_json, the vendored statistics types |
+| `fastdds_transport_viz_lib` | `discovery_observer.cpp`, `ros_discovery_info_observer.cpp`, `ros_graph_resolver.cpp`, `stats_observer.cpp`, `render_table.cpp`, `render_json.cpp` | core, rclcpp, Fast DDS, nlohmann_json, the vendored statistics types, the `rosidl_typesupport_fastrtps_cpp` type support of `rmw_dds_common` |
 
 The split is the point: the decision logic never sees a Fast DDS type, so `test_decision`
 builds endpoints by hand and checks verdicts, statistics overlays and diffs without a DDS
@@ -64,21 +67,25 @@ sequenceDiagram
     participant M as main()
     participant N as rclcpp node<br/>/_transport_viz_<pid>
     participant D as DiscoveryObserver<br/>(own DomainParticipant)
+    participant I as RosDiscoveryInfoObserver
     participant S as StatsObserver
     participant C as collect()
     participant R as renderer
     M->>N: rclcpp::init (domain, SUPER_CLIENT if ROS_DISCOVERY_SERVER)
     M->>D: create participant + listener
+    M->>I: add a ros_discovery_info reader to D's participant (Humble: to its own participant without SHM)
     opt --stats
         M->>S: add statistics readers to D's participant
     end
     loop every 50 ms until --timeout (or --quiet seconds without discovery events)
         D-->>D: on_data_writer/reader_discovery → Endpoint
+        M->>I: poll() (node names)
         M->>S: poll() (drain counters)
     end
     M->>C: collect()
     C->>D: snapshot() endpoints
     C->>N: RosGraphResolver::refresh(), node_for_guid()
+    C->>I: poll(), node_for_guid() for the names the graph does not know
     C->>S: snapshot() StatsData
     C->>C: filter own endpoints, --topic/--all/--node, scan_shm()
     C->>C: summarize() → decide() per pair → apply_stats()
@@ -98,7 +105,14 @@ sequenceDiagram
    `--stats`, hosts the statistics readers. rclcpp's participant cannot be used for both:
    `rmw_fastrtps_cpp` owns its listener, and the tool must not register the statistics
    topics with rmw. Both participants are filtered out of the results by node name and by
-   GUID prefix.
+   GUID prefix. `RosDiscoveryInfoObserver` adds a `ros_discovery_info` reader to the raw
+   participant that announces no SHM locator: rclcpp's participant does not receive that
+   topic from a same-host node in another IPC namespace, which writes it into its own
+   `/dev/shm` ([#112](https://github.com/atinfinity/fastdds_transport_viz/issues/112)).
+   On Fast DDS 2.6 (Humble) the reader gets a third participant of its own, created like the
+   raw one without the SHM transport: a participant with SHM receives only the SHM locator
+   of a same-host endpoint there (`FTV_SAME_HOST_LOCATORS_FILTERED`), so the nodes'
+   writers could not reach the reader.
 3. **Observation loop.** `DiscoveryObserver` records every remote writer and reader as an
    `Endpoint` (GUID, host id, locators, QoS, data-sharing settings) under a mutex.
    `StatsObserver::poll()` drains the statistics readers every 50 ms: they use
@@ -106,7 +120,8 @@ sequenceDiagram
    cumulative counter to report a window delta. Without `--stats` the loop stops early
    after `--quiet` seconds without discovery events; with it the full `--timeout` is used
    so that counters can accumulate.
-4. **collect()** builds the `Snapshot`: node names from the resolver, host names and
+4. **collect()** builds the `Snapshot`: node names from the resolver (or, for the
+   endpoints it cannot name, from the own `ros_discovery_info` reader), host names and
    process ids from `PHYSICAL_DATA`, the tool's own endpoints removed, `--all` /
    `--topic` / `--node` applied, the shared-memory scan attached, then the core:
    `summarize()` groups endpoints by DDS topic and pairs writers with readers,

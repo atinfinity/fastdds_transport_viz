@@ -6,19 +6,10 @@
 #include <string>
 #include <vector>
 
+#include "fastdds_transport_viz/ros_names.hpp"
+
 namespace fastdds_transport_viz
 {
-
-namespace
-{
-std::string fq_name(const std::string & ns, const std::string & name)
-{
-  if (ns.empty() || ns == "/") {
-    return "/" + name;
-  }
-  return ns + "/" + name;
-}
-}  // namespace
 
 RosGraphResolver::RosGraphResolver(rclcpp::Node::SharedPtr node)
 : node_(std::move(node))
@@ -39,7 +30,9 @@ void RosGraphResolver::refresh()
       for (size_t i = 0; i < 16 && i < gid.size(); ++i) {
         guid[i] = gid[i];
       }
-      fresh[guid] = fq_name(info.node_namespace(), info.node_name());
+      // the rmw's unknown name becomes "": its ros_discovery_info sample was not received
+      fresh[guid] = normalize_node_name(
+        fully_qualified_node_name(info.node_namespace(), info.node_name()));
     }
   }
   guid_to_node_ = std::move(fresh);

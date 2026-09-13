@@ -150,13 +150,7 @@ StatsObserver::Reader StatsObserver::create_reader(
   // (UDP, or TCP with LARGE_DATA), read once from a probe reader.
   if (!reader_locators_probed_) {
     reader_locators_probed_ = true;
-    if (auto * probe = subscriber_->create_datareader(r.topic, qos); probe != nullptr) {
-      eprosima::fastdds::rtps::LocatorList listening;
-      if (retcode_ok(probe->get_listening_locators(listening))) {
-        reader_locators_ = non_shm_unicast_locators(listening);
-      }
-      subscriber_->delete_datareader(probe);
-    }
+    reader_locators_ = probe_non_shm_unicast_locators(subscriber_, r.topic, qos);
   }
   if (!reader_locators_.empty()) {
     qos.endpoint().unicast_locator_list = reader_locators_;

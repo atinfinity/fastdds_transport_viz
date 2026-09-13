@@ -203,6 +203,29 @@ test('split IPC sample: the lost SHM pair is NONE with its warning, description 
   assert.match(html, /<span class="fix">fix: Put both nodes in one IPC namespace/);
 });
 
+test('normalizeDocument: the rmw unknown node name falls back to the participant', () => {
+  const unknown = M.UNKNOWN_NODE_NAME;
+  const doc = {
+    topics: [
+      { dds_topic: 'rt/chatter', topic: '/chatter', unmatched_reasons: [],
+        pairs: [{ writer_guid: 'W', reader_guid: 'R', writer_node: unknown, reader_node: unknown, transport: 'NONE', confidence: 'likely', reasons: [], warnings: [] }],
+        writers: [{ guid: 'W', node: unknown, participant_guid_prefix: 'P1', host: 'local' }],
+        readers: [{ guid: 'R', node: unknown, participant_guid_prefix: 'P2', host: 'local' }] },
+    ],
+  };
+  assert.equal(M.normalizeDocument(doc), doc);
+  assert.equal(doc.topics[0].writers[0].node, '');
+  assert.equal(doc.topics[0].pairs[0].reader_node, '');
+  const m = M.buildModel(doc);
+  assert.deepEqual([...m.nodes.keys()].sort(), ['participant P1', 'participant P2'], 'not merged into one node');
+  assert.equal(M.normalizeDocument(null), null);
+  // the shipped split sample: the listener is one participant box, the talker keeps its name
+  const split = M.buildModel(M.normalizeDocument(load('shm_split.json')));
+  assert.ok(![...split.nodes.keys()].includes(unknown));
+  assert.ok(split.nodes.has('/talker'));
+  assert.ok([...split.nodes.keys()].some(k => k.startsWith('participant ')));
+});
+
 test('humanSeconds / latencyText', () => {
   assert.equal(M.humanSeconds(0.00042), '420 µs');
   assert.equal(M.humanSeconds(0.0013), '1.30 ms');

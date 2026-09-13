@@ -98,6 +98,24 @@ tool registers a hidden node `_transport_viz_<pid>`. Its own endpoints are exclu
 the output. Discovery is observed by a second, raw Fast DDS participant so that rmw's own
 discovery listener is never touched.
 
+The graph API reads `ros_discovery_info`, where the rmw of every node publishes its node
+names and endpoint GIDs. rclcpp's participant announces SHM, so a node with the tool's host
+id in another IPC namespace writes those samples into its own `/dev/shm`, and rclcpp
+reports the rmw's `_NODE_NAMESPACE_UNKNOWN_/_NODE_NAME_UNKNOWN_`. The raw participant
+therefore reads `ros_discovery_info` itself too, with a reader that announces only the
+participant's non-SHM unicast locators (UDP, or TCP with `LARGE_DATA`), like the
+statistics readers. On Humble that reader has a participant of its own without the SHM
+transport: Fast DDS 2.6 keeps only the SHM locator of a same-host endpoint in the
+discovery data of a participant with SHM, so the nodes' writers would reach a reader on
+the raw participant over SHM alone. Its names fill the endpoints the graph API cannot
+name; when both know a name, the graph API's is used. A name still cannot be read when the node or the tool has
+no transport but SHM (`FASTDDS_BUILTIN_TRANSPORTS=SHM`), or when the node's samples do not
+decode (a node of another ROS distribution: the GIDs are 24 bytes on Humble, 16 on Jazzy
+and newer). Such an endpoint gets an empty node name, like a raw DDS endpoint: the table
+labels it by GUID, `--node` does not match it, `diff` matches it by GUID and the web viewer
+shows its participant. The unknown name in JSON documents written by earlier versions is
+read as empty as well ([#112](https://github.com/atinfinity/fastdds_transport_viz/issues/112)).
+
 ## Run it where the nodes run
 
 The tool reads the same environment Fast DDS reads and never modifies it: run it in the
@@ -330,9 +348,9 @@ data-sharing as well for a data-sharing pair (`data_sharing` OFF in its QoS prof
 
 When neither can be told, for example with the tool in a third IPC namespace and
 different port numbers on the two sides, the pair stays `SHM` (or `DATA_SHARING`), and
-`shm-not-visible` on the shared-memory line is the only hint. A node in another IPC namespace than the tool
-often shows with an unknown node name, detected or not, because its `ros_discovery_info`
-samples are lost the same way ([#112](https://github.com/atinfinity/fastdds_transport_viz/issues/112)).
+`shm-not-visible` on the shared-memory line is the only hint. The node names of both sides
+are still shown: the tool reads them over UDP (see "Node names and the tool's own
+footprint" above, [#112](https://github.com/atinfinity/fastdds_transport_viz/issues/112)).
 
 With `--stats` the writer's SHM traffic on such a pair is expected (it writes into the
 port file in its own `/dev/shm`; a data-sharing writer still sends heartbeats), so the pair

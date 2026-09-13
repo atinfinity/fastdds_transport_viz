@@ -45,6 +45,7 @@
 #include "fastdds_transport_viz/parse_json.hpp"
 #include "fastdds_transport_viz/render.hpp"
 #include "fastdds_transport_viz/rmw_check.hpp"
+#include "fastdds_transport_viz/ros_discovery_info_observer.hpp"
 #include "fastdds_transport_viz/ros_graph_resolver.hpp"
 #include "fastdds_transport_viz/shm_info.hpp"
 #include "fastdds_transport_viz/stats_observer.hpp"
@@ -351,6 +352,7 @@ std::set<std::string> local_ip_addresses()
 Snapshot collect(
   fastdds_transport_viz::DiscoveryObserver & observer,
   fastdds_transport_viz::RosGraphResolver & resolver,
+  fastdds_transport_viz::RosDiscoveryInfoObserver * names,
   fastdds_transport_viz::StatsObserver * stats,
   const Options & o, int domain, double observation_seconds)
 {
@@ -360,6 +362,7 @@ Snapshot collect(
     stats_data.local_addresses = local_ip_addresses();
   }
   resolver.refresh();
+  if (names != nullptr) {names->poll();}
 
   std::vector<Endpoint> endpoints = observer.snapshot();
   std::vector<Endpoint> kept;
@@ -390,7 +393,9 @@ Snapshot collect(
     shm_in.own_ports = *held;
   }
   for (auto & e : endpoints) {
-    e.node_name = resolver.node_for_guid(e.guid_bytes);
+    e.node_name = fastdds_transport_viz::merge_node_name(
+      resolver.node_for_guid(e.guid_bytes),
+      names != nullptr ? names->node_for_guid(e.guid_bytes) : std::string());
     auto phys = stats_data.physical.find(e.participant_guid_prefix);
     if (phys != stats_data.physical.end()) {
       e.host_name = phys->second.host;
@@ -821,6 +826,15 @@ int main(int argc, char ** argv)
       "_transport_viz_" + std::to_string(getpid()), node_opts);
     fastdds_transport_viz::RosGraphResolver resolver(node);
     fastdds_transport_viz::DiscoveryObserver observer(domain);
+    // node names the rclcpp participant misses (a same-host node in another IPC namespace
+    // sends its ros_discovery_info over SHM into its own /dev/shm)
+    std::unique_ptr<fastdds_transport_viz::RosDiscoveryInfoObserver> names;
+    try {
+      names = std::make_unique<fastdds_transport_viz::RosDiscoveryInfoObserver>(
+        observer.participant());
+    } catch (const std::exception & e) {
+      std::cerr << "warning: " << e.what() << "; node names come from the ROS graph only\n";
+    }
     std::unique_ptr<fastdds_transport_viz::StatsObserver> stats;
     if (o.stats) {
       stats = std::make_unique<fastdds_transport_viz::StatsObserver>(observer.participant());
@@ -840,6 +854,7 @@ int main(int argc, char ** argv)
     // seconds (but never less than --quiet seconds in total).
     for (;; ) {
       if (stats) {stats->poll();}
+      if (names) {names->poll();}
       std::this_thread::sleep_for(50ms);
       auto now = std::chrono::steady_clock::now();
       double elapsed = std::chrono::duration<double>(now - start).count();
@@ -853,7 +868,7 @@ int main(int argc, char ** argv)
     if (!o.watch) {
       double elapsed =
         std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
-      Snapshot snap = collect(observer, resolver, stats.get(), o, domain, elapsed);
+      Snapshot snap = collect(observer, resolver, names.get(), stats.get(), o, domain, elapsed);
       std::cout << (o.json ? fastdds_transport_viz::render_json(snap, ropt) :
       fastdds_transport_viz::render_table(snap, ropt)) << std::flush;
     } else {
@@ -871,7 +886,7 @@ int main(int argc, char ** argv)
             std::chrono::duration<double>(o.interval));
           double elapsed =
             std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
-          Snapshot snap = collect(observer, resolver, stats.get(), o, domain, elapsed);
+          Snapshot snap = collect(observer, resolver, names.get(), stats.get(), o, domain, elapsed);
           ropt.verbose = o.verbose;
           ropt.explain = o.explain;
           ropt.locators = o.locators;

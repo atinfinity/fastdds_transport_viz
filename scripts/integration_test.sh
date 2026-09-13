@@ -101,6 +101,11 @@ topic = '/bounded' if scenario.startswith('hostnet_split_datasharing') else '/ch
 chatter = next(t for t in doc['topics'] if t['topic'] == topic)
 assert len(chatter['pairs']) == 1, chatter
 p = chatter['pairs'][0]
+if scenario == 'hostnet_noipc_shm' or scenario.startswith('hostnet_split_'):
+    # nodes whose ros_discovery_info goes into another /dev/shm than the tool's: their names
+    # come from the tool's own UDP reader (#112)
+    names = ('/bounded_pub', '/bounded_sub') if topic == '/bounded' else ('/talker', '/listener')
+    assert (p['writer_node'], p['reader_node']) == names, p
 if scenario == 'multi_container':
     assert p['transport'] == 'UDPv4', p
     assert 'different-host' in p['reasons'], p

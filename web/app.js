@@ -10,7 +10,7 @@
   'use strict';
 
   // pure model / formatting functions live in model.js (unit-tested under Node)
-  const { TRANSPORTS, INTERNAL_TOPICS, buildModel, filterRegex, visiblePairs, visibleNodesModel, bundle,
+  const { TRANSPORTS, INTERNAL_TOPICS, normalizeDocument, buildModel, filterRegex, visiblePairs, visibleNodesModel, bundle,
     humanBytes, measuredText, rateText, latencyText, lossText, escapeHtml, codeListHtml, shmText,
     pairKey, keyId, diffDocuments, changeText, changesSummary, decorations, holdChanges, heldDecorations,
     markedPairs, pruneNodes } = globalThis.TransportVizModel;
@@ -448,6 +448,8 @@
       alert(`Not a transport_viz --json document (schema_version 1): ${sourceName}`);
       return;
     }
+    normalizeDocument(doc);
+    if (opts.before) normalizeDocument(opts.before);
     if (opts.live) {
       state.hold = holdChanges(state.hold, doc.changes || null, state.previousLive, HOLD_FRAMES);
       state.previousLive = doc;

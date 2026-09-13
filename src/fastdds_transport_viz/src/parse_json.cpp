@@ -15,6 +15,8 @@
 
 #include <nlohmann/json.hpp>
 
+#include "fastdds_transport_viz/ros_names.hpp"
+
 namespace fastdds_transport_viz
 {
 
@@ -132,7 +134,8 @@ Endpoint endpoint(const json & j, bool is_writer, const std::string & where)
   e.guid_bytes = guid_bytes(e.guid);
   e.participant_guid_prefix = at(j, "participant_guid_prefix", where).get<std::string>();
   e.host_id = host_id(at(j, "host_id", where).get<std::string>());
-  e.node_name = at(j, "node", where).get<std::string>();
+  // documents before #112 carry the rmw's unknown name
+  e.node_name = normalize_node_name(at(j, "node", where).get<std::string>());
   e.host_name = j.value("host_name", "");
   e.process = j.value("process", "");
   e.dds_topic = at(j, "dds_topic", where).get<std::string>();
