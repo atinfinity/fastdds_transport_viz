@@ -285,6 +285,7 @@ ShmInfo shm(const json & j)
   s.stale_ports = j.value("stale_ports", 0ULL);
   s.datasharing_histories = j.value("datasharing_histories", 0ULL);
   s.datasharing_unmatched = j.value("datasharing_unmatched", 0ULL);
+  s.datasharing_notifications = j.value("datasharing_notifications", 0ULL);
   s.checked_ports = j.value("checked_ports", std::vector<uint32_t>{});
   s.missing_ports = j.value("missing_ports", std::vector<uint32_t>{});
   s.other_host_participants = j.value("other_host_participants", 0ULL);

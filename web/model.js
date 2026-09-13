@@ -195,6 +195,7 @@
     const warnings = (shm.warnings || []).map(w => `<span class="code warn" title="${escapeHtml(tip(w))}"><b>!${escapeHtml(w)}</b></span>`).join(' ');
     return `shared memory: ${escapeHtml(shm.path)} ${humanBytes(shm.used_bytes, 'B')} used of ${humanBytes(shm.total_bytes, 'B')}` +
       ` · Fast DDS ${humanBytes(shm.fastdds_bytes, 'B')} in ${shm.segments} segment(s), ${shm.ports} port(s), ${shm.datasharing_histories} data-sharing histor${shm.datasharing_histories === 1 ? 'y' : 'ies'}` +
+      (shm.datasharing_notifications ? `, ${shm.datasharing_notifications} data-sharing notification(s)` : '') +
       (stale ? ` (${stale} stale)` : '') + (shm.nodes_visible === false ? ' · nodes in another IPC namespace' : '') +
       (warnings ? ` ${warnings}` : '');
   }

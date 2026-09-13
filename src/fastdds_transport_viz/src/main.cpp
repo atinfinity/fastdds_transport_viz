@@ -440,13 +440,11 @@ Snapshot collect(
   snap.local_host_id = observer.local_host_id();
   snap.endpoints = std::move(kept);
   {
-    // Shared memory of this environment; data-sharing history files are attributed to
-    // the discovered writers by name.
+    // Shared memory of this environment; data-sharing files are attributed to the
+    // discovered writers (histories) and readers (notification segments) by name.
     for (const auto & e : snap.endpoints) {
-      if (e.is_writer) {
-        shm_in.datasharing_writers[
-          fastdds_transport_viz::datasharing_segment_name(e.guid_bytes)] = e.guid;
-      }
+      auto & by_name = e.is_writer ? shm_in.datasharing_writers : shm_in.datasharing_readers;
+      by_name[fastdds_transport_viz::datasharing_segment_name(e.guid_bytes)] = e.guid;
     }
     shm_in.other_host_participants = other_host_prefixes.size();
     snap.shm = fastdds_transport_viz::scan_shm(fastdds_transport_viz::kDefaultShmDir, shm_in);
@@ -461,6 +459,15 @@ Snapshot collect(
       if (it != snap.shm.datasharing_by_writer.end()) {
         e.datasharing_history_available = true;
         e.datasharing_history_bytes = it->second;
+      }
+      if (snap.shm.listed && e.host_id == local_host) {
+        // Fast DDS creates the segment with the endpoint whenever data-sharing is enabled;
+        // decide() only looks at endpoints that announce it.
+        const bool here = e.is_writer ? e.datasharing_history_available :
+          snap.shm.datasharing_notification_readers.count(e.guid) > 0;
+        e.datasharing_segment_visibility = here ?
+          fastdds_transport_viz::ShmVisibility::Visible :
+          fastdds_transport_viz::ShmVisibility::NotVisible;
       }
       auto ports = shm_ports_by_participant.find(e.participant_guid_prefix);
       if (ports != shm_ports_by_participant.end()) {

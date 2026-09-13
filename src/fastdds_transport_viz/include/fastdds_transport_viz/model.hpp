@@ -108,6 +108,10 @@ struct Endpoint
   // in different IPC namespaces lose every sample they send each other over SHM
   std::set<uint32_t> participant_shm_ports;
   ShmVisibility participant_shm_visibility{ShmVisibility::Unprobed};
+  // this endpoint's data-sharing segment (a writer's history, a reader's notification) as
+  // seen in the tool's /dev/shm: Visible / NotVisible only for the tool's host id and a
+  // listed directory. Internal, not in the JSON.
+  ShmVisibility datasharing_segment_visibility{ShmVisibility::Unprobed};
 };
 
 enum class Transport
@@ -314,7 +318,8 @@ struct ShmInfo
   size_t ports{0};                   // fastrtps_port<N>: ring buffers of the SHM locators
   size_t stale_ports{0};             // ... without a holder of the lock file
   size_t datasharing_histories{0};   // fast_datasharing_<writer guid>
-  size_t datasharing_unmatched{0};   // ... not belonging to a discovered writer
+  size_t datasharing_unmatched{0};   // ... not belonging to a discovered writer or reader
+  size_t datasharing_notifications{0};   // fast_datasharing_<reader guid> of discovered readers
   std::vector<uint32_t> checked_ports;   // SHM ports of observed nodes with the tool's host id
   std::vector<uint32_t> missing_ports;   // ... not held here by a living node process
   std::vector<uint32_t> unknown_ports;   // ... of those, the lock is free or could not be probed
@@ -322,6 +327,8 @@ struct ShmInfo
   bool nodes_visible{true};          // missing_ports.empty() && other_host_participants == 0
   std::vector<std::string> warnings;  // shm-stale-files, shm-nearly-full, shm-not-visible
   std::map<std::string, uint64_t> datasharing_by_writer;   // writer guid -> history bytes
+  std::set<std::string> datasharing_notification_readers;   // reader guids with a segment here
+  bool listed{false};                // the directory listing succeeded (internal)
 };
 
 // ---- frame-to-frame changes (--watch) ------------------------------------------

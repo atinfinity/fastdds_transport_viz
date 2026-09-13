@@ -23,9 +23,10 @@ namespace fastdds_transport_viz
 /// Directory Fast DDS uses for shared memory on Linux.
 inline constexpr const char * kDefaultShmDir = "/dev/shm";
 
-/// Name of the data-sharing history file Fast DDS creates for a writer
-/// ("fast_datasharing_<guid prefix>_<entity id>").
-std::string datasharing_segment_name(const std::array<uint8_t, 16> & writer_guid);
+/// Name of the data-sharing file Fast DDS creates for an endpoint
+/// ("fast_datasharing_<guid prefix>_<entity id>"): a writer's history, a reader's
+/// notification segment.
+std::string datasharing_segment_name(const std::array<uint8_t, 16> & guid);
 
 /// What discovery knows that the scan needs.
 struct ShmScanInput
@@ -43,6 +44,9 @@ struct ShmScanInput
   /// data-sharing file name -> writer GUID, to attribute history files to discovered
   /// writers (fills ShmInfo::datasharing_by_writer).
   std::map<std::string, std::string> datasharing_writers;
+  /// data-sharing file name -> reader GUID: the readers' notification segments, counted
+  /// apart from the histories (fills ShmInfo::datasharing_notification_readers).
+  std::map<std::string, std::string> datasharing_readers;
 };
 
 /// Scan `path` (statvfs + directory listing + lock probes).

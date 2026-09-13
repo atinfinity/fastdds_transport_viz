@@ -46,11 +46,13 @@ in a third container on the same scope and asserts the verdict:
 | `hostnet_split_shm` | `talker_hostnet_split`, `listener_hostnet_split`: `network_mode: host`, an IPC namespace each ⇒ same host id, two `/dev/shm`; the tool in `hostnet` | `NONE`, `shm-ipc-namespace-split`, `shm-port-collision` |
 | `hostnet_split_shm_visible` | `talker_hostnet_split_visible` (a node started first takes the 7000 port) and `listener_hostnet_split`; the tool in `hostnet_in_talker_ipc`, the talker's IPC namespace (Jazzy or newer, skipped on Humble) | `NONE`, `shm-ipc-namespace-split`, `shm-reader-port-not-visible`, no `shm-port-collision` |
 | `hostnet_split_stats` | `talker_hostnet_split_stats`, `listener_hostnet_split_stats`: `hostnet_split_shm` with `FASTDDS_STATISTICS`; the tool in `hostnet` with `--stats` (skipped on Humble, which has no statistics module) | the writer's statistics arrive, `NONE`, `shm-ipc-namespace-split`, `measured-shm-traffic`, not delivered, no `stats-not-enabled-on-writer` |
+| `hostnet_split_datasharing` | `bounded_pub_hostnet_split`, `bounded_sub_hostnet_split`: `hostnet_split_shm` with `bounded_pub` / `bounded_sub` and data-sharing (`datasharing_auto.xml`); the tool in `hostnet` | `/bounded` `NONE`, `shm-ipc-namespace-split`, `datasharing-qos-enabled-both`, `shm-port-collision` |
+| `hostnet_split_datasharing_udp` | `bounded_pub_hostnet_split_udp`, `bounded_sub_hostnet_split_udp`: the same with `FASTDDS_BUILTIN_TRANSPORTS=UDPv4`; the tool in `hostnet_in_bounded_pub_ipc`, the publisher's IPC namespace (skipped on Humble) | `/bounded` `NONE`, `shm-ipc-namespace-split`, `datasharing-reader-segment-not-visible`, no SHM reason |
 | `large_data_tcp` | `talker_large_data`, `listener_large_data`: bridged, `FASTDDS_BUILTIN_TRANSPORTS=LARGE_DATA` + statistics | `TCPv4`, `common-tcpv4-locator`, measured `TCPv4` |
 | `udpv6_multi_container` | `talker_udpv6`, `listener_udpv6`: bridged (the project network has IPv6), `DEFAULTv6` | `UDPv6`, `common-udpv6-locator` |
 | `easy_mode_shm` | two `hostnet` containers with `ROS2_EASY_MODE=127.0.0.1` (Fast DDS 3.2+: `ROS_DISTRO=kilted`, `lyrical` or `rolling`, skipped otherwise) | `SHM`, `same-host-guid`, no multicast locator (P2P) |
 | `easy_mode_tcp` | `talker_easy_mode`, `listener_easy_mode`: bridged with fixed addresses, `ROS2_EASY_MODE` pointing at the talker's, statistics; the tool runs on the talker's host | `TCPv4`, `common-tcpv4-locator`, measured `TCPv4`, no multicast locator |
-| `all` | the eleven above in sequence | |
+| `all` | the thirteen above in sequence | |
 
 Output goes to `${TMPDIR:-/tmp}/transport_viz_<scenario>.json`.
 
@@ -241,9 +243,9 @@ once on x86_64 and once on arm64, for the merge commit on `main` and on
 `workflow_dispatch` (not for pull requests, to keep PR CI short); the `transport_viz` JSON
 of each scenario is uploaded as an artifact per architecture. Two more x86_64 rows run
 selected scenarios on other images: Lyrical for `easy_mode_shm`, `easy_mode_tcp`,
-`hostnet_noipc_shm`, `hostnet_split_shm`, `hostnet_split_shm_visible` and
-`hostnet_split_stats`, Humble for
-`hostnet_split_shm` and `hostnet_noipc_shm`. The matrix itself does not
+`hostnet_noipc_shm`, `hostnet_split_shm`, `hostnet_split_shm_visible`,
+`hostnet_split_stats`, `hostnet_split_datasharing` and `hostnet_split_datasharing_udp`,
+Humble for `hostnet_split_shm`, `hostnet_noipc_shm` and `hostnet_split_datasharing`. The matrix itself does not
 run again on `main`: each change is built once, in its pull request. Every job has a
 30-minute `timeout-minutes` (queue time excluded).
 
@@ -277,6 +279,7 @@ run again on `main`: each change is built once, in its pull request. Every job h
 | 2026-09-13 | Easy Mode, two hosts: bridged containers with fixed addresses, `ROS2_EASY_MODE=<talker address>`, `--stats`, tool on the talker's host | x86_64 | 3.6.2 (`ros:lyrical`), 3.2.4 (`ros:kilted`) | `TCPv4`, `different-host`, `common-tcpv4-locator`, measured `TCPv4`; the remote endpoint shows its `TCPv4` locator only. From a third host without a node of the topic's type the tool (and `ros2 topic list`) never see `/chatter`: Fast DDS 3 relays an endpoint only once its type is resolved and the server-to-server lookup does not complete (see how-it-works.md, Easy Mode) | `ROS_DISTRO=lyrical scripts/integration_test.sh easy_mode_tcp` |
 | 2026-09-13 | Easy Mode on two physical hosts over Wi-Fi: x86_64 Ubuntu 24.04 (Docker `hostnet`, master, `ROS2_EASY_MODE=192.168.1.8`) ↔ Jetson Orin NX, Ubuntu 24.04 arm64 (`docker run --network host --ipc host`, same variable), Lyrical image on both, `--stats` on both nodes, both directions | x86_64 + arm64 | 3.6.2 both | both directions: `TCPv4`, `different-host`, `common-tcpv4-locator`, measured `TCPv4` (23–49 packets per 8 s observation), hosts `ubuntu2404-desktop01` / `jetson-orin-nx-16gb` from `PHYSICAL_DATA`, `LATENCY` ≈ 94 ms with the clock offset (`latency-clock-skew-suspected` in one run); the tool saw the pair from the master host and from the Jetson alike, each next to one of the nodes; the remote endpoint shows its `TCPv4` locator only, no multicast anywhere | "Two physical hosts" below |
 | 2026-09-05 | two physical hosts on one Wi-Fi LAN: x86_64 Ubuntu (Docker `hostnet`) ↔ macOS arm64 (native RoboStack Jazzy), Discovery Server on the x86 host | x86_64 + arm64 | 2.14.6 both | `UDPv4`, `different-host`, `common-udpv4-locator` observed (writer `host:010f0956`, reader on `ubuntu2404-desktop01`); no `--stats` measurement: the Mac's Fast DDS `sendto()` intermittently fails with `EHOSTUNREACH` while plain UDP from the Mac works ([#15](https://github.com/atinfinity/fastdds_transport_viz/issues/15)) | see "Two physical hosts" |
+| 2026-09-14 | same host id, separate IPC namespaces, data-sharing: `bounded_pub` and `bounded_sub` with `datasharing_auto.xml` on the host network in an IPC namespace each, the tool in `hostnet`; the same with `FASTDDS_BUILTIN_TRANSPORTS=UDPv4` on both nodes and the tool in the publisher's IPC namespace; unit suites on the three distributions | arm64 | 2.6 (`ros:humble`), 2.14.6 (`ros:jazzy`), 3.6 (`ros:lyrical`) | `/bounded` `NONE`, `certain`, `!shm-ipc-namespace-split` with `datasharing-qos-enabled-both`, `both-shm-locators` and `shm-port-collision` (all three distributions; before the fix `DATA_SHARING` / `likely` while the subscriber received nothing); UDPv4 only: `datasharing-reader-segment-not-visible` and no SHM reason, the publisher's IPC namespace holds its history but not the subscriber's notification segment (Jazzy, Lyrical; Humble has no `FASTDDS_BUILTIN_TRANSPORTS`). `hostnet_split_shm` (Jazzy, Lyrical) and `hostnet_shm` (Jazzy) unchanged. `colcon test`: Jazzy 433 tests, Lyrical 422, Humble 415, 0 failures (Humble after a line its older uncrustify formats differently was rewritten) ([#110](https://github.com/atinfinity/fastdds_transport_viz/issues/110)) | `scripts/integration_test.sh hostnet_split_datasharing`, `hostnet_split_datasharing_udp` |
 
 ## Documentation site
 

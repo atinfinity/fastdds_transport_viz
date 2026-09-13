@@ -20,6 +20,7 @@
     "available": true,
     "checked_ports": [],
     "datasharing_histories": 0,
+    "datasharing_notifications": 0,
     "datasharing_unmatched": 0,
     "fastdds_bytes": 1048576,
     "free_bytes": 4158836736,

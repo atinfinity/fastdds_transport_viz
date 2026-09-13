@@ -989,6 +989,11 @@
           "type": "integer",
           "minimum": 0
         },
+        "datasharing_notifications": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "notification segments (fast_datasharing_<reader guid>) of discovered data-sharing readers, not counted in datasharing_histories"
+        },
         "nodes_visible": {
           "type": "boolean",
           "description": "no missing port and no participant with another host id: the observed nodes share this /dev/shm"

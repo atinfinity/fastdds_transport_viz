@@ -26,6 +26,8 @@ to select a transport for each writer → reader pair.
 2. Same host and both endpoints announce data-sharing (zero-copy), and their domain ids
    intersect or at least one side announces none → `DATA_SHARING` (confidence `likely`,
    see [data-sharing.md](data-sharing.md)). Announced but disjoint domain ids fall through.
+   When the two are seen to use different `/dev/shm`, the pair is `NONE` instead (see
+   [Split IPC namespaces](#split-ipc-namespaces)).
 3. Same host and both announce a SHM locator → `SHM`. Fast DDS then uses shared memory
    exclusively for user data between those participants; discovery still goes over UDP.
    When the two participants are seen to listen in different IPC namespaces, the pair is
@@ -265,6 +267,9 @@ shared memory: /dev/shm 396 MB used of 16.7 GB (16.3 GB free) | Fast DDS 63.4 MB
   Data-sharing histories have no lock; those that belong to a discovered writer are
   reported on the writer (`datasharing_history_bytes` in JSON, the web viewer's endpoint
   details), the rest are counted as *unmatched* (another domain, or a finished writer).
+  A data-sharing reader keeps a *notification* segment of the same form
+  (`fast_datasharing_<reader guid>`); those of discovered readers are counted apart
+  (`datasharing_notifications`, shown when there are any).
 - **Visibility**: a node in the tool's IPC namespace holds the lock of its SHM port file
   (`fastrtps_port<N>_el`). When an observed node has another host id, or its port is not
   held here (or is the tool's own port number, i.e. the same participant id in another
@@ -308,17 +313,30 @@ with the warning `shm-ipc-namespace-split`, when one of these holds:
   died) decides nothing, and neither does a held port whose number a third participant
   announces too.
 
+Data-sharing endpoints (rule 2) fail the same way. Fast DDS pairs them on QoS alone; the
+reader cannot open the writer's history in its own `/dev/shm` and rejects the writer, and
+the writer sends it nothing through a transport, so no sample arrives. Such a pair is
+`NONE`, `certain`, with `shm-ipc-namespace-split` on the evidence above when both sides
+announce SHM, or on the data-sharing segments, which exist without the SHM transport too:
+
+- `datasharing-reader-segment-not-visible` / `datasharing-writer-segment-not-visible`: the
+  writer's history (`fast_datasharing_<writer guid>`) is in the tool's `/dev/shm` and the
+  reader's notification segment (`fast_datasharing_<reader guid>`) is not, or the reverse.
+  It needs the tool in the IPC namespace of one side ([#110](https://github.com/atinfinity/fastdds_transport_viz/issues/110)).
+
 For a pair reported this way, `--advise` gives the remedy: put both nodes in one IPC
-namespace (`ipc: host`), or disable SHM on one side so that UDPv4 is selected.
+namespace (`ipc: host`), or disable SHM on one side so that UDPv4 is selected, and
+data-sharing as well for a data-sharing pair (`data_sharing` OFF in its QoS profile).
 
 When neither can be told, for example with the tool in a third IPC namespace and
-different port numbers on the two sides, the pair stays `SHM`, and `shm-not-visible` on
-the shared-memory line is the only hint. A node in another IPC namespace than the tool
+different port numbers on the two sides, the pair stays `SHM` (or `DATA_SHARING`), and
+`shm-not-visible` on the shared-memory line is the only hint. A node in another IPC namespace than the tool
 often shows with an unknown node name, detected or not, because its `ros_discovery_info`
 samples are lost the same way ([#112](https://github.com/atinfinity/fastdds_transport_viz/issues/112)).
 
 With `--stats` the writer's SHM traffic on such a pair is expected (it writes into the
-port file in its own `/dev/shm`), so the pair stays `NONE`. Only a proven delivery adds
+port file in its own `/dev/shm`; a data-sharing writer still sends heartbeats), so the pair
+stays `NONE`. Only a proven delivery adds
 `shm-ipc-namespace-split-but-delivered`, since it contradicts the split. The statistics
 themselves are not lost across IPC namespaces: the tool's statistics readers announce the
 participant's UDP (or TCP) locators but no SHM locator, so a same-host writer sends its

@@ -129,6 +129,7 @@ ShmInfo scan_shm(const std::string & path, const ShmScanInput & in)
   if (dir == nullptr) {
     return info;
   }
+  info.listed = true;
   std::set<std::string> ports_held;   // port files whose lock a living process holds
   // port files whose lock could not be probed, or is free: a node that just died may still
   // be discovered, so a free lock does not prove that its owner lives in another namespace
@@ -159,6 +160,12 @@ ShmInfo scan_shm(const std::string & path, const ShmScanInput & in)
       ++info.segments;
       if (probe_lock(full + kLockSuffix) == LockState::Free) {++info.stale_segments;}
     } else if (starts_with(name, kDataSharingPrefix)) {
+      auto reader = in.datasharing_readers.find(name);
+      if (reader != in.datasharing_readers.end()) {
+        ++info.datasharing_notifications;
+        info.datasharing_notification_readers.insert(reader->second);
+        continue;
+      }
       ++info.datasharing_histories;
       auto it = in.datasharing_writers.find(name);
       if (it == in.datasharing_writers.end()) {

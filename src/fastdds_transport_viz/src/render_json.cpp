@@ -321,6 +321,7 @@ std::string render_json(const Snapshot & snap, const RenderOptions & opt)
     shm["stale_ports"] = snap.shm.stale_ports;
     shm["datasharing_histories"] = snap.shm.datasharing_histories;
     shm["datasharing_unmatched"] = snap.shm.datasharing_unmatched;
+    shm["datasharing_notifications"] = snap.shm.datasharing_notifications;
     shm["checked_ports"] = snap.shm.checked_ports;
     shm["missing_ports"] = snap.shm.missing_ports;
     shm["other_host_participants"] = snap.shm.other_host_participants;

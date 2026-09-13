@@ -201,10 +201,12 @@ rules in user terms. Roughly: no common transport kind → `NONE`; different hos
 the common network locator kind (UDPv4, UDPv6, TCP) with SHM locators ignored across
 hosts; same host → data-sharing if both announce it for intersecting domain ids
 (`likely`, because discovery cannot prove zero-copy), else SHM if both announce SHM
-locators (`NONE` with `shm-ipc-namespace-split` when the SHM ports and their visibility
-that `collect()` puts on the endpoints, `participant_shm_ports` /
-`participant_shm_visibility`, show the two participants in different IPC namespaces),
-else the common network kind. Warnings cover the suspicious combinations (same host id
+locators, else the common network kind. A data-sharing or SHM pair is `NONE` with
+`shm-ipc-namespace-split` when what `collect()` puts on the endpoints shows the two
+participants in different IPC namespaces: the SHM ports and their visibility
+(`participant_shm_ports` / `participant_shm_visibility`) or, for data-sharing, whether the
+writer's history and the reader's notification segment are in the tool's `/dev/shm`
+(`datasharing_segment_visibility`). Warnings cover the suspicious combinations (same host id
 but no common IP address, SHM announced by only one side, ...).
 
 `apply_stats(topics, stats)` overlays the measurements: it matches `RTPS_SENT` traffic

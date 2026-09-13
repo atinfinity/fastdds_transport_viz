@@ -248,11 +248,14 @@ TEST(Decision, IpcSplitRuleOrderAndScope)
   EXPECT_FALSE(has(v.warnings, "shm-ipc-namespace-split"));
   EXPECT_FALSE(has(v.reasons, "shm-port-collision"));
 
-  // data-sharing is decided before the transports
+  // data-sharing endpoints in two IPC namespaces lose every sample too (#110)
   std::tie(w, r) = split_pair(DataSharingKind::On);
   v = decide(w, r);
-  EXPECT_EQ(v.transport, Transport::DataSharing);
-  EXPECT_FALSE(has(v.warnings, "shm-ipc-namespace-split"));
+  EXPECT_EQ(v.transport, Transport::None);
+  EXPECT_TRUE(has(v.warnings, "shm-ipc-namespace-split"));
+  EXPECT_TRUE(has(v.reasons, "datasharing-qos-enabled-both"));
+  EXPECT_TRUE(has(v.reasons, "shm-port-collision"));
+  EXPECT_FALSE(has(v.reasons, "datasharing-unverified-by-traffic"));
 
   // another host id: not an SHM pair at all
   std::tie(w, r) = split_pair(DataSharingKind::Off);
@@ -271,6 +274,69 @@ TEST(Decision, IpcSplitRuleOrderAndScope)
   v = decide(w, r);
   EXPECT_EQ(v.transport, Transport::SHM);
   EXPECT_TRUE(v.warnings.empty());
+}
+
+TEST(Decision, DataSharingIpcSplit)
+{
+  // UDPv4 only: data-sharing does not need the SHM transport
+  auto w = make(true, HOST_A, {udp4("10.0.0.1")}, DataSharingKind::On, {1});
+  auto r = make(false, HOST_A, {udp4("10.0.0.1", 7413)}, DataSharingKind::On, {1});
+  w.participant_guid_prefix = "P1";
+  r.participant_guid_prefix = "P2";
+  auto set = [&](ShmVisibility wv, ShmVisibility rv) {
+      w.datasharing_segment_visibility = wv;
+      r.datasharing_segment_visibility = rv;
+      return decide(w, r);
+    };
+
+  // no listing, both segments here, or both elsewhere (a third namespace): no evidence
+  using SV = ShmVisibility;
+  for (auto [wv, rv] : {std::pair{SV::Unprobed, SV::Unprobed}, {SV::Visible, SV::Visible},
+      {SV::NotVisible, SV::NotVisible}, {SV::Visible, SV::Unprobed}})
+  {
+    auto v = set(wv, rv);
+    EXPECT_EQ(v.transport, Transport::DataSharing);
+    EXPECT_EQ(v.confidence, Confidence::Likely);
+    EXPECT_TRUE(has(v.reasons, "datasharing-unverified-by-traffic"));
+    EXPECT_TRUE(v.warnings.empty());
+  }
+
+  // one segment here and the other not: two /dev/shm
+  auto v = set(SV::Visible, SV::NotVisible);
+  EXPECT_EQ(v.transport, Transport::None);
+  EXPECT_EQ(v.confidence, Confidence::Certain);
+  EXPECT_EQ(
+    v.reasons, (std::vector<std::string>{"same-host-guid", "datasharing-qos-enabled-both",
+      "datasharing-domain-ids-match", "datasharing-reader-segment-not-visible"}));
+  EXPECT_EQ(v.warnings, (std::vector<std::string>{"shm-ipc-namespace-split"}));
+  v = set(SV::NotVisible, SV::Visible);
+  EXPECT_EQ(v.transport, Transport::None);
+  EXPECT_TRUE(has(v.reasons, "datasharing-writer-segment-not-visible"));
+
+  // one participant has one /dev/shm
+  r.participant_guid_prefix = "P1";
+  v = set(SV::Visible, SV::NotVisible);
+  EXPECT_EQ(v.transport, Transport::DataSharing);
+
+  // data-sharing off: not a data-sharing pair, the segments say nothing
+  r.participant_guid_prefix = "P2";
+  r.qos.data_sharing = DataSharingKind::Off;
+  v = set(SV::Visible, SV::NotVisible);
+  EXPECT_EQ(v.transport, Transport::UDPv4);
+  EXPECT_FALSE(has(v.warnings, "shm-ipc-namespace-split"));
+
+  // with SHM on both sides, every signal that fires is listed after both-shm-locators
+  w = make(true, HOST_A, {shm(7000)}, DataSharingKind::On, {1});
+  r = make(false, HOST_A, {shm(7000)}, DataSharingKind::On, {1});
+  w.participant_guid_prefix = "P1";
+  r.participant_guid_prefix = "P2";
+  v = set(SV::Visible, SV::NotVisible);
+  EXPECT_EQ(v.transport, Transport::None);
+  EXPECT_EQ(
+    v.reasons, (std::vector<std::string>{"same-host-guid", "datasharing-qos-enabled-both",
+      "datasharing-domain-ids-match", "both-shm-locators", "shm-port-collision",
+      "datasharing-reader-segment-not-visible"}));
+  EXPECT_EQ(v.warnings, (std::vector<std::string>{"shm-ipc-namespace-split"}));
 }
 
 TEST(Decision, EveryEmittedCodeHasAnExplanation)
@@ -671,6 +737,45 @@ TEST(ApplyStats, DataSharingStaysLikelyWithMixedReaders)
   EXPECT_TRUE(ds.verdict.warnings.empty());
 }
 
+TEST(ApplyStats, DataSharingSplitReaderGetsNoDataAndKeepsItsVerdict)
+{
+  std::vector<Endpoint> eps;
+  eps.push_back(make(true, HOST_A, {shm(7415)}, DataSharingKind::On, {1}));
+  eps.push_back(make(false, HOST_A, {shm(7413)}, DataSharingKind::On, {1}));
+  eps.push_back(make(false, HOST_A, {shm(7417)}, DataSharingKind::On, {1}));   // other /dev/shm
+  eps[0].participant_guid_prefix = "P1";
+  eps[1].participant_guid_prefix = "P2";
+  eps[2].participant_guid_prefix = "P3";
+  eps[0].datasharing_segment_visibility = ShmVisibility::Visible;
+  eps[1].datasharing_segment_visibility = ShmVisibility::Visible;
+  eps[2].datasharing_segment_visibility = ShmVisibility::NotVisible;
+  auto topics = summarize(eps);
+  ASSERT_EQ(topics[0].pairs.size(), 2u);
+  // heartbeats to both readers, but no DATA through a transport
+  auto stats = stats_with(
+    eps[0], {TrafficSample{"P1", shm(7413), 3, 300.0}, TrafficSample{"P1", shm(7417), 3, 300.0}},
+    true, &eps[1]);
+  stats.data_count[eps[0].guid] = DataCountSample{5, 5, 6};
+  stats.statistics_writers.insert({"P1", kStatsDataCountTopic});
+  apply_stats(topics, stats);
+  auto pair_of = [&](const Endpoint & reader) {
+      return *std::find_if(
+        topics[0].pairs.begin(), topics[0].pairs.end(),
+        [&](const Pair & q) {return q.reader == &reader;});
+    };
+  // the split reader is not a transport reader: the other pair is still confirmed
+  const auto ds = pair_of(eps[1]);
+  EXPECT_EQ(ds.verdict.transport, Transport::DataSharing);
+  EXPECT_EQ(ds.verdict.confidence, Confidence::Certain);
+  EXPECT_TRUE(has(ds.verdict.reasons, "datasharing-confirmed-no-data-submessages"));
+  // heartbeats to the split reader confirm nothing; it stays NONE
+  const auto split = pair_of(eps[2]);
+  EXPECT_EQ(split.verdict.transport, Transport::None);
+  EXPECT_EQ(split.verdict.confidence, Confidence::Certain);
+  EXPECT_EQ(split.verdict.warnings, (std::vector<std::string>{"shm-ipc-namespace-split"}));
+  EXPECT_TRUE(has(split.verdict.reasons, "datasharing-reader-segment-not-visible"));
+}
+
 TEST(ApplyStats, DeliveredWithoutMeasuredTrafficIsItsOwnWarning)
 {
   std::vector<Endpoint> eps;
@@ -934,6 +1039,7 @@ TEST(Codes, RemediesAreOneSentenceAndExplicitPerCode)
       "measured-shm-traffic", "measured-transport-mismatch", "qos-incompatible-but-delivered",
       "qos-incompatible", "datasharing-confirmed-no-traffic", "shm-port-collision",
       "shm-reader-port-not-visible", "shm-writer-port-not-visible",
+      "datasharing-reader-segment-not-visible", "datasharing-writer-segment-not-visible",
       "shm-ipc-namespace-split-but-delivered"})
   {
     EXPECT_FALSE(remedy(c).has_value()) << c;
@@ -945,6 +1051,7 @@ TEST(Codes, RemediesAreOneSentenceAndExplicitPerCode)
   EXPECT_NE(remedy("qos-incompatible-reliability")->find("create_subscription"), std::string::npos);
   EXPECT_NE(remedy("stats-not-enabled-on-writer")->find("FASTDDS_STATISTICS"), std::string::npos);
   EXPECT_NE(remedy("shm-ipc-namespace-split")->find("ipc: host"), std::string::npos);
+  EXPECT_NE(remedy("shm-ipc-namespace-split")->find("data_sharing OFF"), std::string::npos);
   // the remedy moved out of the description: it is said once
   EXPECT_EQ(explain("shm-stale-files").find("fastdds shm clean"), std::string::npos);
   EXPECT_EQ(explain("shm-nearly-full").find("--shm-size"), std::string::npos);

@@ -171,6 +171,9 @@ test('shmText: summary line, stale count, visibility and warnings with descripti
   assert.ok(withFix.includes('title="stale files. Fix: run &#39;fastdds shm clean&#39;"'), withFix);
   shm.datasharing_histories = 2; shm.stale_segments = 0; shm.stale_ports = 0; shm.nodes_visible = true; shm.warnings = [];
   assert.equal(M.shmText(shm), 'shared memory: /dev/shm 396 MB used of 16.7 GB · Fast DDS 63.4 MB in 114 segment(s), 14 port(s), 2 data-sharing histories');
+  // the readers' notification segments only when there are some
+  shm.datasharing_notifications = 3;
+  assert.equal(M.shmText(shm), 'shared memory: /dev/shm 396 MB used of 16.7 GB · Fast DDS 63.4 MB in 114 segment(s), 14 port(s), 2 data-sharing histories, 3 data-sharing notification(s)');
 });
 
 test('codeListHtml: description, remedy line only when known, warning prefix, escaping', () => {

@@ -613,6 +613,9 @@ std::string render_table(const Snapshot & snap, const RenderOptions & opt)
     os << ", " << shm.datasharing_histories << " data-sharing histor" <<
       (shm.datasharing_histories == 1 ? "y" : "ies");
     if (shm.datasharing_unmatched) {os << " (" << shm.datasharing_unmatched << " unmatched)";}
+    if (shm.datasharing_notifications) {
+      os << ", " << shm.datasharing_notifications << " data-sharing notification(s)";
+    }
     os << "\n";
     for (const auto & w : shm.warnings) {
       os << "  " << paint("!" + w, RED, color);

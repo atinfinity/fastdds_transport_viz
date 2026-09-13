@@ -50,7 +50,9 @@ their domain ids intersect (or at least one side announces none). With `--stats`
   ```
 
 If the writer also serves readers without data-sharing its `DATA_COUNT` mixes both paths
-and the verdict stays `likely` (`datasharing-ambiguous-mixed-readers`). If every reader
+and the verdict stays `likely` (`datasharing-ambiguous-mixed-readers`); a data-sharing
+reader in another IPC namespace (`shm-ipc-namespace-split`) does not count, since the
+writer sends it no DATA. If every reader
 uses data-sharing and the count still grows, Fast DDS did not use zero-copy: the verdict
 becomes the measured transport (`SHM?` when no packet to the reader was attributed) with
 the reason `datasharing-data-submessages-sent` and the warning `datasharing-not-used`.
@@ -68,4 +70,8 @@ reported on the writer as `datasharing_history_bytes` in JSON and in the web vie
 endpoint details; the environment's shared-memory line counts every such history (see
 [how-it-works.md](how-it-works.md#shared-memory-of-the-environment)). Fast DDS does not
 remove the file when the writer is killed, so histories of finished writers show up as
-*unmatched* until `fastdds shm clean` runs.
+*unmatched* until `fastdds shm clean` runs. A data-sharing reader creates a notification
+segment `fast_datasharing_<reader guid>`, counted as `datasharing_notifications`. The
+history of a writer and the notification segment of its reader, one in the tool's
+`/dev/shm` and the other not, show the two in different IPC namespaces (see
+[Split IPC namespaces](how-it-works.md#split-ipc-namespaces)).

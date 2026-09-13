@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Multi-container integration tests (run on the Docker host, not inside a container).
 #
-#   scripts/integration_test.sh [multi_container|stats_multi_container|hostnet_shm|hostnet_noipc_shm|hostnet_split_shm|hostnet_split_shm_visible|hostnet_split_stats|large_data_tcp|udpv6_multi_container|easy_mode_shm|easy_mode_tcp|all]
+#   scripts/integration_test.sh [multi_container|stats_multi_container|hostnet_shm|hostnet_noipc_shm|hostnet_split_shm|hostnet_split_shm_visible|hostnet_split_stats|hostnet_split_datasharing|hostnet_split_datasharing_udp|large_data_tcp|udpv6_multi_container|easy_mode_shm|easy_mode_tcp|all]
 #
 #   multi_container        talker and listener in two bridged containers (separate
 #                          network and IPC namespaces => different Fast DDS host ids).
@@ -28,6 +28,14 @@
 #                          (skipped on Humble, which has no statistics module). Expect the
 #                          writer's statistics (they no longer go over SHM into its own
 #                          /dev/shm), /chatter = NONE, measured SHM traffic, not delivered.
+#   hostnet_split_datasharing  bounded_pub and bounded_sub with data-sharing in two containers
+#                          on the host network, an IPC namespace each; transport_viz in
+#                          `hostnet`. Expect /bounded = NONE, shm-ipc-namespace-split,
+#                          datasharing-qos-enabled-both and shm-port-collision.
+#   hostnet_split_datasharing_udp  the same with FASTDDS_BUILTIN_TRANSPORTS=UDPv4 and
+#                          transport_viz in the publisher's IPC namespace (skipped on Humble).
+#                          Expect /bounded = NONE, shm-ipc-namespace-split and
+#                          datasharing-reader-segment-not-visible, no SHM reason.
 #   large_data_tcp         bridged containers with FASTDDS_BUILTIN_TRANSPORTS=LARGE_DATA
 #                          (UDPv4 discovery, TCPv4 + SHM user data) and statistics.
 #                          Expect /chatter = TCPv4, "common-tcpv4-locator", measured TCPv4.
@@ -74,7 +82,7 @@ run_viz() {
   echo "== running transport_viz ($service) $*"
   docker compose run --rm -T ${VIZ_ENV[@]+"${VIZ_ENV[@]}"} "$service" \
     ros2 run fastdds_transport_viz transport_viz --json --timeout 6 --quiet 0 "$@" > "$out"
-  jq '.topics[] | select(.topic=="/chatter") | .pairs[] | {transport, measured: .measured.transports, reasons, warnings, writer_host, reader_host}' "$out"
+  jq '.topics[] | select(.topic=="/chatter" or .topic=="/bounded") | .pairs[] | {transport, measured: .measured.transports, reasons, warnings, writer_host, reader_host}' "$out"
 }
 
 # start_hostnet <name> <ros2 run args...>: detached one-off container on host net/IPC
@@ -89,7 +97,8 @@ assert() {  # assert <scenario> <json file>
 import json, sys
 scenario, path = sys.argv[1], sys.argv[2]
 doc = json.load(open(path))
-chatter = next(t for t in doc['topics'] if t['topic'] == '/chatter')
+topic = '/bounded' if scenario.startswith('hostnet_split_datasharing') else '/chatter'
+chatter = next(t for t in doc['topics'] if t['topic'] == topic)
 assert len(chatter['pairs']) == 1, chatter
 p = chatter['pairs'][0]
 if scenario == 'multi_container':
@@ -157,6 +166,8 @@ elif scenario == 'hostnet_shm':
     assert 'shm-not-visible' not in shm['warnings'], shm
     assert shm['segments'] - shm['stale_segments'] >= 2, shm   # talker and listener alive
     assert 'shm-ipc-namespace-split' not in p['warnings'], p   # one /dev/shm (#101)
+    assert not {'datasharing-reader-segment-not-visible',
+                'datasharing-writer-segment-not-visible'} & set(p['reasons']), p   # (#110)
     print('PASS: /chatter across host-network/IPC containers uses SHM (same-host-guid); their segments are visible')
 elif scenario == 'hostnet_noipc_shm':
     assert p['transport'] == 'SHM', p
@@ -203,6 +214,28 @@ elif scenario == 'hostnet_split_stats':
     assert m['available'] and m['transports'] == ['SHM'] and not m['delivered'], m
     print('PASS: split pair with --stats: the writer\'s statistics arrive, /chatter NONE '
           '(measured SHM traffic, not delivered)')
+elif scenario == 'hostnet_split_datasharing':
+    # data-sharing pairs on QoS alone: the reader cannot open the writer's history in the
+    # other /dev/shm and nothing arrives; both take the same SHM port number (#110)
+    assert p['transport'] == 'NONE' and p['confidence'] == 'certain', p
+    assert {'same-host-guid', 'datasharing-qos-enabled-both', 'both-shm-locators',
+            'shm-port-collision'} <= set(p['reasons']), p
+    assert 'datasharing-unverified-by-traffic' not in p['reasons'], p
+    assert p['warnings'] == ['shm-ipc-namespace-split'], p
+    print('PASS: data-sharing publisher and subscriber in separate IPC namespaces: /bounded NONE '
+          '(shm-ipc-namespace-split, datasharing-qos-enabled-both, shm-port-collision)')
+elif scenario == 'hostnet_split_datasharing_udp':
+    # no SHM locator: from the writer's IPC namespace its history is here and the reader's
+    # notification segment is not
+    assert p['transport'] == 'NONE' and p['confidence'] == 'certain', p
+    assert {'same-host-guid', 'datasharing-qos-enabled-both',
+            'datasharing-reader-segment-not-visible'} <= set(p['reasons']), p
+    assert not {'both-shm-locators', 'shm-port-collision', 'shm-reader-port-not-visible',
+                'shm-writer-port-not-visible'} & set(p['reasons']), p
+    assert p['warnings'] == ['shm-ipc-namespace-split'], p
+    assert chatter['writers'][0]['datasharing_history_bytes'] > 0, chatter['writers'][0]
+    print('PASS: UDPv4-only data-sharing split seen from the writer\'s IPC namespace: /bounded '
+          'NONE (shm-ipc-namespace-split, datasharing-reader-segment-not-visible)')
 else:
     sys.exit(f'unknown scenario {scenario}')
 PY
@@ -330,6 +363,38 @@ scenario_hostnet_split_stats() {
   return 1
 }
 
+scenario_hostnet_split_datasharing() {
+  local out="$out_dir/transport_viz_hostnet_split_datasharing.json"
+  echo "== starting bounded_pub and bounded_sub with data-sharing on the host network, an IPC namespace each"
+  docker compose up -d bounded_pub_hostnet_split bounded_sub_hostnet_split
+  sleep 3
+  local attempt
+  for attempt in 1 2 3; do   # a node may not announce its SHM locator yet
+    run_viz hostnet "$out"
+    if assert hostnet_split_datasharing "$out"; then return 0; fi
+    echo "-- attempt $attempt: split not seen yet, retrying"
+  done
+  return 1
+}
+
+scenario_hostnet_split_datasharing_udp() {
+  if [ "${ROS_DISTRO:-jazzy}" = humble ]; then
+    echo "SKIP: hostnet_split_datasharing_udp needs FASTDDS_BUILTIN_TRANSPORTS (Fast DDS 2.11+, Jazzy or newer)"
+    return 0
+  fi
+  local out="$out_dir/transport_viz_hostnet_split_datasharing_udp.json"
+  echo "== starting bounded_pub and bounded_sub with data-sharing over UDPv4 only, an IPC namespace each"
+  docker compose up -d bounded_pub_hostnet_split_udp bounded_sub_hostnet_split_udp
+  sleep 3
+  local attempt
+  for attempt in 1 2 3; do   # the endpoints may not be discovered yet
+    run_viz hostnet_in_bounded_pub_ipc "$out"
+    if assert hostnet_split_datasharing_udp "$out"; then return 0; fi
+    echo "-- attempt $attempt: split not seen yet, retrying"
+  done
+  return 1
+}
+
 # Easy Mode needs Fast DDS 3.2+ (ROS 2 Kilted or later); the default jazzy image ignores it.
 has_easy_mode() {
   case "${ROS_DISTRO:-jazzy}" in kilted|lyrical|rolling) return 0 ;; *) return 1 ;; esac
@@ -374,14 +439,14 @@ scenario_easy_mode_tcp() {
 
 build
 case "$scenario" in
-  multi_container|stats_multi_container|hostnet_shm|hostnet_noipc_shm|hostnet_split_shm|hostnet_split_shm_visible|hostnet_split_stats|large_data_tcp|udpv6_multi_container|easy_mode_shm|easy_mode_tcp)
+  multi_container|stats_multi_container|hostnet_shm|hostnet_noipc_shm|hostnet_split_shm|hostnet_split_shm_visible|hostnet_split_stats|hostnet_split_datasharing|hostnet_split_datasharing_udp|large_data_tcp|udpv6_multi_container|easy_mode_shm|easy_mode_tcp)
     "scenario_$scenario" ;;
   all)
-    for s in multi_container stats_multi_container hostnet_shm hostnet_noipc_shm hostnet_split_shm hostnet_split_shm_visible hostnet_split_stats large_data_tcp udpv6_multi_container easy_mode_shm easy_mode_tcp; do
+    for s in multi_container stats_multi_container hostnet_shm hostnet_noipc_shm hostnet_split_shm hostnet_split_shm_visible hostnet_split_stats hostnet_split_datasharing hostnet_split_datasharing_udp large_data_tcp udpv6_multi_container easy_mode_shm easy_mode_tcp; do
       echo; echo "#### $s"
       "scenario_$s"
       cleanup
     done ;;
   *)
-    echo "usage: $0 [multi_container|stats_multi_container|hostnet_shm|hostnet_noipc_shm|hostnet_split_shm|hostnet_split_shm_visible|hostnet_split_stats|large_data_tcp|udpv6_multi_container|easy_mode_shm|easy_mode_tcp|all]" >&2; exit 2 ;;
+    echo "usage: $0 [multi_container|stats_multi_container|hostnet_shm|hostnet_noipc_shm|hostnet_split_shm|hostnet_split_shm_visible|hostnet_split_stats|hostnet_split_datasharing|hostnet_split_datasharing_udp|large_data_tcp|udpv6_multi_container|easy_mode_shm|easy_mode_tcp|all]" >&2; exit 2 ;;
 esac

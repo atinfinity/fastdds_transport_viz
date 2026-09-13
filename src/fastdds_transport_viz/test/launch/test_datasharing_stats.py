@@ -61,6 +61,15 @@ class TestDataSharingStats(Base):
         self.assertIsInstance(writer['datasharing_history_bytes'], int, writer)
         self.assertGreater(writer['datasharing_history_bytes'], 0, writer)
         self.assertGreaterEqual(doc['shm']['datasharing_histories'], 1, doc['shm'])
+        # the reader's notification segment is counted on its own, not as a history
+        self.assertGreaterEqual(doc['shm']['datasharing_notifications'], 1, doc['shm'])
+        # one IPC namespace: both segments are here, no split (#110)
+        self.assertNotIn('shm-ipc-namespace-split', pair['warnings'])
+        self.assertFalse(
+            codes & {
+                'datasharing-reader-segment-not-visible',
+                'datasharing-writer-segment-not-visible'},
+            pair)
 
 
 @launch_testing.post_shutdown_test()

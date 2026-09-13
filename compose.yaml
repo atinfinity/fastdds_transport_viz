@@ -20,6 +20,9 @@
 #   docker compose up talker_hostnet_split_stats listener_hostnet_split_stats
 #                                               # same, with FASTDDS_STATISTICS: --stats from `hostnet`
 #                                               # still receives their statistics (#106)
+#   docker compose up bounded_pub_hostnet_split bounded_sub_hostnet_split
+#                                               # the same split with data-sharing: nothing
+#                                               # arrives either (shm-ipc-namespace-split, #110)
 #
 # Run transport_viz from inside the same network/IPC scope as the nodes you
 # want to observe (see README). scripts/integration_test.sh drives these
@@ -62,6 +65,21 @@ x-easy-mode-env: &easy_mode_env
   ROS2_EASY_MODE: 172.28.0.10
   FASTDDS_STATISTICS: RTPS_SENT_TOPIC;RTPS_LOST_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC;DATA_COUNT_TOPIC;PUBLICATION_THROUGHPUT_TOPIC;RESENT_DATAS_TOPIC;HEARTBEAT_COUNT_TOPIC;ACKNACK_COUNT_TOPIC;NACKFRAG_COUNT_TOPIC;GAP_COUNT_TOPIC
   FASTRTPS_DEFAULT_PROFILES_FILE: /ws/src/fastdds_transport_viz/config/statistics.xml
+
+# Data-sharing (zero-copy) for the bounded_pub / bounded_sub nodes of this package.
+x-datasharing-env: &datasharing_env
+  ROS_DOMAIN_ID: ${ROS_DOMAIN_ID:-0}
+  RMW_IMPLEMENTATION: ${RMW_IMPLEMENTATION:-rmw_fastrtps_cpp}
+  FASTRTPS_DEFAULT_PROFILES_FILE: /ws/src/fastdds_transport_viz/config/datasharing_auto.xml
+  RMW_FASTRTPS_USE_QOS_FROM_XML: "1"
+
+# The same without the SHM transport (Fast DDS 2.11+): data-sharing does not need it.
+x-datasharing-udp-env: &datasharing_udp_env
+  ROS_DOMAIN_ID: ${ROS_DOMAIN_ID:-0}
+  RMW_IMPLEMENTATION: ${RMW_IMPLEMENTATION:-rmw_fastrtps_cpp}
+  FASTRTPS_DEFAULT_PROFILES_FILE: /ws/src/fastdds_transport_viz/config/datasharing_auto.xml
+  RMW_FASTRTPS_USE_QOS_FROM_XML: "1"
+  FASTDDS_BUILTIN_TRANSPORTS: UDPv4
 
 services:
   dev:
@@ -197,6 +215,40 @@ services:
     <<: *base
     network_mode: host
     ipc: service:talker_hostnet_split_visible
+    command: sleep infinity
+
+  # The split with data-sharing (#110): Fast DDS pairs the two as data-sharing on QoS alone,
+  # the reader cannot open the writer's history in the other /dev/shm and rejects the writer,
+  # and nothing arrives. Both still take the same SHM port number (shm-port-collision).
+  bounded_pub_hostnet_split:
+    <<: *base
+    network_mode: host
+    environment: *datasharing_env
+    command: ros2 run fastdds_transport_viz bounded_pub
+  bounded_sub_hostnet_split:
+    <<: *base
+    network_mode: host
+    environment: *datasharing_env
+    command: ros2 run fastdds_transport_viz bounded_sub
+
+  # The same with UDPv4 only: no SHM port to compare, so only the data-sharing segments tell
+  # the split, seen from the writer's IPC namespace (`hostnet_in_bounded_pub_ipc`):
+  # the writer's history is there, the reader's notification segment is not.
+  bounded_pub_hostnet_split_udp:
+    <<: *base
+    network_mode: host
+    ipc: shareable
+    environment: *datasharing_udp_env
+    command: ros2 run fastdds_transport_viz bounded_pub
+  bounded_sub_hostnet_split_udp:
+    <<: *base
+    network_mode: host
+    environment: *datasharing_udp_env
+    command: ros2 run fastdds_transport_viz bounded_sub
+  hostnet_in_bounded_pub_ipc:
+    <<: *base
+    network_mode: host
+    ipc: service:bounded_pub_hostnet_split_udp
     command: sleep infinity
 
 # IPv6 on the project network so that UDPv6 / DEFAULTv6 can be exercised (Docker >= 27

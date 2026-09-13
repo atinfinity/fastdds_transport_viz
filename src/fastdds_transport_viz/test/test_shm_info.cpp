@@ -83,6 +83,7 @@ TEST(ScanShm, MissingDirectoryIsNotAvailable)
 {
   auto info = scan_shm("/nonexistent/ftv_shm", ShmScanInput{});
   EXPECT_FALSE(info.available);
+  EXPECT_FALSE(info.listed);
   EXPECT_TRUE(info.warnings.empty());
 }
 
@@ -107,16 +108,21 @@ TEST_F(FakeShmDir, CountsSizesAndStaleFilesByLock)
   file("sem.fastrtps_port7411_mutex", 32);
   file("fast_datasharing_01.02.03.04.05.06.07.08.00.00.00.00_0.0.14.3", 200);
   file("fast_datasharing_01.02.03.04.05.06.07.08.00.00.00.00_0.0.15.3", 300);
+  // a discovered reader's notification segment
+  file("fast_datasharing_01.02.03.04.05.06.07.08.00.00.00.00_0.0.16.4", 100);
   file("unrelated", 4096);
 
   ShmScanInput in;
   in.node_ports = {7411, 7419};
   in.datasharing_writers = {
     {"fast_datasharing_01.02.03.04.05.06.07.08.00.00.00.00_0.0.14.3", "W1"}};
+  in.datasharing_readers = {
+    {"fast_datasharing_01.02.03.04.05.06.07.08.00.00.00.00_0.0.16.4", "R1"}};
   auto info = scan_shm(dir, in);
   EXPECT_TRUE(info.available);
+  EXPECT_TRUE(info.listed);
   EXPECT_GT(info.total_bytes, 0u);
-  EXPECT_EQ(info.fastdds_bytes, 1000u * 4 + 500 * 4 + 32 * 2 + 200 + 300);
+  EXPECT_EQ(info.fastdds_bytes, 1000u * 4 + 500 * 4 + 32 * 2 + 200 + 300 + 100);
   EXPECT_EQ(info.segments, 4u);
   EXPECT_EQ(info.stale_segments, 2u);
   EXPECT_EQ(info.ports, 4u);
@@ -125,6 +131,9 @@ TEST_F(FakeShmDir, CountsSizesAndStaleFilesByLock)
   EXPECT_EQ(info.datasharing_unmatched, 1u);
   ASSERT_EQ(info.datasharing_by_writer.count("W1"), 1u);
   EXPECT_EQ(info.datasharing_by_writer.at("W1"), 200u);
+  // the notification segment is neither a history nor unmatched
+  EXPECT_EQ(info.datasharing_notifications, 1u);
+  EXPECT_EQ(info.datasharing_notification_readers, (std::set<std::string>{"R1"}));
   EXPECT_EQ(info.checked_ports, (std::vector<uint32_t>{7411, 7419}));
   EXPECT_TRUE(info.missing_ports.empty());
   EXPECT_TRUE(info.nodes_visible);
@@ -291,6 +300,7 @@ TEST(ScanShm, RegularFileIsNotADirectory)
   ::close(fd);
   auto info = scan_shm(tmpl, ShmScanInput{});   // statvfs works, opendir does not
   EXPECT_TRUE(info.available);
+  EXPECT_FALSE(info.listed);   // no segment visibility without a listing
   EXPECT_EQ(info.segments, 0u);
   ::unlink(tmpl);
 }

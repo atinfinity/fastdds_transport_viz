@@ -4,6 +4,19 @@ Changelog for package fastdds_transport_viz
 
 Forthcoming
 -----------
+* Same host id, separate IPC namespaces, data-sharing: a data-sharing pair whose endpoints
+  use different ``/dev/shm`` is ``NONE`` / ``certain`` with ``shm-ipc-namespace-split``
+  instead of ``DATA_SHARING`` (Fast DDS pairs them on QoS alone, the reader cannot open the
+  writer's history and no sample arrives). The evidence is the SHM port evidence of #101
+  when both announce SHM, or the new ``datasharing-reader-segment-not-visible`` /
+  ``datasharing-writer-segment-not-visible`` (the writer's history is in the tool's
+  ``/dev/shm`` and the reader's notification segment is not, or the reverse), which works
+  without the SHM transport. The warning's description covers data-sharing segments and its
+  remedy adds ``data_sharing`` OFF. Such a reader no longer makes the writer's other
+  data-sharing readers ``datasharing-ambiguous-mixed-readers`` under ``--stats``. The
+  ``shm`` object counts the readers' notification segments in the new
+  ``datasharing_notifications`` instead of ``datasharing_unmatched``. Integration scenarios
+  ``hostnet_split_datasharing`` and ``hostnet_split_datasharing_udp`` (#110).
 * ``--stats`` across IPC namespaces: the statistics readers announce only the non-SHM
   unicast locators the tool's participant listens on (UDP, or TCP with ``LARGE_DATA``),
   read once from a probe reader. A same-host writer in another IPC namespace than the tool
