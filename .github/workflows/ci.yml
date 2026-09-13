@@ -146,9 +146,9 @@ jobs:
           - arch: x86_64
             distro: lyrical
             scenarios: easy_mode_shm easy_mode_tcp hostnet_noipc_shm hostnet_split_shm hostnet_split_shm_visible
-          # Humble (Fast DDS 2.6): its only SHM port is numbered per IPC namespace too, so
-          # the split shows as a port collision; there is no 7000+ port for the visible
-          # variant, which skips on Humble.
+          # Humble (Fast DDS 2.6) has no 7000+ port, but its pid-based SHM ports are
+          # numbered per IPC namespace too, so the split shows as a port collision; the
+          # visible variant skips there.
           - arch: x86_64
             distro: humble
             scenarios: hostnet_split_shm hostnet_noipc_shm

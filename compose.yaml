@@ -175,7 +175,7 @@ services:
     <<: *base
     network_mode: host
     ipc: shareable
-    command: bash -c "ros2 run demo_nodes_cpp add_two_ints_server & sleep 3; exec ros2 run demo_nodes_cpp talker"
+    command: bash -c "ros2 run demo_nodes_cpp add_two_ints_server & until ls /dev/shm/*_port7000_el >/dev/null 2>&1; do sleep 0.2; done; exec ros2 run demo_nodes_cpp talker"
   hostnet_in_talker_ipc:
     <<: *base
     network_mode: host

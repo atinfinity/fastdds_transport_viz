@@ -264,8 +264,13 @@ scenario_hostnet_split_shm() {
   echo "== starting talker and listener on the host network, an IPC namespace each"
   docker compose up -d talker_hostnet_split listener_hostnet_split
   sleep 3
-  run_viz hostnet "$out"
-  assert hostnet_split_shm "$out"
+  local attempt
+  for attempt in 1 2 3; do   # a node may not announce its SHM locator yet
+    run_viz hostnet "$out"
+    if assert hostnet_split_shm "$out"; then return 0; fi
+    echo "-- attempt $attempt: split not seen yet, retrying"
+  done
+  return 1
 }
 
 # Humble announces only the pid-based SHM port, numbered per IPC namespace: the node started
@@ -280,8 +285,13 @@ scenario_hostnet_split_shm_visible() {
   echo "== starting a node and the talker, and the listener, on the host network, an IPC namespace each"
   docker compose up -d talker_hostnet_split_visible listener_hostnet_split
   sleep 6
-  run_viz hostnet_in_talker_ipc "$out"
-  assert hostnet_split_shm_visible "$out"
+  local attempt
+  for attempt in 1 2 3; do   # a node may not announce its SHM locator yet
+    run_viz hostnet_in_talker_ipc "$out"
+    if assert hostnet_split_shm_visible "$out"; then return 0; fi
+    echo "-- attempt $attempt: split not seen yet, retrying"
+  done
+  return 1
 }
 
 # Easy Mode needs Fast DDS 3.2+ (ROS 2 Kilted or later); the default jazzy image ignores it.
