@@ -219,6 +219,27 @@ std::vector<std::string> ipc_split_reasons(const Endpoint & writer, const Endpoi
   return out;
 }
 
+/// Evidence that two data-sharing endpoints use different /dev/shm: the writer's history
+/// and the reader's notification segment are both created by their endpoints, so one in
+/// the tool's /dev/shm and the other not means two IPC namespaces.
+std::vector<std::string> datasharing_split_reasons(
+  const Endpoint & writer,
+  const Endpoint & reader)
+{
+  std::vector<std::string> out;
+  if (writer.participant_guid_prefix == reader.participant_guid_prefix) {
+    return out;
+  }
+  const auto wv = writer.datasharing_segment_visibility;
+  const auto rv = reader.datasharing_segment_visibility;
+  if (wv == ShmVisibility::Visible && rv == ShmVisibility::NotVisible) {
+    out.push_back("datasharing-reader-segment-not-visible");
+  } else if (wv == ShmVisibility::NotVisible && rv == ShmVisibility::Visible) {
+    out.push_back("datasharing-writer-segment-not-visible");
+  }
+  return out;
+}
+
 }  // namespace
 
 Verdict decide(const Endpoint & writer, const Endpoint & reader)
@@ -274,11 +295,26 @@ Verdict decide(const Endpoint & writer, const Endpoint & reader)
       {
         v.reasons.push_back("datasharing-domain-ids-mismatch");
       } else {
-        v.transport = Transport::DataSharing;
-        v.confidence = Confidence::Likely;
         v.reasons.push_back("datasharing-qos-enabled-both");
         v.reasons.push_back(
           have_domains ? "datasharing-domain-ids-match" : "datasharing-domain-ids-unknown");
+        // Fast DDS pairs data-sharing endpoints on QoS alone. In two IPC namespaces the
+        // reader cannot open the writer's history and rejects the writer, and the writer
+        // sends it nothing through a transport: every sample is lost.
+        const bool both_shm = w_shm && r_shm;
+        auto split = both_shm ? ipc_split_reasons(writer, reader) : std::vector<std::string>{};
+        const auto ds_split = datasharing_split_reasons(writer, reader);
+        split.insert(split.end(), ds_split.begin(), ds_split.end());
+        if (!split.empty()) {
+          v.transport = Transport::None;
+          v.confidence = Confidence::Certain;
+          if (both_shm) {v.reasons.push_back("both-shm-locators");}
+          v.reasons.insert(v.reasons.end(), split.begin(), split.end());
+          v.warnings.push_back("shm-ipc-namespace-split");
+          return v;
+        }
+        v.transport = Transport::DataSharing;
+        v.confidence = Confidence::Likely;
         v.reasons.push_back("datasharing-unverified-by-traffic");
         return v;
       }
@@ -513,6 +549,15 @@ void replace_code(
   codes.push_back(to);
 }
 
+bool is_datasharing_split(const Verdict & v)
+{
+  const auto has = [](const std::vector<std::string> & codes, const char * code) {
+      return std::find(codes.begin(), codes.end(), code) != codes.end();
+    };
+  return has(v.warnings, "shm-ipc-namespace-split") &&
+         has(v.reasons, "datasharing-qos-enabled-both");
+}
+
 }  // namespace
 
 void apply_stats(std::vector<TopicSummary> & topics, const StatsData & stats)
@@ -672,7 +717,10 @@ void apply_stats(std::vector<TopicSummary> & topics, const StatsData & stats)
           // transport) does, as long as every reader of the writer uses data-sharing.
           const bool all_readers_datasharing = std::all_of(
             t.pairs.begin(), t.pairs.end(), [&p](const Pair & q) {
-              return q.writer != p.writer || q.verdict.transport == Transport::DataSharing;
+              if (q.writer != p.writer) {return true;}
+              // a data-sharing reader in another IPC namespace gets no DATA either
+              const auto & qv = q.verdict;
+              return qv.transport == Transport::DataSharing || is_datasharing_split(qv);
             });
           if (!all_readers_datasharing) {
             replace_code(
@@ -927,12 +975,13 @@ const std::map<std::string, CodeInfo> & explanations()
         "locators are discarded.",
         std::nullopt}},
     {"shm-ipc-namespace-split", {
-        "The writer and the reader have the same host id and both announce SHM, but their "
-        "shared-memory ports are in different IPC namespaces: Fast DDS still selects SHM and "
-        "every sample between them is lost.",
+        "The writer and the reader have the same host id, but their shared-memory ports or "
+        "data-sharing segments are in different IPC namespaces: Fast DDS still selects SHM or "
+        "data-sharing and every sample between them is lost.",
         "Put both nodes in one IPC namespace (ipc: host on both containers, or the same "
-        "container), or disable SHM on one side (FASTDDS_BUILTIN_TRANSPORTS=UDPv4 on Fast DDS "
-        ">= 2.11, or an XML transport profile)."}},
+        "container), or disable SHM and data-sharing on one side (FASTDDS_BUILTIN_TRANSPORTS="
+        "UDPv4 on Fast DDS >= 2.11 or an XML transport profile, and data_sharing OFF in its "
+        "QoS profile)."}},
     {"shm-port-collision", {
         "The writer's and the reader's participants announce the same SHM port number. Only one "
         "participant per IPC namespace can listen on a port, so the two use different /dev/shm.",
@@ -946,6 +995,16 @@ const std::map<std::string, CodeInfo> & explanations()
         "The reader's SHM ports are open in the tool's IPC namespace and a port of the writer's "
         "is not (no lock file here, or it is one of the tool's own ports), so the two use "
         "different /dev/shm.",
+        std::nullopt}},
+    {"datasharing-reader-segment-not-visible", {
+        "The writer's data-sharing history is in the tool's /dev/shm and the reader's "
+        "notification segment is not, so the two use different /dev/shm: the reader cannot "
+        "open the writer's history and rejects the writer.",
+        std::nullopt}},
+    {"datasharing-writer-segment-not-visible", {
+        "The reader's data-sharing notification segment is in the tool's /dev/shm and the "
+        "writer's history is not, so the two use different /dev/shm: the reader cannot open "
+        "the writer's history and rejects the writer.",
         std::nullopt}},
     {"shm-ipc-namespace-split-but-delivered", {
         "HISTORY_LATENCY statistics prove that samples reached the reader although the writer and "

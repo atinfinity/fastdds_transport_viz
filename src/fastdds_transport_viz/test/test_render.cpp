@@ -194,6 +194,7 @@ TEST(RenderTable, SharedMemoryFooterAndWarnings)
   s.shm.segments = 114; s.shm.stale_segments = 110;
   s.shm.ports = 14; s.shm.stale_ports = 7;
   s.shm.datasharing_histories = 1; s.shm.datasharing_unmatched = 1;
+  s.shm.datasharing_notifications = 2;
   s.shm.checked_ports = {7411, 7413}; s.shm.missing_ports = {7413};
   s.shm.other_host_participants = 2;
   s.shm.nodes_visible = false;
@@ -208,7 +209,7 @@ TEST(RenderTable, SharedMemoryFooterAndWarnings)
   EXPECT_NE(
     out.find(
       "63.4 MB in 114 segment(s) (110 stale), 14 port(s) (7 stale), "
-      "1 data-sharing history (1 unmatched)"),
+      "1 data-sharing history (1 unmatched), 2 data-sharing notification(s)"),
     std::string::npos);
   EXPECT_NE(
     out.find(

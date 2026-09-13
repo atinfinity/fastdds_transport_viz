@@ -27,6 +27,8 @@ writer → reader の各ペアで transport を選ぶときと同じルールを
 2. 同じホストで、両エンドポイントが data-sharing (zero-copy) を広告し、domain id に共通部分がある
    か少なくとも片方が domain id を広告していない → `DATA_SHARING` (確信度 `likely`。
    [data-sharing.ja.md](data-sharing.ja.md) を参照)。広告された domain id が交わらない場合は次へ。
+   2 つが別々の `/dev/shm` を使っていると分かる場合は、代わりに `NONE` になります
+   ([IPC 名前空間の分断](#ipc-名前空間の分断) を参照)。
 3. 同じホストで、両方が SHM locator を広告している → `SHM`。このとき Fast DDS はその participant
    間のユーザーデータに共有メモリだけを使います。discovery は引き続き UDP で行われます。
    2 つの participant が別々の IPC 名前空間で待ち受けていると分かる場合は、代わりに `NONE` に
@@ -246,6 +248,8 @@ shared memory: /dev/shm 396 MB used of 16.7 GB (16.3 GB free) | Fast DDS 63.4 MB
   data-sharing 履歴にはロックがありません。発見済みの writer に属するものは writer 側に
   報告し (JSON の `datasharing_history_bytes`、web viewer のエンドポイント詳細)、残りは
   *unmatched* (別ドメイン、または終了した writer) として数えます。
+  data-sharing の reader も同じ形の *通知* セグメント (`fast_datasharing_<reader の GUID>`) を
+  持ちます。発見済みの reader のものは別に数えます (`datasharing_notifications`。あるときだけ表示)。
 - **可視性**: ツールと同じ IPC 名前空間にいるノードは、自分の SHM ポートファイル
   (`fastrtps_port<N>_el`) のロックを保持しています。観測対象ノードのホスト id が違う、その
   ポートがここで保持されていない、またはツール自身のポート番号と同じ (別のネットワーク名前空間で
@@ -287,16 +291,30 @@ Fast DDS はホスト id が同じなら共有メモリで相手の participant 
   ノードが残したもの) では判定せず、保持されているポートの番号を 3 つ目の participant も広告して
   いる場合も判定しません。
 
+data-sharing のエンドポイント (規則 2) も同じように失敗します。Fast DDS は QoS だけでそれらを
+組み合わせますが、reader は自分の `/dev/shm` で writer の history を開けずに writer を拒否し、writer は
+その reader に transport 経由で何も送らないため、サンプルは届きません。このペアは、両側が SHM を
+広告していれば上記の証拠で、SHM transport が無くても存在する data-sharing のセグメントでも、
+`NONE`、`certain`、`shm-ipc-namespace-split` になります:
+
+- `datasharing-reader-segment-not-visible` / `datasharing-writer-segment-not-visible`: writer の
+  history (`fast_datasharing_<writer guid>`) がツールの `/dev/shm` にあり、reader の通知セグメント
+  (`fast_datasharing_<reader guid>`) が無い、またはその逆。ツールがどちらかの側と同じ IPC 名前空間に
+  いる必要があります ([#110](https://github.com/atinfinity/fastdds_transport_viz/issues/110))。
+
 このように報告されたペアには `--advise` が対処を示します: 両方のノードを 1 つの IPC 名前空間に
-入れる (`ipc: host`) か、片側の SHM を無効にして UDPv4 が選ばれるようにします。
+入れる (`ipc: host`) か、片側の SHM を無効にして UDPv4 が選ばれるようにし、data-sharing のペアでは
+data-sharing も無効にします (QoS プロファイルで `data_sharing` を OFF)。
 
 どちらも分からない場合 (たとえばツールが 3 つ目の IPC 名前空間にいて、両側のポート番号が違う
-場合) はペアは `SHM` のままで、手がかりは共有メモリ行の `shm-not-visible` だけです。ツールと別の
+場合) はペアは `SHM` (または `DATA_SHARING`) のままで、手がかりは共有メモリ行の `shm-not-visible`
+だけです。ツールと別の
 IPC 名前空間にいるノードは、検出の有無にかかわらず、`ros_discovery_info` のサンプルも同じように
 失われるため、ノード名がしばしば不明と表示されます ([#112](https://github.com/atinfinity/fastdds_transport_viz/issues/112))。
 
 `--stats` 付きでは、このペアで writer の SHM トラフィックが計測されても想定どおり (writer は自分の
-`/dev/shm` のポートファイルに書き込むため) なので、ペアは `NONE` のままです。配送が証明された場合に
+`/dev/shm` のポートファイルに書き込むため。data-sharing の writer もハートビートは送る) なので、ペアは
+`NONE` のままです。配送が証明された場合に
 限り、分断の判定と矛盾するため `shm-ipc-namespace-split-but-delivered` が付きます。statistics 自体は
 IPC 名前空間をまたいでも失われません。ツールの statistics reader は participant の UDP (または TCP) の
 locator だけを広告し SHM の locator を広告しないので、同一ホストの writer はツールがどこにいても

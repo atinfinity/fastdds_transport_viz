@@ -50,7 +50,8 @@ domain id を広告していなければ)、判定は `likely` (`DATA_SHARING?`)
   ```
 
 writer が data-sharing でない reader も相手にしている場合、その `DATA_COUNT` には両方の経路が
-混ざるので判定は `likely` のままです (`datasharing-ambiguous-mixed-readers`)。すべての reader が
+混ざるので判定は `likely` のままです (`datasharing-ambiguous-mixed-readers`)。別の IPC 名前空間にいる
+data-sharing の reader (`shm-ipc-namespace-split`) には writer が DATA を送らないので、これには数えません。すべての reader が
 data-sharing なのにカウンタが増える場合、Fast DDS は zero-copy を使っていません。判定は実測された
 transport (reader へのパケットが帰属できなければ `SHM?`) に変わり、理由
 `datasharing-data-submessages-sent` と警告 `datasharing-not-used` が付きます。`DATA_COUNT_TOPIC` が
@@ -67,4 +68,7 @@ data-sharing の writer は履歴を `/dev/shm` の `fast_datasharing_<writer �
 JSON の `datasharing_history_bytes` と web viewer のエンドポイント詳細に出します。環境の共有メモリの
 行はこうした履歴をすべて数えます ([how-it-works.md](how-it-works.md#環境の共有メモリ) 参照)。
 Fast DDS は writer が kill されてもこのファイルを消さないので、終了した writer の履歴は
-`fastdds shm clean` を実行するまで *unmatched* として現れます。
+`fastdds shm clean` を実行するまで *unmatched* として現れます。data-sharing の reader は通知セグメント
+`fast_datasharing_<reader の GUID>` を作り、これは `datasharing_notifications` として数えます。writer の
+履歴とその reader の通知セグメントの片方だけがツールの `/dev/shm` にあれば、2 つは別々の IPC 名前空間に
+います ([IPC 名前空間の分断](how-it-works.ja.md#ipc-名前空間の分断) を参照)。

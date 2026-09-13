@@ -164,12 +164,13 @@ way and highlights the result. Details in
 - **Footprint.** The tool adds two participants of its own to the domain (filtered from
   the output).
 - **Split shared memory.** Nodes with the same host id in different IPC namespaces
-  (`network_mode: host` without `ipc: host`) still select SHM between each other and lose
-  every message. The pair is `NONE` with `shm-ipc-namespace-split` when the tool can tell:
-  the two announce the same SHM port number (`shm-port-collision`, the usual case with one
-  node per container), or the tool shares the IPC namespace of one of them. Otherwise the
-  pair stays `SHM` and only `shm-not-visible` in the shared-memory line hints at it
-  ([#101](https://github.com/atinfinity/fastdds_transport_viz/issues/101)).
+  (`network_mode: host` without `ipc: host`) still select SHM or data-sharing between each
+  other and lose every message. The pair is `NONE` with `shm-ipc-namespace-split` when the
+  tool can tell: the two announce the same SHM port number (`shm-port-collision`, the usual
+  case with one node per container), or the tool shares the IPC namespace of one of them
+  (their SHM ports or data-sharing segments are only half there). Otherwise the pair stays
+  `SHM` or `DATA_SHARING` and only `shm-not-visible` in the shared-memory line hints at it
+  ([#101](https://github.com/atinfinity/fastdds_transport_viz/issues/101), [#110](https://github.com/atinfinity/fastdds_transport_viz/issues/110)).
 
 ## License
 

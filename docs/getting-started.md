@@ -174,7 +174,7 @@ the remedy of every code. The table below covers what is not a reason code.
 | nodes on another machine are missing | the other machine must be reachable by multicast, or listed in `ROS_STATIC_PEERS`, or both sides use a Discovery Server; see [development.md](development.md#two-physical-hosts). |
 | `!stats-not-enabled-on-writer` with `--stats` | the node was started without `FASTDDS_STATISTICS` (the variable must be set before the node starts), or its participant has the SHM transport only: the tool's statistics readers listen on UDP or TCP. |
 | `!shm-not-visible` | the nodes use another `/dev/shm` (another container or host); the shared-memory line describes the tool's environment only. |
-| `!shm-ipc-namespace-split` on a `NONE` pair | the two nodes have the same host id but different `/dev/shm` (host network, separate IPC namespaces), so the listener receives nothing although Fast DDS selected SHM. Give both containers `ipc: host`, or disable SHM on one side (`--advise` prints the remedy). |
+| `!shm-ipc-namespace-split` on a `NONE` pair | the two nodes have the same host id but different `/dev/shm` (host network, separate IPC namespaces), so the listener receives nothing although Fast DDS selected SHM or data-sharing. Give both containers `ipc: host`, or disable SHM (and data-sharing) on one side (`--advise` prints the remedy). |
 | `!shm-stale-files` | crashed processes left segments behind; `fastdds shm clean` removes them. |
 | the tool shows up as a node | it does not: its own node `/_transport_viz_<pid>` and participant are filtered out. If you see it, please open an issue with `--json` output. |
 
