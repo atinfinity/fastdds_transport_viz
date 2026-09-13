@@ -42,11 +42,12 @@ in a third container on the same scope and asserts the verdict:
 | `multi_container` (default) | `talker`, `listener`: separate network and IPC namespaces ⇒ different host ids | `UDPv4`, `different-host`, `shm-not-visible` |
 | `stats_multi_container` | `talker_stats`, `listener_stats`: as above with `FASTDDS_STATISTICS` | measured `UDPv4`, two different `PHYSICAL_DATA` host names |
 | `hostnet_shm` | two `hostnet` containers: `network_mode: host` + `ipc: host` ⇒ same host id, shared `/dev/shm` | `SHM`, `same-host-guid`, the nodes' segments visible in `shm` |
+| `hostnet_noipc_shm` | `pair_hostnet_noipc`: talker + listener in one container, `network_mode: host` without `ipc: host` ⇒ the tool's host id, another `/dev/shm`; the tool in `hostnet` | `SHM`, `same-host-guid`, `shm-not-visible` with every SHM port of the nodes missing |
 | `large_data_tcp` | `talker_large_data`, `listener_large_data`: bridged, `FASTDDS_BUILTIN_TRANSPORTS=LARGE_DATA` + statistics | `TCPv4`, `common-tcpv4-locator`, measured `TCPv4` |
 | `udpv6_multi_container` | `talker_udpv6`, `listener_udpv6`: bridged (the project network has IPv6), `DEFAULTv6` | `UDPv6`, `common-udpv6-locator` |
 | `easy_mode_shm` | two `hostnet` containers with `ROS2_EASY_MODE=127.0.0.1` (Fast DDS 3.2+: `ROS_DISTRO=kilted`, `lyrical` or `rolling`, skipped otherwise) | `SHM`, `same-host-guid`, no multicast locator (P2P) |
 | `easy_mode_tcp` | `talker_easy_mode`, `listener_easy_mode`: bridged with fixed addresses, `ROS2_EASY_MODE` pointing at the talker's, statistics; the tool runs on the talker's host | `TCPv4`, `common-tcpv4-locator`, measured `TCPv4`, no multicast locator |
-| `all` | the seven above in sequence | |
+| `all` | the eight above in sequence | |
 
 Output goes to `${TMPDIR:-/tmp}/transport_viz_<scenario>.json`.
 
