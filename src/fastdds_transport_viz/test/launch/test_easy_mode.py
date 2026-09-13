@@ -57,6 +57,7 @@ class TestEasyMode(Base):
 
 
 @launch_testing.post_shutdown_test()
+@skip_without_easy_mode   # Humble's `fastdds` script cannot even be executed
 class TestShutdown(Base):
 
     def test_stop_the_easy_mode_server(self, proc_info):

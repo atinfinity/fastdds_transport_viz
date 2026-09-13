@@ -84,7 +84,7 @@ jobs:
       - name: Install git for checkout
         run: |
           apt-get update
-          apt-get install -y --no-install-recommends git
+          apt-get install -y --no-install-recommends git iproute2   # iproute2: Easy Mode finds its server with `ss`
 
       - uses: actions/checkout@v4
 
