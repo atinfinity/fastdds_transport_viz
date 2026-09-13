@@ -58,6 +58,11 @@ skip_without_builtin_transports = unittest.skipUnless(
     HAS_BUILTIN_TRANSPORTS_ENV, 'FASTDDS_BUILTIN_TRANSPORTS needs Fast DDS >= 2.12')
 skip_without_discovery_range = unittest.skipUnless(
     HAS_DISCOVERY_RANGE, 'ROS_AUTOMATIC_DISCOVERY_RANGE needs ROS 2 Iron or later')
+# Easy Mode (ROS2_EASY_MODE, P2P builtin transport) arrived with Fast DDS 3.2: Kilted,
+# Lyrical and Rolling; Humble (2.6) and Jazzy (2.14) silently ignore the variable.
+HAS_EASY_MODE = os.environ.get('ROS_DISTRO') in ('kilted', 'lyrical', 'rolling')
+skip_without_easy_mode = unittest.skipUnless(
+    HAS_EASY_MODE, 'ROS2_EASY_MODE needs Fast DDS >= 3.2 (ROS 2 Kilted or later)')
 
 
 def udpv4_only_env():

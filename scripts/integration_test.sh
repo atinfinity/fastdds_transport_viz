@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Multi-container integration tests (run on the Docker host, not inside a container).
 #
-#   scripts/integration_test.sh [multi_container|stats_multi_container|hostnet_shm|large_data_tcp|udpv6_multi_container|all]
+#   scripts/integration_test.sh [multi_container|stats_multi_container|hostnet_shm|large_data_tcp|udpv6_multi_container|easy_mode_shm|easy_mode_tcp|all]
 #
 #   multi_container        talker and listener in two bridged containers (separate
 #                          network and IPC namespaces => different Fast DDS host ids).
@@ -17,6 +17,13 @@
 #                          Expect /chatter = TCPv4, "common-tcpv4-locator", measured TCPv4.
 #   udpv6_multi_container  bridged containers (the project network has IPv6) with
 #                          FASTDDS_BUILTIN_TRANSPORTS=DEFAULTv6. Expect /chatter = UDPv6.
+#   easy_mode_shm          hostnet containers with ROS2_EASY_MODE=127.0.0.1 (Fast DDS 3.2+:
+#                          ROS_DISTRO=kilted|lyrical|rolling; skipped otherwise). One Discovery
+#                          Server per host, P2P transport. Expect /chatter = SHM, no multicast.
+#   easy_mode_tcp          bridged containers with fixed addresses, ROS2_EASY_MODE pointing at
+#                          the talker's (Fast DDS 3.2+, skipped otherwise); transport_viz runs
+#                          on the talker's host with --stats. Expect /chatter = TCPv4,
+#                          "common-tcpv4-locator", measured TCPv4, no multicast.
 #
 # transport_viz always runs in a third container on the same scope as the nodes.
 # Results are written to ${TMPDIR:-/tmp}/transport_viz_<scenario>.json.
@@ -100,6 +107,26 @@ elif scenario == 'udpv6_multi_container':
     assert p['transport'] == 'UDPv6', p
     assert 'different-host' in p['reasons'] and 'common-udpv6-locator' in p['reasons'], p
     print('PASS: DEFAULTv6 across bridged containers uses UDPv6 (different-host)')
+elif scenario == 'easy_mode_shm':
+    assert p['transport'] == 'SHM', p
+    assert 'same-host-guid' in p['reasons'] and 'both-shm-locators' in p['reasons'], p
+    for e in chatter['writers'] + chatter['readers']:   # P2P: SHM + TCPv4, no multicast
+        assert e['multicast_locators'] == [], e
+        assert {l['kind'] for l in e['unicast_locators']} == {'SHM', 'TCPv4'}, e
+    print('PASS: Easy Mode on one host uses SHM (same-host-guid); P2P announces no multicast')
+elif scenario == 'easy_mode_tcp':
+    assert doc['stats']['enabled'] and doc['stats']['samples'] > 0, doc['stats']
+    assert p['transport'] == 'TCPv4', p
+    assert 'different-host' in p['reasons'] and 'common-tcpv4-locator' in p['reasons'], p
+    assert p['measured']['transports'] == ['TCPv4'], p
+    assert 'measured-tcpv4-traffic' in p['reasons'], p
+    assert 'measured-transport-mismatch' not in p['warnings'], p
+    for e in chatter['writers'] + chatter['readers']:
+        # P2P: TCPv4 (+ SHM on the tool's own host), no multicast
+        kinds = {l['kind'] for l in e['unicast_locators']}
+        assert e['multicast_locators'] == [] and 'TCPv4' in kinds <= {'SHM', 'TCPv4'}, e
+    print(f"PASS: Easy Mode across bridged containers uses TCPv4, measured TCPv4 "
+          f"({p['measured']['packets']} packets); P2P announces no multicast")
 elif scenario == 'hostnet_shm':
     assert p['transport'] == 'SHM', p
     assert 'same-host-guid' in p['reasons'] and 'both-shm-locators' in p['reasons'], p
@@ -175,16 +202,58 @@ scenario_hostnet_shm() {
   assert hostnet_shm "$out"
 }
 
+# Easy Mode needs Fast DDS 3.2+ (ROS 2 Kilted or later); the default jazzy image ignores it.
+has_easy_mode() {
+  case "${ROS_DISTRO:-jazzy}" in kilted|lyrical|rolling) return 0 ;; *) return 1 ;; esac
+}
+
+scenario_easy_mode_shm() {
+  local out="$out_dir/transport_viz_easy_mode_shm.json"
+  if ! has_easy_mode; then echo "SKIP: easy_mode_shm needs ROS_DISTRO=kilted|lyrical|rolling"; return 0; fi
+  echo "== starting talker / listener on the host network in Easy Mode"
+  docker compose run --rm -d --name tv_easy_talker -e ROS2_EASY_MODE=127.0.0.1 hostnet \
+    ros2 run demo_nodes_cpp talker >/dev/null
+  docker compose run --rm -d --name tv_easy_listener -e ROS2_EASY_MODE=127.0.0.1 hostnet \
+    ros2 run demo_nodes_cpp listener >/dev/null
+  run_containers+=(tv_easy_talker tv_easy_listener)
+  sleep 3
+  VIZ_ENV=(-e ROS2_EASY_MODE=127.0.0.1)   # the tool must join Easy Mode to see the nodes
+  run_viz hostnet "$out" --locators
+  VIZ_ENV=()
+  assert easy_mode_shm "$out"
+}
+
+scenario_easy_mode_tcp() {
+  local out="$out_dir/transport_viz_easy_mode_tcp.json"
+  if ! has_easy_mode; then echo "SKIP: easy_mode_tcp needs ROS_DISTRO=kilted|lyrical|rolling"; return 0; fi
+  echo "== starting talker_easy_mode / listener_easy_mode containers"
+  docker compose up -d talker_easy_mode listener_easy_mode
+  sleep 3
+  # The tool runs on the talker's host (docs/how-it-works.md, Easy Mode): a host's Discovery
+  # Server relays an endpoint only once it has resolved its type, which a host without a
+  # node of that type never manages.
+  local attempt
+  for attempt in 1 2 3; do
+    echo "== running transport_viz (talker_easy_mode) --stats"
+    docker compose exec -T talker_easy_mode /entrypoint.sh \
+      ros2 run fastdds_transport_viz transport_viz --json --timeout 6 --quiet 0 --stats --locators > "$out"
+    jq '.topics[] | select(.topic=="/chatter") | .pairs[] | {transport, measured: .measured.transports, reasons, warnings, writer_host, reader_host}' "$out"
+    if assert easy_mode_tcp "$out"; then return 0; fi
+    echo "-- attempt $attempt: statistics incomplete, retrying"
+  done
+  return 1
+}
+
 build
 case "$scenario" in
-  multi_container|stats_multi_container|hostnet_shm|large_data_tcp|udpv6_multi_container)
+  multi_container|stats_multi_container|hostnet_shm|large_data_tcp|udpv6_multi_container|easy_mode_shm|easy_mode_tcp)
     "scenario_$scenario" ;;
   all)
-    for s in multi_container stats_multi_container hostnet_shm large_data_tcp udpv6_multi_container; do
+    for s in multi_container stats_multi_container hostnet_shm large_data_tcp udpv6_multi_container easy_mode_shm easy_mode_tcp; do
       echo; echo "#### $s"
       "scenario_$s"
       cleanup
     done ;;
   *)
-    echo "usage: $0 [multi_container|stats_multi_container|hostnet_shm|large_data_tcp|udpv6_multi_container|all]" >&2; exit 2 ;;
+    echo "usage: $0 [multi_container|stats_multi_container|hostnet_shm|large_data_tcp|udpv6_multi_container|easy_mode_shm|easy_mode_tcp|all]" >&2; exit 2 ;;
 esac

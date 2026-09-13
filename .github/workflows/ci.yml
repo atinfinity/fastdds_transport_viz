@@ -84,7 +84,7 @@ jobs:
       - name: Install git for checkout
         run: |
           apt-get update
-          apt-get install -y --no-install-recommends git
+          apt-get install -y --no-install-recommends git iproute2   # iproute2: Easy Mode finds its server with `ss`
 
       - uses: actions/checkout@v4
 
@@ -120,9 +120,10 @@ jobs:
   integration:
     # Multi-container scenarios (scripts/integration_test.sh) on the runner VM, once per
     # architecture: bridged containers => UDPv4, --stats across containers, host
-    # network/IPC => SHM, LARGE_DATA => TCPv4, DEFAULTv6 => UDPv6. Runs for the merge
-    # commit on main (and workflow_dispatch), not for pull requests, to keep PR CI short.
-    name: multi-container integration (${{ matrix.arch }})
+    # network/IPC => SHM, LARGE_DATA => TCPv4, DEFAULTv6 => UDPv6, plus the Easy Mode pair
+    # on the lyrical image. Runs for the merge commit on main (and workflow_dispatch), not
+    # for pull requests, to keep PR CI short.
+    name: multi-container integration (${{ matrix.arch }}, ${{ matrix.distro }})
     needs: changes
     if: >-
       github.event_name == 'workflow_dispatch' ||
@@ -134,17 +135,28 @@ jobs:
       fail-fast: false
       matrix:
         arch: [x86_64, arm64]
+        distro: [jazzy]
+        scenarios: [all]
+        include:
+          # Easy Mode (ROS2_EASY_MODE) needs Fast DDS 3.2+: only the two scenarios that
+          # the jazzy image skips, on the lyrical image.
+          - arch: x86_64
+            distro: lyrical
+            scenarios: easy_mode_shm easy_mode_tcp
+    env:
+      ROS_DISTRO: ${{ matrix.distro }}
     steps:
       - uses: actions/checkout@v4
 
       - name: Run scenarios
-        run: scripts/integration_test.sh all
+        run: |
+          for s in ${{ matrix.scenarios }}; do scripts/integration_test.sh "$s"; done
 
       - name: Upload transport_viz output
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: integration-json-${{ matrix.arch }}
+          name: integration-json-${{ matrix.arch }}-${{ matrix.distro }}
           path: /tmp/transport_viz_*.json
           if-no-files-found: ignore
 

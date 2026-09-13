@@ -11,6 +11,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         build-essential \
         cmake \
         git \
+        iproute2 \
         jq \
         nlohmann-json3-dev \
         python3-colcon-common-extensions \
