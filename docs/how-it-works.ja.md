@@ -249,9 +249,14 @@ shared memory: /dev/shm 396 MB used of 16.7 GB (16.3 GB free) | Fast DDS 63.4 MB
   ポートがここで保持されていない、またはツール自身のポート番号と同じ (別のネットワーク名前空間で
   同じ participant id) 場合、ノードは別の `/dev/shm` を使っており、警告 `shm-not-visible` が
   それを示します。この場合の数値はツールの環境のもので、ノードの環境のものではなく、ノードと
-  このプロセスの間で SHM は使えません。判定できないケースが 1 つあります: ホスト id は同じで
-  IPC 名前空間だけが別 (`ipc: host` の無い `network_mode: host`) の場合、ツール自身の participant
-  が送信のためにそのポートをここで開いてしまいます。
+  このプロセスの間で SHM は使えません。ツール自身のポートは、プロセス内の全 participant
+  (`DomainParticipantFactory::lookup_participants()`) のポートと、プロセスが開いたまま保持している
+  ポートロック (`/proc/self/fd`) なので、ツール自身のロックをノードのものと取り違えません。送信側は
+  書き込み先のポートをロックしないため、ホスト id がツールと同じで IPC 名前空間だけが別
+  (`ipc: host` の無い `network_mode: host`) のノードも検出されます。
+  そのようなノード同士でも Fast DDS は SHM を選びます (ホスト id が同じ) が、ポートは別々の
+  `/dev/shm` にあるためメッセージはすべて失われ、ペアの判定は `SHM` のままです
+  ([#101](https://github.com/atinfinity/fastdds_transport_viz/issues/101))。
 - `shm-nearly-full` は使用率 90 % 以上、または空きが 16 MiB 未満で警告します。
 
 `/dev/shm` が無い環境 (macOS) では行自体を省きます。JSON では同じデータが `shm` オブジェクト

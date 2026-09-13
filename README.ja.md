@@ -158,8 +158,10 @@ ros2 transport codes
 - **DDS Security (SROS2) は未対応** で未検証です。ツールの participant にはセキュリティ設定が無いので、
   secure enclave 内の participant は発見できません。
 - **ツール自身の痕跡。** ツールはドメインに自身の participant を 2 つ追加します (出力からは除外)。
-- **検出できないケース。** ホスト id が同じで IPC 名前空間だけが別のノードは `shm-not-visible` に
-  なりません。
+- **共有メモリの分断。** ホスト id が同じで IPC 名前空間が別のノード同士 (`ipc: host` の無い
+  `network_mode: host`) は `SHM` と表示されますが、その間のメッセージはすべて失われます。共有メモリ行の
+  `shm-not-visible` が示すのは、ツールがそのノードと別の名前空間にいることだけです
+  ([#101](https://github.com/atinfinity/fastdds_transport_viz/issues/101))。
 
 ## ライセンス
 

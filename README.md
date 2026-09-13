@@ -163,8 +163,11 @@ way and highlights the result. Details in
   security configuration, so participants inside a secure enclave are not discovered.
 - **Footprint.** The tool adds two participants of its own to the domain (filtered from
   the output).
-- **Blind spot.** Nodes with the same host id but a separate IPC namespace are not
-  reported as `shm-not-visible`.
+- **Split shared memory.** Nodes with the same host id in different IPC namespaces
+  (`network_mode: host` without `ipc: host`) are shown as `SHM` between each other, but
+  every message between them is lost; `shm-not-visible` in the shared-memory line only
+  tells that the tool is not in their namespace
+  ([#101](https://github.com/atinfinity/fastdds_transport_viz/issues/101)).
 
 ## License
 

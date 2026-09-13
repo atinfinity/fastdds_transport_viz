@@ -268,9 +268,15 @@ shared memory: /dev/shm 396 MB used of 16.7 GB (16.3 GB free) | Fast DDS 63.4 MB
   held here (or is the tool's own port number, i.e. the same participant id in another
   network namespace), the node uses another `/dev/shm` and the warning `shm-not-visible`
   says so: the figures then describe the tool's environment, not the nodes', and SHM
-  between the nodes and this process is impossible. One case escapes the check: same
-  host id but separate IPC namespaces (`network_mode: host` without `ipc: host`), where
-  the tool's own participant opens the announced port here to send to it.
+  between the nodes and this process is impossible. The tool's own ports are those of
+  every participant in its process (`DomainParticipantFactory::lookup_participants()`)
+  plus the port locks the process holds open (`/proc/self/fd`), so its own lock is never
+  taken for a node's. A sender does not lock the port it writes to, so nodes with the
+  tool's host id in a separate IPC namespace (`network_mode: host` without `ipc: host`)
+  are reported as well.
+  Between two such nodes Fast DDS still picks SHM (same host id), but their ports are in
+  different `/dev/shm` and every message is lost while the pair's verdict says `SHM`
+  ([#101](https://github.com/atinfinity/fastdds_transport_viz/issues/101)).
 - `shm-nearly-full` warns at 90 % usage or less than 16 MiB free.
 
 The line is omitted where there is no `/dev/shm` (macOS). In JSON the same data is the
