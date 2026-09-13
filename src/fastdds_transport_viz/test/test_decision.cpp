@@ -164,6 +164,71 @@ TEST(Decision, SameHostIdButDifferentIpWarns)
   EXPECT_TRUE(has(v.warnings, "host-id-match-but-ip-differs"));
 }
 
+TEST(Decision, SameShmPortOnTwoParticipantsIsAnIpcSplit)
+{
+  // two host-network containers without host IPC: each namespace hands out 7000 first
+  auto w = make(true, HOST_A, {udp4("10.0.0.1"), shm(16161)});
+  auto r = make(false, HOST_A, {udp4("10.0.0.1"), shm(16163)});
+  w.participant_guid_prefix = "P1";
+  r.participant_guid_prefix = "P2";
+  w.participant_shm_ports = {7000, 16161};
+  r.participant_shm_ports = {7000, 16163};
+  auto v = decide(w, r);
+  EXPECT_EQ(v.transport, Transport::None);
+  EXPECT_EQ(v.confidence, Confidence::Certain);
+  EXPECT_EQ(v.locator.kind, LocatorKind::Invalid);
+  EXPECT_TRUE(has(v.reasons, "same-host-guid"));
+  EXPECT_TRUE(has(v.reasons, "both-shm-locators"));
+  EXPECT_TRUE(has(v.reasons, "shm-port-collision"));
+  EXPECT_FALSE(has(v.reasons, "shm-reader-port-not-visible"));
+  EXPECT_EQ(v.warnings, (std::vector<std::string>{"shm-ipc-namespace-split"}));
+
+  // Humble: only the pid-based port, numbered per namespace, so the endpoint locators collide
+  auto hw = make(true, HOST_A, {shm(16911)});
+  auto hr = make(false, HOST_A, {shm(16911)});
+  hw.participant_guid_prefix = "P1";
+  hr.participant_guid_prefix = "P2";
+  EXPECT_TRUE(has(decide(hw, hr).reasons, "shm-port-collision"));
+
+  // one participant writing to itself shares its ports with itself
+  hr.participant_guid_prefix = "P1";
+  EXPECT_EQ(decide(hw, hr).transport, Transport::SHM);
+}
+
+TEST(Decision, OneSideVisibleFromTheToolIsAnIpcSplit)
+{
+  auto w = make(true, HOST_A, {shm(16163)});
+  auto r = make(false, HOST_A, {shm(16165)});
+  w.participant_guid_prefix = "P1";
+  r.participant_guid_prefix = "P2";
+  w.participant_shm_visibility = ShmVisibility::Visible;
+  r.participant_shm_visibility = ShmVisibility::NotVisible;
+  auto v = decide(w, r);
+  EXPECT_EQ(v.transport, Transport::None);
+  EXPECT_EQ(v.confidence, Confidence::Certain);
+  EXPECT_TRUE(has(v.reasons, "shm-reader-port-not-visible"));
+  EXPECT_FALSE(has(v.reasons, "shm-port-collision"));
+  EXPECT_TRUE(has(v.warnings, "shm-ipc-namespace-split"));
+
+  std::swap(w.participant_shm_visibility, r.participant_shm_visibility);
+  v = decide(w, r);
+  EXPECT_TRUE(has(v.reasons, "shm-writer-port-not-visible"));
+  EXPECT_TRUE(has(v.warnings, "shm-ipc-namespace-split"));
+
+  // both outside the tool's namespace, or not decidable: they may share another one
+  for (auto [wv, rv] : {std::pair{ShmVisibility::NotVisible, ShmVisibility::NotVisible},
+      std::pair{ShmVisibility::Visible, ShmVisibility::Visible},
+      std::pair{ShmVisibility::Visible, ShmVisibility::Unprobed},
+      std::pair{ShmVisibility::Unprobed, ShmVisibility::NotVisible}})
+  {
+    w.participant_shm_visibility = wv;
+    r.participant_shm_visibility = rv;
+    v = decide(w, r);
+    EXPECT_EQ(v.transport, Transport::SHM);
+    EXPECT_TRUE(v.warnings.empty());
+  }
+}
+
 TEST(Decision, EveryEmittedCodeHasAnExplanation)
 {
   for (const auto & code : known_codes()) {
@@ -324,6 +389,32 @@ TEST(ApplyStats, MeasuredShmConfirmsPrediction)
   EXPECT_EQ(p.verdict.confidence, Confidence::Certain);
   EXPECT_TRUE(has(p.verdict.reasons, "measured-shm-traffic"));
   EXPECT_TRUE(p.verdict.warnings.empty());
+}
+
+TEST(ApplyStats, IpcSplitKeepsNoneDespiteShmTraffic)
+{
+  std::vector<Endpoint> eps;
+  eps.push_back(make(true, HOST_A, {udp4("10.0.0.1"), shm(16161)}));
+  eps.push_back(make(false, HOST_A, {udp4("10.0.0.1", 16163), shm(16163)}));
+  eps[0].participant_guid_prefix = "P1";
+  eps[1].participant_guid_prefix = "P2";
+  eps[0].participant_shm_visibility = ShmVisibility::Visible;
+  eps[1].participant_shm_visibility = ShmVisibility::NotVisible;
+  auto topics = summarize(eps);
+  // the writer pushes into the reader's port in its own /dev/shm: counted, never delivered
+  auto stats = stats_with(eps[0], {TrafficSample{"P1", shm(16163), 10, 1632.0}});
+  apply_stats(topics, stats);
+  auto & p = topics[0].pairs[0];
+  EXPECT_EQ(p.verdict.transport, Transport::None);
+  EXPECT_EQ(p.verdict.confidence, Confidence::Certain);
+  EXPECT_TRUE(has(p.verdict.reasons, "measured-shm-traffic"));
+  EXPECT_EQ(p.verdict.warnings, (std::vector<std::string>{"shm-ipc-namespace-split"}));
+
+  topics = summarize(eps);
+  stats = stats_with(eps[0], {TrafficSample{"P1", shm(16163), 10, 1632.0}}, true, &eps[1]);
+  apply_stats(topics, stats);
+  EXPECT_TRUE(has(topics[0].pairs[0].verdict.warnings, "shm-ipc-namespace-split-but-delivered"));
+  EXPECT_EQ(topics[0].pairs[0].verdict.transport, Transport::None);
 }
 
 TEST(ApplyStats, LoopbackReaderLocatorMatchesTrafficToLocalAddress)
@@ -789,7 +880,9 @@ TEST(Codes, RemediesAreOneSentenceAndExplicitPerCode)
   // codes that describe a normal state, a measured fact or ask for a bug report: nothing to fix
   for (const auto * c : {"same-host-guid", "both-shm-locators", "common-udpv4-locator",
       "measured-shm-traffic", "measured-transport-mismatch", "qos-incompatible-but-delivered",
-      "qos-incompatible", "datasharing-confirmed-no-traffic"})
+      "qos-incompatible", "datasharing-confirmed-no-traffic", "shm-port-collision",
+      "shm-reader-port-not-visible", "shm-writer-port-not-visible",
+      "shm-ipc-namespace-split-but-delivered"})
   {
     EXPECT_FALSE(remedy(c).has_value()) << c;
   }
@@ -799,6 +892,7 @@ TEST(Codes, RemediesAreOneSentenceAndExplicitPerCode)
   EXPECT_NE(remedy("datasharing-disabled-writer")->find("data_sharing"), std::string::npos);
   EXPECT_NE(remedy("qos-incompatible-reliability")->find("create_subscription"), std::string::npos);
   EXPECT_NE(remedy("stats-not-enabled-on-writer")->find("FASTDDS_STATISTICS"), std::string::npos);
+  EXPECT_NE(remedy("shm-ipc-namespace-split")->find("ipc: host"), std::string::npos);
   // the remedy moved out of the description: it is said once
   EXPECT_EQ(explain("shm-stale-files").find("fastdds shm clean"), std::string::npos);
   EXPECT_EQ(explain("shm-nearly-full").find("--shm-size"), std::string::npos);

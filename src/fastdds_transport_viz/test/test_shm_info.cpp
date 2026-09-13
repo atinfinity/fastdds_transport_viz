@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <cstdlib>
 #include <fstream>
+#include <map>
 #include <set>
 #include <string>
 #include <utility>
@@ -180,6 +181,42 @@ TEST_F(FakeShmDir, NodesInAnotherIpcNamespace)
   EXPECT_FALSE(info.nodes_visible);
   EXPECT_TRUE(has(info.warnings, "shm-not-visible"));
   EXPECT_FALSE(has(info.warnings, "shm-stale-files"));   // nothing here is theirs
+}
+
+TEST_F(FakeShmDir, UnreadableLockIsUnknownNotMissing)
+{
+  file("fastdds_port7415", 10);
+  ASSERT_EQ(::symlink("fastdds_port7415_el", (dir + "/fastdds_port7415_el").c_str()), 0);
+  files.push_back("fastdds_port7415_el");   // open() fails with ELOOP
+  ShmScanInput in;
+  in.node_ports = {7411, 7415};
+  auto info = scan_shm(dir, in);
+  EXPECT_EQ(info.missing_ports, (std::vector<uint32_t>{7411, 7415}));
+  EXPECT_EQ(info.unknown_ports, (std::vector<uint32_t>{7415}));
+}
+
+TEST(ParticipantShmVisibility, FromTheScanResult)
+{
+  ShmInfo info;
+  info.available = true;
+  info.checked_ports = {7000, 7001, 16161, 16163, 16165};
+  info.missing_ports = {7001, 16163, 16165};   // 16165 could not be probed
+  info.unknown_ports = {16165};
+  const std::map<uint32_t, size_t> single{};
+  const std::map<uint32_t, size_t> shared{{7000, 2}};
+
+  EXPECT_EQ(participant_shm_visibility({16161}, info, single), ShmVisibility::Visible);
+  EXPECT_EQ(participant_shm_visibility({7000, 16161}, info, single), ShmVisibility::Visible);
+  // a held number announced by two participants: whose lock is it?
+  EXPECT_EQ(participant_shm_visibility({7000, 16161}, info, shared), ShmVisibility::Unprobed);
+  // one missing port is enough, even next to a held one
+  EXPECT_EQ(participant_shm_visibility({7000, 16163}, info, shared), ShmVisibility::NotVisible);
+  EXPECT_EQ(participant_shm_visibility({16161, 16163}, info, single), ShmVisibility::NotVisible);
+  // an unreadable lock or a port that was not probed decides nothing
+  EXPECT_EQ(participant_shm_visibility({16165}, info, single), ShmVisibility::Unprobed);
+  EXPECT_EQ(participant_shm_visibility({16161, 17000}, info, single), ShmVisibility::Unprobed);
+  EXPECT_EQ(participant_shm_visibility({}, info, single), ShmVisibility::Unprobed);
+  EXPECT_EQ(participant_shm_visibility({16161}, ShmInfo{}, single), ShmVisibility::Unprobed);
 }
 
 TEST_F(FakeShmDir, ExplanationsExistForShmWarnings)

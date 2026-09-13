@@ -36,7 +36,7 @@ Endpoint ep(bool writer, const std::string & guid, const std::string & node)
   e.dds_type = "std_msgs::msg::dds_::String_";
   e.ros_topic = "/chatter";
   e.ros_type = "std_msgs/msg/String";
-  e.unicast.push_back(Locator{LocatorKind::SHM, "", 7411});
+  e.unicast.push_back(Locator{LocatorKind::SHM, "", writer ? 7411u : 7413u});
   e.unicast.push_back(Locator{LocatorKind::UDPv4, "10.0.0.1", 7411});
   e.qos.reliability = "RELIABLE";
   e.qos.durability = "VOLATILE";
@@ -63,7 +63,7 @@ Snapshot snapshot()
   s.stats.participants_with_stats = {"P1"};
   s.stats.physical["P1"] = HostInfo{"robot:1", "user", "42"};
   s.stats.traffic.push_back(
-    TrafficSample{"P1", Locator{LocatorKind::SHM, "", 7411}, 10, 1000.0, 4, 400.0, 3});
+    TrafficSample{"P1", Locator{LocatorKind::SHM, "", 7413}, 10, 1000.0, 4, 400.0, 3});
   s.stats.data_count["W1"] = DataCountSample{2, 5, 2};
   s.stats.throughput["W1"] = ThroughputStat{60.0, 20.0, 3};
   LatencyStat lat;

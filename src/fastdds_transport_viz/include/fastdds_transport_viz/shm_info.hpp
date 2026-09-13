@@ -48,6 +48,16 @@ struct ShmScanInput
 /// Scan `path` (statvfs + directory listing + lock probes).
 ShmInfo scan_shm(const std::string & path, const ShmScanInput & in);
 
+/// Where a participant with the tool's host id listens for SHM, from the scan result:
+/// NotVisible when one of its `ports` is missing here (nobody holds the lock, or the
+/// number is one of the tool's own), Visible when every port is held here and
+/// `participants_per_port` counts no other participant announcing it (a number shared by
+/// participants in several IPC namespaces does not say whose lock is held), otherwise
+/// Unprobed (no scan, a lock that could not be read, a shared number).
+ShmVisibility participant_shm_visibility(
+  const std::set<uint32_t> & ports, const ShmInfo & info,
+  const std::map<uint32_t, size_t> & participants_per_port);
+
 /// SHM ports whose `fastrtps_port<N>_el` / `fastdds_port<N>_el` lock file this process
 /// holds open, from the fd links in `fd_dir`: the ports the tool's own participants
 /// listen on, including those no discovered endpoint announces. nullopt without procfs.

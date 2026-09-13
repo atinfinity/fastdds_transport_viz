@@ -72,6 +72,15 @@ struct EndpointQos
 /// to decide "same host").
 using HostId = std::array<uint8_t, 4>;
 
+/// Whether a participant with the tool's host id listens for SHM in the tool's IPC
+/// namespace, from the locks of its SHM ports in the tool's /dev/shm.
+enum class ShmVisibility
+{
+  Unprobed,     // not decidable: no probe, a lock that could not be read, a shared port number
+  Visible,      // every SHM port held here, and no other participant announces its numbers
+  NotVisible,   // a port nobody holds here, or one that collides with the tool's own ports
+};
+
 struct Endpoint
 {
   bool is_writer{false};
@@ -94,6 +103,11 @@ struct Endpoint
   // a data-sharing history file of this writer exists in /dev/shm
   bool datasharing_history_available{false};
   uint64_t datasharing_history_bytes{0};
+  // SHM unicast ports of every endpoint of this endpoint's participant, filtered or not
+  // (ros_discovery_info included), and where they are seen from the tool: two participants
+  // in different IPC namespaces lose every sample they send each other over SHM
+  std::set<uint32_t> participant_shm_ports;
+  ShmVisibility participant_shm_visibility{ShmVisibility::Unprobed};
 };
 
 enum class Transport
@@ -303,6 +317,7 @@ struct ShmInfo
   size_t datasharing_unmatched{0};   // ... not belonging to a discovered writer
   std::vector<uint32_t> checked_ports;   // SHM ports of observed nodes with the tool's host id
   std::vector<uint32_t> missing_ports;   // ... not held here by a living node process
+  std::vector<uint32_t> unknown_ports;   // ... of those, the lock could not be probed
   size_t other_host_participants{0};  // observed participants with another host id
   bool nodes_visible{true};          // missing_ports.empty() && other_host_participants == 0
   std::vector<std::string> warnings;  // shm-stale-files, shm-nearly-full, shm-not-visible
