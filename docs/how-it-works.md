@@ -315,13 +315,14 @@ When neither can be told, for example with the tool in a third IPC namespace and
 different port numbers on the two sides, the pair stays `SHM`, and `shm-not-visible` on
 the shared-memory line is the only hint. A node in another IPC namespace than the tool
 often shows with an unknown node name, detected or not, because its `ros_discovery_info`
-samples are lost the same way.
+samples are lost the same way ([#112](https://github.com/atinfinity/fastdds_transport_viz/issues/112)).
 
 With `--stats` the writer's SHM traffic on such a pair is expected (it writes into the
 port file in its own `/dev/shm`), so the pair stays `NONE`. Only a proven delivery adds
-`shm-ipc-namespace-split-but-delivered`, since it contradicts the split. A tool in another
-IPC namespace than a same-host writer loses that writer's statistics the same way
-([#106](https://github.com/atinfinity/fastdds_transport_viz/issues/106)).
+`shm-ipc-namespace-split-but-delivered`, since it contradicts the split. The statistics
+themselves are not lost across IPC namespaces: the tool's statistics readers announce the
+participant's UDP (or TCP) locators but no SHM locator, so a same-host writer sends its
+statistics over the network stack wherever the tool runs ([#106](https://github.com/atinfinity/fastdds_transport_viz/issues/106)).
 
 ## Watch mode
 

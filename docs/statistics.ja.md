@@ -31,7 +31,10 @@ export FASTDDS_STATISTICS="RTPS_SENT_TOPIC;RTPS_LOST_TOPIC;HISTORY_LATENCY_TOPIC
 証明されると `shm-ipc-namespace-split-but-delivered` が付きます
 ([IPC 名前空間の分断](how-it-works.ja.md#ipc-名前空間の分断) を参照)。
 *writer* がこれ無しで起動されたペアには警告 `stats-not-enabled-on-writer` が付きます (statistics の
-無い reader は警告されません)。
+無い reader は警告されません)。ツールの statistics reader は UDP (または TCP) の locator だけを広告し
+SHM の locator を広告しないので、別の IPC 名前空間にいる同一ホストの writer の statistics も届きます。
+participant が SHM transport しか持たない writer はこれらの reader と共通の transport が無く、同じ警告に
+なります。
 
 ## カウンタが表すもの
 

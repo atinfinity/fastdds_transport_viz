@@ -172,7 +172,7 @@ the remedy of every code. The table below covers what is not a reason code.
 | `RMW is rmw_cyclonedds_cpp; this tool observes Fast DDS ...` (exit 1) | the tool only works on Fast DDS: set `RMW_IMPLEMENTATION=rmw_fastrtps_cpp` (or `rmw_fastrtps_dynamic_cpp`, or unset it on a distro whose default is Fast DDS) in the shell that runs the tool. |
 | no topics at all | same `ROS_DOMAIN_ID` as the nodes? `ROS_AUTOMATIC_DISCOVERY_RANGE=OFF` limits every participant to itself. With a Discovery Server the tool needs the same `ROS_DISCOVERY_SERVER` (it becomes a SUPER_CLIENT automatically). |
 | nodes on another machine are missing | the other machine must be reachable by multicast, or listed in `ROS_STATIC_PEERS`, or both sides use a Discovery Server; see [development.md](development.md#two-physical-hosts). |
-| `!stats-not-enabled-on-writer` with `--stats` | the node was started without `FASTDDS_STATISTICS`; the variable must be set before the node starts. |
+| `!stats-not-enabled-on-writer` with `--stats` | the node was started without `FASTDDS_STATISTICS` (the variable must be set before the node starts), or its participant has the SHM transport only: the tool's statistics readers listen on UDP or TCP. |
 | `!shm-not-visible` | the nodes use another `/dev/shm` (another container or host); the shared-memory line describes the tool's environment only. |
 | `!shm-ipc-namespace-split` on a `NONE` pair | the two nodes have the same host id but different `/dev/shm` (host network, separate IPC namespaces), so the listener receives nothing although Fast DDS selected SHM. Give both containers `ipc: host`, or disable SHM on one side (`--advise` prints the remedy). |
 | `!shm-stale-files` | crashed processes left segments behind; `fastdds shm clean` removes them. |
