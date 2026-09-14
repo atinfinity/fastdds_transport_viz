@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Multi-container integration tests (run on the Docker host, not inside a container).
 #
-#   scripts/integration_test.sh [multi_container|stats_multi_container|hostnet_shm|hostnet_noipc_shm|hostnet_split_shm|hostnet_split_shm_visible|hostnet_split_stats|hostnet_split_datasharing|hostnet_split_datasharing_udp|large_data_tcp|udpv6_multi_container|easy_mode_shm|easy_mode_tcp|all]
+#   scripts/integration_test.sh [multi_container|stats_multi_container|hostnet_shm|hostnet_noipc_shm|hostnet_split_shm|hostnet_split_shm_visible|hostnet_split_shm_shared_port|hostnet_split_stats|hostnet_split_datasharing|hostnet_split_datasharing_udp|large_data_tcp|udpv6_multi_container|easy_mode_shm|easy_mode_tcp|all]
 #
 #   multi_container        talker and listener in two bridged containers (separate
 #                          network and IPC namespaces => different Fast DDS host ids).
@@ -24,6 +24,10 @@
 #                          container and transport_viz in the talker's IPC namespace (Jazzy
 #                          or newer; skipped on Humble). Expect /chatter = NONE,
 #                          shm-reader-port-not-visible and no shm-port-collision.
+#   hostnet_split_shm_shared_port  the same view with a node started first in each container
+#                          and a second one in the listener's, which takes the talker's 7000+
+#                          number (Jazzy or newer; skipped on Humble). Expect /chatter = NONE,
+#                          shm-reader-port-not-visible and no shm-port-collision (#118).
 #   hostnet_split_stats    hostnet_split_shm with FASTDDS_STATISTICS and transport_viz --stats
 #                          (skipped on Humble, which has no statistics module). Expect the
 #                          writer's statistics (they no longer go over SHM into its own
@@ -208,6 +212,18 @@ elif scenario == 'hostnet_split_shm_visible':
     assert p['warnings'] == ['shm-ipc-namespace-split'], p
     print('PASS: split seen from the talker\'s IPC namespace: /chatter NONE '
           '(shm-ipc-namespace-split, shm-reader-port-not-visible)')
+elif scenario == 'hostnet_split_shm_shared_port':
+    # the talker's 7001 is announced by a node in the listener's namespace too; its own port
+    # still shows that it listens in the tool's namespace (#118)
+    assert p['transport'] == 'NONE' and p['confidence'] == 'certain', p
+    assert {'same-host-guid', 'shm-reader-port-not-visible'} <= set(p['reasons']), p
+    assert 'shm-port-collision' not in p['reasons'], p
+    assert p['warnings'] == ['shm-ipc-namespace-split'], p
+    shm = doc['shm']
+    assert {7000, 7001} <= set(shm['checked_ports']), shm
+    assert 7001 not in shm['missing_ports'], shm   # held here by the talker
+    print('PASS: split seen from the talker\'s IPC namespace with its 7000+ number announced '
+          'twice: /chatter NONE (shm-ipc-namespace-split, shm-reader-port-not-visible)')
 elif scenario == 'hostnet_split_stats':
     # the tool (a third IPC namespace) gets the nodes' statistics over UDPv4: its statistics
     # readers announce no SHM locator (#106)
@@ -356,6 +372,27 @@ scenario_hostnet_split_shm_visible() {
   return 1
 }
 
+# #118: a second node in the listener's namespace takes the talker's 7000+ number. Humble has no
+# such port, and there each participant's only SHM port is numbered per IPC namespace, so the
+# talker would have no port of its own to show where it listens.
+scenario_hostnet_split_shm_shared_port() {
+  if [ "${ROS_DISTRO:-jazzy}" = humble ]; then
+    echo "SKIP: hostnet_split_shm_shared_port needs the 7000+ SHM port of Jazzy or newer"
+    return 0
+  fi
+  local out="$out_dir/transport_viz_hostnet_split_shm_shared_port.json"
+  echo "== starting a node and the talker, and two nodes and the listener, on the host network, an IPC namespace each"
+  docker compose up -d talker_hostnet_split_shared listener_hostnet_split_shared
+  sleep 6
+  local attempt
+  for attempt in 1 2 3; do   # a node may not announce its SHM locator yet
+    run_viz hostnet_in_talker_shared_ipc "$out"
+    if assert hostnet_split_shm_shared_port "$out"; then return 0; fi
+    echo "-- attempt $attempt: split not seen yet, retrying"
+  done
+  return 1
+}
+
 scenario_hostnet_split_stats() {
   if [ "${ROS_DISTRO:-jazzy}" = humble ]; then
     echo "SKIP: hostnet_split_stats needs the Fast DDS statistics module (Jazzy or newer)"
@@ -450,14 +487,14 @@ scenario_easy_mode_tcp() {
 
 build
 case "$scenario" in
-  multi_container|stats_multi_container|hostnet_shm|hostnet_noipc_shm|hostnet_split_shm|hostnet_split_shm_visible|hostnet_split_stats|hostnet_split_datasharing|hostnet_split_datasharing_udp|large_data_tcp|udpv6_multi_container|easy_mode_shm|easy_mode_tcp)
+  multi_container|stats_multi_container|hostnet_shm|hostnet_noipc_shm|hostnet_split_shm|hostnet_split_shm_visible|hostnet_split_shm_shared_port|hostnet_split_stats|hostnet_split_datasharing|hostnet_split_datasharing_udp|large_data_tcp|udpv6_multi_container|easy_mode_shm|easy_mode_tcp)
     "scenario_$scenario" ;;
   all)
-    for s in multi_container stats_multi_container hostnet_shm hostnet_noipc_shm hostnet_split_shm hostnet_split_shm_visible hostnet_split_stats hostnet_split_datasharing hostnet_split_datasharing_udp large_data_tcp udpv6_multi_container easy_mode_shm easy_mode_tcp; do
+    for s in multi_container stats_multi_container hostnet_shm hostnet_noipc_shm hostnet_split_shm hostnet_split_shm_visible hostnet_split_shm_shared_port hostnet_split_stats hostnet_split_datasharing hostnet_split_datasharing_udp large_data_tcp udpv6_multi_container easy_mode_shm easy_mode_tcp; do
       echo; echo "#### $s"
       "scenario_$s"
       cleanup
     done ;;
   *)
-    echo "usage: $0 [multi_container|stats_multi_container|hostnet_shm|hostnet_noipc_shm|hostnet_split_shm|hostnet_split_shm_visible|hostnet_split_stats|hostnet_split_datasharing|hostnet_split_datasharing_udp|large_data_tcp|udpv6_multi_container|easy_mode_shm|easy_mode_tcp|all]" >&2; exit 2 ;;
+    echo "usage: $0 [multi_container|stats_multi_container|hostnet_shm|hostnet_noipc_shm|hostnet_split_shm|hostnet_split_shm_visible|hostnet_split_shm_shared_port|hostnet_split_stats|hostnet_split_datasharing|hostnet_split_datasharing_udp|large_data_tcp|udpv6_multi_container|easy_mode_shm|easy_mode_tcp|all]" >&2; exit 2 ;;
 esac

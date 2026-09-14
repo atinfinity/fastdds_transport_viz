@@ -208,13 +208,14 @@ ShmInfo scan_shm(const std::string & path, const ShmScanInput & in)
 }
 
 ShmVisibility participant_shm_visibility(
-  const std::set<uint32_t> & ports, const ShmInfo & info,
-  const std::map<uint32_t, size_t> & participants_per_port)
+  const std::set<uint32_t> & ports, const std::set<uint32_t> & proof_ports,
+  const ShmInfo & info, const std::map<uint32_t, size_t> & participants_per_port)
 {
   auto contains = [](const std::vector<uint32_t> & v, uint32_t p) {
       return std::find(v.begin(), v.end(), p) != v.end();
     };
   bool all_held = !ports.empty();
+  bool proven = false;
   for (uint32_t port : ports) {
     if (!contains(info.checked_ports, port)) {
       all_held = false;   // not probed
@@ -225,14 +226,15 @@ ShmVisibility participant_shm_visibility(
         return ShmVisibility::NotVisible;
       }
       all_held = false;
-    } else {
+    } else if (proof_ports.count(port) > 0) {
+      // Held here and announced by this participant alone: it listens in this namespace.
+      // A number that participants of other namespaces announce too does not say whose
+      // lock is held, but it does not contradict the other ports either (#118).
       auto it = participants_per_port.find(port);
-      if (it != participants_per_port.end() && it->second > 1) {
-        all_held = false;   // held here, but by which of the participants announcing it?
-      }
+      proven = proven || it == participants_per_port.end() || it->second <= 1;
     }
   }
-  return all_held ? ShmVisibility::Visible : ShmVisibility::Unprobed;
+  return all_held && proven ? ShmVisibility::Visible : ShmVisibility::Unprobed;
 }
 
 std::optional<std::set<uint32_t>> held_port_locks(const std::string & fd_dir)

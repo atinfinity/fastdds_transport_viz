@@ -379,8 +379,12 @@ Snapshot collect(
   std::set<std::string> own_prefixes;
   std::set<std::string> other_host_prefixes;
   // SHM ports per participant with our host id, from every endpoint (ros_discovery_info
-  // is the only one announcing the 7000+ port on Jazzy and newer)
+  // is the only one announcing the 7000+ port on Jazzy and newer), and those announced by
+  // an endpoint other than the ros_discovery_info reader: that reader's unique-flow port is
+  // the first free 7000+ number of its IPC namespace in any domain, so a held lock of it
+  // does not prove whose it is (#118)
   std::map<std::string, std::set<uint32_t>> shm_ports_by_participant;
+  std::map<std::string, std::set<uint32_t>> shm_proof_ports_by_participant;
   for (const auto * p : eprosima::fastdds::dds::DomainParticipantFactory::get_instance()->
     lookup_participants(static_cast<eprosima::fastdds::dds::DomainId_t>(domain)))
   {
@@ -414,6 +418,9 @@ Snapshot collect(
       } else if (e.host_id == local_host) {
         shm_in.node_ports.insert(l.port);
         shm_ports_by_participant[e.participant_guid_prefix].insert(l.port);
+        if (e.is_writer || e.dds_topic != "ros_discovery_info") {
+          shm_proof_ports_by_participant[e.participant_guid_prefix].insert(l.port);
+        }
       }
     }
     if (ours) {
@@ -478,7 +485,8 @@ Snapshot collect(
       if (ports != shm_ports_by_participant.end()) {
         e.participant_shm_ports = ports->second;
         e.participant_shm_visibility = fastdds_transport_viz::participant_shm_visibility(
-          ports->second, snap.shm, participants_per_port);
+          ports->second, shm_proof_ports_by_participant[e.participant_guid_prefix], snap.shm,
+          participants_per_port);
       }
     }
   }

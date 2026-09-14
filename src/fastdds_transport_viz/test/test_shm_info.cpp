@@ -222,7 +222,7 @@ TEST_F(FakeShmDir, FreeLockIsUndecided)
   EXPECT_EQ(info.missing_ports, (std::vector<uint32_t>{7417}));
   EXPECT_EQ(info.unknown_ports, (std::vector<uint32_t>{7417}));
   EXPECT_FALSE(info.nodes_visible);
-  EXPECT_EQ(participant_shm_visibility({7417}, info, {}), ShmVisibility::Unprobed);
+  EXPECT_EQ(participant_shm_visibility({7417}, {7417}, info, {}), ShmVisibility::Unprobed);
 }
 
 TEST(ParticipantShmVisibility, FromTheScanResult)
@@ -234,19 +234,30 @@ TEST(ParticipantShmVisibility, FromTheScanResult)
   info.unknown_ports = {16165};
   const std::map<uint32_t, size_t> single{};
   const std::map<uint32_t, size_t> shared{{7000, 2}};
+  const std::map<uint32_t, size_t> both_shared{{7000, 2}, {16161, 2}};
+  // 7000 and 7001 as the ros_discovery_info reader's ports, the rest from the other endpoints
+  const std::set<uint32_t> proof{16161, 16163, 16165, 17000};
+  using SV = ShmVisibility;
 
-  EXPECT_EQ(participant_shm_visibility({16161}, info, single), ShmVisibility::Visible);
-  EXPECT_EQ(participant_shm_visibility({7000, 16161}, info, single), ShmVisibility::Visible);
-  // a held number announced by two participants: whose lock is it?
-  EXPECT_EQ(participant_shm_visibility({7000, 16161}, info, shared), ShmVisibility::Unprobed);
-  // one missing port is enough, even next to a held one
-  EXPECT_EQ(participant_shm_visibility({7000, 16163}, info, shared), ShmVisibility::NotVisible);
-  EXPECT_EQ(participant_shm_visibility({16161, 16163}, info, single), ShmVisibility::NotVisible);
-  // an unreadable lock or a port that was not probed decides nothing
-  EXPECT_EQ(participant_shm_visibility({16165}, info, single), ShmVisibility::Unprobed);
-  EXPECT_EQ(participant_shm_visibility({16161, 17000}, info, single), ShmVisibility::Unprobed);
-  EXPECT_EQ(participant_shm_visibility({}, info, single), ShmVisibility::Unprobed);
-  EXPECT_EQ(participant_shm_visibility({16161}, ShmInfo{}, single), ShmVisibility::Unprobed);
+  EXPECT_EQ(participant_shm_visibility({16161}, proof, info, single), SV::Visible);
+  EXPECT_EQ(participant_shm_visibility({7000, 16161}, proof, info, single), SV::Visible);
+  // a held number announced by two participants: whose lock is it? It leaves the decision
+  // to the participant's other ports (#118)
+  EXPECT_EQ(participant_shm_visibility({7000, 16161}, proof, info, shared), SV::Visible);
+  EXPECT_EQ(participant_shm_visibility({7000, 16161}, proof, info, both_shared), SV::Unprobed);
+  // the reader's 7000+ number proves nothing: any participant of the namespace may hold it
+  EXPECT_EQ(participant_shm_visibility({7000}, proof, info, single), SV::Unprobed);
+  EXPECT_EQ(participant_shm_visibility({7000}, {}, info, single), SV::Unprobed);
+  // one missing port is enough, even next to a held one of its own
+  EXPECT_EQ(participant_shm_visibility({7000, 16163}, proof, info, shared), SV::NotVisible);
+  EXPECT_EQ(participant_shm_visibility({16161, 16163}, proof, info, single), SV::NotVisible);
+  EXPECT_EQ(participant_shm_visibility({16161, 7001}, proof, info, single), SV::NotVisible);
+  // an unreadable lock or a port that was not probed decides nothing, even next to a held one
+  EXPECT_EQ(participant_shm_visibility({16165}, proof, info, single), SV::Unprobed);
+  EXPECT_EQ(participant_shm_visibility({16161, 16165}, proof, info, single), SV::Unprobed);
+  EXPECT_EQ(participant_shm_visibility({16161, 17000}, proof, info, single), SV::Unprobed);
+  EXPECT_EQ(participant_shm_visibility({}, proof, info, single), SV::Unprobed);
+  EXPECT_EQ(participant_shm_visibility({16161}, proof, ShmInfo{}, single), SV::Unprobed);
 }
 
 TEST_F(FakeShmDir, ExplanationsExistForShmWarnings)

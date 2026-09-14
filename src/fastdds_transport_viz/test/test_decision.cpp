@@ -229,6 +229,30 @@ TEST(Decision, OneSideVisibleFromTheToolIsAnIpcSplit)
   }
 }
 
+TEST(Decision, PortCollisionAndOneSideVisibleAreBothListed)
+{
+  // the tool in the talker's IPC namespace, both nodes on the reader's 7000 port: the talker's
+  // own port is held here, the listener's is not, so both signals tell the split (#118)
+  auto w = make(true, HOST_A, {shm(7413)});
+  auto r = make(false, HOST_A, {shm(7415)});
+  w.participant_guid_prefix = "P1";
+  r.participant_guid_prefix = "P2";
+  w.participant_shm_ports = {7000, 7413};
+  r.participant_shm_ports = {7000, 7415};
+  w.participant_shm_visibility = ShmVisibility::Visible;
+  r.participant_shm_visibility = ShmVisibility::NotVisible;
+  auto v = decide(w, r);
+  EXPECT_EQ(v.transport, Transport::None);
+  EXPECT_EQ(v.confidence, Confidence::Certain);
+  auto pos = [&v](const std::string & reason) {
+      return std::find(v.reasons.begin(), v.reasons.end(), reason) - v.reasons.begin();
+    };
+  ASSERT_TRUE(has(v.reasons, "shm-port-collision"));
+  ASSERT_TRUE(has(v.reasons, "shm-reader-port-not-visible"));
+  EXPECT_EQ(pos("shm-port-collision") + 1, pos("shm-reader-port-not-visible"));
+  EXPECT_EQ(v.warnings, (std::vector<std::string>{"shm-ipc-namespace-split"}));
+}
+
 TEST(Decision, IpcSplitRuleOrderAndScope)
 {
   auto split_pair = [](DataSharingKind ds) {

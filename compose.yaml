@@ -20,6 +20,9 @@
 #   docker compose up talker_hostnet_split_stats listener_hostnet_split_stats
 #                                               # same, with FASTDDS_STATISTICS: --stats from `hostnet`
 #                                               # still receives their statistics (#106)
+#   docker compose up talker_hostnet_split_shared listener_hostnet_split_shared
+#                                               # same split, the talker's 7000+ number also
+#                                               # taken in the listener's namespace (#118)
 #   docker compose up bounded_pub_hostnet_split bounded_sub_hostnet_split
 #                                               # the same split with data-sharing: nothing
 #                                               # arrives either (shm-ipc-namespace-split, #110)
@@ -215,6 +218,26 @@ services:
     <<: *base
     network_mode: host
     ipc: service:talker_hostnet_split_visible
+    command: sleep infinity
+
+  # The same view with the talker's 7000+ number announced twice (#118): a node started first
+  # in each namespace takes 7000, and a second one in the listener's takes 7001, the talker's
+  # number. That shared number does not say whose lock the tool sees; the talker's own port
+  # still does (shm-reader-port-not-visible; Jazzy and newer). Each node starts once the
+  # previous one holds its port lock (docker/wait_shm_port.sh).
+  talker_hostnet_split_shared:
+    <<: *base
+    network_mode: host
+    ipc: shareable
+    command: bash -c "ros2 run demo_nodes_cpp add_two_ints_server & bash /ws/docker/wait_shm_port.sh 7000; exec ros2 run demo_nodes_cpp talker"
+  listener_hostnet_split_shared:
+    <<: *base
+    network_mode: host
+    command: bash -c "ros2 run demo_nodes_cpp add_two_ints_server & bash /ws/docker/wait_shm_port.sh 7000; ros2 run demo_nodes_cpp add_two_ints_server & bash /ws/docker/wait_shm_port.sh 7001; exec ros2 run demo_nodes_cpp listener"
+  hostnet_in_talker_shared_ipc:
+    <<: *base
+    network_mode: host
+    ipc: service:talker_hostnet_split_shared
     command: sleep infinity
 
   # The split with data-sharing (#110): Fast DDS pairs the two as data-sharing on QoS alone,

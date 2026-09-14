@@ -76,8 +76,8 @@ using HostId = std::array<uint8_t, 4>;
 /// namespace, from the locks of its SHM ports in the tool's /dev/shm.
 enum class ShmVisibility
 {
-  Unprobed,     // not decidable: no probe, a lock that could not be read, a shared port number
-  Visible,      // every SHM port held here, and no other participant announces its numbers
+  Unprobed,     // not decidable: no probe, a lock that could not be read, only shared numbers
+  Visible,      // every SHM port held here, one of them announced by no other participant
   NotVisible,   // a port nobody holds here, or one that collides with the tool's own ports
 };
 
