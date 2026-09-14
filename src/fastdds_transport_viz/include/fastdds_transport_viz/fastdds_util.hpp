@@ -10,6 +10,7 @@
 #include <string>
 
 #include <fastdds/dds/core/policy/QosPolicies.hpp>
+#include <fastdds/dds/subscriber/SampleInfo.hpp>
 #include <fastdds/dds/subscriber/Subscriber.hpp>
 #include <fastdds/dds/subscriber/qos/DataReaderQos.hpp>
 #include <fastdds/dds/topic/Topic.hpp>
@@ -24,6 +25,8 @@ namespace fastdds_transport_viz
 /// "xx.xx.(12 bytes)|xx.xx.xx.xx" - same format everywhere in the tool.
 std::string guid_to_string(const ftv_rtps::GUID_t & guid);
 std::string prefix_to_string(const ftv_rtps::GuidPrefix_t & prefix);
+/// Prefix of the participant whose DataWriter published a taken sample.
+std::string sample_publisher_prefix(const eprosima::fastdds::dds::SampleInfo & info);
 Locator convert_locator(const ftv_rtps::Locator_t & l);
 /// The unicast locators of `listening` that are not SHM (what the statistics readers announce).
 eprosima::fastdds::rtps::LocatorList non_shm_unicast_locators(

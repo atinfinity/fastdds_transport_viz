@@ -40,12 +40,12 @@ in a third container on the same scope and asserts the verdict:
 | Scenario | Containers | Expected |
 |---|---|---|
 | `multi_container` (default) | `talker`, `listener`: separate network and IPC namespaces ⇒ different host ids | `UDPv4`, `different-host`, `shm-not-visible` |
-| `stats_multi_container` | `talker_stats`, `listener_stats`: as above with `FASTDDS_STATISTICS` | measured `UDPv4`, two different `PHYSICAL_DATA` host names |
+| `stats_multi_container` | `talker_stats`, `listener_stats`: as above with `FASTDDS_STATISTICS` | measured `UDPv4`, two different `PHYSICAL_DATA` host names, `participants_with_stats` exactly the two nodes |
 | `hostnet_shm` | two `hostnet` containers: `network_mode: host` + `ipc: host` ⇒ same host id, shared `/dev/shm` | `SHM`, `same-host-guid`, the nodes' segments visible in `shm` |
 | `hostnet_noipc_shm` | `pair_hostnet_noipc`: talker + listener in one container, `network_mode: host` without `ipc: host` ⇒ the tool's host id, another `/dev/shm`; the tool in `hostnet` | `SHM`, `same-host-guid`, `shm-not-visible` with every SHM port of the nodes missing |
 | `hostnet_split_shm` | `talker_hostnet_split`, `listener_hostnet_split`: `network_mode: host`, an IPC namespace each ⇒ same host id, two `/dev/shm`; the tool in `hostnet` | `NONE`, `shm-ipc-namespace-split`, `shm-port-collision` |
 | `hostnet_split_shm_visible` | `talker_hostnet_split_visible` (a node started first takes the 7000 port) and `listener_hostnet_split`; the tool in `hostnet_in_talker_ipc`, the talker's IPC namespace (Jazzy or newer, skipped on Humble) | `NONE`, `shm-ipc-namespace-split`, `shm-reader-port-not-visible`, no `shm-port-collision` |
-| `hostnet_split_stats` | `talker_hostnet_split_stats`, `listener_hostnet_split_stats`: `hostnet_split_shm` with `FASTDDS_STATISTICS`; the tool in `hostnet` with `--stats` (skipped on Humble, which has no statistics module) | the writer's statistics arrive, `NONE`, `shm-ipc-namespace-split`, `measured-shm-traffic`, not delivered, no `stats-not-enabled-on-writer` |
+| `hostnet_split_stats` | `talker_hostnet_split_stats`, `listener_hostnet_split_stats`: `hostnet_split_shm` with `FASTDDS_STATISTICS`; the tool in `hostnet` with `--stats` (skipped on Humble, which has no statistics module) | `participants_with_stats` exactly the two nodes, `NONE`, `shm-ipc-namespace-split`, `measured-shm-traffic`, not delivered, no `stats-not-enabled-on-writer` |
 | `hostnet_split_datasharing` | `bounded_pub_hostnet_split`, `bounded_sub_hostnet_split`: `hostnet_split_shm` with `bounded_pub` / `bounded_sub` and data-sharing (`datasharing_auto.xml`); the tool in `hostnet` | `/bounded` `NONE`, `shm-ipc-namespace-split`, `datasharing-qos-enabled-both`, `shm-port-collision` |
 | `hostnet_split_datasharing_udp` | `bounded_pub_hostnet_split_udp`, `bounded_sub_hostnet_split_udp`: the same with `FASTDDS_BUILTIN_TRANSPORTS=UDPv4`; the tool in `hostnet_in_bounded_pub_ipc`, the publisher's IPC namespace (skipped on Humble) | `/bounded` `NONE`, `shm-ipc-namespace-split`, `datasharing-reader-segment-not-visible`, no SHM reason |
 | `large_data_tcp` | `talker_large_data`, `listener_large_data`: bridged, `FASTDDS_BUILTIN_TRANSPORTS=LARGE_DATA` + statistics | `TCPv4`, `common-tcpv4-locator`, measured `TCPv4` |
@@ -396,6 +396,8 @@ Open, by priority (labels `priority/1-high` … `priority/3-low` on the issues):
 - Verification on a large real system (Nav2 / Autoware scale) — [#74](https://github.com/atinfinity/fastdds_transport_viz/issues/74)
 - `--advise`: what to change to get the intended transport — [#76](https://github.com/atinfinity/fastdds_transport_viz/issues/76)
 - `transport_viz diff`: compare two `--json` snapshots — [#77](https://github.com/atinfinity/fastdds_transport_viz/issues/77)
+- `RTPS_LOST` is matched in the reverse direction — [#122](https://github.com/atinfinity/fastdds_transport_viz/issues/122)
+- Integration and local builds reuse one `build/` / `install/` across ROS distributions — [#123](https://github.com/atinfinity/fastdds_transport_viz/issues/123)
 
 `priority/3-low`:
 
@@ -410,4 +412,3 @@ Open, by priority (labels `priority/1-high` … `priority/3-low` on the issues):
 - Type mismatches on the same topic (type name / type hash) — [#85](https://github.com/atinfinity/fastdds_transport_viz/issues/85)
 - Web viewer: Discovery Servers and the clients they serve — [#86](https://github.com/atinfinity/fastdds_transport_viz/issues/86)
 - `QUALITY_DECLARATION.md` (REP 2004) for both packages — [#87](https://github.com/atinfinity/fastdds_transport_viz/issues/87)
-- `participants_with_stats` lists the tool's own participants — [#113](https://github.com/atinfinity/fastdds_transport_viz/issues/113)

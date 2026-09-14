@@ -48,6 +48,11 @@ std::string prefix_to_string(const rtps::GuidPrefix_t & prefix)
   return buf;
 }
 
+std::string sample_publisher_prefix(const dds::SampleInfo & info)
+{
+  return prefix_to_string(info.sample_identity.writer_guid().guidPrefix);
+}
+
 Locator convert_locator(const rtps::Locator_t & l)
 {
   Locator out;

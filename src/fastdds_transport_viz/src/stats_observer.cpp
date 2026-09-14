@@ -165,11 +165,18 @@ StatsObserver::Reader StatsObserver::create_reader(
 void StatsObserver::drain()
 {
   dds::SampleInfo info;
+  // A statistics source is the participant that published a sample. The payload can name
+  // another one (RTPS_LOST src_guid, HISTORY_LATENCY writer_guid), which says nothing about
+  // whether that participant has statistics enabled.
+  auto count_sample = [&]() {
+      ++data_.samples;
+      data_.participants_with_stats.insert(sample_publisher_prefix(info));
+    };
 
   st::Entity2LocatorTraffic traffic;
   while (retcode_ok(rtps_sent_.reader->take_next_sample(&traffic, &info))) {
     if (!info.valid_data) {continue;}
-    ++data_.samples;
+    count_sample();
     rtps::GUID_t src = to_rtps(traffic.src_guid());
     Locator dst = convert_locator(to_rtps(traffic.dst_locator()));
     TrafficSample s;
@@ -179,7 +186,6 @@ void StatsObserver::drain()
     // byte_count is the cumulative byte total; byte_magnitude_order is only
     // floor(log10(byte_count)) (see StatisticsParticipantImpl::on_rtps_sent).
     s.bytes = static_cast<double>(traffic.byte_count());
-    data_.participants_with_stats.insert(s.src_participant_prefix);
     auto & slot = traffic_[
       TrafficKey{s.src_participant_prefix, static_cast<int>(dst.kind), dst.address, dst.port}];
     if (slot.samples == 0) {   // TRANSIENT_LOCAL: the first sample is the value before we started
@@ -196,9 +202,8 @@ void StatsObserver::drain()
   st::EntityData throughput;
   while (retcode_ok(throughput_.reader->take_next_sample(&throughput, &info))) {
     if (!info.valid_data) {continue;}
-    ++data_.samples;
+    count_sample();
     rtps::GUID_t g = to_rtps(throughput.guid());
-    data_.participants_with_stats.insert(prefix_to_string(g.guidPrefix));
     auto & t = data_.throughput[guid_to_string(g)];
     t.sum += throughput.data();
     t.last = throughput.data();
@@ -208,10 +213,9 @@ void StatsObserver::drain()
   st::WriterReaderData latency;
   while (retcode_ok(history_latency_.reader->take_next_sample(&latency, &info))) {
     if (!info.valid_data) {continue;}
-    ++data_.samples;
-    rtps::GUID_t w = to_rtps(latency.writer_guid());
-    rtps::GUID_t r = to_rtps(latency.reader_guid());
-    data_.participants_with_stats.insert(prefix_to_string(w.guidPrefix));
+    count_sample();
+    rtps::GUID_t w = to_rtps(latency.writer_guid());   // remote writer
+    rtps::GUID_t r = to_rtps(latency.reader_guid());   // the publisher's reader
     data_.delivered[{guid_to_string(w), guid_to_string(r)}]++;
     // write-to-notification latency, nanoseconds as float
     data_.latency[{guid_to_string(w), guid_to_string(r)}].add(
@@ -224,9 +228,8 @@ void StatsObserver::drain()
       st::EntityCount count;
       while (retcode_ok(reader.reader->take_next_sample(&count, &info))) {
         if (!info.valid_data) {continue;}
-        ++data_.samples;
+        count_sample();
         rtps::GUID_t g = to_rtps(count.guid());
-        data_.participants_with_stats.insert(prefix_to_string(g.guidPrefix));
         auto & d = into[guid_to_string(g)];
         if (d.samples == 0) {d.first = count.count();}
         d.last = count.count();
@@ -240,12 +243,12 @@ void StatsObserver::drain()
   drain_counter(acknack_count_, data_.acknacks);
   drain_counter(nackfrag_count_, data_.nackfrags);
 
-  // RTPS_LOST: the receiving participant reports, per source locator, the packets it
-  // missed (sequence-number gaps). Same shape as RTPS_SENT, opposite direction.
+  // RTPS_LOST: the receiving participant publishes the packets it missed (sequence-number
+  // gaps) from a remote sender (src_guid) addressed to one of its own locators (dst_locator).
   st::Entity2LocatorTraffic lost;
   while (retcode_ok(rtps_lost_.reader->take_next_sample(&lost, &info))) {
     if (!info.valid_data) {continue;}
-    ++data_.samples;
+    count_sample();
     rtps::GUID_t src = to_rtps(lost.src_guid());
     Locator from = convert_locator(to_rtps(lost.dst_locator()));
     TrafficSample s;
@@ -253,7 +256,6 @@ void StatsObserver::drain()
     s.dst = from;
     s.packets = lost.packet_count();
     s.bytes = static_cast<double>(lost.byte_count());
-    data_.participants_with_stats.insert(s.src_participant_prefix);
     auto & slot = lost_[
       TrafficKey{s.src_participant_prefix, static_cast<int>(from.kind), from.address, from.port}];
     if (slot.samples == 0) {
@@ -270,10 +272,9 @@ void StatsObserver::drain()
   st::PhysicalData physical;
   while (retcode_ok(physical_data_.reader->take_next_sample(&physical, &info))) {
     if (!info.valid_data) {continue;}
-    ++data_.samples;
+    count_sample();
     rtps::GUID_t g = to_rtps(physical.participant_guid());
     std::string prefix = prefix_to_string(g.guidPrefix);
-    data_.participants_with_stats.insert(prefix);
     data_.physical[prefix] = HostInfo{physical.host(), physical.user(), physical.process()};
   }
 }

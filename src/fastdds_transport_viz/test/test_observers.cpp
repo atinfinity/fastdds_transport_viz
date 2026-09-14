@@ -14,6 +14,7 @@
 #include <cstring>
 #include <stdexcept>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "fastdds_transport_viz/fastdds_compat.hpp"
@@ -286,6 +287,81 @@ TEST(RosDiscoveryInfoObserver, ReaderAnnouncesNoShmLocator)
   EXPECT_EQ(qos.reliability().kind, fdds::RELIABLE_RELIABILITY_QOS);
   EXPECT_EQ(qos.durability().kind, fdds::TRANSIENT_LOCAL_DURABILITY_QOS);
   EXPECT_EQ(qos.history().kind, fdds::KEEP_ALL_HISTORY_QOS);
+}
+
+TEST(FastDdsUtil, SamplePublisherPrefix)
+{
+  fdds::SampleInfo info;
+  ftv_rtps::GUID_t writer;
+  const unsigned char prefix[12] = {1, 0x0f, 0xba, 0, 0x1a, 0, 0x33, 0x0e, 1, 0, 0, 0};
+  std::memcpy(writer.guidPrefix.value, prefix, sizeof(prefix));
+  writer.entityId.value[3] = 0xc2;
+  info.sample_identity.writer_guid(writer);
+  EXPECT_EQ(sample_publisher_prefix(info), "01.0f.ba.00.1a.00.33.0e.01.00.00.00");
+}
+
+TEST(StatsObserver, SourcesArePublishersNotParticipantsNamedInASample)
+{
+#if !FTV_HAS_STATISTICS
+  GTEST_SKIP() << "Fast DDS built without the statistics module";
+#else
+  DiscoveryObserver obs(205);
+  StatsObserver stats(obs.participant());
+
+  // a writer on a participant without statistics, its reader on one with HISTORY_LATENCY:
+  // the reader's reports name the writer, which must not count as a statistics source
+  auto * factory = fdds::DomainParticipantFactory::get_instance();
+  auto * plain = factory->create_participant(205, fdds::PARTICIPANT_QOS_DEFAULT);
+  fdds::DomainParticipantQos stats_qos = fdds::PARTICIPANT_QOS_DEFAULT;
+  stats_qos.properties().properties().emplace_back(
+    "fastdds.statistics", "HISTORY_LATENCY_TOPIC;RTPS_LOST_TOPIC");
+  auto * reporting = factory->create_participant(205, stats_qos);
+  ASSERT_NE(plain, nullptr);
+  ASSERT_NE(reporting, nullptr);
+
+  const std::string topic_name = "ftv_test_statistics_sources";
+  fdds::DataWriterQos wqos = fdds::DATAWRITER_QOS_DEFAULT;
+  wqos.reliability().kind = fdds::RELIABLE_RELIABILITY_QOS;
+  fdds::DataReaderQos rqos = fdds::DATAREADER_QOS_DEFAULT;
+  rqos.reliability().kind = fdds::RELIABLE_RELIABILITY_QOS;
+  auto type_w = RosDiscoveryInfoObserver::make_type_support();
+  type_w.register_type(plain);
+  auto * topic_w = plain->create_topic(
+    topic_name, RosDiscoveryInfoObserver::kTypeName, fdds::TOPIC_QOS_DEFAULT);
+  auto type_r = RosDiscoveryInfoObserver::make_type_support();
+  type_r.register_type(reporting);
+  auto * topic_r = reporting->create_topic(
+    topic_name, RosDiscoveryInfoObserver::kTypeName, fdds::TOPIC_QOS_DEFAULT);
+  ASSERT_NE(topic_w, nullptr);
+  ASSERT_NE(topic_r, nullptr);
+  auto * writer =
+    plain->create_publisher(fdds::PUBLISHER_QOS_DEFAULT)->create_datawriter(topic_w, wqos);
+  auto * reader =
+    reporting->create_subscriber(fdds::SUBSCRIBER_QOS_DEFAULT)->create_datareader(topic_r, rqos);
+  ASSERT_NE(writer, nullptr);
+  ASSERT_NE(reader, nullptr);
+
+  const auto pair = std::make_pair(
+    guid_to_string(writer->guid()), guid_to_string(reader->guid()));
+  rmw_dds_common::msg::ParticipantEntitiesInfo msg;
+  msg.gid.data.fill(0);
+  StatsData data;
+  for (int i = 0; i < 100 && !data.delivered.count(pair); ++i) {   // up to 10 s
+    static_cast<void>(writer->write(&msg, fdds::HANDLE_NIL));
+    usleep(100 * 1000);
+    data = stats.snapshot();
+  }
+  ASSERT_TRUE(data.delivered.count(pair)) << "no HISTORY_LATENCY sample for the pair";
+  const auto & sources = data.participants_with_stats;
+  EXPECT_TRUE(sources.count(prefix_to_string(reporting->guid().guidPrefix)));
+  EXPECT_FALSE(sources.count(prefix_to_string(plain->guid().guidPrefix)));
+  EXPECT_FALSE(sources.count(prefix_to_string(obs.participant()->guid().guidPrefix)));
+
+  ASSERT_TRUE(retcode_ok(plain->delete_contained_entities()));
+  ASSERT_TRUE(retcode_ok(reporting->delete_contained_entities()));
+  ASSERT_TRUE(retcode_ok(factory->delete_participant(plain)));
+  ASSERT_TRUE(retcode_ok(factory->delete_participant(reporting)));
+#endif
 }
 
 TEST(RosDiscoveryInfoObserver, ReadsWhatAnRmwWrites)

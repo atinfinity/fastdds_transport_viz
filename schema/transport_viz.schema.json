@@ -606,6 +606,7 @@
           "minimum": 0
         },
         "participants_with_stats": {
+          "description": "GUID prefixes of the participants that published a statistics sample the tool received (not those only named in one). Output of earlier versions can also list the participants named in a sample, the tool's own among them (#113).",
           "type": "array",
           "items": {
             "type": "string"
