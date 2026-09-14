@@ -127,6 +127,9 @@ elif scenario == 'stats_multi_container':
     assert w['host_name'] and r['host_name'], (w, r)
     assert w['host_name'].split(':')[0] != r['host_name'].split(':')[0], (w, r)
     assert p['writer_host'] == w['host_name'].split(':')[0], (p, w)
+    # the statistics sources are the two nodes: not the tool, not a peer only named in a sample (#113)
+    assert set(doc['stats']['participants_with_stats']) == {
+        w['participant_guid_prefix'], r['participant_guid_prefix']}, (w, r, doc['stats'])
     print(f"PASS: --stats measured UDPv4 between hosts {p['writer_host']} and {p['reader_host']}")
 elif scenario == 'large_data_tcp':
     assert doc['stats']['enabled'] and doc['stats']['samples'] > 0, doc['stats']
@@ -210,8 +213,11 @@ elif scenario == 'hostnet_split_stats':
     # readers announce no SHM locator (#106)
     stats = doc['stats']
     assert stats['enabled'] and stats['samples'] > 0, stats
-    w = chatter['writers'][0]
-    assert w['participant_guid_prefix'] in stats['participants_with_stats'], (w, stats)
+    w, r = chatter['writers'][0], chatter['readers'][0]
+    # exactly the two nodes: not the tool, whose multicast discovery the nodes report in
+    # RTPS_LOST, nor a participant only named in a sample (#113)
+    assert set(stats['participants_with_stats']) == {
+        w['participant_guid_prefix'], r['participant_guid_prefix']}, (w, r, stats)
     assert p['transport'] == 'NONE' and p['confidence'] == 'certain', p
     assert p['warnings'] == ['shm-ipc-namespace-split'], p   # no stats-not-enabled-on-writer
     assert 'measured-shm-traffic' in p['reasons'], p

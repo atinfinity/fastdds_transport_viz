@@ -21,6 +21,7 @@ STATS_ENV = {
     'FASTRTPS_DEFAULT_PROFILES_FILE': os.path.join(
         get_package_share_directory('fastdds_transport_viz'), 'config', 'statistics.xml'),
 }
+NOSTATS_TOPIC = ['--ros-args', '-r', 'chatter:=chatter_nostats']
 
 
 def generate_test_description():
@@ -29,6 +30,9 @@ def generate_test_description():
         node_action('demo_nodes_cpp', 'listener', 'listener', STATS_ENV),
         node_action('demo_nodes_cpp', 'listener', 'listener_udp',
                     {**STATS_ENV, **udpv4_only_env()}),
+        # statistics on the listener only, on a topic of their own (#113)
+        node_action('demo_nodes_cpp', 'talker', 'talker_nostats', None, NOSTATS_TOPIC),
+        node_action('demo_nodes_cpp', 'listener', 'listener_nostats', STATS_ENV, NOSTATS_TOPIC),
     ]), {}
 
 
@@ -102,6 +106,36 @@ class TestStats(Base):
         self.assertEqual(chatter['lost_packets'], 0, chatter)
         self.assertIsInstance(chatter['resent_datas'], int)
         self.assertIsInstance(doc['stats']['lost'], list)
+
+    def test_statistics_sources_are_the_publishers(self):
+        """
+        Statistics on the reader's participant only: the writer's still has none.
+
+        The listener's HISTORY_LATENCY names the talker's writer and the nodes report the
+        tool's multicast discovery in RTPS_LOST; neither makes a participant a source (#113).
+        """
+        doc = pair = None
+        for _ in range(4):
+            doc = transport_viz_json(['--stats'], timeout=6.0)
+            nostats = topic(doc, '/chatter_nostats')
+            if len(nostats['pairs']) == 1:
+                pair = nostats['pairs'][0]
+                reader = nostats['readers'][0]
+                if reader['participant_guid_prefix'] in doc['stats']['participants_with_stats']:
+                    break
+        self.assertIsNotNone(pair, nostats)
+        sources = set(doc['stats']['participants_with_stats'])
+        writer, reader = nostats['writers'][0], nostats['readers'][0]
+        self.assertIn(reader['participant_guid_prefix'], sources, doc['stats'])
+        self.assertNotIn(writer['participant_guid_prefix'], sources, doc['stats'])
+        self.assertFalse(pair['measured']['available'], pair)
+        self.assertIn('stats-not-enabled-on-writer', pair['warnings'])
+
+        # every source is one of the nodes started with statistics: none of the tool's own
+        chatter = topic(doc, '/chatter')
+        with_stats = {e['participant_guid_prefix'] for e in (
+            chatter['writers'] + chatter['readers'] + nostats['readers'])}
+        self.assertLessEqual(sources, with_stats, doc['stats'])
 
     def test_tool_with_statistics_in_its_own_environment(self):
         """

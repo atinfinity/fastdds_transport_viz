@@ -47,6 +47,10 @@ reader を読み続け、最初と最後のサンプルの *差分* を `packets
 静かだったペアは、実測 transport を失わずに `measured=SHM (idle)` と表示されます。このセルの他の値:
 `n/a` (writer の participant が statistics を出していない)、`none` (statistics はあるが reader のどの
 locator にもパケットが無い)、`none(delivered)` (同じ状況で `HISTORY_LATENCY` が配送を証明している)。
+statistics が有効な participant とは、その participant 自身が publish した statistics のサンプルをツールが
+受信したものです。この集合が JSON の `stats.participants_with_stats` で、フッタの
+「statistics from N participant(s)」の N です。reader 側の `HISTORY_LATENCY` に出てくるリモートの writer
+のように、他の participant のサンプルに名前が載っているだけの participant は数えません。
 
 ## 粒度
 

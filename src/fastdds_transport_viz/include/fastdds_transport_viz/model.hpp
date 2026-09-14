@@ -166,7 +166,7 @@ struct LatencyStat
 struct Reliability
 {
   bool available{false};        // at least one of the counters below was reported
-  // RTPS_LOST: packets from the writer's locators the reader's participant missed
+  // RTPS_LOST packets matched to this pair (the matching is reversed today, see #122)
   uint64_t lost_packets{0};
   uint64_t resent{0};           // RESENT_DATAS of the writer
   uint64_t heartbeats{0};       // HEARTBEAT_COUNT of the writer
@@ -284,7 +284,8 @@ struct StatsData
   // (writer, reader) guid -> HISTORY_LATENCY values
   std::map<std::pair<std::string, std::string>, LatencyStat> latency;
   std::map<std::string, DataCountSample> data_count;       // writer guid -> DATA_COUNT
-  // RTPS_LOST: src = receiving participant, dst = the sender's locator
+  // RTPS_LOST: src = the remote sending participant, dst = the locator it addressed (the
+  // reporting participant's own); the reporter itself is only the sample's publisher
   std::vector<TrafficSample> lost;
   std::map<std::string, DataCountSample> resent_datas;     // writer guid -> RESENT_DATAS
   std::map<std::string, DataCountSample> heartbeats;       // writer guid -> HEARTBEAT_COUNT
@@ -294,7 +295,8 @@ struct StatsData
   std::map<std::string, ThroughputStat> throughput;        // writer guid -> PUBLICATION_THROUGHPUT
   // (participant prefix, statistics topic) discovered
   std::set<std::pair<std::string, std::string>> statistics_writers;
-  std::set<std::string> participants_with_stats;           // prefixes seen on any stats topic
+  // prefixes of the participants that published a statistics sample (not those named in one)
+  std::set<std::string> participants_with_stats;
   /// IP addresses of the tool's own host. Fast DDS shows the locators of participants on
   /// the same host as 127.0.0.1 / ::1, while a remote writer's RTPS_SENT names the real
   /// address, so both spellings must match.

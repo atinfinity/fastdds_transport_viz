@@ -1,5 +1,6 @@
 Real `transport_viz --json --stats` captures used as the viewer's initial document and as
-schema test fixtures (`sample_all.json` was taken with `--all`). `shm_split.json` was taken
+schema test fixtures (`sample_all.json` was taken with `--all`). Their `participants_with_stats`
+were trimmed by hand to the participants that published statistics (#113). `shm_split.json` was taken
 on Jazzy with a talker and a listener on the host network, each in an IPC namespace of its
 own, and the tool in the talker's: `/chatter` is `NONE` with `shm-ipc-namespace-split`
 (the capture predates #112: the listener's `ros_discovery_info` samples were lost the same

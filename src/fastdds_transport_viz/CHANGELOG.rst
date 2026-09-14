@@ -4,6 +4,17 @@ Changelog for package fastdds_transport_viz
 
 Forthcoming
 -----------
+* ``--stats``: ``stats.participants_with_stats`` (and the footer's "statistics from N
+  participant(s)") lists the participants that published a statistics sample, taken from
+  the sample's writer GUID. It also held the participants named in a sample: the remote
+  sender of ``RTPS_LOST`` (the tool's own participants, from the nodes' lost multicast
+  discovery datagrams, also of earlier runs since statistics are TRANSIENT_LOCAL) and the
+  remote writer of ``HISTORY_LATENCY``. When only the reader's participant had statistics,
+  the writer's counted as having them, so ``stats-not-enabled-on-writer`` was missing and
+  a data-sharing pair could get ``datasharing-confirmed-no-traffic`` with ``certain``
+  confidence. Older JSON documents can keep the extra prefixes. The launch test adds a pair
+  with statistics on the listener only; ``stats_multi_container`` and
+  ``hostnet_split_stats`` check the exact set (#113).
 * Node names across IPC namespaces: the tool reads ``ros_discovery_info`` itself, with a
   reader on its raw participant that announces only the non-SHM unicast locators the
   participant listens on (like the statistics readers), and names the endpoints the ROS

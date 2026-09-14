@@ -49,6 +49,10 @@ that was active before but silent during the observation shows `measured=SHM (id
 rather than losing its measured transport. Other values of the cell: `n/a` (the writer's
 participant publishes no statistics), `none` (statistics, but no packet to any locator of
 the reader) and `none(delivered)` (the same, while `HISTORY_LATENCY` proved delivery).
+A participant has statistics when the tool received a statistics sample it published:
+that set is `stats.participants_with_stats` in the JSON and the N of the footer's
+"statistics from N participant(s)". A participant only named in another one's sample, such
+as the remote writer of a reader's `HISTORY_LATENCY` report, does not count.
 
 ## Granularity
 
