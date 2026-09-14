@@ -4,6 +4,17 @@ Changelog for package fastdds_transport_viz
 
 Forthcoming
 -----------
+* Split IPC namespaces seen from one side's namespace (``shm-reader-port-not-visible`` /
+  ``shm-writer-port-not-visible``): a participant counts as listening in the tool's
+  namespace when every SHM port of it is held there and one of them is announced by no
+  other participant and by an endpoint other than its ``ros_discovery_info`` reader. A held
+  port whose number another participant announced too made the participant undecidable, so
+  a talker whose 7000+ number a second node in the listener's namespace also took was
+  ``SHM`` / ``certain`` without a warning while nothing arrived. The reader's 7000+ port no
+  longer counts as proof: any Fast DDS participant of the namespace takes such numbers,
+  whatever its domain. Humble, with one SHM port per participant numbered per IPC
+  namespace, cannot tell this case. New integration scenario
+  ``hostnet_split_shm_shared_port`` (#118).
 * ``--stats``: ``stats.participants_with_stats`` (and the footer's "statistics from N
   participant(s)") lists the participants that published a statistics sample, taken from
   the sample's writer GUID. It also held the participants named in a sample: the remote

@@ -301,11 +301,18 @@ Fast DDS はホスト id が同じなら共有メモリで相手の participant 
   自分と同じホストの participant の SHM ポートだけを集めるので、ノードと同じホスト id (ホスト
   ネットワーク) で動かす必要があります。
 - `shm-reader-port-not-visible` / `shm-writer-port-not-visible`: ツールの IPC 名前空間から見て、
-  片方の participant の SHM ポートはすべて保持されていて (その番号を他の participant が広告して
-  いない)、もう片方のポートはここにロックファイルが無いか、ツール自身のポートである。ツールが
-  どちらかの側と同じ IPC 名前空間にいる必要があります。ロックが空いているだけ (直前に終了した
-  ノードが残したもの) では判定せず、保持されているポートの番号を 3 つ目の participant も広告して
-  いる場合も判定しません。
+  片方の participant の SHM ポートはすべて保持されていて、そのうち 1 つは他の participant が広告
+  しておらず、`ros_discovery_info` の reader 以外のエンドポイントが広告している。もう片方のポートは
+  ここにロックファイルが無いか、ツール自身のポートである。ツールがどちらかの側と同じ IPC 名前空間に
+  いる必要があります。ロックが空いているだけ (直前に終了したノードが残したもの) では判定しません。
+  次の 2 種類の保持されたポートは根拠にも反証にもならず、判定をその participant の他のポートに
+  委ねます: 他の participant も同じ番号を広告しているポート (IPC 名前空間が複数あると、どちらの
+  ロックか分からない) と、`ros_discovery_info` の reader の 7000 番台のポート (その番号は名前空間内の
+  どの Fast DDS participant も、ドメインに関係なく取り得る)
+  ([#118](https://github.com/atinfinity/fastdds_transport_viz/issues/118))。Humble では participant の
+  SHM ポートは 1 つだけで、IPC 名前空間ごとに番号が振られます: もう一方の名前空間の別のノードが
+  片側と同じ番号を取り、両側どうしの番号は衝突しない場合、どちらの判定も働かずペアは `SHM` の
+  ままです。
 
 data-sharing のエンドポイント (規則 2) も同じように失敗します。Fast DDS は QoS だけでそれらを
 組み合わせますが、reader は自分の `/dev/shm` で writer の history を開けずに writer を拒否し、writer は

@@ -325,11 +325,19 @@ with the warning `shm-ipc-namespace-split`, when one of these holds:
   tool's IPC namespace, but the tool needs the nodes' host id (the host network), because
   it gathers the SHM ports of the participants on its own host only.
 - `shm-reader-port-not-visible` / `shm-writer-port-not-visible`: from the tool's IPC
-  namespace, every SHM port of one participant is held (and announced by nobody else),
+  namespace, every SHM port of one participant is held, and one of them is announced by
+  nobody else and by one of its endpoints other than the `ros_discovery_info` reader,
   while a port of the other has no lock file here or is one of the tool's own ports. It
   needs the tool in the IPC namespace of one side. A free lock (left by a node that just
-  died) decides nothing, and neither does a held port whose number a third participant
-  announces too.
+  died) decides nothing. Two kinds of held port neither prove nor contradict it, and leave
+  the decision to the participant's other ports: one whose number another participant
+  announces too (with several IPC namespaces the lock can be either one's), and the
+  `ros_discovery_info` reader's 7000+ port, whose number any Fast DDS participant of the
+  namespace can take, whatever its domain
+  ([#118](https://github.com/atinfinity/fastdds_transport_viz/issues/118)). On Humble each
+  participant has a single SHM port, numbered per IPC namespace: when another node in the
+  other namespace takes the same number as one side, and the two sides do not collide with
+  each other, neither signal fires and the pair stays `SHM`.
 
 Data-sharing endpoints (rule 2) fail the same way. Fast DDS pairs them on QoS alone; the
 reader cannot open the writer's history in its own `/dev/shm` and rejects the writer, and
