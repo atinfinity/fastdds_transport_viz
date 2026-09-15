@@ -4,6 +4,14 @@ Changelog for package fastdds_transport_viz
 
 Forthcoming
 -----------
+* ``stats-writer-instance-limit-suspected``: the remedy named
+  ``FASTDDS_DEFAULT_PROFILES_FILE``, which Fast DDS 2.x does not read, while 2.x (Jazzy's
+  2.14) is where the statistics DataWriters keep the 10-instance limit. It now names
+  ``FASTRTPS_DEFAULT_PROFILES_FILE`` for Fast DDS 2.x and ``FASTDDS_DEFAULT_PROFILES_FILE``
+  for 3.x. Fast DDS 3.5 made the limit unlimited by default, so a tool built with 3.5 or
+  later (Lyrical, Rolling) no longer reports the warning, which could only be a false alarm
+  there; such pairs get ``delivered-without-measured-traffic`` or ``no-traffic-observed``
+  (#127).
 * Native-buffer companions (``rmw_fastrtps_cpp`` on Lyrical and later): a writer or reader
   of a type with an unbounded ``uint8[]`` field gets a companion on ``<topic>/_buf_cpu`` in
   the same participant, and when every subscription supports native buffers the samples go

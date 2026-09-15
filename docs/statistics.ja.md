@@ -71,11 +71,18 @@ writer や reader 単位のカウンタ (`HISTORY_LATENCY`、`DATA_COUNT`、`RES
 
 ## 落とし穴: 10 インスタンスの上限
 
-Fast DDS 2.14 は statistics の DataWriter を既定のリソース上限 (10 インスタンス) で作ります。
+Fast DDS は 3.5 より前、statistics の DataWriter を既定のリソース上限 (10 インスタンス) で作ります
+(Jazzy の 2.14。Humble の 2.6 のバイナリには statistics モジュールがありません)。
 `RTPS_SENT` は宛先 locator ごとにキーが付くので、10 を超える locator と通信するノード (相手が
 数個あれば足ります。相手ごとに metatraffic、ユーザーデータ、SHM の locator があるため) は、
 超過分を黙って報告しなくなります。ツールはこれを `!stats-writer-instance-limit-suspected` で
 示します。
+
+Fast DDS 3.5 で既定の上限は無制限になりました。Lyrical と Rolling (3.6) では下のプロファイルは
+不要で (指定しても害はありません)、3.5 以降でビルドしたツールはこの警告を出しません。reader 宛ての
+トラフィックが無いペアには、代わりに `delivered-without-measured-traffic` か `no-traffic-observed`
+が付きます。判定はツールをビルドした Fast DDS で決まるので、Lyrical でビルドしたツールで Jazzy の
+ノードを観測するときや、自分のプロファイルで `max_instances` を再び設定したときは、上限に気付けません。
 
 同梱のプロファイルで観測対象ノードの上限を外してください。Fast DDS は `FASTDDS_STATISTICS` に渡した
 別名と同じ名前の `data_writer` プロファイルを適用します。ファイルにはキー付きの各トピックの分が
@@ -85,6 +92,12 @@ Fast DDS 2.14 は statistics の DataWriter を既定のリソース上限 (10 �
 export FASTRTPS_DEFAULT_PROFILES_FILE=$(ros2 pkg prefix fastdds_transport_viz)/share/fastdds_transport_viz/config/statistics.xml
 export FASTDDS_STATISTICS="RTPS_SENT_TOPIC;RTPS_LOST_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC;DATA_COUNT_TOPIC;PUBLICATION_THROUGHPUT_TOPIC;RESENT_DATAS_TOPIC;HEARTBEAT_COUNT_TOPIC;ACKNACK_COUNT_TOPIC;NACKFRAG_COUNT_TOPIC;GAP_COUNT_TOPIC"
 ```
+
+Fast DDS 2.x は `FASTRTPS_DEFAULT_PROFILES_FILE` だけを、Fast DDS 3.x は
+`FASTDDS_DEFAULT_PROFILES_FILE` だけを読みます。Lyrical と Rolling では rmw_fastrtps が
+`FASTRTPS_DEFAULT_PROFILES_FILE` も読む (非推奨の警告付き) ので、上の行はサポート対象のどの
+ディストリの ROS 2 ノードにも効きます。rmw を通さない Fast DDS 3.x のアプリケーションには
+`FASTDDS_DEFAULT_PROFILES_FILE` が必要です。
 
 Fast DDS はプロファイルファイルを 1 つしか読みません。data-sharing を `--stats` で観測するときは、
 このファイルと `datasharing_auto.xml` を結合した `datasharing_auto_stats.xml` を使います。

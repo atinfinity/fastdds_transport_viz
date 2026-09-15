@@ -290,6 +290,7 @@ StatsData StatsObserver::snapshot()
   std::lock_guard<std::mutex> lock(mutex_);
   drain();
   StatsData out = data_;
+  out.writer_instance_limit = FTV_STATS_WRITER_INSTANCE_LIMIT;
   out.traffic.clear();
   for (const auto & kv : traffic_) {
     out.traffic.push_back(kv.second);

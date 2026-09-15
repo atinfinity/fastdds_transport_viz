@@ -14,7 +14,7 @@
     "reader-no-shm-locator": "The reader's participant announces no SHM locator: SHM transport is not instantiated on its side (e.g. FASTDDS_BUILTIN_TRANSPORTS=UDPv4, or an XML profile without SHM).",
     "same-host-guid": "Writer and reader GUID prefixes share the same first 4 bytes, which is how Fast DDS decides both participants run on the same host.",
     "shm-stale-files": "Fast DDS files in the shared-memory directory whose lock nobody holds: their owner process ended without cleaning up (a crash or a kill). They keep consuming /dev/shm.",
-    "stats-writer-instance-limit-suspected": "The writer's participant reports traffic to 10 or more locators but none to this reader. The Fast DDS statistics DataWriter keeps the default resource limit of 10 instances (one per destination locator), so counters for further locators are never published.",
+    "stats-writer-instance-limit-suspected": "The writer's participant reports traffic to 10 or more locators but none to this reader. Before Fast DDS 3.5 the statistics DataWriter keeps the default resource limit of 10 instances (one per destination locator), so counters for further locators are never published.",
     "writer-no-shm-locator": "The writer's participant announces no SHM locator: SHM transport is not instantiated on its side (e.g. FASTDDS_BUILTIN_TRANSPORTS=UDPv4, or an XML profile without SHM)."
   },
   "reason_code_remedies": {
@@ -28,7 +28,7 @@
     "reader-no-shm-locator": "Enable SHM on the reader's participant: unset FASTDDS_BUILTIN_TRANSPORTS or set it to DEFAULT / LARGE_DATA (Fast DDS >= 2.11), or add a SHM <transport_descriptor> to its XML participant profile.",
     "same-host-guid": null,
     "shm-stale-files": "Run 'fastdds shm clean' to remove the files whose owner is gone.",
-    "stats-writer-instance-limit-suspected": "Start the observed nodes with FASTDDS_DEFAULT_PROFILES_FILE pointing at this package's config/statistics.xml (a data_writer profile per statistics alias whose <resourceLimitsQos> sets max_instances to 0).",
+    "stats-writer-instance-limit-suspected": "Start the observed nodes with FASTRTPS_DEFAULT_PROFILES_FILE (Fast DDS 2.x) or FASTDDS_DEFAULT_PROFILES_FILE (3.x, where ROS 2 nodes also accept FASTRTPS_) pointing at this package's config/statistics.xml (a data_writer profile per statistics alias whose <resourceLimitsQos> sets max_instances to 0).",
     "writer-no-shm-locator": "Enable SHM on the writer's participant: unset FASTDDS_BUILTIN_TRANSPORTS or set it to DEFAULT / LARGE_DATA (Fast DDS >= 2.11), or add a SHM <transport_descriptor> to its XML participant profile."
   },
   "schema_version": 1,
