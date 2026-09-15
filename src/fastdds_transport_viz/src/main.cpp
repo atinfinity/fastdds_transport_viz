@@ -13,10 +13,12 @@
 #include <algorithm>
 #include <cerrno>
 #include <chrono>
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <fstream>
+#include <initializer_list>
 #include <iterator>
 #include <map>
 #include <sstream>
@@ -28,6 +30,7 @@
 #include <set>
 #include <string>
 #include <thread>
+#include <utility>
 #include <vector>
 
 #include <fastdds/dds/domain/DomainParticipant.hpp>
@@ -303,6 +306,59 @@ bool parse(int argc, char ** argv, Options & o)
   return true;
 }
 
+/// FTV_PROFILE=1 (development only, docs/development.md "Scale verification"): one JSON line
+/// per phase on stderr, e.g. {"ftv_profile":"summarize","ms":12.3,"topics":512,"pairs":4870}.
+class Profiler
+{
+public:
+  using Clock = std::chrono::steady_clock;
+  Profiler()
+  {
+    const char * env = std::getenv("FTV_PROFILE");
+    enabled_ = env != nullptr && *env != '\0' && std::string(env) != "0";
+  }
+  bool enabled() const {return enabled_;}
+  Clock::time_point now() const {return enabled_ ? Clock::now() : Clock::time_point{};}
+  /// Emit `phase` timed from `since` (a now() of this profiler), with integer fields.
+  void emit(
+    const char * phase, Clock::time_point since,
+    std::initializer_list<std::pair<const char *, uint64_t>> fields = {}) const
+  {
+    if (!enabled_) {return;}
+    const double ms = std::chrono::duration<double, std::milli>(Clock::now() - since).count();
+    std::ostringstream os;
+    os << "{\"ftv_profile\":\"" << phase << "\",\"ms\":" << ms;
+    for (const auto & [key, value] : fields) {
+      os << ",\"" << key << "\":" << value;
+    }
+    os << "}\n";
+    std::cerr << os.str() << std::flush;
+  }
+
+private:
+  bool enabled_{false};
+};
+
+const Profiler & profiler()
+{
+  static const Profiler p;
+  return p;
+}
+
+uint64_t line_count(const std::string & text)
+{
+  return static_cast<uint64_t>(std::count(text.begin(), text.end(), '\n'));
+}
+
+uint64_t count_pairs(const std::vector<fastdds_transport_viz::TopicSummary> & topics)
+{
+  uint64_t n = 0;
+  for (const auto & t : topics) {
+    n += t.pairs.size();
+  }
+  return n;
+}
+
 bool use_color(const Options & o)
 {
   return o.color == Options::Color::Always ||
@@ -371,12 +427,20 @@ Snapshot collect(
   fastdds_transport_viz::StatsObserver * stats,
   const Options & o, int domain, double observation_seconds)
 {
+  const auto & prof = profiler();
+  const auto collect_start = prof.now();
   fastdds_transport_viz::StatsData stats_data;
   if (stats != nullptr) {
+    const auto t = prof.now();
     stats_data = stats->snapshot();
+    prof.emit(
+      "drain", t, {{"samples", stats_data.samples}, {"sample_lost", stats->samples_lost()},
+        {"sample_rejected", stats->samples_rejected()}});
     stats_data.local_addresses = local_ip_addresses();
   }
+  auto t_resolve = prof.now();
   resolver.refresh();
+  prof.emit("resolve", t_resolve);
   if (names != nullptr) {names->poll();}
 
   std::vector<Endpoint> endpoints = observer.snapshot();
@@ -507,11 +571,20 @@ Snapshot collect(
       }
     }
   }
+  auto t = prof.now();
   snap.topics = fastdds_transport_viz::summarize(snap.endpoints);
+  prof.emit(
+    "summarize", t, {{"endpoints", snap.endpoints.size()}, {"topics", snap.topics.size()},
+      {"pairs", count_pairs(snap.topics)}});
   apply_default_view(snap.topics, o);
   apply_node_filter(snap.topics, o);
   snap.stats = std::move(stats_data);
+  t = prof.now();
   fastdds_transport_viz::apply_stats(snap.topics, snap.stats);
+  prof.emit("apply_stats", t);
+  prof.emit(
+    "collect", collect_start, {{"endpoints", snap.endpoints.size()},
+      {"topics", snap.topics.size()}, {"pairs", count_pairs(snap.topics)}});
   return snap;
 }
 
@@ -877,6 +950,7 @@ int main(int argc, char ** argv)
     ropt.color = use_color(o);
 
     const auto start = std::chrono::steady_clock::now();
+    double first_event_s = -1.0;
     // Wait until --timeout, or until discovery has been quiet for --quiet
     // seconds (but never less than --quiet seconds in total).
     for (;; ) {
@@ -885,19 +959,41 @@ int main(int argc, char ** argv)
       std::this_thread::sleep_for(50ms);
       auto now = std::chrono::steady_clock::now();
       double elapsed = std::chrono::duration<double>(now - start).count();
+      if (first_event_s < 0 && observer.event_count() > 0) {first_event_s = elapsed;}
       double since_last = std::chrono::duration<double>(now - observer.last_event()).count();
       if (elapsed >= o.timeout) {break;}
-      // With --stats the whole window is needed for traffic counters to accumulate.
-      if (!o.stats && o.quiet > 0 && elapsed >= o.quiet && since_last >= o.quiet) {break;}
+      // With --stats the whole window is needed for traffic counters to accumulate. Quiet
+      // only counts once something was discovered: on a busy host the first participant
+      // announcement can take longer than --quiet, which printed an empty table (#74).
+      if (!o.stats && o.quiet > 0 && elapsed >= o.quiet && since_last >= o.quiet &&
+        observer.event_count() > 0)
+      {
+        break;
+      }
       if (!rclcpp::ok()) {break;}
     }
 
+    const auto & prof = profiler();
+    if (prof.enabled()) {
+      const auto own = observer.snapshot().size();
+      // first_event_ms is polled every 50 ms (0: nothing discovered); last_event_ms is exact.
+      const auto last_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+        observer.last_event() - start).count();
+      prof.emit(
+        "discovery", start,
+        {{"endpoints", own}, {"events", observer.event_count()},
+          {"first_event_ms", static_cast<uint64_t>(std::max(first_event_s, 0.0) * 1000.0)},
+          {"last_event_ms", static_cast<uint64_t>(std::max<int64_t>(last_ms, 0))}});
+    }
     if (!o.watch) {
       double elapsed =
         std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
       Snapshot snap = collect(observer, resolver, names.get(), stats.get(), o, domain, elapsed);
-      std::cout << (o.json ? fastdds_transport_viz::render_json(snap, ropt) :
-      fastdds_transport_viz::render_table(snap, ropt)) << std::flush;
+      const auto t = prof.now();
+      const std::string out = o.json ? fastdds_transport_viz::render_json(snap, ropt) :
+        fastdds_transport_viz::render_table(snap, ropt);
+      prof.emit("render", t, {{"bytes", out.size()}, {"lines", line_count(out)}});
+      std::cout << out << std::flush;
     } else {
       Terminal term(!o.json);
       WatchState ws;
@@ -908,6 +1004,7 @@ int main(int argc, char ** argv)
       while (rclcpp::ok() && !quit) {
         if (force || (!paused && std::chrono::steady_clock::now() >= next_frame)) {
           force = false;
+          const auto frame_start = prof.now();
           next_frame = std::chrono::steady_clock::now() +
             std::chrono::duration_cast<std::chrono::milliseconds>(
             std::chrono::duration<double>(o.interval));
@@ -918,9 +1015,14 @@ int main(int argc, char ** argv)
           ropt.explain = o.explain;
           ropt.locators = o.locators;
           ropt.advise = o.advise;
+          auto t = prof.now();
           ws.update(snap, ropt, o);
+          prof.emit("update", t);
+          t = prof.now();
           if (o.json) {
-            std::cout << fastdds_transport_viz::render_json(snap, ropt) << std::flush;
+            const std::string out = fastdds_transport_viz::render_json(snap, ropt);
+            prof.emit("render", t, {{"bytes", out.size()}, {"lines", line_count(out)}});
+            std::cout << out << std::flush;
           } else {
             size_t rows = 0, cols = 0;
             term.size(rows, cols);
@@ -935,6 +1037,10 @@ int main(int argc, char ** argv)
             std::ostringstream frame;
             frame << fastdds_transport_viz::truncate_visible(header.str(), cols) << "\n\n";
             frame << fastdds_transport_viz::render_table(snap, ropt);
+            if (prof.enabled()) {
+              const std::string text = frame.str();
+              prof.emit("render", t, {{"bytes", text.size()}, {"lines", line_count(text)}});
+            }
             if (term.enabled()) {
               const std::string keys = std::string(" q quit   p ") +
                 (paused ? "resume" : "pause") +
@@ -945,6 +1051,7 @@ int main(int argc, char ** argv)
               std::cout << frame.str() << "\n" << std::flush;
             }
           }
+          prof.emit("frame", frame_start, {{"pairs", count_pairs(snap.topics)}});
         }
         char key = term.read_key(50);
         switch (key) {

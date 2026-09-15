@@ -12,6 +12,8 @@
 #ifndef FASTDDS_TRANSPORT_VIZ__STATS_OBSERVER_HPP_
 #define FASTDDS_TRANSPORT_VIZ__STATS_OBSERVER_HPP_
 
+#include <atomic>
+#include <cstdint>
 #include <map>
 #include <memory>
 #include <mutex>
@@ -21,6 +23,7 @@
 
 #include <fastdds/dds/domain/DomainParticipant.hpp>
 #include <fastdds/dds/subscriber/DataReader.hpp>
+#include <fastdds/dds/subscriber/DataReaderListener.hpp>
 #include <fastdds/dds/subscriber/Subscriber.hpp>
 #include <fastdds/dds/topic/Topic.hpp>
 #include <fastdds/rtps/common/LocatorList.hpp>
@@ -51,6 +54,11 @@ public:
   /// The subscriber holding the statistics readers (for tests).
   eprosima::fastdds::dds::Subscriber * subscriber() const {return subscriber_;}
 
+  /// Samples the statistics readers reported lost (a gap in a writer's sequence) or rejected
+  /// (a resource limit) since they were created; development profiling only (FTV_PROFILE).
+  uint64_t samples_lost() const {return listener_.lost;}
+  uint64_t samples_rejected() const {return listener_.rejected;}
+
   /// Value for FASTDDS_STATISTICS that monitored nodes need.
   static std::string required_env_value();
 
@@ -61,11 +69,29 @@ private:
     bool owns_topic{true};   // false when reusing a topic Fast DDS created (FASTDDS_STATISTICS)
     eprosima::fastdds::dds::DataReader * reader{nullptr};
   };
+  struct Listener : public eprosima::fastdds::dds::DataReaderListener
+  {
+    std::atomic<uint64_t> lost{0};
+    std::atomic<uint64_t> rejected{0};
+    void on_sample_lost(
+      eprosima::fastdds::dds::DataReader *,
+      const eprosima::fastdds::dds::SampleLostStatus & status) override
+    {
+      lost += static_cast<uint64_t>(status.total_count_change);
+    }
+    void on_sample_rejected(
+      eprosima::fastdds::dds::DataReader *,
+      const eprosima::fastdds::dds::SampleRejectedStatus & status) override
+    {
+      rejected += static_cast<uint64_t>(status.total_count_change);
+    }
+  };
   Reader create_reader(
     const std::string & topic_name, eprosima::fastdds::dds::TypeSupport type);
   void drain();
 
   eprosima::fastdds::dds::DomainParticipant * participant_;
+  Listener listener_;   // declared before the readers it outlives
   eprosima::fastdds::dds::Subscriber * subscriber_{nullptr};
   // unicast locators every statistics reader announces (empty: the participant's defaults)
   eprosima::fastdds::rtps::LocatorList reader_locators_;

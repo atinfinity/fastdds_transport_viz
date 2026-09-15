@@ -2,8 +2,12 @@
 # Multi-arch: uses whatever ros:<distro> variant matches the host (x86_64 or arm64).
 # ROS_DISTRO build argument: jazzy (default, Fast DDS 2.14), humble (Fast DDS 2.6, no
 # statistics module), lyrical or rolling (Fast DDS 3.x).
+#
+# Stages: `dev` (the default, last stage) is the image every compose service uses; `nav2`
+# adds Nav2 and the TurtleBot3 simulation for the scale verification (#74,
+# scripts/scale_test.sh nav2) and is only built when asked for (compose service nav2_tb3).
 ARG ROS_DISTRO=jazzy
-FROM ros:${ROS_DISTRO}
+FROM ros:${ROS_DISTRO} AS base
 ARG ROS_DISTRO
 
 ENV DEBIAN_FRONTEND=noninteractive
@@ -50,3 +54,14 @@ COPY docker/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 ENTRYPOINT ["/entrypoint.sh"]
 CMD ["bash"]
+
+# Nav2 with the TurtleBot3 simulation (Gazebo, run headless), Jazzy and Kilted only: no Nav2
+# binaries for Lyrical yet.
+FROM base AS nav2
+ARG ROS_DISTRO
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        ros-${ROS_DISTRO}-nav2-bringup \
+        ros-${ROS_DISTRO}-nav2-minimal-tb3-sim \
+    && rm -rf /var/lib/apt/lists/*
+
+FROM base AS dev

@@ -29,6 +29,7 @@ public:
   std::string node_for_guid(const std::array<uint8_t, 16> & guid) const;
 
 private:
+  void refresh_names();
   rclcpp::Node::SharedPtr node_;
   std::map<std::array<uint8_t, 16>, std::string> guid_to_node_;
 };

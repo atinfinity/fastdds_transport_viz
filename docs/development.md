@@ -143,6 +143,7 @@ Shipped with the package for reproducing the scenarios in the docs:
 | `bounded_pub` / `bounded_sub` | `std_msgs/Int32`, data-sharing eligible |
 | `unbounded_pub` / `unbounded_sub` [`--best-effort`] [`--transient-local`] | `std_msgs/String`, never data-sharing; QoS options for the request/offer tests |
 | `large_array_pub --size-kb N [--period-ms M]` / `large_array_sub` | large `std_msgs/UInt8MultiArray` samples (default 200 ms period) |
+| `scale_load --index I --processes P [--nodes N] [--topics T] [--readers R] [--seed S] [--rate HZ]` | one process of a synthetic system for the scale verification (below): every topic has one writer and R readers in other processes chosen from the seed, `std_msgs/String` at 10 Hz, every tenth topic `std_msgs/Int32` |
 
 ## Tests
 
@@ -263,6 +264,158 @@ Humble for `hostnet_split_shm`, `hostnet_noipc_shm` and `hostnet_split_datashari
 run again on `main`: each change is built once, in its pull request. Every job has a
 30-minute `timeout-minutes` (queue time excluded).
 
+## Scale verification
+
+How the tool holds up on a large system
+([#74](https://github.com/atinfinity/fastdds_transport_viz/issues/74)). Run on the Docker
+host, one scenario at a time (they share the machine with the load); not part of CI:
+
+```
+[ROS_DISTRO=jazzy] scripts/scale_test.sh <small|medium|large|large_multi|limit|nav2> [--no-build]
+```
+
+| Scenario | Load |
+|---|---|
+| `small` / `medium` / `large` | 10 / 20 / 40 `scale_load` processes of one node each, 100 / 500 / 1000 topics, 4 readers per topic: 400 / 2000 / 4000 `/scale` pairs, plus `/parameter_events` (every node publishes and subscribes: processes² pairs) and `/rosout` |
+| `large_multi` | `large` split across two bridged containers: processes 0–19 in `scale_load_a` (the tool's container, SHM among them), 20–39 in `scale_load_b` (UDPv4 to the others) |
+| `limit` | records only: 60, 90, 135, … processes with 25 topics each, until the load or the tool falls over or less than 10 % of the memory is left; `limit_p<N>` per step |
+| `nav2` | Nav2 + TurtleBot3 (`tb3_simulation_launch.py headless:=True`, default composition, initial pose, no goal) in the `nav2_tb3` service (image target `nav2`; Jazzy and Kilted, no Nav2 binaries for Lyrical) |
+
+The loads run with `FASTDDS_STATISTICS` in compose services of the `scale` profile. The tool
+runs inside the load's container (`docker compose exec`, so it shares the host id and
+`/dev/shm`) through `scripts/scale_measure.py`, after a 20 s warm-up (90 s for Nav2):
+
+- one-shot: the default table three times (median), and once with `-v` for its line count;
+- `--stats --json` at the default `--timeout 5` and at `--timeout 30`;
+- `--watch --interval 2 --stats` for 60 s, without and with `-v`.
+
+Budgets (the `limit` steps only record):
+
+| Budget | Limit | Measured as |
+|---|---|---|
+| one-shot table | < 2 s | `collect` + `render` after the discovery wait, median of three |
+| `--watch` frame | < 250 ms | p95 of the `frame` times of both 60 s runs |
+| web viewer | first render < 3 s, filter < 100 ms | the 30 s `--stats` document, by hand (below) |
+| tool CPU | < 1 core | CPU time / wall time of the `--watch` runs and the 30 s `--stats` run, the highest |
+| tool memory | < 300 MB | peak RSS (`wait4`) over every run |
+| dropped statistics samples | 0 | growth of `on_sample_lost` + `on_sample_rejected` of the statistics readers after the first `--watch` frame, the higher of both runs. A reader that matches a writer late counts the samples already gone from the writer's keep-last history as lost; the one-shot `--stats` runs record those (`oneshot_lost_samples`, "at start" in the row) but they are not the tool falling behind |
+| `--stats` coverage | ≥ 95 % | pairs with measured packets or deliveries at `--timeout 5` among those at `--timeout 30`; for the synthetic loads only the `/scale` pairs count (`/parameter_events` often sends nothing within 5 s), for Nav2 every pair; 0 when the 30 s run measured none of them |
+
+A `--watch` run whose frames never held a pair fails its row ("saw no pairs"): its frame times
+would pass without timing anything. The output of both runs is kept as
+`<label>.watch-plain.txt` / `<label>.watch-verbose.txt`.
+
+Machine: the host of every row (architecture, CPUs and memory as the containers see them) is
+written into its row; nothing is pinned, the load and the tool share the machine. The CPU of
+the whole VM is recorded with the load alone for 5 s before the tool runs
+(`load_before.vm_cores_load_only`) and during every run, next to the tool's. The result lands
+in `build/<distro>/scale/<label>.json` with every run and phase time, `<label>.viz.json` (the
+30 s document), `<label>.stats5.json` (the 5 s one), `<label>.table-v.txt`, and the Markdown
+row in `rows.md`; copy the row into "Scale results" below.
+
+The one-shot pair count in a row is the lowest of the three default runs. Under load the
+discovery events arrive in bursts, and the default `--quiet 1` can stop between two of them
+and print part of the system; on a large system, pass `--quiet 3` or a longer `--timeout`
+(see `discovery` in the profile below).
+
+`FTV_PROFILE=1` makes `transport_viz` write one JSON line per phase to stderr (not a stable
+interface; nothing in `--json` changes):
+
+| `ftv_profile` | When | Fields besides `ms` |
+|---|---|---|
+| `discovery` | after the discovery wait, from start | `endpoints` (every endpoint the raw participant knows), `events` (discovery callbacks), `first_event_ms` (polled every 50 ms, 0 when nothing was discovered), `last_event_ms` |
+| `drain` | `--stats`: reading the statistics readers | `samples`, `sample_lost`, `sample_rejected` (cumulative) |
+| `resolve` | node names from the ROS graph (two rmw queries per topic) | |
+| `summarize` | pairing writers and readers | `endpoints`, `topics`, `pairs` (before the view filters) |
+| `apply_stats` | `--stats` overlay | |
+| `collect` | the whole snapshot, the three above included | `endpoints`, `topics`, `pairs` (as shown) |
+| `update` | `--watch`: changes against the previous frame | |
+| `render` | table or JSON text | `bytes`, `lines` |
+| `frame` | `--watch`: collect + update + render + output | `pairs` |
+
+Web viewer, by hand (automation:
+[#81](https://github.com/atinfinity/fastdds_transport_viz/issues/81)): serve the repository
+root (`python3 -m http.server 8000` on the Docker host), open
+`http://localhost:8000/web/index.html` and run `scripts/scale_viewer.js` in the page with
+`SRC` set to `/build/<distro>/scale/<label>.viz.json`. It loads the viewer five times in a
+1400×900 iframe and reports medians:
+- first render: from creating the iframe until the graph's SVG holds its edges (page, fetch, parse, layout);
+- filter response: from setting a filter input and dispatching `input` until two `requestAnimationFrame` callbacks later;
+- the filters are a topic filter `t00` (100 topics), a node filter `p00` (10 processes), and clearing each.
+
+The tab must be in front: a hidden tab pauses `requestAnimationFrame`, and the snippet never
+finishes. A tab driven by Claude in Chrome in a background window is hidden; the numbers below
+were taken in headless Chrome (`--headless=new`, `Runtime.evaluate` over the DevTools
+protocol), where the page counts as visible.
+
+### Scale results
+
+Columns:
+- participants / topics / pairs: from the 30 s `--stats` document;
+- one-shot: the discovery wait / table time, with the lowest pair count of the three runs;
+- `--watch` frame: median / p95;
+- tool CPU (cores) / peak RSS;
+- dropped samples: growth during `--watch`, with the late-join losses of the one-shot `--stats` runs "at start", and the 5 s coverage;
+- `-v` lines;
+- the load's RSS and the memory still free.
+
+| Date | Scenario | ROS (Fast DDS) | Host | Participants / topics / pairs | One-shot | `--watch` frame | Tool CPU / RSS | Dropped / coverage | `-v` lines | Load memory | Result |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 2026-09-16 | small | jazzy (2.14.6) | aarch64, 8 CPU, 7.7 GB | 10 / 102 / 500 | 1.4 s / 18 ms (pairs 36) | 45.8 / 54.0 ms (`-v` 50.9 / 61.6 ms) | 0.19 / 61 MB | 0 (14056 at start) / 1.0 | 605 | 382 MB, 6888 MB free | pass |
+| 2026-09-16 | medium | jazzy (2.14.6) | aarch64, 8 CPU, 7.7 GB | 20 / 502 / 2400 | 1.4 s / 27 ms (pairs 1) | 377.9 / 470.2 ms (`-v` 389.2 / 519.9 ms) | 0.86 / 200 MB | 165 (114294 at start) / 0.7376 | 346 | 1120 MB, 6268 MB free | over: `watch_frame_p95_ms`, `stats_dropped_samples`, `stats_coverage` |
+| 2026-09-16 | large | jazzy (2.14.6) | aarch64, 8 CPU, 7.7 GB | 40 / 1002 / 5600 | 3.0 s / 660 ms (pairs 1385) | 6585.1 / 12818.9 ms (`-v` 6766.0 / 13472.2 ms) | 0.35 / 260 MB | 682142 (2923377 at start) / 0.0 | 6605 | 2862 MB, 5264 MB free | over: `watch_frame_p95_ms`, `stats_dropped_samples`, `stats_coverage` |
+| 2026-09-16 | large_multi | jazzy (2.14.6) | aarch64, 8 CPU, 7.7 GB | 40 / 1002 / 5600 | 3.1 s / 711 ms (pairs 213) | 4099.3 / 50402.4 ms (`-v` 2619.3 / 6762.3 ms) | 0.38 / 234 MB | 5161885 (4270192 at start) / 0.0 | 5401 | 1354 MB, 5269 MB free | over: `watch_frame_p95_ms`, `stats_dropped_samples`, `stats_coverage` |
+| 2026-09-16 | large | humble (2.6.12) | aarch64, 8 CPU, 7.7 GB | 40 / 1002 / 5600 | 3.1 s / 486 ms (pairs 5600) | 551.5 / 585.2 ms (`-v` 541.5 / 596.8 ms) | 0.22 / 203 MB | 0 (0 at start) / n/a | 6605 | 2063 MB, 5553 MB free | over: `watch_frame_p95_ms` |
+| 2026-09-16 | large | kilted (3.2.4) | aarch64, 8 CPU, 7.7 GB | 37 / 1001 / 3399 | 3.0 s / 730 ms (pairs 4000) | 747.2 / 2057.6 ms (`-v` 430.0 / 2231.6 ms) | 0.55 / 259 MB | 182655 (2432463 at start) / 0.0 | 5005 | 3068 MB, 4797 MB free | over: `watch_frame_p95_ms`, `stats_dropped_samples`, `stats_coverage` |
+| 2026-09-16 | large | lyrical (3.6.2) | aarch64, 8 CPU, 7.7 GB | 40 / 1002 / 4000 | 3.0 s / 347 ms (pairs 1438) | 4554.7 / 6093.1 ms (`-v` 6852.3 / 8749.9 ms) | 0.43 / 312 MB | 1582022 (1252624 at start) / 0.0 | 5005 | 4109 MB, 4105 MB free | over: `watch_frame_p95_ms`, `tool_rss_mb`, `stats_dropped_samples`, `stats_coverage` |
+| 2026-09-16 | nav2 | jazzy (2.14.6) | aarch64, 8 CPU, 7.7 GB | 4 / 113 / 1195 | 1.6 s / 19 ms (pairs 1195) | 27.8 / 44.7 ms (`-v` 34.4 / 45.2 ms) | 1.00 / 71 MB | 0 (31183 at start) / 0.9918 | 1311 | 0 MB, 6558 MB free | over: `tool_cpu_cores` |
+| 2026-09-16 | limit_p60 | jazzy (2.14.6) | aarch64, 8 CPU, 7.7 GB | 60 / 1502 / 9600 | 3.1 s / 4255 ms (pairs 5875) | 42506.1 / 62980.4 ms (`-v` 33072.6 / 55212 ms) | 0.19 / 385 MB | 7314533 (3068233 at start) / 0.0 | 11105 | 5204 MB, 3572 MB free | records only |
+| 2026-09-16 | limit_p90 | jazzy (2.14.6) | aarch64, 8 CPU, 7.7 GB | 90 / 1993 / 13799 | 3.1 s / 388 ms (pairs 602) | 2625.4 / 12455.3 ms (`-v` 3386.1 / 5664 ms) | 0.82 / 445 MB | 1098338 (4751274 at start) / 0.0 | 1030 | 9354 MB, 890 MB free | records only |
+| 2026-09-16 | limit_p135 | jazzy (2.14.6) | aarch64, 8 CPU, 7.7 GB | 0 / 0 / 0 | 3.2 s / 126 ms (pairs 0) | 822.5 / 4717 ms (`-v` 2038.5 / 13400.6 ms) | 0.39 / 259 MB | 132744 (826 at start) / – | 65 | 11812 MB, 676 MB free | records only; stopped: under 10 % of the memory free |
+
+Web viewer on the 30 s `--stats` documents, measured on 2026-09-16 on the Docker host (Apple M3, 8 CPU, 24 GB, macOS 26.6) in headless Chrome 153. The times are medians of five loads, and the budget is 100 ms for every filter:
+
+| Scenario | Document | Arrows / nodes | First render | Topic filter / node filter / clear | Result |
+|---|---|---|---|---|---|
+| small | 1.8 MB | 90 / 10 | 19 ms | 31 / 33 / 33 ms | pass |
+| medium | 8.5 MB | 378 / 20 | 44 ms | 34 / 34 / 33 ms | pass |
+| nav2 | 2.4 MB | 244 / 24 | 25 ms | 25 / 33 / 33 ms | pass |
+| large | 14.7 MB | 1467 / 40 | 156 ms | 43 / 51 / 136 ms | over: clearing a filter |
+| large_multi | 14.5 MB | 1467 / 40 | 145 ms | 42 / 67 / 133 ms | over: clearing a filter |
+| limit_p60 | 23.7 MB | 2927 / 60 | 424 ms | 47 / 83 / 399 ms | records only |
+| limit_p90 | 30.7 MB | 4217 / 90 | 718 ms | 46 / 83 / 689 ms | records only |
+
+The `limit_p135` document has no pair to draw. First render stays far below 3 s. Each input event (every keystroke, and also a click on an arrow or node) rebuilds the model and renders every visible arrow again, with one `getTotalLength` per label. A filter that hides most arrows is therefore fast. Clearing it renders them all, about 0.16 ms per arrow ([#136](https://github.com/atinfinity/fastdds_transport_viz/issues/136)). Filter times near 33 ms are the two-frame floor of the measurement at 60 Hz.
+
+The one-shot pair counts below the total are the `--quiet 1` stops described above
+([#133](https://github.com/atinfinity/fastdds_transport_viz/issues/133)). What falls over first:
+
+- **small** holds every budget.
+- **medium:**
+  - the `--watch` frame is over budget: `collect` 264 ms (statistics `drain` 107 ms, `apply_stats` 81 ms, `resolve` 43 ms) plus `update` 104 ms;
+  - statistics samples start to go missing, and 26 % of the `/scale` pairs are not measured within 5 s.
+- **large:**
+  - the load alone keeps 6.7 of the 8 cores busy, and the tool gets about a third of a core;
+  - a frame takes seconds (`resolve` 2.9 s: two rmw graph queries per topic every frame, [#135](https://github.com/atinfinity/fastdds_transport_viz/issues/135));
+  - the statistics readers lose millions of samples and measure no `/scale` pair ([#134](https://github.com/atinfinity/fastdds_transport_viz/issues/134));
+  - the one-shot table still takes 0.7 s.
+- **large_multi** behaves the same way.
+- **large on the other distributions:**
+  - on Kilted and Lyrical the nodes no longer subscribe to `/parameter_events`, so there are 4000 pairs instead of 5600;
+  - **Humble** has no statistics (the statistics budgets are n/a, and `drain` is empty), and a frame still takes 550 ms, 370 ms of it in `resolve`: the graph queries alone exceed the budget at this size ([#135](https://github.com/atinfinity/fastdds_transport_viz/issues/135));
+  - **Lyrical** behaves like Jazzy (frames of 4.5–6.9 s, 2.1–3.5 s of them in `drain`) and its peak RSS is 312 MB, in the 30 s `--stats` run;
+  - on **Kilted** the tool's view is unstable: the 30 s `--stats` document holds 37 of 40 participants, and the `--watch` frames lose and regain pairs (159–3327 of 4000), while the one-shot tables before them saw all 4000. The load's VM CPU dropped from 6.5 to 3.3–4.8 cores during the `--watch` runs ([#138](https://github.com/atinfinity/fastdds_transport_viz/issues/138)).
+- **`RATE` of sporadic writers:** a writer that sends one burst gets a single `PUBLICATION_THROUGHPUT` sample of megabytes per second. Examples: `/map` in Nav2 shows 11.5 MB/s, and `/parameter_events` in `large` shows 267 MB/s on Jazzy and 1.7 GB/s on Lyrical ([#137](https://github.com/atinfinity/fastdds_transport_viz/issues/137)).
+- **nav2:**
+  - frames and memory are small;
+  - with `--stats`, the tool uses a whole core in every run. All of it is one Fast DDS UDP receive thread (`dds.udp.<port>`: 0.995 cores; the tool without `--stats` uses none): the statistics readers take only UDP ([#106](https://github.com/atinfinity/fastdds_transport_viz/issues/106)), and one thread per port is also the ceiling behind the losses at large ([#134](https://github.com/atinfinity/fastdds_transport_viz/issues/134));
+  - in a first run, both 60 s `--watch` runs saw no pair at all while the one-shot runs before them saw 1195. Not reproduced by hand or in the second run; this is why the harness now fails such a run.
+- **limit:**
+  - the load alone keeps all 8 cores busy from 60 processes on, so these steps show a starved tool;
+  - **60 processes:** the table takes 4.3 s after discovery, peak RSS is 385 MB in the `--stats` runs, and a `--watch` frame takes 40 s (`drain` 27 s, `resolve` 10 s): two frames per minute;
+  - **90 processes:** the tool's view is incomplete and unstable: one-shots show 600–1075 of 13 500 pairs, `--watch` frames 0 to 15 000, and the 30 s `--stats` run needs 129 s;
+  - **135 processes:** discovery practically stops. One-shots see 0–4 pairs, the 30 s `--stats` document is empty and that run was killed after 180 s. The load's summed RSS (11.8 GB, shared pages counted per process) leaves 676 MB free, which ends the ladder.
+
 ## Verification results
 
 | Date | Scenario | Arch | Fast DDS | Result | Reproduce |
@@ -300,6 +453,7 @@ run again on `main`: each change is built once, in its pull request. Every job h
 | 2026-09-15 | native-buffer companions: `large_array_pub` (2 MB, 1 Hz) and `large_array_sub` with `FASTDDS_STATISTICS` on one host with `rmw_fastrtps_cpp` and with `rmw_fastrtps_dynamic_cpp`; unit suites on the three distributions | arm64 | 2.6 (`ros:humble`), 2.14.6 (`ros:jazzy`), 3.6 (`ros:lyrical`) | Lyrical, `rmw_fastrtps_cpp`: `/large_array` `SHM` with `buffer-companion-folded`, delivered 8 samples, 132 DATA submessages, 82 heartbeats (all through `/large_array/_buf_cpu`; before: 0 DATA, 0 heartbeats, not delivered on the parent pair); the companion topic only with `--all`, its writer and reader naming their parents in `buffer_parent_guid`. Lyrical with `rmw_fastrtps_dynamic_cpp` and Jazzy: no `_buf_cpu` topic, no buffer code, delivered 8, 231 DATA submessages on `/large_array`. `colcon test`: Jazzy 443 tests, Lyrical 436, Humble 443, 0 failures after a one-line loop uncrustify formats differently was rewritten; `node --test` 25 tests ([#119](https://github.com/atinfinity/fastdds_transport_viz/issues/119)) | `test/launch/test_large_shm.py` |
 | 2026-09-15 | `RTPS_LOST` direction: talker (`ros2 topic pub`, 20 Hz) and listener with `FASTDDS_STATISTICS` in two bridged containers, `tc netem` dropping 30 % of one node's packets to the other, the tool in a third container; unit suites on the three distributions | arm64 | 2.6 (`ros:humble`), 2.14.6 (`ros:jazzy`), 3.6 (`ros:lyrical`) | listener dropping: `/chatter` pair and topic `lost_packets` 0, no `rtps-packets-lost`; talker dropping: 38 lost packets on Jazzy, 36 and 45 on Lyrical, `rtps-packets-lost`, topic total equal to the pair (before: the talker's drops never showed). Skipped on Humble. Dropping a node's whole egress hid the listener from the tool on Lyrical (discovery and statistics lost in a 6 s observation), hence the filter on the peer's address. `stats_multi_container` unchanged (Jazzy, Lyrical). `colcon test`: Jazzy 445 tests, Lyrical 438, Humble 445, 0 failures; `node --test` 25 tests ([#122](https://github.com/atinfinity/fastdds_transport_viz/issues/122)) | `scripts/integration_test.sh stats_loss_multi_container` |
 | 2026-09-16 | per-distribution build directories: `colcon build`, `colcon test` and `colcon test-result` in `dev` on the three distributions back to back without cleaning, then one integration scenario each back to back; `docker compose exec dev` (no entrypoint); `scripts/coverage.sh` | arm64 | 2.6 (`ros:humble`), 2.14.6 (`ros:jazzy`), 3.6 (`ros:lyrical`) | three trees `build/<distro>/{build,install,log}`, each `setup.bash` and CMake cache naming only its own `/opt/ros/<distro>`; Humble configured right after Jazzy (before: the Jazzy `CMakeCache.txt` pointed Humble at `/opt/ros/jazzy/src/gtest_vendor`). `colcon test`: Jazzy 463 tests, Humble 463, Lyrical 456, 0 failures, each `colcon test-result` counting its own distribution only. `hostnet_shm` (Jazzy), `hostnet_split_shm` (Humble, Lyrical) pass. `exec` builds into `build/jazzy/` too; coverage lands in `build/jazzy/coverage/` (95.8 % lines). No top-level `install/` or `log/` created; a leftover `install/setup.bash` is not sourced, the entrypoint says so on stderr ([#123](https://github.com/atinfinity/fastdds_transport_viz/issues/123)) | `ROS_DISTRO=<distro> docker compose run --rm dev bash` + `colcon build && colcon test` |
+| 2026-09-16 | scale verification: `scale_load` small / medium / large / large_multi / limit and Nav2 + TurtleBot3 on Jazzy, large on Humble, Kilted and Lyrical, the tool inside the load container; web viewer timings in headless Chrome on the host; unit suites on the three distributions | arm64 | 2.6.12 (`ros:humble`), 2.14.6 (`ros:jazzy`), 3.2.4 (`ros:kilted`), 3.6.2 (`ros:lyrical`) | small and Nav2 within budget except the tool CPU next to Nav2 (one UDP receive thread, 1.0 core); from medium on the `--watch` frame, statistics losses and 5 s coverage are over budget, clearing a viewer filter from large on; discovery collapses at 135 processes. Numbers and what falls over first in [Scale results](#scale-results). `colcon test`: Jazzy 466 tests, Humble 466, Lyrical 459, 0 failures after an uncrustify fix on Jazzy ([#74](https://github.com/atinfinity/fastdds_transport_viz/issues/74), follow-ups #133–#138) | `scripts/scale_test.sh <scenario>`, `scripts/scale_viewer.js` |
 
 ## Documentation site
 
@@ -400,6 +554,9 @@ Done:
   Kilted 3.2.4 and Lyrical 3.6.2 (launch test, `easy_mode_shm` / `easy_mode_tcp`
   scenarios); the discovery CLI no longer corrupts `--json` —
   [#71](https://github.com/atinfinity/fastdds_transport_viz/issues/71)
+- Scale verification on Nav2 + TurtleBot3 and a synthetic `scale_load` ladder
+  (`scripts/scale_test.sh`, `FTV_PROFILE`, "Scale results") —
+  [#74](https://github.com/atinfinity/fastdds_transport_viz/issues/74)
 
 Open, by priority (labels `priority/1-high` … `priority/3-low` on the issues):
 
@@ -408,7 +565,6 @@ Open, by priority (labels `priority/1-high` … `priority/3-low` on the issues):
 `priority/2-medium`:
 
 - Distribution: bloom release for Jazzy/Humble/Lyrical — [#50](https://github.com/atinfinity/fastdds_transport_viz/issues/50)
-- Verification on a large real system (Nav2 / Autoware scale) — [#74](https://github.com/atinfinity/fastdds_transport_viz/issues/74)
 - `--advise`: what to change to get the intended transport — [#76](https://github.com/atinfinity/fastdds_transport_viz/issues/76)
 - `transport_viz diff`: compare two `--json` snapshots — [#77](https://github.com/atinfinity/fastdds_transport_viz/issues/77)
 `priority/3-low`:
