@@ -10,7 +10,7 @@ topics and shows what *did* happen:
 | `_fastdds_statistics_history2history_latency` | Write-to-notification latency of each writer → reader pair, shown as `LATENCY` (mean and max over the observation; JSON `measured.latency_s`, topic `latency_s` = slowest pair) and, by its mere presence, the proof that samples reached that reader (used to confirm zero-copy data-sharing, which leaves no RTPS trace). Across hosts it includes the clock offset. |
 | `_fastdds_statistics_physical_data` | Host name, user and process id per participant, shown instead of `local` / `host:<id>`. |
 | `_fastdds_statistics_publication_throughput` | Payload bytes per second of each writer; shown as `RATE` (per topic: sum of its writers) and, in JSON, `measured.throughput_bytes_per_s` per pair and `topics[].throughput_bytes_per_s` per topic. Independent of the transport, so it also quantifies zero-copy data-sharing. |
-| `_fastdds_statistics_rtps_lost` | RTPS packets the reader's participant missed from each source locator (sequence-number gaps). Matched to the writer's locators like `RTPS_SENT`, it gives the `lost` part of the `LOSS` column and the warning `rtps-packets-lost`. |
+| `_fastdds_statistics_rtps_lost` | RTPS packets a participant missed (sequence-number gaps), per sending participant and per its own locator the sender addressed. Published by the receiving participant: the loss of a pair is what the reader's participant reports from the writer's participant on the reader's unicast locators. It gives the `lost` part of the `LOSS` column and the warning `rtps-packets-lost` (see [RTPS_LOST](#rtps_lost) for what it covers). |
 | `_fastdds_statistics_resent_datas`, `_fastdds_statistics_heartbeat_count`, `_fastdds_statistics_gap_count` | Per writer: DATA submessages resent, HEARTBEATs and GAPs sent. `resent` is the other part of the `LOSS` column; all three are in JSON `measured.reliability`. |
 | `_fastdds_statistics_acknack_count`, `_fastdds_statistics_nackfrag_count` | Per reader: ACKNACKs and NACKFRAGs sent (how often the reader asked for missing data or fragments); JSON `measured.reliability`. |
 | `_fastdds_statistics_data_count` | DATA/DATA_FRAG submessages each writer sent through a transport. Zero-copy delivery does not touch it, so a growing count settles whether data-sharing was really used (see [data-sharing.md](data-sharing.md#confidence)). |
@@ -72,6 +72,31 @@ The per-entity counters (`HISTORY_LATENCY`, `DATA_COUNT`, `RESENT_DATAS`,
 companion on `<topic>/_buf_cpu` (`rmw_fastrtps_cpp` on Lyrical and later), which carries
 the samples of types with an unbounded `uint8[]` field; see
 [Native-buffer companion topics](how-it-works.md#native-buffer-companion-topics).
+
+## RTPS_LOST
+
+`RTPS_LOST` is published by the *receiving* participant when it sees a gap in the sequence
+numbers a sending participant stamps on its RTPS packets. Fast DDS numbers the packets per
+sending participant and per destination locator, so an entry (JSON `stats.lost[]`) names
+the reporter (`reporter_participant_guid_prefix`), the sender
+(`src_participant_guid_prefix`) and the reporter's own locator the sender addressed
+(`dst_locator`). The `lost` of a pair is what the reader's participant reports from the
+writer's participant on the reader's unicast locators, as the difference to the first
+sample of the observation.
+
+- It belongs to the participant pair, not to the writer: every packet between the two
+  counts (other topics, heartbeats, discovery traffic to those locators), and every pair
+  between the same two participants shows the same number. The topic's `lost_packets`
+  counts each entry once.
+- Multicast destinations are left out: Fast DDS may number one multicast send once per
+  socket, which a remote receiver would report as lost packets.
+- A packet that arrives late lowers the count again; a window that ends below its first
+  sample shows 0.
+- Only UDP and TCP packets carry the numbers: SHM and data-sharing never report a loss.
+- The sender needs no runtime setting, only a Fast DDS built with statistics. The reader's
+  participant needs `RTPS_LOST_TOPIC` in `FASTDDS_STATISTICS`; without it the loss is
+  unknown: `- lost` in the `LOSS` column and `lost_packets: null` in JSON, while the other
+  reliability counters stay.
 
 ## Pitfall: the 10-instance limit
 

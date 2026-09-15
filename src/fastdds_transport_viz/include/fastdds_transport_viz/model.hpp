@@ -171,7 +171,11 @@ struct LatencyStat
 struct Reliability
 {
   bool available{false};        // at least one of the counters below was reported
-  // RTPS_LOST packets matched to this pair (the matching is reversed today, see #122)
+  // RTPS_LOST can be read for this pair: the reader's participant publishes it (only on a
+  // sequence-number gap, so no sample means nothing lost)
+  bool lost_available{false};
+  // RTPS_LOST packets the reader's participant missed from the writer's participant on the
+  // reader's unicast locators (participant level: shared by every pair of the two)
   uint64_t lost_packets{0};
   uint64_t resent{0};           // RESENT_DATAS of the writer
   uint64_t heartbeats{0};       // HEARTBEAT_COUNT of the writer
@@ -234,7 +238,8 @@ struct TopicSummary
   bool latency_available{false};     // at least one pair has HISTORY_LATENCY values
   double latency{0.0};               // the slowest pair: max of the pairs' mean latency (seconds)
   bool reliability_available{false};  // at least one pair has reliability counters
-  uint64_t lost_packets{0};          // sum over the pairs
+  bool lost_available{false};        // at least one pair has lost_available
+  uint64_t lost_packets{0};          // over the pairs, each RTPS_LOST entry counted once
   uint64_t resent{0};
 };
 
@@ -247,16 +252,20 @@ struct HostInfo
   std::string process;
 };
 
-/// Latest cumulative RTPS_SENT counter for (source participant, destination locator).
+/// Latest cumulative RTPS_SENT (RTPS_LOST) counter for (source participant, destination
+/// locator).
 struct TrafficSample
 {
   std::string src_participant_prefix;   // 12-byte prefix, dotted hex
   Locator dst;
-  uint64_t packets{0};          // cumulative RTPS_SENT counters at the last sample
+  uint64_t packets{0};          // cumulative counters at the last sample
   double bytes{0.0};
   uint64_t packets_first{0};    // ... and at the first sample of the observation
   double bytes_first{0.0};
   size_t samples{0};
+  // RTPS_LOST only: the participant that published the sample, i.e. the one that missed
+  // the packets (the sender of RTPS_SENT is src itself); empty in older JSON documents
+  std::string reporter_participant_prefix{};
 };
 
 /// PUBLICATION_THROUGHPUT samples of one writer (payload bytes per second).
@@ -278,6 +287,8 @@ struct DataCountSample
 
 /// DDS name of the Fast DDS DATA_COUNT statistics topic.
 inline constexpr const char * kStatsDataCountTopic = "_fastdds_statistics_data_count";
+/// DDS name of the Fast DDS RTPS_LOST statistics topic.
+inline constexpr const char * kStatsRtpsLostTopic = "_fastdds_statistics_rtps_lost";
 
 struct StatsData
 {
@@ -289,8 +300,8 @@ struct StatsData
   // (writer, reader) guid -> HISTORY_LATENCY values
   std::map<std::pair<std::string, std::string>, LatencyStat> latency;
   std::map<std::string, DataCountSample> data_count;       // writer guid -> DATA_COUNT
-  // RTPS_LOST: src = the remote sending participant, dst = the locator it addressed (the
-  // reporting participant's own); the reporter itself is only the sample's publisher
+  // RTPS_LOST: reporter = the receiving participant (the sample's publisher), src = the
+  // remote sending participant, dst = the reporter's own locator that src addressed
   std::vector<TrafficSample> lost;
   std::map<std::string, DataCountSample> resent_datas;     // writer guid -> RESENT_DATAS
   std::map<std::string, DataCountSample> heartbeats;       // writer guid -> HEARTBEAT_COUNT

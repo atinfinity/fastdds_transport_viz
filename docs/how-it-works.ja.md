@@ -55,7 +55,9 @@ reader への通知までの時間をペアごとに観測期間の平均と最�
 トピック行には最も遅いペアの平均が出ます。2 台のホストのクロックで測るのでマシン間ではその
 ずれが含まれ (平均が負なら `latency-clock-skew-suspected` を警告)、同一ホストでは正確です。
 `LOSS` は観測期間中のペアの信頼性カウンタの合計です。`lost` は reader の participant が writer の
-locator から取りこぼしたと報告した数 (`RTPS_LOST`、シーケンス番号の欠落。警告 `rtps-packets-lost`)、
+participant から reader の unicast locator 宛てのパケットを取りこぼしたと報告した数 (`RTPS_LOST`、
+シーケンス番号の欠落で participant の組ごと。[statistics.ja.md](statistics.ja.md#rtps_lost) を参照。
+警告 `rtps-packets-lost`。reader の participant が publish していなければ `- lost`)、
 `resent` は writer が再送した DATA の数 (`RESENT_DATAS`)。どちらも 0 なら `0` です。heartbeat、
 gap、acknack、nackfrag は JSON の `measured.reliability` と web viewer のペアカードに出ます。
 statistics が無ければ 3 つの列とも `-` です。ペア行の `measured=` は観測中に transport が
@@ -249,8 +251,8 @@ ros2 transport list --json | jq '.topics[].writers[] | {node, unicast_locators}'
   [Fast DDS 2.6](#fast-dds-26-ros-2-humble) を参照してください。
 
 `--stats` 付きなら、実際にパケットを運んだ locator も報告されます。`stats.traffic[]` に
-`dst_locator` (`RTPS_SENT`、送信側 participant がキー)、`stats.lost[]` に `from_locator`
-(`RTPS_LOST`、受信側 participant がキー) があり、いずれも `kind` / `address` / `port` を持ちます。
+`dst_locator` (`RTPS_SENT`、送信側 participant がキー)、`stats.lost[]` にも `dst_locator`
+(`RTPS_LOST`、報告した受信側 participant と送信側 participant がキー) があり、いずれも `kind` / `address` / `port` を持ちます。
 Fast DDS は同一ホストの participant の locator を `127.0.0.1` / `::1` として報告する一方、リモート
 の writer の `RTPS_SENT` は実際のアドレスを名乗るので、ツールはトラフィックを reader に対応づける
 ときに両方の表記を突き合わせます。

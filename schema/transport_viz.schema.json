@@ -415,8 +415,12 @@
           "description": "reliability counters over the observation (window deltas); null without counters",
           "properties": {
             "lost_packets": {
-              "type": "integer",
-              "minimum": 0
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0,
+              "description": "RTPS_LOST packets the reader's participant missed from the writer's participant on the reader's unicast locators (shared by every pair of the two participants); null when the reader's participant does not publish RTPS_LOST"
             },
             "resent_datas": {
               "type": "integer",
@@ -580,7 +584,7 @@
             "null"
           ],
           "minimum": 0,
-          "description": "sum of the pairs' RTPS_LOST packets during the observation; null without counters"
+          "description": "RTPS_LOST packets of the pairs during the observation, each stats.lost entry counted once; null when no pair has it"
         },
         "resent_datas": {
           "type": [
@@ -739,14 +743,19 @@
         },
         "lost": {
           "type": "array",
-          "description": "RTPS_LOST: packets each participant missed per source locator (cumulative, with the first sample of the observation)",
+          "description": "RTPS_LOST: packets the reporting participant missed from a sending participant, per the reporter's own locator the sender addressed (cumulative, with the first sample of the observation)",
           "items": {
             "type": "object",
             "properties": {
-              "receiver_participant_guid_prefix": {
-                "type": "string"
+              "reporter_participant_guid_prefix": {
+                "type": "string",
+                "description": "the receiving participant that published the sample"
               },
-              "from_locator": {
+              "src_participant_guid_prefix": {
+                "type": "string",
+                "description": "the sending participant"
+              },
+              "dst_locator": {
                 "$ref": "#/$defs/locator"
               },
               "packets": {

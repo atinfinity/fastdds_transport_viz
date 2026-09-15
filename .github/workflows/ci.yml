@@ -119,7 +119,8 @@ jobs:
 
   integration:
     # Multi-container scenarios (scripts/integration_test.sh) on the runner VM, once per
-    # architecture: bridged containers => UDPv4, --stats across containers, host
+    # architecture: bridged containers => UDPv4, --stats across containers (also with tc netem
+    # loss => RTPS_LOST direction), host
     # network/IPC => SHM, host network without its IPC => shm-not-visible, host network with an IPC namespace per
     # node => shm-ipc-namespace-split (also with --stats and with data-sharing), LARGE_DATA => TCPv4, DEFAULTv6 => UDPv6, plus the Easy Mode pair
     # on the lyrical image. Runs for the merge commit on main (and workflow_dispatch), not

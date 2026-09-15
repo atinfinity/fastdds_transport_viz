@@ -354,7 +354,9 @@ TEST(RenderTable, LossColumn)
   auto out = render_table(s, opt);
   EXPECT_NE(out.find("LATENCY  LOSS  REASON"), std::string::npos);
   only_pair(s).measured.reliability.available = true;
+  only_pair(s).measured.reliability.lost_available = true;
   s.topics[0].reliability_available = true;
+  s.topics[0].lost_available = true;
   out = render_table(s, opt);
   // counters present, nothing lost
   EXPECT_NE(out.find("  0  "), std::string::npos) << out;
@@ -367,6 +369,12 @@ TEST(RenderTable, LossColumn)
   only_pair(s).measured.reliability.lost_packets = 0;
   out = render_table(s, opt);
   EXPECT_NE(out.find("  2 resent  "), std::string::npos) << out;
+  // the reader's participant does not publish RTPS_LOST: only the lost part is unknown
+  only_pair(s).measured.reliability.lost_available = false;
+  s.topics[0].lost_available = false;
+  out = render_table(s, opt);
+  EXPECT_NE(out.find("- lost, 2 resent"), std::string::npos) << out;
+  EXPECT_NE(out.find("  - lost  "), std::string::npos) << out;      // topic row
 }
 
 TEST(RenderTable, LocatorLineShapes)

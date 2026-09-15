@@ -200,7 +200,9 @@ Measurement measurement(const json & j, const std::string & where)
   const json reliability = j.value("reliability", json(nullptr));
   if (reliability.is_object()) {
     m.reliability.available = true;
-    m.reliability.lost_packets = reliability.value("lost_packets", 0ULL);
+    const json lost = reliability.value("lost_packets", json(nullptr));
+    m.reliability.lost_available = lost.is_number();
+    m.reliability.lost_packets = lost.is_number() ? lost.get<uint64_t>() : 0;
     m.reliability.resent = reliability.value("resent_datas", 0ULL);
     m.reliability.heartbeats = reliability.value("heartbeats", 0ULL);
     m.reliability.gaps = reliability.value("gaps", 0ULL);
@@ -246,10 +248,17 @@ StatsData stats(const json & j)
     s.traffic.push_back(
       traffic_sample(t, "src_participant_guid_prefix", "dst_locator", where + ".traffic"));
   }
+  // before #122 the keys were receiver_participant_guid_prefix / from_locator (misnamed:
+  // they held the sender and the addressed locator) and the reporter was not written
   const json lost = j.value("lost", json::array());
   for (const auto & t : lost) {
-    s.lost.push_back(
-      traffic_sample(t, "receiver_participant_guid_prefix", "from_locator", where + ".lost"));
+    const bool old_keys = !t.contains("src_participant_guid_prefix") &&
+      t.contains("receiver_participant_guid_prefix");
+    TrafficSample sample = old_keys ?
+      traffic_sample(t, "receiver_participant_guid_prefix", "from_locator", where + ".lost") :
+      traffic_sample(t, "src_participant_guid_prefix", "dst_locator", where + ".lost");
+    sample.reporter_participant_prefix = t.value("reporter_participant_guid_prefix", "");
+    s.lost.push_back(sample);
   }
   // (a temporary's items() would dangle: bind the optional objects first)
   const json data_count = j.value("data_count", json::object());
@@ -366,10 +375,11 @@ Snapshot snapshot(const json & doc)
     t.latency_available = latency.is_number();
     t.latency = number_or(latency, 0.0);
     const json lost = tj.value("lost_packets", json(nullptr));
-    t.reliability_available = lost.is_number();
+    const json resent = tj.value("resent_datas", json(nullptr));
+    t.reliability_available = resent.is_number() || lost.is_number();
+    t.lost_available = lost.is_number();
     t.lost_packets = lost.is_number() ? lost.get<uint64_t>() : 0;
-    t.resent = tj.value("resent_datas", json(nullptr)).is_number() ?
-      tj["resent_datas"].get<uint64_t>() : 0;
+    t.resent = resent.is_number() ? resent.get<uint64_t>() : 0;
     for (size_t w : refs[i].writers) {
       t.writers.push_back(&snap.endpoints[w]);
     }

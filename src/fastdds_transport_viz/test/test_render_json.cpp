@@ -71,9 +71,10 @@ Snapshot snapshot()
   s.stats.latency[{"W1", "R1"}] = lat;
   s.stats.resent_datas["W1"] = DataCountSample{1, 3, 2};
   s.stats.acknacks["R1"] = DataCountSample{0, 4, 2};
-  TrafficSample lost{"P2", Locator{LocatorKind::UDPv4, "10.0.0.1", 7411}, 5, 500.0};
-  lost.packets_first = 5;
-  s.stats.lost.push_back(lost);
+  // the reader's participant P2 missed nothing from P1 during the observation
+  s.stats.lost.push_back(
+    TrafficSample{"P1", Locator{LocatorKind::UDPv4, "10.0.0.1", 7411}, 5, 500.0, 5, 500.0, 2,
+      "P2"});
   apply_stats(s.topics, s.stats);
   s.shm.available = true;
   s.shm.path = "/dev/shm";
@@ -122,8 +123,9 @@ TEST(RenderJson, DocumentKeys)
   EXPECT_EQ(p["measured"]["reliability"]["lost_packets"], 0);
   EXPECT_EQ(t["lost_packets"], 0);
   EXPECT_EQ(t["resent_datas"], 2);
-  EXPECT_EQ(doc["stats"]["lost"][0]["receiver_participant_guid_prefix"], "P2");
-  EXPECT_EQ(doc["stats"]["lost"][0]["from_locator"]["port"], 7411);
+  EXPECT_EQ(doc["stats"]["lost"][0]["reporter_participant_guid_prefix"], "P2");
+  EXPECT_EQ(doc["stats"]["lost"][0]["src_participant_guid_prefix"], "P1");
+  EXPECT_EQ(doc["stats"]["lost"][0]["dst_locator"]["port"], 7411);
   EXPECT_FALSE(doc.contains("changes"));
   // statistics block
   EXPECT_EQ(doc["stats"]["samples"], 5);
@@ -165,7 +167,16 @@ TEST(RenderJson, ShmUnavailableOmitsSizes)
   doc = json::parse(render_json(s, RenderOptions{}));
   EXPECT_TRUE(doc["topics"][0]["pairs"][0]["measured"]["latency_s"].is_null());
   EXPECT_TRUE(doc["topics"][0]["latency_s"].is_null());
-  s.stats.resent_datas.clear(); s.stats.acknacks.clear(); s.stats.lost.clear();
+  // counters, but no RTPS_LOST from the reader's participant
+  s.stats.lost.clear();
+  s.topics = summarize(s.endpoints);
+  apply_stats(s.topics, s.stats);
+  doc = json::parse(render_json(s, RenderOptions{}));
+  EXPECT_TRUE(doc["topics"][0]["pairs"][0]["measured"]["reliability"]["lost_packets"].is_null());
+  EXPECT_EQ(doc["topics"][0]["pairs"][0]["measured"]["reliability"]["resent_datas"], 2);
+  EXPECT_TRUE(doc["topics"][0]["lost_packets"].is_null());
+  EXPECT_EQ(doc["topics"][0]["resent_datas"], 2);
+  s.stats.resent_datas.clear(); s.stats.acknacks.clear();
   s.topics = summarize(s.endpoints);
   apply_stats(s.topics, s.stats);
   doc = json::parse(render_json(s, RenderOptions{}));
@@ -318,6 +329,11 @@ TEST(ParseJson, RoundTripsEverythingTheRenderersShow)
   EXPECT_EQ(p.measured.latency.samples, 2u);
   EXPECT_TRUE(p.measured.reliability.available);
   EXPECT_EQ(p.measured.reliability.acknacks, 4u);
+  EXPECT_TRUE(p.measured.reliability.lost_available);
+  EXPECT_TRUE(parsed.topics[0].lost_available);
+  ASSERT_EQ(parsed.stats.lost.size(), 1u);
+  EXPECT_EQ(parsed.stats.lost[0].reporter_participant_prefix, "P2");
+  EXPECT_EQ(parsed.stats.lost[0].src_participant_prefix, "P1");
   EXPECT_TRUE(parsed.stats.enabled);
   EXPECT_EQ(parsed.stats.samples, 5u);
   EXPECT_EQ(parsed.stats.participants_with_stats, std::set<std::string>{"P1"});
@@ -334,6 +350,33 @@ TEST(ParseJson, RoundTripsEverythingTheRenderersShow)
   EXPECT_EQ(render_table(parsed, verbose), render_table(s, verbose));
   // the pair states compare equal, so a diff of a document with itself is empty
   EXPECT_TRUE(diff(pair_states(s), pair_states(parsed)).empty());
+}
+
+TEST(ParseJson, ReadsOldRtpsLostKeysAndUnknownLostPackets)
+{
+  auto doc = json::parse(render_json(snapshot(), RenderOptions{}));
+  // a document written before #122: other key names, no reporter
+  auto & l = doc["stats"]["lost"][0];
+  l["receiver_participant_guid_prefix"] = l["src_participant_guid_prefix"];
+  l["from_locator"] = l["dst_locator"];
+  l.erase("src_participant_guid_prefix");
+  l.erase("dst_locator");
+  l.erase("reporter_participant_guid_prefix");
+  // and the reader's participant without RTPS_LOST
+  doc["topics"][0]["pairs"][0]["measured"]["reliability"]["lost_packets"] = nullptr;
+  doc["topics"][0]["lost_packets"] = nullptr;
+  auto parsed = parse_json(doc.dump());
+  ASSERT_EQ(parsed.stats.lost.size(), 1u);
+  EXPECT_EQ(parsed.stats.lost[0].src_participant_prefix, "P1");
+  EXPECT_EQ(parsed.stats.lost[0].dst.port, 7411u);
+  EXPECT_EQ(parsed.stats.lost[0].reporter_participant_prefix, "");
+  const auto & rel = parsed.topics[0].pairs[0].measured.reliability;
+  EXPECT_TRUE(rel.available);
+  EXPECT_FALSE(rel.lost_available);
+  EXPECT_EQ(rel.resent, 2u);
+  EXPECT_TRUE(parsed.topics[0].reliability_available);
+  EXPECT_FALSE(parsed.topics[0].lost_available);
+  EXPECT_EQ(parsed.topics[0].resent, 2u);
 }
 
 TEST(ParseJson, ReadsTheLastDocumentOfJsonLinesAndIgnoresChanges)

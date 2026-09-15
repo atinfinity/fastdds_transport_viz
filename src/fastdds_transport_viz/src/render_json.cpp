@@ -113,7 +113,7 @@ std::string render_json(const Snapshot & snap, const RenderOptions & opt)
     tj["throughput_bytes_per_s"] = t.throughput_available ? json(t.throughput) : json(nullptr);
     // slowest pair's mean
     tj["latency_s"] = t.latency_available ? json(t.latency) : json(nullptr);
-    tj["lost_packets"] = t.reliability_available ? json(t.lost_packets) : json(nullptr);
+    tj["lost_packets"] = t.lost_available ? json(t.lost_packets) : json(nullptr);
     tj["resent_datas"] = t.reliability_available ? json(t.resent) : json(nullptr);
     json writers = json::array();
     for (const auto * w : t.writers) {
@@ -161,7 +161,8 @@ std::string render_json(const Snapshot & snap, const RenderOptions & opt)
                   {"max", p.measured.latency.max}, {"last", p.measured.latency.last},
                   {"samples", p.measured.latency.samples}} : json(nullptr)},
               {"reliability", p.measured.reliability.available ? json{
-                  {"lost_packets", p.measured.reliability.lost_packets},
+                  {"lost_packets", p.measured.reliability.lost_available ?
+                    json(p.measured.reliability.lost_packets) : json(nullptr)},
                   {"resent_datas", p.measured.reliability.resent},
                   {"heartbeats", p.measured.reliability.heartbeats},
                   {"gaps", p.measured.reliability.gaps},
@@ -301,13 +302,15 @@ std::string render_json(const Snapshot & snap, const RenderOptions & opt)
   json lost = json::array();
   for (const auto & t : snap.stats.lost) {
     lost.push_back(
-      {{"receiver_participant_guid_prefix", t.src_participant_prefix},
-        {"from_locator",
+      {{"reporter_participant_guid_prefix", t.reporter_participant_prefix},
+        {"src_participant_guid_prefix", t.src_participant_prefix},
+        {"dst_locator",
           {{"kind", to_string(t.dst.kind)}, {"address", t.dst.address}, {"port", t.dst.port}}},
         {"packets", t.packets}, {"bytes", t.bytes},
         {"packets_first", t.packets_first}, {"bytes_first", t.bytes_first}});
   }
-  stats["lost"] = lost;   // RTPS_LOST: what each participant missed, per source locator
+  // RTPS_LOST: what the reporter missed from src, per its own locator src addressed
+  stats["lost"] = lost;
   root["stats"] = stats;
 
   // Shared memory of the environment the tool runs in (see docs/how-it-works.md).

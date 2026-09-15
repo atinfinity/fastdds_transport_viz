@@ -12,7 +12,7 @@ discovery のデータは「こうなる*はず*」を教えてくれます。`-
 | `_fastdds_statistics_history2history_latency` (LATENCY 列: write-to-notification 遅延の平均と最大、JSON の `measured.latency_s` とトピックの `latency_s`。ホスト間ではクロックのずれを含む) | writer のサンプルが特定の reader に届いたことの証明。RTPS の痕跡を残さない zero-copy data-sharing の確認に使います。 |
 | `_fastdds_statistics_physical_data` | participant ごとのホスト名、ユーザー、プロセス id。`local` / `host:<id>` の代わりに表示します。 |
 | `_fastdds_statistics_publication_throughput` | writer ごとの payload バイト数/秒。`RATE` 列 (トピックは writer の合算) と JSON (ペアの `measured.throughput_bytes_per_s`、トピックの `topics[].throughput_bytes_per_s`) に出ます。transport に依らないので zero-copy の data-sharing も定量化できます。 |
-| `_fastdds_statistics_rtps_lost` | reader の participant が送信元 locator ごとに取りこぼした RTPS パケット数 (シーケンス番号の欠落)。`RTPS_SENT` と同様に writer の locator に紐付け、`LOSS` 列の `lost` と警告 `rtps-packets-lost` になります。 |
+| `_fastdds_statistics_rtps_lost` | participant が取りこぼした RTPS パケット数 (シーケンス番号の欠落)。送信側 participant と、送信側が宛先にした自分の locator ごとに数えます。受信側 participant が publish するので、ペアの取りこぼしは reader の participant が writer の participant から reader の unicast locator 宛てに受け損ねたと報告した数です。`LOSS` 列の `lost` と警告 `rtps-packets-lost` になります (対象範囲は [RTPS_LOST](#rtps_lost) を参照)。 |
 | `_fastdds_statistics_resent_datas`、`_fastdds_statistics_heartbeat_count`、`_fastdds_statistics_gap_count` | writer ごとの再送 DATA、HEARTBEAT、GAP の数。`resent` は `LOSS` 列のもう一方で、3 つとも JSON の `measured.reliability` に入ります。 |
 | `_fastdds_statistics_acknack_count`、`_fastdds_statistics_nackfrag_count` | reader ごとの ACKNACK と NACKFRAG の数 (欠けたデータや断片を要求した回数)。JSON の `measured.reliability`。 |
 | `_fastdds_statistics_data_count` | 各 writer が transport 経由で送った DATA/DATA_FRAG サブメッセージ数。zero-copy 配送では増えないので、増えるかどうかで data-sharing が本当に使われたかが決まります ([data-sharing.ja.md](data-sharing.ja.md#確信度) を参照)。 |
@@ -68,6 +68,26 @@ writer や reader 単位のカウンタ (`HISTORY_LATENCY`、`DATA_COUNT`、`RES
 `<topic>/_buf_cpu` 上の native buffer のコンパニオン (Lyrical 以降の `rmw_fastrtps_cpp`。上限の無い
 `uint8[]` フィールドを持つ型のサンプルを運ぶ) の値も含まれます。
 [native buffer のコンパニオントピック](how-it-works.ja.md#native-buffer-のコンパニオントピック) を参照してください。
+
+## RTPS_LOST
+
+`RTPS_LOST` は、送信側 participant が RTPS パケットに付けるシーケンス番号の欠落を *受信側* participant が
+見つけたときに publish します。Fast DDS は送信側 participant と宛先 locator ごとに番号を振るので、
+項目 (JSON の `stats.lost[]`) は報告者 (`reporter_participant_guid_prefix`)、送信者
+(`src_participant_guid_prefix`)、送信者が宛先にした報告者自身の locator (`dst_locator`) を持ちます。
+ペアの `lost` は、reader の participant が writer の participant から reader の unicast locator 宛てに
+受け損ねたと報告した数を、観測期間の最初のサンプルとの差分で表したものです。
+
+- writer ではなく participant の組に属します。2 つの間のすべてのパケット (他のトピック、heartbeat、
+  それらの locator 宛ての discovery トラフィック) が数えられ、同じ 2 つの participant 間のペアはすべて
+  同じ数を示します。トピックの `lost_packets` は各項目を 1 回だけ数えます。
+- マルチキャストの宛先は対象外です。Fast DDS は 1 回のマルチキャスト送信にソケットごとに番号を振る
+  ことがあり、リモートの受信側はそれを取りこぼしとして報告してしまいます。
+- 遅れて届いたパケットは数を減らします。観測の終わりに最初のサンプルを下回った場合は 0 と表示します。
+- 番号を持つのは UDP と TCP のパケットだけです。SHM と data-sharing は取りこぼしを報告しません。
+- 送信側は実行時の設定が不要で、statistics 付きでビルドされた Fast DDS であれば足ります。reader の
+  participant には `FASTDDS_STATISTICS` の `RTPS_LOST_TOPIC` が必要で、無ければ取りこぼしは不明です。
+  `LOSS` 列は `- lost`、JSON は `lost_packets: null` になり、他の信頼性カウンタはそのまま出ます。
 
 ## 落とし穴: 10 インスタンスの上限
 

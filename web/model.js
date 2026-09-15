@@ -186,13 +186,18 @@
     return `${seconds < 0 ? '-' : ''}${v.toFixed(digits)} ${units[i]}`;
   }
 
-  /** "3 lost, 2 resent" / "0" from measured.reliability, '' without counters. */
+  /**
+   * "3 lost, 2 resent" / "0" from measured.reliability, '' without counters, "- lost" when
+   * lost_packets is null (the reader's participant does not publish RTPS_LOST).
+   */
   function lossText(m) {
     if (!m || !m.reliability) return '';
     const r = m.reliability;
-    if (!r.lost_packets && !r.resent_datas) return '0';
+    const lostKnown = r.lost_packets !== null && r.lost_packets !== undefined;
+    if (lostKnown && !r.lost_packets && !r.resent_datas) return '0';
     const parts = [];
-    if (r.lost_packets) parts.push(`${r.lost_packets} lost`);
+    if (!lostKnown) parts.push('- lost');
+    else if (r.lost_packets) parts.push(`${r.lost_packets} lost`);
     if (r.resent_datas) parts.push(`${r.resent_datas} resent`);
     return parts.join(', ');
   }

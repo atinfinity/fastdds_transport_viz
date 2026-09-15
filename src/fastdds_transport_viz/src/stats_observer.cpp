@@ -245,19 +245,21 @@ void StatsObserver::drain()
 
   // RTPS_LOST: the receiving participant publishes the packets it missed (sequence-number
   // gaps) from a remote sender (src_guid) addressed to one of its own locators (dst_locator).
+  // The payload does not name the receiver: it is the sample's publisher.
   st::Entity2LocatorTraffic lost;
   while (retcode_ok(rtps_lost_.reader->take_next_sample(&lost, &info))) {
     if (!info.valid_data) {continue;}
     count_sample();
     rtps::GUID_t src = to_rtps(lost.src_guid());
-    Locator from = convert_locator(to_rtps(lost.dst_locator()));
+    Locator dst = convert_locator(to_rtps(lost.dst_locator()));
     TrafficSample s;
+    s.reporter_participant_prefix = sample_publisher_prefix(info);
     s.src_participant_prefix = prefix_to_string(src.guidPrefix);
-    s.dst = from;
+    s.dst = dst;
     s.packets = lost.packet_count();
     s.bytes = static_cast<double>(lost.byte_count());
-    auto & slot = lost_[
-      TrafficKey{s.src_participant_prefix, static_cast<int>(from.kind), from.address, from.port}];
+    auto & slot = lost_[LostKey{s.reporter_participant_prefix, s.src_participant_prefix,
+          static_cast<int>(dst.kind), dst.address, dst.port}];
     if (slot.samples == 0) {
       s.packets_first = s.packets;
       s.bytes_first = s.bytes;

@@ -4,6 +4,22 @@ Changelog for package fastdds_transport_viz
 
 Forthcoming
 -----------
+* ``RTPS_LOST`` was matched in the reverse direction: the ``lost`` of a pair was what the
+  writer's participant missed from the reader's, and real writer → reader loss never
+  showed. Fast DDS publishes ``RTPS_LOST`` from the receiving participant with the sender's
+  GUID and the receiver's own locator the sender addressed; a pair now counts what the
+  reader's participant reports from the writer's participant on the reader's unicast
+  locators (multicast destinations are left out). The loss belongs to the participant pair:
+  every pair between the same two participants shows it, and the topic's ``lost_packets``
+  counts each report once. When the reader's participant publishes no ``RTPS_LOST`` the
+  loss is unknown: ``lost_packets`` is ``null`` in the JSON (pair and topic) and the
+  ``LOSS`` column shows ``- lost``, while the other reliability counters stay. The
+  ``stats.lost[]`` keys are renamed to ``src_participant_guid_prefix`` / ``dst_locator``,
+  with the new ``reporter_participant_guid_prefix`` (schema version unchanged; documents
+  with the old ``receiver_participant_guid_prefix`` / ``from_locator`` still load). A
+  ``diff`` of a capture taken before this change against one taken after it can show
+  ``rtps-packets-lost`` moving between pairs. New integration scenario
+  ``stats_loss_multi_container`` (#122).
 * ``stats-writer-instance-limit-suspected``: the remedy named
   ``FASTDDS_DEFAULT_PROFILES_FILE``, which Fast DDS 2.x does not read, while 2.x (Jazzy's
   2.14) is where the statistics DataWriters keep the 10-instance limit. It now names

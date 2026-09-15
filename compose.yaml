@@ -6,6 +6,8 @@
 #                                               # every service honours the host's RMW_IMPLEMENTATION
 #   docker compose up talker listener           # two containers => different "hosts" => UDPv4
 #   docker compose up talker_stats listener_stats   # same, with FASTDDS_STATISTICS
+#   docker compose up talker_stats_loss listener_stats_loss
+#                                               # same, 20 Hz and NET_ADMIN for `tc netem` (#122)
 #   docker compose up talker_large_data listener_large_data   # LARGE_DATA => TCPv4
 #   docker compose up talker_udpv6 listener_udpv6   # DEFAULTv6 => UDPv6
 #   docker compose up pair_shm                  # talker + listener in one container => SHM
@@ -110,6 +112,26 @@ services:
   listener_stats:
     <<: *base
     environment: *stats_env
+    command: ros2 run demo_nodes_cpp listener
+
+  # The same with NET_ADMIN, so that `tc qdisc ... netem loss` can drop packets on one
+  # container's egress (only the packets to the other node), and a 20 Hz talker for enough
+  # packets per observation: RTPS_LOST is reported by the receiving side (#122). The type
+  # follows demo_nodes_cpp's listener (example_interfaces/String on Lyrical and later).
+  talker_stats_loss:
+    <<: *base
+    environment: *stats_env
+    cap_add: [NET_ADMIN]
+    command:
+      - bash
+      - -c
+      - >-
+        case "$$ROS_DISTRO" in humble|jazzy) t=std_msgs/msg/String ;; *) t=example_interfaces/msg/String ;; esac;
+        exec ros2 topic pub -r 20 -n talker /chatter "$$t" '{data: hello}'
+  listener_stats_loss:
+    <<: *base
+    environment: *stats_env
+    cap_add: [NET_ADMIN]
     command: ros2 run demo_nodes_cpp listener
 
   # Same two containers with FASTDDS_BUILTIN_TRANSPORTS=LARGE_DATA: user data must go

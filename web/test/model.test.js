@@ -264,6 +264,9 @@ test('lossText', () => {
   assert.equal(M.lossText({ reliability: { lost_packets: 0, resent_datas: 0 } }), '0');
   assert.equal(M.lossText({ reliability: { lost_packets: 3, resent_datas: 2 } }), '3 lost, 2 resent');
   assert.equal(M.lossText({ reliability: { lost_packets: 0, resent_datas: 5 } }), '5 resent');
+  // the reader's participant does not publish RTPS_LOST
+  assert.equal(M.lossText({ reliability: { lost_packets: null, resent_datas: 0 } }), '- lost');
+  assert.equal(M.lossText({ reliability: { lost_packets: null, resent_datas: 2 } }), '- lost, 2 resent');
 });
 
 // ---- comparing two documents (the port of transport_viz diff) ---------------------------

@@ -57,8 +57,10 @@ notification of the reader, per pair, as mean and maximum over the observation (
 the clocks of the two hosts, so between machines it includes their offset (a negative
 mean is flagged `latency-clock-skew-suspected`); on one host it is exact. `LOSS` sums
 the reliability counters of the pair during the observation: `lost` is what the reader's
-participant reported missing from the writer's locators (`RTPS_LOST`, sequence-number
-gaps; warning `rtps-packets-lost`), `resent` the DATA submessages the writer sent again
+participant reported missing from the writer's participant on the reader's unicast
+locators (`RTPS_LOST`, sequence-number gaps, per participant pair, see
+[statistics.md](statistics.md#rtps_lost); warning `rtps-packets-lost`; `- lost` when the
+reader's participant does not publish it), `resent` the DATA submessages the writer sent again
 (`RESENT_DATAS`); `0` when nothing was lost or resent. Heartbeats, gaps, acknacks and
 nackfrags are in the JSON `measured.reliability` object and the web viewer's pair card.
 Without statistics the three columns show `-`. The `measured=` cell of a pair row gives what
@@ -270,8 +272,8 @@ ros2 transport list --json | jq '.topics[].writers[] | {node, unicast_locators}'
 
 With `--stats` the locators that actually carried packets are reported as well:
 `stats.traffic[]` has `dst_locator` (`RTPS_SENT`, keyed by the sending participant)
-and `stats.lost[]` has `from_locator` (`RTPS_LOST`, keyed by the receiving
-participant), both with `kind`, `address` and `port`. Fast DDS reports the locators of
+and `stats.lost[]` has `dst_locator` too (`RTPS_LOST`, keyed by the reporting receiver
+and the sending participant), both with `kind`, `address` and `port`. Fast DDS reports the locators of
 a same-host participant as `127.0.0.1` / `::1` while a remote writer's `RTPS_SENT`
 names the real address, so the tool matches both spellings when it attributes traffic
 to a reader.

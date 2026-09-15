@@ -612,6 +612,14 @@ bool reader_has_locator(
   return false;
 }
 
+bool reader_has_unicast_locator(
+  const Endpoint & reader, const Locator & l, const std::set<std::string> & local)
+{
+  return std::any_of(
+    reader.unicast.begin(), reader.unicast.end(),
+    [&](const Locator & rl) {return same_locator_local(rl, l, local);});
+}
+
 Transport transport_for_kind(LocatorKind kind)
 {
   switch (kind) {
@@ -686,8 +694,12 @@ void apply_stats(std::vector<TopicSummary> & topics, const StatsData & stats)
     t.latency = 0.0;
     t.latency_available = false;
     t.reliability_available = false;
+    t.lost_available = false;
     t.lost_packets = 0;
     t.resent = 0;
+    // RTPS_LOST entries already in t.lost_packets: several pairs of the topic between the
+    // same two participants share one entry
+    std::set<const TrafficSample *> topic_lost;
     for (const auto * w : t.writers) {
       for (const auto & g : entity_guids(*w)) {
         if (auto th = stats.throughput.find(g); th != stats.throughput.end()) {
@@ -742,8 +754,9 @@ void apply_stats(std::vector<TopicSummary> & topics, const StatsData & stats)
         }
       }
       {
-        // Reliability: RTPS_LOST reported by the reader's participant for the writer's
-        // locators, plus the per-entity counters of writer and reader (window deltas).
+        // Reliability: RTPS_LOST reported by the reader's participant for packets from the
+        // writer's participant to the reader's locators, plus the per-entity counters of
+        // writer and reader (window deltas).
         Reliability & rel = m.reliability;
         auto delta = [](
           const std::map<std::string, DataCountSample> & map,
@@ -764,18 +777,28 @@ void apply_stats(std::vector<TopicSummary> & topics, const StatsData & stats)
         rel.available |= delta(stats.gaps, writer_guids, rel.gaps);
         rel.available |= delta(stats.acknacks, reader_guids, rel.acknacks);
         rel.available |= delta(stats.nackfrags, reader_guids, rel.nackfrags);
+        // RTPS_LOST is published by the receiving participant only when it sees a
+        // sequence-number gap, so its RTPS_LOST writer without a sample means nothing lost.
+        // The sequence is per sender participant and destination locator: the loss belongs
+        // to the participant pair, not to this writer. Multicast destinations are left out,
+        // Fast DDS may number one multicast send once per socket.
+        const std::string & dst = p.reader->participant_guid_prefix;
+        rel.lost_available = stats.statistics_writers.count({dst, kStatsRtpsLostTopic}) > 0;
         for (const auto & s : stats.lost) {
-          if (s.src_participant_prefix != p.reader->participant_guid_prefix ||
-            !reader_has_locator(*p.writer, s.dst, stats.local_addresses))
+          if (s.reporter_participant_prefix != dst || s.src_participant_prefix != src ||
+            !reader_has_unicast_locator(*p.reader, s.dst, stats.local_addresses))
           {
             continue;
           }
-          rel.available = true;
-          rel.lost_packets += s.packets - std::min(s.packets, s.packets_first);
+          rel.lost_available = true;
+          const uint64_t packets = s.packets - std::min(s.packets, s.packets_first);
+          rel.lost_packets += packets;
+          if (topic_lost.insert(&s).second) {t.lost_packets += packets;}
         }
+        rel.available |= rel.lost_available;
         if (rel.available) {
           t.reliability_available = true;
-          t.lost_packets += rel.lost_packets;
+          t.lost_available |= rel.lost_available;
           t.resent += rel.resent;
           if (rel.lost_packets > 0) {p.verdict.warnings.push_back("rtps-packets-lost");}
         }
@@ -1416,10 +1439,12 @@ const std::map<std::string, CodeInfo> & explanations()
         "Synchronize the clocks of the two hosts (chrony / PTP), or read the latency only between "
         "nodes on one host."}},
     {"rtps-packets-lost", {
-        "The reader's participant reported RTPS packets from the writer's locators as lost "
-        "(RTPS_LOST, sequence-number gaps) during the observation: the link drops packets. "
-        "Reliable pairs recover them by resends (RESENT_DATAS), best-effort pairs lose the "
-        "samples.",
+        "The reader's participant reported RTPS packets from the writer's participant to the "
+        "reader's unicast locators as lost (RTPS_LOST, sequence-number gaps) during the "
+        "observation: the link drops packets. The count covers all traffic between the two "
+        "participants (other topics and discovery included), so every pair between them shows "
+        "it. Reliable pairs recover the samples by resends (RESENT_DATAS), best-effort pairs "
+        "lose them.",
         "Check the link (Wi-Fi, MTU, switch), raise the socket buffers (<sendBufferSize> / "
         "<receiveBufferSize> of the transport descriptor, net.core.rmem_max), and use RELIABLE "
         "reliability where samples must not be lost."}},
