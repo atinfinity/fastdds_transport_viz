@@ -13,6 +13,7 @@
 #include <algorithm>
 #include <cerrno>
 #include <chrono>
+#include <cmath>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
@@ -425,7 +426,7 @@ Snapshot collect(
   fastdds_transport_viz::RosGraphResolver & resolver,
   fastdds_transport_viz::RosDiscoveryInfoObserver * names,
   fastdds_transport_viz::StatsObserver * stats,
-  const Options & o, int domain, double observation_seconds)
+  const Options & o, int domain, double observation_seconds, const std::string & stopped_on)
 {
   const auto & prof = profiler();
   const auto collect_start = prof.now();
@@ -444,6 +445,17 @@ Snapshot collect(
   if (names != nullptr) {names->poll();}
 
   std::vector<Endpoint> endpoints = observer.snapshot();
+  // Was discovery still running when the wait ended (#74 saw one-shot runs print a fraction
+  // of a large system)? Judged on the raw snapshot, before any filter drops an endpoint the
+  // nodes did announce.
+  fastdds_transport_viz::DiscoveryStatus discovery =
+    fastdds_transport_viz::discovery_completeness(
+    names != nullptr ? names->table().announced_by_participant() :
+    std::map<fastdds_transport_viz::ParticipantPrefix,
+    std::vector<fastdds_transport_viz::EndpointGid>>{},
+    observer.live_participants(), endpoints);
+  discovery.stopped_on = stopped_on;
+  discovery.events = observer.event_count();
   // before any filter, so that a parent keeps its companions whatever --topic / --all drop
   fastdds_transport_viz::link_buffer_companions(endpoints);
   std::vector<Endpoint> kept;
@@ -531,6 +543,7 @@ Snapshot collect(
   snap.observed_at = now_iso8601();
   snap.observation_seconds = observation_seconds;
   snap.local_host_id = observer.local_host_id();
+  snap.discovery = std::move(discovery);
   snap.endpoints = std::move(kept);
   {
     // Shared memory of this environment; data-sharing files are attributed to the
@@ -586,6 +599,34 @@ Snapshot collect(
     "collect", collect_start, {{"endpoints", snap.endpoints.size()},
       {"topics", snap.topics.size()}, {"pairs", count_pairs(snap.topics)}});
   return snap;
+}
+
+/// #133: the wait ends on a window without discovery events, which a busy system produces
+/// while its nodes are still announcing their endpoints. The table then looks normal but is
+/// short of pairs, so say so in one line on stderr. Nothing is printed when the observation's
+/// completeness could not be judged (no `ros_discovery_info` sample).
+void warn_if_incomplete(const Snapshot & snap, const Options & o)
+{
+  const auto & d = snap.discovery;
+  if (!d.complete.has_value() || *d.complete) {return;}
+  // Advise at least the values that made a large system complete in docs/development.md
+  // "Scale results", and always more than what this run already used.
+  auto longer = [](double current, int64_t least) {
+      return std::to_string(std::max(least, static_cast<int64_t>(std::ceil(current * 2.0))));
+    };
+  std::ostringstream hint;
+  if (o.stats) {
+    hint << "pass --timeout " << longer(o.timeout, 15);   // --stats ignores --quiet
+  } else if (o.quiet > 0) {
+    hint << "pass --quiet " << longer(o.quiet, 3) << " or --timeout " << longer(o.timeout, 10);
+  } else {
+    hint << "pass --timeout " << longer(o.timeout, 10);
+  }
+  std::cerr << "warning: discovery was still in progress ("
+            << d.announced_not_discovered << " of " << d.announced_by_incomplete
+            << " endpoints announced by " << d.participants_incomplete
+            << (d.participants_incomplete == 1 ? " participant" : " participants")
+            << " were not seen); " << hint.str() << " for a complete view\n";
 }
 
 /// Raw-mode keyboard input and alternate screen for --watch on a terminal.
@@ -951,6 +992,7 @@ int main(int argc, char ** argv)
 
     const auto start = std::chrono::steady_clock::now();
     double first_event_s = -1.0;
+    std::string stopped_on = "timeout";
     // Wait until --timeout, or until discovery has been quiet for --quiet
     // seconds (but never less than --quiet seconds in total).
     for (;; ) {
@@ -968,6 +1010,7 @@ int main(int argc, char ** argv)
       if (!o.stats && o.quiet > 0 && elapsed >= o.quiet && since_last >= o.quiet &&
         observer.event_count() > 0)
       {
+        stopped_on = "quiet";
         break;
       }
       if (!rclcpp::ok()) {break;}
@@ -988,15 +1031,18 @@ int main(int argc, char ** argv)
     if (!o.watch) {
       double elapsed =
         std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
-      Snapshot snap = collect(observer, resolver, names.get(), stats.get(), o, domain, elapsed);
+      Snapshot snap =
+        collect(observer, resolver, names.get(), stats.get(), o, domain, elapsed, stopped_on);
       const auto t = prof.now();
       const std::string out = o.json ? fastdds_transport_viz::render_json(snap, ropt) :
         fastdds_transport_viz::render_table(snap, ropt);
       prof.emit("render", t, {{"bytes", out.size()}, {"lines", line_count(out)}});
       std::cout << out << std::flush;
+      warn_if_incomplete(snap, o);   // after the table: the last line stays in sight
     } else {
       Terminal term(!o.json);
       WatchState ws;
+      bool first_frame = true;
       bool paused = false;
       bool quit = false;
       bool force = true;
@@ -1010,7 +1056,8 @@ int main(int argc, char ** argv)
             std::chrono::duration<double>(o.interval));
           double elapsed =
             std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
-          Snapshot snap = collect(observer, resolver, names.get(), stats.get(), o, domain, elapsed);
+          Snapshot snap =
+            collect(observer, resolver, names.get(), stats.get(), o, domain, elapsed, stopped_on);
           ropt.verbose = o.verbose;
           ropt.explain = o.explain;
           ropt.locators = o.locators;
@@ -1052,6 +1099,13 @@ int main(int argc, char ** argv)
             }
           }
           prof.emit("frame", frame_start, {{"pairs", count_pairs(snap.topics)}});
+          if (first_frame) {
+            first_frame = false;
+            // Only the first frame: later ones fill the view in by themselves, and the line
+            // would scroll the terminal away. On an alternate screen the next repaint would
+            // overwrite it anyway, so it is left to the JSON `discovery` object there.
+            if (!term.enabled()) {warn_if_incomplete(snap, o);}
+          }
         }
         char key = term.read_key(50);
         switch (key) {

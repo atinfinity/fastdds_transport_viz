@@ -174,6 +174,7 @@ participant: unset FASTDDS_BUILTIN_TRANSPORTS ...`)。`ros2 transport codes` は
 | `!shm-not-visible` | ノードが別の `/dev/shm` (別コンテナまたは別ホスト) を使っている。共有メモリの行はツールの環境だけを表す。 |
 | `NONE` のペアに `!shm-ipc-namespace-split` | 2 つのノードのホスト id は同じだが `/dev/shm` が別 (ホストネットワークで IPC 名前空間が別) なので、Fast DDS が SHM や data-sharing を選んでも受信側には何も届かない。両方のコンテナに `ipc: host` を付けるか、片側の SHM (と data-sharing) を無効にする (`--advise` で対処を表示できる)。 |
 | `!shm-stale-files` | クラッシュしたプロセスがセグメントを残している。`fastdds shm clean` で削除できる。 |
+| 実際にはあるペアが表に出ない、または `warning: discovery was still in progress (...)` | ノードが endpoint を announce し終える前に観測が終わっている。観測は discovery イベントが `--quiet` 秒間ないと終わるが、大規模なシステムでは announce の合間にも無音になる。メッセージが示す値で取り直す (`--quiet 3 --timeout 10` から。`--stats` 付きなら `--timeout 15`)。`--json` では `discovery.complete` が `false` になり、その文書は差分比較には使えない。 |
 | ツール自身がノードとして出る | 出ないはずです。自身のノード `/_transport_viz_<pid>` と participant は除外されます。出た場合は `--json` 出力を添えて issue を立ててください。 |
 
 次は判定ルールを知る [仕組み](how-it-works.ja.md)、ツールを変更するなら

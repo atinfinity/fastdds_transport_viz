@@ -974,6 +974,40 @@ void apply_stats(std::vector<TopicSummary> & topics, const StatsData & stats)
   }
 }
 
+DiscoveryStatus discovery_completeness(
+  const std::map<ParticipantPrefix, std::vector<EndpointGid>> & announced,
+  const std::set<ParticipantPrefix> & live_participants,
+  const std::vector<Endpoint> & discovered)
+{
+  DiscoveryStatus out;
+  out.endpoints = discovered.size();
+  std::set<EndpointGid> seen;
+  for (const auto & e : discovered) {
+    seen.insert(e.guid_bytes);
+  }
+  size_t compared = 0;
+  for (const auto & [participant, gids] : announced) {
+    // A participant that has left announced endpoints that no longer exist: its row stays in
+    // the table on purpose (a gid is unique, so it never names another endpoint).
+    if (live_participants.count(participant) == 0) {continue;}
+    ++compared;
+    size_t missing = 0;
+    for (const auto & gid : gids) {
+      if (seen.count(gid) == 0) {++missing;}
+    }
+    if (missing > 0) {
+      out.announced_not_discovered += missing;
+      out.announced_by_incomplete += gids.size();
+      ++out.participants_incomplete;
+    }
+  }
+  if (compared == 0) {
+    return out;   // complete stays unset: nothing was announced, so nothing can be judged
+  }
+  out.complete = out.announced_not_discovered == 0;
+  return out;
+}
+
 PairKey pair_key(const TopicSummary & topic, const Pair & pair)
 {
   return PairKey{topic.display_topic, pair.writer->guid, pair.reader->guid,

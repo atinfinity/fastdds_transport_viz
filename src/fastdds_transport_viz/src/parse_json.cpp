@@ -425,6 +425,17 @@ Snapshot snapshot(const json & doc)
   } catch (const std::exception & e) {
     throw ParseError(std::string("stats: ") + e.what());
   }
+  // #133; absent in documents of earlier versions, and never part of a diff comparison
+  auto discovery_it = doc.find("discovery");
+  if (discovery_it != doc.end() && discovery_it->is_object()) {
+    const json & d = *discovery_it;
+    const json complete = d.value("complete", json(nullptr));
+    if (complete.is_boolean()) {snap.discovery.complete = complete.get<bool>();}
+    snap.discovery.stopped_on = d.value("stopped_on", std::string());
+    snap.discovery.events = d.value("events", 0ULL);
+    snap.discovery.endpoints = d.value("endpoints", 0ULL);
+    snap.discovery.announced_not_discovered = d.value("announced_not_discovered", 0ULL);
+  }
   auto shm_it = doc.find("shm");
   if (shm_it != doc.end() && shm_it->is_object()) {
     try {

@@ -101,6 +101,20 @@ std::string render_json(const Snapshot & snap, const RenderOptions & opt)
   root["observed_at"] = snap.observed_at;
   root["observation_seconds"] = snap.observation_seconds;
   root["local_host_id"] = host_id_hex(snap.local_host_id);
+  // How complete the observation behind this document is (#133): `complete` is null when
+  // no live participant announced its endpoints in ros_discovery_info. `stopped_on` is empty
+  // only when there was no observation - `transport_viz diff` rendering documents whose own
+  // `discovery` is absent - and then there is nothing to say.
+  if (!snap.discovery.stopped_on.empty()) {
+    root["discovery"] = {
+      {"complete",
+        snap.discovery.complete.has_value() ? json(*snap.discovery.complete) : json(nullptr)},
+      {"stopped_on", snap.discovery.stopped_on},
+      {"events", snap.discovery.events},
+      {"endpoints", snap.discovery.endpoints},
+      {"announced_not_discovered", snap.discovery.announced_not_discovered},
+    };
+  }
 
   json topics = json::array();
   for (const auto & t : snap.topics) {

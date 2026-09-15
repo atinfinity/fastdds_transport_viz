@@ -74,6 +74,10 @@ public:
   /// Number of known endpoints.
   size_t size() const;
 
+  /// The endpoint gids each participant announced in its latest sample (#133 compares them
+  /// with what discovery delivered).
+  std::map<ParticipantPrefix, std::vector<EndpointGid>> announced_by_participant() const;
+
 private:
   // kept when a participant leaves: gids are unique, so a stale row never names another endpoint
   std::map<ParticipantPrefix, std::map<EndpointGid, std::string>> by_participant_;

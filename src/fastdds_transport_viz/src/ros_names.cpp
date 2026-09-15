@@ -104,6 +104,20 @@ std::string NodeNameTable::lookup(const EndpointGid & gid) const
   return "";
 }
 
+std::map<ParticipantPrefix, std::vector<EndpointGid>> NodeNameTable::announced_by_participant()
+const
+{
+  std::map<ParticipantPrefix, std::vector<EndpointGid>> out;
+  for (const auto & kv : by_participant_) {
+    auto & gids = out[kv.first];
+    gids.reserve(kv.second.size());
+    for (const auto & entry : kv.second) {
+      gids.push_back(entry.first);
+    }
+  }
+  return out;
+}
+
 size_t NodeNameTable::size() const
 {
   size_t n = 0;

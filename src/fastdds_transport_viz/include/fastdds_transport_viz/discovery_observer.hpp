@@ -11,6 +11,7 @@
 #include <cstddef>
 #include <map>
 #include <mutex>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -19,6 +20,7 @@
 
 #include "fastdds_transport_viz/fastdds_compat.hpp"
 #include "fastdds_transport_viz/model.hpp"
+#include "fastdds_transport_viz/ros_names.hpp"
 
 namespace fastdds_transport_viz
 {
@@ -37,6 +39,11 @@ public:
 
   std::chrono::steady_clock::time_point last_event() const;
   size_t event_count() const;
+
+  /// GUID prefixes of the remote participants currently alive: those discovered, minus those
+  /// that left or were dropped. Used to tell an announcement that is still on its way from one
+  /// whose participant is gone (see discovery_completeness()).
+  std::set<ParticipantPrefix> live_participants() const;
 
   /// Host id (first 4 bytes of our GUID prefix) - "local" for display purposes.
   HostId local_host_id() const;
@@ -85,6 +92,7 @@ private:
   HostId local_host_id_{};
   mutable std::mutex mutex_;
   std::map<std::string, Endpoint> endpoints_;
+  std::set<ParticipantPrefix> participants_;
   std::chrono::steady_clock::time_point last_event_;
   size_t event_count_{0};
 };
