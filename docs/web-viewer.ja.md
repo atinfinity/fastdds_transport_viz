@@ -1,6 +1,6 @@
 # Web viewer
 
-> 英語版が正です。この文書は 2026-09-12 時点の英語版に対応しています。
+> 英語版が正です。この文書は 2026-09-16 時点の英語版に対応しています。
 
 `web/index.html` は `transport_viz --json` の文書をグラフとして描画します。ホストが列、ROS ノードが
 箱、writer → reader の各ペアが transport ごとに色分けされた矢印です。静的ページ (素の HTML/JS と
@@ -127,6 +127,20 @@ ros2 run fastdds_transport_viz transport_viz_web --stats --interval 1
 `transport_viz diff --json before.json after.json` が出すものと同じです
 ([how-it-works.ja.md](how-it-works.ja.md#2-つのスナップショットの比較) 参照)。viewer はまだそれを
 どちらの場合も強調表示します ([2 つの文書の比較](#2-つの文書の比較))。
+
+## 大きな文書
+
+スケール検証の文書を Apple M3 上の Chrome で開いて測りました (詳細は [development.md](development.md#scale-results))。
+
+| 文書 | 初回描画 | フィルタで絞る | フィルタの解除、クリック |
+|---|---|---|---|
+| Nav2 + TurtleBot3: 矢印 244 本、1195 ペア、2.4 MB | 25 ms | 0.1 秒未満 | 0.1 秒未満 |
+| 矢印 1467 本、5600 ペア、15 MB | 0.16 秒 | 0.1 秒未満 | 0.14 秒 |
+| 矢印 4217 本、13 800 ペア、31 MB | 0.7 秒 | 0.1 秒未満 | 0.7 秒 |
+
+フィルタを変えるたび、またクリックするたびに、表示中の矢印をすべて描き直します。矢印が数千本を
+超えるときは、あちこちクリックする前にトピックかノードで表示を絞ってください。フィルタの解除や
+選択には、表示中の矢印 1 本あたり約 0.16 ms かかります ([#136](https://github.com/atinfinity/fastdds_transport_viz/issues/136))。
 
 ## JSON スキーマ
 

@@ -132,6 +132,22 @@ Fast DDS reads a single profiles file; `datasharing_auto_stats.xml` is the merge
 file with `datasharing_auto.xml` for observing data-sharing with `--stats`. (The tool's
 own statistics readers already use unlimited instances.)
 
+## Large systems
+
+Measured on an 8-CPU Docker VM with Jazzy (Fast DDS 2.14.6), statistics on every node, the
+tool next to the nodes (details: [development.md](development.md#scale-results)):
+
+- **Up to about 10 processes and 500 pairs** everything keeps up: every pair is measured within the default 5 s.
+- **From about 20 processes and 2400 pairs** the tool starts to lose statistics samples, and about a quarter of the pairs have no measurement after 5 s.
+- **At 40 processes and 5600 pairs** almost no pair is measured.
+
+The tool receives all statistics over UDP on one Fast DDS receive thread, and next to Nav2 (4 participants, 1195 pairs) that thread already takes a whole core. Once it cannot keep up, the writers' keep-last history overwrites samples before they arrive.
+
+The tool does not report lost statistics samples yet ([#134](https://github.com/atinfinity/fastdds_transport_viz/issues/134)). On a large system, `no-traffic-observed` can therefore also mean "not measured". Narrow the view instead:
+- enable statistics only on the nodes you care about;
+- keep `FASTDDS_STATISTICS` to the aliases you need, for example `RTPS_SENT_TOPIC;RTPS_LOST_TOPIC`;
+- give `--stats` a longer `--timeout`.
+
 ## Implementation notes
 
 - The tool removes `FASTDDS_STATISTICS` from its own environment before creating its

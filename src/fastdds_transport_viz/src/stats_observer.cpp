@@ -155,7 +155,9 @@ StatsObserver::Reader StatsObserver::create_reader(
   if (!reader_locators_.empty()) {
     qos.endpoint().unicast_locator_list = reader_locators_;
   }
-  r.reader = subscriber_->create_datareader(r.topic, qos);
+  r.reader = subscriber_->create_datareader(
+    r.topic, qos, &listener_,
+    dds::StatusMask::sample_lost() << dds::StatusMask::sample_rejected());
   if (r.reader == nullptr) {
     throw std::runtime_error("failed to create statistics reader for " + topic_name);
   }

@@ -3,6 +3,7 @@
 
 #include "fastdds_transport_viz/ros_graph_resolver.hpp"
 
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -17,6 +18,19 @@ RosGraphResolver::RosGraphResolver(rclcpp::Node::SharedPtr node)
 }
 
 void RosGraphResolver::refresh()
+{
+  try {
+    refresh_names();
+  } catch (const std::exception &) {
+    // Ctrl-C shuts the context down, possibly while a slow frame is still querying the graph
+    // (a thousand topics, #74): keep the names of the previous frame and let the caller stop.
+    if (rclcpp::ok()) {
+      throw;
+    }
+  }
+}
+
+void RosGraphResolver::refresh_names()
 {
   std::map<std::array<uint8_t, 16>, std::string> fresh;
   auto names_and_types = node_->get_topic_names_and_types();

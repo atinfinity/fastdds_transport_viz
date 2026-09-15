@@ -134,6 +134,20 @@ also what `transport_viz diff --json before.json after.json` emits (see
 [how-it-works.md](how-it-works.md#comparing-two-snapshots)); the viewer highlights it in
 both cases ([Comparing two documents](#comparing-two-documents)).
 
+## Large documents
+
+Measured in Chrome on an Apple M3 with documents of the scale verification (details: [development.md](development.md#scale-results)):
+
+| Document | First render | Filtering down | Clearing a filter or clicking |
+|---|---|---|---|
+| Nav2 + TurtleBot3: 244 arrows, 1195 pairs, 2.4 MB | 25 ms | < 0.1 s | < 0.1 s |
+| 1467 arrows, 5600 pairs, 15 MB | 0.16 s | < 0.1 s | 0.14 s |
+| 4217 arrows, 13 800 pairs, 31 MB | 0.7 s | < 0.1 s | 0.7 s |
+
+Every change of a filter, and every click, draws all visible arrows again. Above a few
+thousand arrows, narrow the view by topic or node before clicking around; clearing a filter
+or selecting costs about 0.16 ms per visible arrow ([#136](https://github.com/atinfinity/fastdds_transport_viz/issues/136)).
+
 ## JSON schema
 
 `schema/transport_viz.schema.json` (JSON Schema 2020-12) is the contract the viewer relies

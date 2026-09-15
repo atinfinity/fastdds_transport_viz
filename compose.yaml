@@ -28,6 +28,10 @@
 #   docker compose up bounded_pub_hostnet_split bounded_sub_hostnet_split
 #                                               # the same split with data-sharing: nothing
 #                                               # arrives either (shm-ipc-namespace-split, #110)
+#   ROS_DISTRO=jazzy docker compose --profile scale build nav2_tb3
+#   scripts/scale_test.sh small|medium|large|limit|large_multi|nav2
+#                                               # scale verification (#74): scale_load_a / _b,
+#                                               # nav2_tb3 (profile `scale`, not in CI)
 #
 # Run transport_viz from inside the same network/IPC scope as the nodes you
 # want to observe (see README). scripts/integration_test.sh drives these
@@ -295,6 +299,63 @@ services:
     network_mode: host
     ipc: service:bounded_pub_hostnet_split_udp
     command: sleep infinity
+
+  # Scale verification (#74, scripts/scale_test.sh): SCALE_PROCESSES scale_load processes of one
+  # node each sharing SCALE_TOPICS topics, with FASTDDS_STATISTICS. One container for every
+  # rung (the tool runs in it with `docker compose exec`: same host id and /dev/shm); for
+  # `large_multi` the processes are split between scale_load_a and the bridged scale_load_b.
+  scale_load_a:
+    <<: *base
+    profiles: [scale]
+    environment:
+      <<: *stats_env
+      SCALE_PROCESSES: ${SCALE_PROCESSES:-10}
+      SCALE_TOPICS: ${SCALE_TOPICS:-100}
+      SCALE_FIRST: ${SCALE_A_FIRST:-0}
+      SCALE_LAST: ${SCALE_A_LAST:-}
+    ipc: shareable
+    shm_size: 2gb
+    command: bash /ws/docker/scale_load.sh
+  scale_load_b:
+    <<: *base
+    profiles: [scale]
+    environment:
+      <<: *stats_env
+      SCALE_PROCESSES: ${SCALE_PROCESSES:-10}
+      SCALE_TOPICS: ${SCALE_TOPICS:-100}
+      SCALE_FIRST: ${SCALE_B_FIRST:-0}
+      SCALE_LAST: ${SCALE_B_LAST:-}
+    shm_size: 2gb
+    command: bash /ws/docker/scale_load.sh
+
+  # Nav2 with the TurtleBot3 simulation, Gazebo headless, no goals: a real system for the scale
+  # verification (Jazzy and Kilted; image target `nav2` of docker/Dockerfile). The initial pose
+  # is published until AMCL takes it, so that the whole navigation stack becomes active.
+  nav2_tb3:
+    <<: *base
+    profiles: [scale]
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      target: nav2
+      args:
+        ROS_DISTRO: ${ROS_DISTRO:-jazzy}
+    image: fastdds_transport_viz:${ROS_DISTRO:-jazzy}-nav2
+    environment:
+      <<: *stats_env
+    ipc: shareable
+    shm_size: 2gb
+    command:
+      - bash
+      - -c
+      - >-
+        ros2 launch nav2_bringup tb3_simulation_launch.py headless:=True use_rviz:=False &
+        sleep 30;
+        for i in 1 2 3; do
+        ros2 topic pub --once /initialpose geometry_msgs/msg/PoseWithCovarianceStamped
+        '{header: {frame_id: map}, pose: {pose: {position: {x: -2.0, y: -0.5}, orientation: {w: 1.0}}}}';
+        sleep 5; done;
+        wait
 
 # IPv6 on the project network so that UDPv6 / DEFAULTv6 can be exercised (Docker >= 27
 # needs no daemon configuration for this).

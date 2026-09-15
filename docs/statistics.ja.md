@@ -1,6 +1,6 @@
 # 実測 transport (`--stats`)
 
-> 英語版が正です。この文書は 2026-09-10 時点の英語版に対応しています。
+> 英語版が正です。この文書は 2026-09-16 時点の英語版に対応しています。
 
 discovery のデータは「こうなる*はず*」を教えてくれます。`--stats` を付けると、ツールは
 [Fast DDS statistics モジュール](https://fast-dds.docs.eprosima.com/en/2.14.x/fastdds/statistics/statistics.html)
@@ -122,6 +122,26 @@ Fast DDS 2.x は `FASTRTPS_DEFAULT_PROFILES_FILE` だけを、Fast DDS 3.x は
 Fast DDS はプロファイルファイルを 1 つしか読みません。data-sharing を `--stats` で観測するときは、
 このファイルと `datasharing_auto.xml` を結合した `datasharing_auto_stats.xml` を使います。
 (ツール自身の statistics reader は最初からインスタンス数無制限です。)
+
+## 大規模なシステム
+
+Docker の 8 CPU の VM で Jazzy (Fast DDS 2.14.6) を使い、すべてのノードで statistics を有効にし、
+ツールをノードと同じ場所で動かして測りました (詳細は [development.md](development.md#scale-results))。
+
+- **約 10 プロセス、500 ペアまで**は取りこぼしが無く、既定の 5 秒ですべてのペアが実測されます。
+- **約 20 プロセス、2400 ペアから**ツールが statistics のサンプルを落とし始め、5 秒後に実測の無い
+  ペアが約 4 分の 1 残ります。
+- **40 プロセス、5600 ペア**ではほとんどのペアが実測されません。
+
+ツールは statistics をすべて UDP で受け取り、Fast DDS はそれを 1 本の受信スレッドで処理します。
+Nav2 (4 participant、1195 ペア) の隣でも、このスレッドだけで 1 コアを使い切ります。追いつけなく
+なると、送信側の keep-last の履歴が届く前のサンプルを上書きします。
+
+ツールは失われた statistics のサンプルをまだ表示しません ([#134](https://github.com/atinfinity/fastdds_transport_viz/issues/134))。そのため大規模な
+システムでは、`no-traffic-observed` が「実測できなかった」の意味にもなり得ます。見る範囲を絞ってください:
+- 見たいノードでだけ statistics を有効にする;
+- `FASTDDS_STATISTICS` を必要な別名 (例: `RTPS_SENT_TOPIC;RTPS_LOST_TOPIC`) に絞る;
+- `--stats` に長めの `--timeout` を渡す。
 
 ## 実装メモ
 
