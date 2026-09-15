@@ -162,6 +162,7 @@ classDiagram
         unicast, multicast locators
         EndpointQos qos
         datasharing_history_bytes
+        buffer_parent_guid, buffer_companion_guids
     }
     class TopicSummary {
         display_topic, display_type

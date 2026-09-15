@@ -66,6 +66,13 @@ instead: the samples arrived, the statistics just did not attribute the packets 
 slow machines with 2 MB samples over SHM and the default 512 KB segment; a larger
 `segment_size` in the SHM transport descriptor helps).
 
+The per-entity counters (`HISTORY_LATENCY`, `DATA_COUNT`, `RESENT_DATAS`,
+`HEARTBEAT_COUNT`, `GAP_COUNT`, `ACKNACK_COUNT`, `NACKFRAG_COUNT`,
+`PUBLICATION_THROUGHPUT`) of a writer or reader include those of its native-buffer
+companion on `<topic>/_buf_cpu` (`rmw_fastrtps_cpp` on Lyrical and later), which carries
+the samples of types with an unbounded `uint8[]` field; see
+[Native-buffer companion topics](how-it-works.md#native-buffer-companion-topics).
+
 ## Pitfall: the 10-instance limit
 
 Fast DDS 2.14 creates the statistics DataWriters with the default resource limit of

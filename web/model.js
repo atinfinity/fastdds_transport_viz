@@ -32,6 +32,21 @@
     return doc;
   }
 
+  /**
+   * A native-buffer companion topic (`<topic>/_buf_cpu` of rmw_fastrtps_cpp) whose every
+   * endpoint transport_viz folded into a writer or reader of the parent topic
+   * (`buffer_parent_guid`): its counters are already in the parent's pairs.
+   */
+  function isFoldedBufferCompanion(topic) {
+    const eps = [...(topic.writers || []), ...(topic.readers || [])];
+    return eps.length > 0 && eps.every(ep => !!ep.buffer_parent_guid);
+  }
+
+  /** What "hide ROS internal topics" hides: /parameter_events, /rosout and folded companion topics. */
+  function isInternalTopic(topic) {
+    return INTERNAL_TOPICS.has(topic.topic) || isFoldedBufferCompanion(topic);
+  }
+
   /** Flatten the document into nodes, hosts and pairs with resolved endpoints. */
   function buildModel(doc) {
     const nodes = new Map();      // key -> {id, name, host, process, pubs:[], subs:[], unmatched:[]}
@@ -98,7 +113,7 @@
     const re = filterRegex(f.topic);
     const nre = filterRegex(f.node);
     return model.pairs.filter(({ topic, pair, writerNode, readerNode }) => {
-      if (f.hideInternal && INTERNAL_TOPICS.has(topic.topic)) return false;
+      if (f.hideInternal && isInternalTopic(topic)) return false;
       if (!f.transports.has(pair.transport)) return false;
       if (re && !re.test(topic.topic)) return false;
       if (nre && !nre.test(writerNode) && !nre.test(readerNode)) return false;
@@ -396,6 +411,6 @@
     return { ...model, nodes, hosts };
   }
 
-  return { TRANSPORTS, INTERNAL_TOPICS, UNKNOWN_NODE_NAME, normalizeDocument, buildModel, filterRegex, visiblePairs, visibleNodesModel, bundle, humanBytes, humanSeconds, measuredText, rateText, latencyText, lossText, escapeHtml, codeListHtml, shmText,
+  return { TRANSPORTS, INTERNAL_TOPICS, UNKNOWN_NODE_NAME, isFoldedBufferCompanion, isInternalTopic, normalizeDocument, buildModel, filterRegex, visiblePairs, visibleNodesModel, bundle, humanBytes, humanSeconds, measuredText, rateText, latencyText, lossText, escapeHtml, codeListHtml, shmText,
     pairKey, keyId, pairState, sameState, diffDocuments, changeText, changesSummary, decorations, holdChanges, heldDecorations, markedPairs, pruneNodes };
 });

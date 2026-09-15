@@ -6,8 +6,8 @@ import sys
 
 sys.path.insert(0, os.path.dirname(__file__))
 from _common import (  # noqa: E402
-    Base, description, node_action, pair_of, skip_without_statistics, STATS_ENV,
-    transport_viz_json)
+    Base, description, HAS_NATIVE_BUFFERS, node_action, pair_of, skip_without_statistics,
+    STATS_ENV, topic, transport_viz_json)
 
 import launch_testing  # noqa: E402
 
@@ -57,6 +57,37 @@ class TestLargeShm(Base):
             self.assertTrue(pair['measured']['delivered'], (pair, sent))
             self.assertIn('delivered-without-measured-traffic', pair['warnings'], (pair, sent))
             print('NOTE: SHM traffic not measured on this machine; writer RTPS_SENT:', sent)
+
+    def test_native_buffer_companion_is_folded_into_the_parent_pair(self):
+        doc = None
+        for _ in range(5):
+            doc = transport_viz_json(['--stats', '--all'], timeout=8.0)
+            t = next((t for t in doc['topics'] if t['topic'] == '/large_array'), None)
+            if t and len(t['pairs']) == 1 and t['pairs'][0]['measured']['delivered']:
+                break
+        parent, pair = pair_of(doc, '/large_array')
+        companions = [t['topic'] for t in doc['topics'] if t['topic'].endswith('/_buf_cpu')]
+        buffer_codes = [c for c in pair['reasons'] if c.startswith('buffer-companion')]
+        if not HAS_NATIVE_BUFFERS:
+            self.assertEqual(companions, [], doc['topics'])
+            self.assertEqual(buffer_codes, [], pair)
+            return
+        self.assertEqual(companions, ['/large_array/_buf_cpu'])
+        companion, companion_pair = pair_of(doc, '/large_array/_buf_cpu')
+        self.assertEqual(buffer_codes, ['buffer-companion-folded'], pair)
+        self.assertIn('buffer-companion', companion_pair['reasons'])
+        for kind in ('writers', 'readers'):
+            self.assertEqual(
+                companion[kind][0]['buffer_parent_guid'], parent[kind][0]['guid'], companion)
+        # the samples go through the companions only: the parent pair shows them folded in
+        self.assertTrue(pair['measured']['delivered'], (pair, companion_pair))
+        self.assertGreaterEqual(
+            pair['measured']['delivered_samples'],
+            companion_pair['measured']['delivered_samples'])
+        # the default view leaves the folded companion topic out
+        doc = transport_viz_json(timeout=4.0)
+        topic(doc, '/large_array')
+        self.assertNotIn('/large_array/_buf_cpu', [t['topic'] for t in doc['topics']])
 
 
 @launch_testing.post_shutdown_test()

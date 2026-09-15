@@ -63,6 +63,12 @@ reader のノードのリンクに対するものです。個々のペアを区�
 帰属させなかったということです (遅いマシンで 2 MB のサンプルを既定の 512 KB セグメントの SHM で
 流したときに見られました。SHM transport descriptor の `segment_size` を大きくすると改善します)。
 
+writer や reader 単位のカウンタ (`HISTORY_LATENCY`、`DATA_COUNT`、`RESENT_DATAS`、
+`HEARTBEAT_COUNT`、`GAP_COUNT`、`ACKNACK_COUNT`、`NACKFRAG_COUNT`、`PUBLICATION_THROUGHPUT`) には、
+`<topic>/_buf_cpu` 上の native buffer のコンパニオン (Lyrical 以降の `rmw_fastrtps_cpp`。上限の無い
+`uint8[]` フィールドを持つ型のサンプルを運ぶ) の値も含まれます。
+[native buffer のコンパニオントピック](how-it-works.ja.md#native-buffer-のコンパニオントピック) を参照してください。
+
 ## 落とし穴: 10 インスタンスの上限
 
 Fast DDS 2.14 は statistics の DataWriter を既定のリソース上限 (10 インスタンス) で作ります。

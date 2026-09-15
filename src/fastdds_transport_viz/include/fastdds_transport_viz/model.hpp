@@ -112,6 +112,11 @@ struct Endpoint
   // seen in the tool's /dev/shm: Visible / NotVisible only for the tool's host id and a
   // listed directory. Internal, not in the JSON.
   ShmVisibility datasharing_segment_visibility{ShmVisibility::Unprobed};
+  // rmw_fastrtps_cpp native buffers (Lyrical and later): the companion endpoint on
+  // <topic>/_buf_cpu names the writer / reader of the parent topic it carries the data of,
+  // and the parent lists its companions (internal, not in the JSON)
+  std::string buffer_parent_guid;
+  std::vector<std::string> buffer_companion_guids;
 };
 
 enum class Transport

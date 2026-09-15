@@ -15,7 +15,8 @@ VALIDATOR = (
 
 REPO = pathlib.Path(__file__).resolve().parents[3]
 SCHEMA = REPO / 'schema' / 'transport_viz.schema.json'
-SAMPLES = sorted((REPO / 'web' / 'sample').glob('*.json'))
+SAMPLES = (sorted((REPO / 'web' / 'sample').glob('*.json')) +
+           sorted((REPO / 'src' / 'fastdds_transport_viz' / 'test' / 'fixtures').glob('*.json')))
 
 
 def load(path):

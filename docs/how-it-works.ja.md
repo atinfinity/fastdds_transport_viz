@@ -80,6 +80,24 @@ statistics が無ければ 3 つの列とも `-` です。ペア行の `measured
 `--json` は `reason_code_remedies` (`reason_code_descriptions` と同じキー、対処なしは `null`) に、
 web viewer は説明の下に表示します。説明文自体には対処を含めないので、それぞれ 1 回だけ現れます。
 
+### native buffer のコンパニオントピック
+
+Lyrical 以降の `rmw_fastrtps_cpp` は、上限の無い `uint8[]` フィールドを持つ型
+(`std_msgs/msg/UInt8MultiArray`、`sensor_msgs/msg/Image` など) の writer と reader のそれぞれに、同じ
+participant 内で `<topic>/_buf_cpu` 上のコンパニオンを作ります ("native buffers")。トピックのすべての
+subscription が native buffer に対応していると、サンプルはコンパニオンだけを通るので、親のペア単体では
+DATA サブメッセージもハートビートも配送も見えません。ツールは各コンパニオンを親 (同じ participant、
+同じ種別、同じ型、`/_buf_cpu` を除いたトピック名。候補が複数ある場合は、rmw が親の直後に割り当てる
+entity key で見分ける) に結び付け、コンパニオンの statistics カウンタを親のペアに加算します。対象は
+配送サンプル数、DATA サブメッセージ、再送、ハートビート、GAP、ACKNACK、NACKFRAG、スループット、遅延です。
+`RTPS_SENT` と `RTPS_LOST` は participant 単位なので、もともと両方を含みます。親のペアには
+`buffer-companion-folded` が付き、判定ルールは変わりません。コンパニオンのトピックは
+`buffer-companion` 付きで自身の値を保ち、そのすべての endpoint が結び付いていれば `--all` の無い出力
+からは除かれます。結び付けられないコンパニオンは `buffer-companion-unmatched` 付きで表示されたままです。
+JSON では結び付いたコンパニオンの endpoint が `buffer_parent_guid` に親を示します。
+`rmw_fastrtps_dynamic_cpp` はコンパニオンを作らず、Humble と Jazzy ではどの RMW も作りません
+([#119](https://github.com/atinfinity/fastdds_transport_viz/issues/119))。
+
 判定ロジックは `src/fastdds_transport_viz/src/decision.cpp` に DDS 依存の無い純粋関数として
 実装され、`test/test_decision.cpp` でテストされています。
 

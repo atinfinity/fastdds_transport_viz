@@ -225,6 +225,10 @@
         "ros_type": {
           "type": "string"
         },
+        "buffer_parent_guid": {
+          "type": "string",
+          "description": "rmw_fastrtps_cpp native-buffer companion (<topic>/_buf_cpu): the guid of the writer or reader of the parent topic whose samples it carries; absent for other endpoints"
+        },
         "unicast_locators": {
           "type": "array",
           "items": {

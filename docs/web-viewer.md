@@ -84,7 +84,8 @@ clears, like the CLI's `--watch`.
 
 The filters
 (topic regex, node regex, transport checkboxes, "hide ROS internal topics" for
-`/parameter_events` and `/rosout`) apply to the graph, the table and the edge panel (the
+`/parameter_events`, `/rosout` and the native-buffer companion topics whose every endpoint
+is folded into the parent topic, `buffer_parent_guid`) apply to the graph, the table and the edge panel (the
 node panel always lists every topic of the node). The node
 filter has the semantics of `--node`: pairs whose writer or reader belongs to a matching
 node stay, the graph keeps the matching nodes (highlighted, even without visible pairs)

@@ -4,6 +4,21 @@ Changelog for package fastdds_transport_viz
 
 Forthcoming
 -----------
+* Native-buffer companions (``rmw_fastrtps_cpp`` on Lyrical and later): a writer or reader
+  of a type with an unbounded ``uint8[]`` field gets a companion on ``<topic>/_buf_cpu`` in
+  the same participant, and when every subscription supports native buffers the samples go
+  through the companions only. The parent pair showed 0 DATA submessages, no heartbeats and
+  no delivery while the data flowed. The tool links each companion to its parent (same
+  participant, kind and type, several candidates told apart by the entity key) and adds the
+  companion's per-entity counters (delivered samples, DATA_COUNT, resends, heartbeats, gaps,
+  acknacks, nackfrags, throughput, latency) to the parent pair, which gets
+  ``buffer-companion-folded``. The companion topic keeps its own numbers with
+  ``buffer-companion`` and is shown only with ``--all`` (and with "hide ROS internal
+  topics" off in the web viewer) when all its endpoints are linked; an unlinked one stays
+  visible with ``buffer-companion-unmatched``. New optional endpoint field
+  ``buffer_parent_guid`` in the JSON (schema version unchanged). A ``diff`` of a capture
+  taken before this change against one taken after it lists the companion pairs as removed
+  unless ``--all`` is given (#119).
 * Split IPC namespaces seen from one side's namespace (``shm-reader-port-not-visible`` /
   ``shm-writer-port-not-visible``): a participant counts as listening in the tool's
   namespace when every SHM port of it is held there and one of them is announced by no

@@ -171,6 +171,12 @@ way and highlights the result. Details in
   (their SHM ports or data-sharing segments are only half there). Otherwise the pair stays
   `SHM` or `DATA_SHARING` and only `shm-not-visible` in the shared-memory line hints at it
   ([#101](https://github.com/atinfinity/fastdds_transport_viz/issues/101), [#110](https://github.com/atinfinity/fastdds_transport_viz/issues/110)).
+- **Native-buffer companions.** On Lyrical and later `rmw_fastrtps_cpp` sends the samples
+  of types with an unbounded `uint8[]` field over a companion topic `<topic>/_buf_cpu`. The
+  tool adds the companion's counters to the parent pair (`buffer-companion-folded`) and shows
+  the companion topic only with `--all`; a companion it cannot link to its parent stays
+  visible with `buffer-companion-unmatched`, and its parent pair then shows no traffic of its
+  own ([#119](https://github.com/atinfinity/fastdds_transport_viz/issues/119)).
 
 ## License
 

@@ -138,6 +138,7 @@ Endpoint endpoint(const json & j, bool is_writer, const std::string & where)
   e.node_name = normalize_node_name(at(j, "node", where).get<std::string>());
   e.host_name = j.value("host_name", "");
   e.process = j.value("process", "");
+  e.buffer_parent_guid = j.value("buffer_parent_guid", "");
   e.dds_topic = at(j, "dds_topic", where).get<std::string>();
   e.dds_type = at(j, "dds_type", where).get<std::string>();
   e.ros_topic = at(j, "ros_topic", where).get<std::string>();
@@ -339,9 +340,15 @@ Snapshot snapshot(const json & doc)
     }
     refs.push_back(std::move(r));
   }
-  std::map<std::string, const Endpoint *> by_guid;
-  for (const auto & e : snap.endpoints) {
+  std::map<std::string, Endpoint *> by_guid;
+  for (auto & e : snap.endpoints) {
     by_guid[e.guid] = &e;
+  }
+  for (const auto & e : snap.endpoints) {
+    auto parent = by_guid.find(e.buffer_parent_guid);
+    if (!e.buffer_parent_guid.empty() && parent != by_guid.end()) {
+      parent->second->buffer_companion_guids.push_back(e.guid);
+    }
   }
   size_t i = 0;
   for (const auto & tj : topics) {

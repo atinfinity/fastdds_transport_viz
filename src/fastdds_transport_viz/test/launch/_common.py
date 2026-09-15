@@ -63,6 +63,12 @@ skip_without_discovery_range = unittest.skipUnless(
 HAS_EASY_MODE = os.environ.get('ROS_DISTRO') in ('kilted', 'lyrical', 'rolling')
 skip_without_easy_mode = unittest.skipUnless(
     HAS_EASY_MODE, 'ROS2_EASY_MODE needs Fast DDS >= 3.2 (ROS 2 Kilted or later)')
+# rmw_fastrtps_cpp native buffers (Lyrical and Rolling): a type with an unbounded uint8[]
+# field gets companion writers and readers on <topic>/_buf_cpu; rmw_fastrtps_dynamic_cpp
+# creates none
+RMW = os.environ.get('RMW_IMPLEMENTATION', 'rmw_fastrtps_cpp')
+HAS_NATIVE_BUFFERS = (
+    os.environ.get('ROS_DISTRO') in ('lyrical', 'rolling') and RMW == 'rmw_fastrtps_cpp')
 
 
 def udpv4_only_env():

@@ -88,6 +88,26 @@ them as `reason_code_remedies` (same keys as `reason_code_descriptions`, `null` 
 the web viewer shows them under the descriptions. Descriptions themselves no longer
 contain remedies, so each is said once.
 
+### Native-buffer companion topics
+
+On Lyrical and later, `rmw_fastrtps_cpp` gives every writer and reader of a type with an
+unbounded `uint8[]` field (`std_msgs/msg/UInt8MultiArray`, `sensor_msgs/msg/Image`, ...) a
+companion on `<topic>/_buf_cpu` in the same participant ("native buffers"). When every
+subscription of the topic supports native buffers the samples go through the companions
+only, so the parent pair on its own shows no DATA submessage, no heartbeat and no delivery.
+The tool links each companion to its parent (same participant, same kind, same type, the
+topic name without `/_buf_cpu`; several candidates are told apart by the entity key, which
+the rmw allocates right after the parent's) and adds the companion's statistics counters to
+the parent pair: delivered samples, DATA submessages, resends, heartbeats, gaps, acknacks,
+nackfrags, throughput and latency. `RTPS_SENT` and `RTPS_LOST` are per participant and
+already cover both. The parent pair carries `buffer-companion-folded`; the verdict rules are
+unchanged. The companion topic keeps its own numbers with `buffer-companion` and is left out
+of the output unless `--all` when every endpoint on it is linked. A companion the tool cannot
+link stays visible with `buffer-companion-unmatched`. In JSON a linked companion endpoint
+names its parent in `buffer_parent_guid`. `rmw_fastrtps_dynamic_cpp` creates no companions,
+and neither does any RMW on Humble or Jazzy
+([#119](https://github.com/atinfinity/fastdds_transport_viz/issues/119)).
+
 The decision logic lives in `src/fastdds_transport_viz/src/decision.cpp` as pure
 functions with no DDS dependency, and is covered by `test/test_decision.cpp`.
 

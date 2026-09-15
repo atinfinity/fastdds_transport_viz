@@ -31,10 +31,28 @@ std::vector<std::string> qos_incompatibilities(const Endpoint & writer, const En
 /// gives NONE with the warning shm-ipc-namespace-split.
 Verdict decide(const Endpoint & writer, const Endpoint & reader);
 
+/// Suffix of the companion topic rmw_fastrtps_cpp (Lyrical and later) creates for a type
+/// with an unbounded uint8[] field: the samples go there whenever every subscription of
+/// the topic supports native buffers, and the parent topic stays silent.
+inline constexpr const char * kBufferCompanionSuffix = "/_buf_cpu";
+
+/// Link every endpoint on <topic>/_buf_cpu to the writer (reader) of <topic> it belongs to:
+/// same participant, same kind, same type. Several candidates are told apart by the entity
+/// key, which the rmw allocates right after the parent's; a companion that stays ambiguous
+/// or has no parent is left unlinked. Sets Endpoint::buffer_parent_guid and
+/// Endpoint::buffer_companion_guids; call it on every discovered endpoint, before filtering.
+void link_buffer_companions(std::vector<Endpoint> & endpoints);
+
 /// Build topic summaries (writer x reader pairs + verdicts) from endpoints.
 /// Endpoints are grouped by DDS topic name; writers and readers with
 /// different type names are not paired and produce a warning on the topic.
+/// Pairs (or, without pairs, topics) of linked endpoints get buffer-companion-folded
+/// (parent) or buffer-companion (companion), unlinked companions buffer-companion-unmatched.
 std::vector<TopicSummary> summarize(const std::vector<Endpoint> & endpoints);
+
+/// Whether the default view (without --all) shows the topic: a ROS topic ("rt/" prefix)
+/// that is not a companion topic whose every endpoint is folded into its parent.
+bool in_default_view(const TopicSummary & topic);
 
 /// --node filter, applied after summarize(): keeps the pairs whose writer or reader
 /// belongs to a node accepted by `node_matches`, every endpoint of such nodes (paired or
@@ -46,7 +64,9 @@ void filter_by_node(
 
 /// Overlay statistics-module measurements on the predicted verdicts:
 /// fills Pair::measured, upgrades confidence, and adds reason / warning codes
-/// (e.g. measured-transport-mismatch). Pure function.
+/// (e.g. measured-transport-mismatch). The per-entity counters of a writer or reader
+/// include those of its native-buffer companions (Endpoint::buffer_companion_guids).
+/// Pure function.
 void apply_stats(std::vector<TopicSummary> & topics, const StatsData & stats);
 
 /// Key and highlight-relevant state of a pair.

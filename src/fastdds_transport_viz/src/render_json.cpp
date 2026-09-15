@@ -57,7 +57,7 @@ json measured_locators_json(const std::vector<MeasuredLocator> & ls)
 
 json endpoint_json(const Snapshot & snap, const Endpoint & e, const RenderOptions & opt)
 {
-  return json{
+  json j{
     {"guid", e.guid},
     {"participant_guid_prefix", e.participant_guid_prefix},
     {"host_id", host_id_hex(e.host_id)},
@@ -86,6 +86,10 @@ json endpoint_json(const Snapshot & snap, const Endpoint & e, const RenderOption
         {"partitions", e.qos.partitions},
       }},
   };
+  if (!e.buffer_parent_guid.empty()) {
+    j["buffer_parent_guid"] = e.buffer_parent_guid;
+  }
+  return j;
 }
 }  // namespace
 
