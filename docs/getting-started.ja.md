@@ -1,6 +1,6 @@
 # はじめに
 
-> 英語版が正です。この文書は 2026-09-13 時点の英語版に対応しています。
+> 英語版が正です。この文書は 2026-09-16 時点の英語版に対応しています。
 
 このページでは、素の ROS 2 環境から、最初の `ros2 transport list`、statistics、web viewer
 までを通します。動作環境は Linux です。ツールは Fast DDS を観測するので、観測対象のノードは
@@ -50,7 +50,7 @@ source install/setup.bash
 ```
 docker compose build
 docker compose run --rm dev bash
-colcon build --symlink-install && source install/setup.bash
+colcon build --symlink-install && source build/$ROS_DISTRO/install/setup.bash
 ```
 
 このページの残りはそのシェルの中でも同じように動きます。コンテナはネットワーク名前空間が
@@ -166,7 +166,7 @@ participant: unset FASTDDS_BUILTIN_TRANSPORTS ...`)。`ros2 transport codes` は
 
 | 症状 | 確認すること |
 |---|---|
-| `ros2: error: argument Call ... invalid choice: 'transport'` | このシェルで `source install/setup.bash` したか。`ros2transport` が同じワークスペースでビルドされているか。 |
+| `ros2: error: argument Call ... invalid choice: 'transport'` | このシェルで `source install/setup.bash` (Docker イメージでは `build/$ROS_DISTRO/install/setup.bash`) したか。`ros2transport` が同じワークスペースでビルドされているか。 |
 | `RMW is rmw_cyclonedds_cpp; this tool observes Fast DDS ...` (exit 1) | ツールは Fast DDS でしか動きません。ツールを実行するシェルで `RMW_IMPLEMENTATION=rmw_fastrtps_cpp` (または `rmw_fastrtps_dynamic_cpp`) を設定する (既定が Fast DDS の distro なら未設定でもよい)。 |
 | トピックが 1 つも出ない | ノードと同じ `ROS_DOMAIN_ID` か。`ROS_AUTOMATIC_DISCOVERY_RANGE=OFF` は各 participant を自分だけに限定する。Discovery Server 使用時はツールにも同じ `ROS_DISCOVERY_SERVER` が必要 (自動で SUPER_CLIENT になる)。 |
 | 別マシンのノードが出ない | 相手のマシンにマルチキャストで届くか、`ROS_STATIC_PEERS` に列挙するか、双方が Discovery Server を使う。[development.md](development.md#two-physical-hosts) (英語) 参照。 |

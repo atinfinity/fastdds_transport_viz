@@ -73,7 +73,7 @@ The same run opened in the [web viewer](web-viewer.md) (table view):
 ```
 docker compose build
 docker compose run --rm dev bash
-colcon build --symlink-install && source install/setup.bash
+colcon build --symlink-install && source build/$ROS_DISTRO/install/setup.bash
 
 ros2 run demo_nodes_cpp talker &
 ros2 run demo_nodes_cpp listener &

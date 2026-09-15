@@ -15,7 +15,7 @@ docker compose build dev >/dev/null
 # files in docs/images stay owned by the user running this script.
 docker compose run --rm -T dev bash -c '
 set -e
-colcon build --symlink-install > /dev/null && source install/setup.bash
+colcon build --symlink-install > /dev/null && source "build/$ROS_DISTRO/install/setup.bash"
 CFG=$(ros2 pkg prefix fastdds_transport_viz)/share/fastdds_transport_viz/config
 STATS="RTPS_SENT_TOPIC;RTPS_LOST_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC;DATA_COUNT_TOPIC;PUBLICATION_THROUGHPUT_TOPIC;RESENT_DATAS_TOPIC;HEARTBEAT_COUNT_TOPIC;ACKNACK_COUNT_TOPIC;NACKFRAG_COUNT_TOPIC;GAP_COUNT_TOPIC"
 export FASTDDS_STATISTICS="$STATS"
