@@ -106,6 +106,10 @@ class TestStats(Base):
         self.assertEqual(chatter['lost_packets'], 0, chatter)
         self.assertIsInstance(chatter['resent_datas'], int)
         self.assertIsInstance(doc['stats']['lost'], list)
+        for entry in doc['stats']['lost']:
+            for key in ('reporter_participant_guid_prefix', 'src_participant_guid_prefix',
+                        'dst_locator', 'packets', 'packets_first'):
+                self.assertIn(key, entry)
 
     def test_statistics_sources_are_the_publishers(self):
         """

@@ -273,13 +273,18 @@ std::string human_seconds(double seconds)
   return buf;
 }
 
-/// "3 lost, 2 resent" / "0" for the LOSS column, "-" without counters.
-std::string loss_label(bool available, uint64_t lost, uint64_t resent)
+/// "3 lost, 2 resent" / "0" for the LOSS column, "-" without counters, "- lost" when only
+/// RTPS_LOST is missing (the reader's participant does not publish it).
+std::string loss_label(bool available, bool lost_available, uint64_t lost, uint64_t resent)
 {
   if (!available) {return "-";}
-  if (lost == 0 && resent == 0) {return "0";}
+  if (lost_available && lost == 0 && resent == 0) {return "0";}
   std::string s;
-  if (lost) {s += std::to_string(lost) + " lost";}
+  if (!lost_available) {
+    s += "- lost";
+  } else if (lost) {
+    s += std::to_string(lost) + " lost";
+  }
   if (resent) {s += (s.empty() ? "" : ", ") + std::to_string(resent) + " resent";}
   return s;
 }
@@ -474,7 +479,9 @@ std::string render_table(const Snapshot & snap, const RenderOptions & opt)
       aggregate_transports(t, color),
       rate_label(snap.stats.enabled && t.throughput_available, t.throughput),
       latency_label(snap.stats.enabled && t.latency_available, t.latency, t.latency, false),
-      loss_label(snap.stats.enabled && t.reliability_available, t.lost_packets, t.resent),
+      loss_label(
+        snap.stats.enabled && t.reliability_available, t.lost_available, t.lost_packets,
+        t.resent),
       aggregate_reasons(t, color)};
     if (watch) {row.insert(row.begin(), mark_cell(topic_mark(t, *watch), color));}
     rows.push_back(row);
@@ -547,7 +554,8 @@ std::string render_table(const Snapshot & snap, const RenderOptions & opt)
         row.push_back(
           loss_label(
             snap.stats.enabled && p.measured.reliability.available,
-            p.measured.reliability.lost_packets, p.measured.reliability.resent));
+            p.measured.reliability.lost_available, p.measured.reliability.lost_packets,
+            p.measured.reliability.resent));
         if (snap.stats.enabled) {
           row.push_back("measured=" + measured_label(p));
         }

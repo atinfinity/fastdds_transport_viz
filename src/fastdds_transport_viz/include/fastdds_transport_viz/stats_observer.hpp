@@ -85,7 +85,10 @@ private:
   std::mutex mutex_;
   using TrafficKey = std::tuple<std::string, int, std::string, uint32_t>;  // src, kind, addr, port
   std::map<TrafficKey, TrafficSample> traffic_;
-  std::map<TrafficKey, TrafficSample> lost_;
+  // reporter, src, kind, addr, port: two receivers of one multicast group report the same
+  // (src, dst)
+  using LostKey = std::tuple<std::string, std::string, int, std::string, uint32_t>;
+  std::map<LostKey, TrafficSample> lost_;
   StatsData data_;
 };
 

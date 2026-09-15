@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Multi-container integration tests (run on the Docker host, not inside a container).
 #
-#   scripts/integration_test.sh [multi_container|stats_multi_container|hostnet_shm|hostnet_noipc_shm|hostnet_split_shm|hostnet_split_shm_visible|hostnet_split_shm_shared_port|hostnet_split_stats|hostnet_split_datasharing|hostnet_split_datasharing_udp|large_data_tcp|udpv6_multi_container|easy_mode_shm|easy_mode_tcp|all]
+#   scripts/integration_test.sh [multi_container|stats_multi_container|stats_loss_multi_container|hostnet_shm|hostnet_noipc_shm|hostnet_split_shm|hostnet_split_shm_visible|hostnet_split_shm_shared_port|hostnet_split_stats|hostnet_split_datasharing|hostnet_split_datasharing_udp|large_data_tcp|udpv6_multi_container|easy_mode_shm|easy_mode_tcp|all]
 #
 #   multi_container        talker and listener in two bridged containers (separate
 #                          network and IPC namespaces => different Fast DDS host ids).
@@ -9,6 +9,11 @@
 #   stats_multi_container  same, nodes started with FASTDDS_STATISTICS and transport_viz
 #                          run with --stats. Expect measured UDPv4 and two different
 #                          PHYSICAL_DATA host names.
+#   stats_loss_multi_container  same with NET_ADMIN and a 20 Hz talker; tc netem drops 30% of
+#                          one node's packets to the other at a time (skipped on Humble).
+#                          Expect no lost packets on /chatter while the listener drops, lost
+#                          packets and rtps-packets-lost while the talker does (RTPS_LOST,
+#                          #122).
 #   hostnet_shm            talker and listener in two containers that share the Docker
 #                          host's network and IPC namespaces (same host id, same
 #                          /dev/shm). Expect /chatter = SHM, reason "same-host-guid".
@@ -135,6 +140,28 @@ elif scenario == 'stats_multi_container':
     assert set(doc['stats']['participants_with_stats']) == {
         w['participant_guid_prefix'], r['participant_guid_prefix']}, (w, r, doc['stats'])
     print(f"PASS: --stats measured UDPv4 between hosts {p['writer_host']} and {p['reader_host']}")
+elif scenario in ('stats_loss_listener_drops', 'stats_loss_talker_drops'):
+    # RTPS_LOST is published by the receiving participant: only the talker's drops are the
+    # pair's loss, the listener's (its ACKNACKs) are the talker's to report (#122)
+    assert doc['stats']['enabled'] and doc['stats']['samples'] > 0, doc['stats']
+    assert p['transport'] == 'UDPv4', p
+    assert (p['writer_node'], p['reader_node']) == ('/talker', '/listener'), p
+    rel = p['measured']['reliability']
+    assert rel is not None and rel['lost_packets'] is not None, p   # the listener publishes RTPS_LOST
+    w, r = chatter['writers'][0], chatter['readers'][0]
+    reports = [l for l in doc['stats']['lost']
+               if l['reporter_participant_guid_prefix'] == r['participant_guid_prefix']
+               and l['src_participant_guid_prefix'] == w['participant_guid_prefix']]
+    if scenario == 'stats_loss_listener_drops':
+        assert rel['lost_packets'] == 0, (p, reports)
+        assert 'rtps-packets-lost' not in p['warnings'], p
+        assert chatter['lost_packets'] == 0, chatter
+        print('PASS: the listener dropping its packets to the talker is no loss of /chatter')
+    else:
+        assert rel['lost_packets'] > 0, (p, reports)
+        assert 'rtps-packets-lost' in p['warnings'], p
+        assert chatter['lost_packets'] == rel['lost_packets'], chatter
+        print(f"PASS: the talker dropping its packets to the listener: /chatter lost {rel['lost_packets']} packets")
 elif scenario == 'large_data_tcp':
     assert doc['stats']['enabled'] and doc['stats']['samples'] > 0, doc['stats']
     assert p['transport'] == 'TCPv4', p
@@ -289,6 +316,39 @@ scenario_stats_multi_container() {
     echo "-- attempt $attempt: statistics incomplete, retrying"
   done
   return 1
+}
+
+scenario_stats_loss_multi_container() {
+  if [ "${ROS_DISTRO:-jazzy}" = humble ]; then
+    echo "SKIP: stats_loss_multi_container needs the Fast DDS statistics module (Jazzy or newer)"
+    return 0
+  fi
+  echo "== starting talker_stats_loss / listener_stats_loss containers"
+  docker compose up -d talker_stats_loss listener_stats_loss
+  sleep 3
+  local phase peer out attempt ok
+  for phase in listener talker; do
+    if [ "$phase" = listener ]; then peer=talker; else peer=listener; fi
+    out="$out_dir/transport_viz_stats_loss_multi_container_$phase.json"
+    echo "== dropping 30% of the ${phase}'s packets to the ${peer} (tc netem)"
+    # only the packets to the other node: dropping the whole egress also loses the discovery
+    # and statistics the tool needs, which a 6 s observation does not always recover from
+    docker compose exec -T "${phase}_stats_loss" bash -c "
+      set -e
+      peer=\$(getent ahostsv4 ${peer}_stats_loss | awk 'NR==1{print \$1}')
+      tc qdisc add dev eth0 root handle 1: prio
+      tc qdisc add dev eth0 parent 1:3 handle 30: netem loss 30%
+      tc filter add dev eth0 parent 1: protocol ip u32 match ip dst \$peer/32 flowid 1:3"
+    sleep 2
+    ok=
+    for attempt in 1 2 3; do   # counters need a moment to accumulate
+      run_viz dev "$out" --stats
+      if assert "stats_loss_${phase}_drops" "$out"; then ok=1; break; fi
+      echo "-- attempt $attempt: statistics incomplete, retrying"
+    done
+    docker compose exec -T "${phase}_stats_loss" tc qdisc del dev eth0 root
+    [ -n "$ok" ] || return 1
+  done
 }
 
 scenario_large_data_tcp() {
@@ -487,14 +547,14 @@ scenario_easy_mode_tcp() {
 
 build
 case "$scenario" in
-  multi_container|stats_multi_container|hostnet_shm|hostnet_noipc_shm|hostnet_split_shm|hostnet_split_shm_visible|hostnet_split_shm_shared_port|hostnet_split_stats|hostnet_split_datasharing|hostnet_split_datasharing_udp|large_data_tcp|udpv6_multi_container|easy_mode_shm|easy_mode_tcp)
+  multi_container|stats_multi_container|stats_loss_multi_container|hostnet_shm|hostnet_noipc_shm|hostnet_split_shm|hostnet_split_shm_visible|hostnet_split_shm_shared_port|hostnet_split_stats|hostnet_split_datasharing|hostnet_split_datasharing_udp|large_data_tcp|udpv6_multi_container|easy_mode_shm|easy_mode_tcp)
     "scenario_$scenario" ;;
   all)
-    for s in multi_container stats_multi_container hostnet_shm hostnet_noipc_shm hostnet_split_shm hostnet_split_shm_visible hostnet_split_shm_shared_port hostnet_split_stats hostnet_split_datasharing hostnet_split_datasharing_udp large_data_tcp udpv6_multi_container easy_mode_shm easy_mode_tcp; do
+    for s in multi_container stats_multi_container stats_loss_multi_container hostnet_shm hostnet_noipc_shm hostnet_split_shm hostnet_split_shm_visible hostnet_split_shm_shared_port hostnet_split_stats hostnet_split_datasharing hostnet_split_datasharing_udp large_data_tcp udpv6_multi_container easy_mode_shm easy_mode_tcp; do
       echo; echo "#### $s"
       "scenario_$s"
       cleanup
     done ;;
   *)
-    echo "usage: $0 [multi_container|stats_multi_container|hostnet_shm|hostnet_noipc_shm|hostnet_split_shm|hostnet_split_shm_visible|hostnet_split_shm_shared_port|hostnet_split_stats|hostnet_split_datasharing|hostnet_split_datasharing_udp|large_data_tcp|udpv6_multi_container|easy_mode_shm|easy_mode_tcp|all]" >&2; exit 2 ;;
+    echo "usage: $0 [multi_container|stats_multi_container|stats_loss_multi_container|hostnet_shm|hostnet_noipc_shm|hostnet_split_shm|hostnet_split_shm_visible|hostnet_split_shm_shared_port|hostnet_split_stats|hostnet_split_datasharing|hostnet_split_datasharing_udp|large_data_tcp|udpv6_multi_container|easy_mode_shm|easy_mode_tcp|all]" >&2; exit 2 ;;
 esac

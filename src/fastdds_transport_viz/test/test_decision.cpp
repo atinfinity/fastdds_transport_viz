@@ -1523,46 +1523,101 @@ TEST(ApplyStats, ReliabilityCountersAndLostPackets)
   eps.push_back(make(false, HOST_B, {udp4("10.0.0.2", 7413)}));
   eps[0].participant_guid_prefix = "P1";
   eps[1].participant_guid_prefix = "P2";
+  eps[1].multicast = {udp4("239.255.0.1", 7400)};
   auto topics = summarize(eps);
   auto stats = stats_with(eps[0], {TrafficSample{"P1", udp4("10.0.0.2", 7413), 50, 5000.0}});
-  // the reader's participant missed 3 packets from the writer's UDPv4 locator during the window
-  TrafficSample lost{"P2", udp4("10.0.0.1", 7411), 7, 700.0};
-  lost.packets_first = 4;
-  stats.lost.push_back(lost);
-  // another participant
-  stats.lost.push_back(TrafficSample{"P9", udp4("10.0.0.1", 7411), 100, 0.0});
+  stats.statistics_writers.insert({"P2", kStatsRtpsLostTopic});
+  // the reader's participant missed 3 packets from the writer's participant on its unicast
+  // locator during the window
+  stats.lost.push_back(TrafficSample{"P1", udp4("10.0.0.2", 7413), 7, 700.0, 4, 400.0, 2, "P2"});
+  // not counted: the reversed shape (the writer's participant missing packets from the
+  // reader's participant on its own locator) ...
+  stats.lost.push_back(TrafficSample{"P2", udp4("10.0.0.1", 7411), 100, 0.0, 0, 0.0, 2, "P1"});
+  // ... the reader's multicast locator ...
+  stats.lost.push_back(
+    TrafficSample{"P1", udp4("239.255.0.1", 7400), 100, 0.0, 0, 0.0, 2, "P2"});
+  // ... and another receiver of the same locator
+  stats.lost.push_back(TrafficSample{"P1", udp4("10.0.0.2", 7413), 100, 0.0, 0, 0.0, 2, "P9"});
   stats.resent_datas[eps[0].guid] = DataCountSample{10, 12, 2};
   stats.heartbeats[eps[0].guid] = DataCountSample{0, 40, 5};
   stats.gaps[eps[0].guid] = DataCountSample{1, 1, 2};
   stats.acknacks[eps[1].guid] = DataCountSample{5, 9, 3};
   stats.nackfrags[eps[1].guid] = DataCountSample{0, 0, 1};
   apply_stats(topics, stats);
-  const auto & r = topics[0].pairs[0].measured.reliability;
-  EXPECT_TRUE(r.available);
-  EXPECT_EQ(r.lost_packets, 3u);
-  EXPECT_EQ(r.resent, 2u);
-  EXPECT_EQ(r.heartbeats, 40u);
-  EXPECT_EQ(r.gaps, 0u);
-  EXPECT_EQ(r.acknacks, 4u);
-  EXPECT_EQ(r.nackfrags, 0u);
-  EXPECT_TRUE(has(topics[0].pairs[0].verdict.warnings, "rtps-packets-lost"));
-  EXPECT_TRUE(topics[0].reliability_available);
-  EXPECT_EQ(topics[0].lost_packets, 3u);
-  EXPECT_EQ(topics[0].resent, 2u);
+  {
+    const auto & r = topics[0].pairs[0].measured.reliability;
+    EXPECT_TRUE(r.available);
+    EXPECT_TRUE(r.lost_available);
+    EXPECT_EQ(r.lost_packets, 3u);
+    EXPECT_EQ(r.resent, 2u);
+    EXPECT_EQ(r.heartbeats, 40u);
+    EXPECT_EQ(r.gaps, 0u);
+    EXPECT_EQ(r.acknacks, 4u);
+    EXPECT_EQ(r.nackfrags, 0u);
+    EXPECT_TRUE(has(topics[0].pairs[0].verdict.warnings, "rtps-packets-lost"));
+    EXPECT_TRUE(topics[0].reliability_available);
+    EXPECT_TRUE(topics[0].lost_available);
+    EXPECT_EQ(topics[0].lost_packets, 3u);
+    EXPECT_EQ(topics[0].resent, 2u);
+  }
 
-  // loopback: the writer next to the tool is announced as 127.0.0.1, the remote reader
-  // reports the real address
-  eps[0].unicast = {udp4("127.0.0.1", 7411)};
+  // two pairs between the same participants: the loss belongs to the participant pair, so
+  // both pairs show it and the topic counts it once
+  eps.push_back(make(true, HOST_A, {udp4("10.0.0.1"), shm(7415)}));
+  eps[2].participant_guid_prefix = "P1";
   topics = summarize(eps);
-  stats.local_addresses = {"10.0.0.1"};
+  apply_stats(topics, stats);
+  ASSERT_EQ(topics[0].pairs.size(), 2u);
+  for (const auto & p : topics[0].pairs) {
+    EXPECT_EQ(p.measured.reliability.lost_packets, 3u);
+    EXPECT_TRUE(has(p.verdict.warnings, "rtps-packets-lost"));
+  }
+  EXPECT_EQ(topics[0].lost_packets, 3u);
+  eps.pop_back();
+
+  // loopback: the reader next to the tool is announced as 127.0.0.1, the remote writer
+  // addresses its real address
+  eps[1].unicast = {udp4("127.0.0.1", 7413)};
+  topics = summarize(eps);
+  stats.local_addresses = {"10.0.0.2"};
   apply_stats(topics, stats);
   EXPECT_EQ(topics[0].pairs[0].measured.reliability.lost_packets, 3u);
+
+  // the reader's participant publishes RTPS_LOST but reported no gap: nothing lost
+  stats.lost.clear();
+  topics = summarize(eps);
+  apply_stats(topics, stats);
+  {
+    const auto & r = topics[0].pairs[0].measured.reliability;
+    EXPECT_TRUE(r.lost_available);
+    EXPECT_EQ(r.lost_packets, 0u);
+    EXPECT_FALSE(has(topics[0].pairs[0].verdict.warnings, "rtps-packets-lost"));
+    EXPECT_TRUE(topics[0].lost_available);
+    EXPECT_EQ(topics[0].lost_packets, 0u);
+  }
+
+  // without its RTPS_LOST writer the loss is unknown; the other counters stay
+  stats.statistics_writers.clear();
+  topics = summarize(eps);
+  apply_stats(topics, stats);
+  {
+    const auto & r = topics[0].pairs[0].measured.reliability;
+    EXPECT_TRUE(r.available);
+    EXPECT_FALSE(r.lost_available);
+    EXPECT_EQ(r.resent, 2u);
+    EXPECT_EQ(r.acknacks, 4u);
+    EXPECT_TRUE(topics[0].reliability_available);
+    EXPECT_FALSE(topics[0].lost_available);
+    EXPECT_EQ(topics[0].resent, 2u);
+  }
 
   // no counters at all
   topics = summarize(eps);
   apply_stats(topics, stats_with(eps[0], {}));
   EXPECT_FALSE(topics[0].pairs[0].measured.reliability.available);
+  EXPECT_FALSE(topics[0].pairs[0].measured.reliability.lost_available);
   EXPECT_FALSE(topics[0].reliability_available);
+  EXPECT_FALSE(topics[0].lost_available);
   EXPECT_FALSE(has(topics[0].pairs[0].verdict.warnings, "rtps-packets-lost"));
 }
 
