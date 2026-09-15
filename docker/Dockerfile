@@ -27,6 +27,24 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 ENV RMW_IMPLEMENTATION=rmw_fastrtps_cpp
+
+# Every distribution builds into its own tree in the mounted repository,
+# /ws/build/<distro>/{build,install,log}, so that switching ROS_DISTRO never reuses the CMake
+# caches or setup files of another one (#123). colcon reads the bases from this defaults
+# file, so plain `colcon build`, `colcon test` and `colcon test-result` need no options.
+RUN mkdir -p /etc/colcon && printf '%s\n' \
+        'build:' \
+        "  build-base: /ws/build/${ROS_DISTRO}/build" \
+        "  install-base: /ws/build/${ROS_DISTRO}/install" \
+        'test:' \
+        "  build-base: /ws/build/${ROS_DISTRO}/build" \
+        "  install-base: /ws/build/${ROS_DISTRO}/install" \
+        'test-result:' \
+        "  test-result-base: /ws/build/${ROS_DISTRO}/build" \
+        > /etc/colcon/defaults.yaml
+ENV COLCON_DEFAULTS_FILE=/etc/colcon/defaults.yaml \
+    COLCON_LOG_PATH=/ws/build/${ROS_DISTRO}/log
+
 WORKDIR /ws
 COPY docker/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh

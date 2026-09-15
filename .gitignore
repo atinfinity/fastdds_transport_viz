@@ -1,15 +1,7 @@
 build/
 install/
 log/
-build_cov/
-build_k/
-build_h/
-install_h/
-install_k/
-install_cov/
 *.pyc
 __pycache__/
 .cache/
 site/
-build_l/
-install_l/

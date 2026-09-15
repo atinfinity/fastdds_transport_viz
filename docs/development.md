@@ -12,8 +12,18 @@ the same `ROS_DISTRO` in the environment.
 docker compose build
 docker compose run --rm dev bash       # shell in the dev container, repo mounted at /ws
 colcon build --symlink-install
-source install/setup.bash
+source build/$ROS_DISTRO/install/setup.bash
 ```
+
+Each image builds into its own tree in the repository, `build/<distro>/{build,install,log}`:
+the image's colcon defaults (`COLCON_DEFAULTS_FILE`) and `COLCON_LOG_PATH` set the bases,
+so plain `colcon build`, `colcon test` and `colcon test-result` use them, and the
+entrypoint of every container sources `build/<distro>/install/setup.bash` when it exists.
+Switching `ROS_DISTRO` never reuses another distribution's CMake caches or setup files,
+and `colcon test-result` only sees that distribution's results; `rm -rf build/<distro>`
+starts one over. A top-level `install/` is no longer sourced (the entrypoint says so on
+stderr). Native builds and CI keep colcon's default `build/` and `install/`
+([#123](https://github.com/atinfinity/fastdds_transport_viz/issues/123)).
 
 Every compose service takes `RMW_IMPLEMENTATION` from the host shell (default
 `rmw_fastrtps_cpp`), so `RMW_IMPLEMENTATION=rmw_fastrtps_dynamic_cpp docker compose run
@@ -289,6 +299,7 @@ run again on `main`: each change is built once, in its pull request. Every job h
 | 2026-09-15 | same host id, separate IPC namespaces, shared 7000+ number: a node started first in the talker's and the listener's containers and a second one in the listener's, which takes the talker's 7001, the tool in the talker's IPC namespace; unit suites on the three distributions | arm64 | 2.6 (`ros:humble`), 2.14.6 (`ros:jazzy`), 3.6 (`ros:lyrical`) | `/chatter` `NONE`, `certain`, `!shm-ipc-namespace-split` with `shm-reader-port-not-visible` and no `shm-port-collision` (before: `SHM`, `certain`, no warning, the talker undecidable because 7001 was announced twice) on Jazzy and Lyrical; skipped on Humble, whose single SHM port per participant cannot tell this case. `hostnet_split_shm` (three distributions), `hostnet_split_shm_visible`, `hostnet_split_stats`, `hostnet_noipc_shm`, `hostnet_shm` (Jazzy, Lyrical) unchanged. `colcon test`: Jazzy 450 tests, Lyrical 443, Humble 450, 0 failures ([#118](https://github.com/atinfinity/fastdds_transport_viz/issues/118)) | `scripts/integration_test.sh hostnet_split_shm_shared_port` |
 | 2026-09-15 | native-buffer companions: `large_array_pub` (2 MB, 1 Hz) and `large_array_sub` with `FASTDDS_STATISTICS` on one host with `rmw_fastrtps_cpp` and with `rmw_fastrtps_dynamic_cpp`; unit suites on the three distributions | arm64 | 2.6 (`ros:humble`), 2.14.6 (`ros:jazzy`), 3.6 (`ros:lyrical`) | Lyrical, `rmw_fastrtps_cpp`: `/large_array` `SHM` with `buffer-companion-folded`, delivered 8 samples, 132 DATA submessages, 82 heartbeats (all through `/large_array/_buf_cpu`; before: 0 DATA, 0 heartbeats, not delivered on the parent pair); the companion topic only with `--all`, its writer and reader naming their parents in `buffer_parent_guid`. Lyrical with `rmw_fastrtps_dynamic_cpp` and Jazzy: no `_buf_cpu` topic, no buffer code, delivered 8, 231 DATA submessages on `/large_array`. `colcon test`: Jazzy 443 tests, Lyrical 436, Humble 443, 0 failures after a one-line loop uncrustify formats differently was rewritten; `node --test` 25 tests ([#119](https://github.com/atinfinity/fastdds_transport_viz/issues/119)) | `test/launch/test_large_shm.py` |
 | 2026-09-15 | `RTPS_LOST` direction: talker (`ros2 topic pub`, 20 Hz) and listener with `FASTDDS_STATISTICS` in two bridged containers, `tc netem` dropping 30 % of one node's packets to the other, the tool in a third container; unit suites on the three distributions | arm64 | 2.6 (`ros:humble`), 2.14.6 (`ros:jazzy`), 3.6 (`ros:lyrical`) | listener dropping: `/chatter` pair and topic `lost_packets` 0, no `rtps-packets-lost`; talker dropping: 38 lost packets on Jazzy, 36 and 45 on Lyrical, `rtps-packets-lost`, topic total equal to the pair (before: the talker's drops never showed). Skipped on Humble. Dropping a node's whole egress hid the listener from the tool on Lyrical (discovery and statistics lost in a 6 s observation), hence the filter on the peer's address. `stats_multi_container` unchanged (Jazzy, Lyrical). `colcon test`: Jazzy 445 tests, Lyrical 438, Humble 445, 0 failures; `node --test` 25 tests ([#122](https://github.com/atinfinity/fastdds_transport_viz/issues/122)) | `scripts/integration_test.sh stats_loss_multi_container` |
+| 2026-09-16 | per-distribution build directories: `colcon build`, `colcon test` and `colcon test-result` in `dev` on the three distributions back to back without cleaning, then one integration scenario each back to back; `docker compose exec dev` (no entrypoint); `scripts/coverage.sh` | arm64 | 2.6 (`ros:humble`), 2.14.6 (`ros:jazzy`), 3.6 (`ros:lyrical`) | three trees `build/<distro>/{build,install,log}`, each `setup.bash` and CMake cache naming only its own `/opt/ros/<distro>`; Humble configured right after Jazzy (before: the Jazzy `CMakeCache.txt` pointed Humble at `/opt/ros/jazzy/src/gtest_vendor`). `colcon test`: Jazzy 463 tests, Humble 463, Lyrical 456, 0 failures, each `colcon test-result` counting its own distribution only. `hostnet_shm` (Jazzy), `hostnet_split_shm` (Humble, Lyrical) pass. `exec` builds into `build/jazzy/` too; coverage lands in `build/jazzy/coverage/` (95.8 % lines). No top-level `install/` or `log/` created; a leftover `install/setup.bash` is not sourced, the entrypoint says so on stderr ([#123](https://github.com/atinfinity/fastdds_transport_viz/issues/123)) | `ROS_DISTRO=<distro> docker compose run --rm dev bash` + `colcon build && colcon test` |
 
 ## Documentation site
 
@@ -400,8 +411,6 @@ Open, by priority (labels `priority/1-high` … `priority/3-low` on the issues):
 - Verification on a large real system (Nav2 / Autoware scale) — [#74](https://github.com/atinfinity/fastdds_transport_viz/issues/74)
 - `--advise`: what to change to get the intended transport — [#76](https://github.com/atinfinity/fastdds_transport_viz/issues/76)
 - `transport_viz diff`: compare two `--json` snapshots — [#77](https://github.com/atinfinity/fastdds_transport_viz/issues/77)
-- Integration and local builds reuse one `build/` / `install/` across ROS distributions — [#123](https://github.com/atinfinity/fastdds_transport_viz/issues/123)
-
 `priority/3-low`:
 
 - DDS Security (SROS2) — [#49](https://github.com/atinfinity/fastdds_transport_viz/issues/49)

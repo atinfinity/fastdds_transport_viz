@@ -49,7 +49,7 @@ the tool sees the host's shared memory:
 ```
 docker compose build
 docker compose run --rm dev bash
-colcon build --symlink-install && source install/setup.bash
+colcon build --symlink-install && source build/$ROS_DISTRO/install/setup.bash
 ```
 
 The rest of this page works the same inside that shell. The container has its own
@@ -168,7 +168,7 @@ the remedy of every code. The table below covers what is not a reason code.
 
 | Symptom | Check |
 |---|---|
-| `ros2: error: argument Call ... invalid choice: 'transport'` | `source install/setup.bash` in this shell; `ros2transport` must be built in the same workspace. |
+| `ros2: error: argument Call ... invalid choice: 'transport'` | `source install/setup.bash` in this shell (`build/$ROS_DISTRO/install/setup.bash` in the Docker image); `ros2transport` must be built in the same workspace. |
 | `RMW is rmw_cyclonedds_cpp; this tool observes Fast DDS ...` (exit 1) | the tool only works on Fast DDS: set `RMW_IMPLEMENTATION=rmw_fastrtps_cpp` (or `rmw_fastrtps_dynamic_cpp`, or unset it on a distro whose default is Fast DDS) in the shell that runs the tool. |
 | no topics at all | same `ROS_DOMAIN_ID` as the nodes? `ROS_AUTOMATIC_DISCOVERY_RANGE=OFF` limits every participant to itself. With a Discovery Server the tool needs the same `ROS_DISCOVERY_SERVER` (it becomes a SUPER_CLIENT automatically). |
 | nodes on another machine are missing | the other machine must be reachable by multicast, or listed in `ROS_STATIC_PEERS`, or both sides use a Discovery Server; see [development.md](development.md#two-physical-hosts). |

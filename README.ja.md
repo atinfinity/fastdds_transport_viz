@@ -2,7 +2,7 @@
 
 [English](README.md) | 日本語
 
-> 英語版が正です。この文書は 2026-09-13 時点の英語版に対応しています。
+> 英語版が正です。この文書は 2026-09-16 時点の英語版に対応しています。
 
 [![CI](https://github.com/atinfinity/fastdds_transport_viz/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/atinfinity/fastdds_transport_viz/actions/workflows/ci.yml)
 
@@ -75,7 +75,7 @@ shared memory: /dev/shm 371 MB used of 16.7 GB (16.3 GB free) | Fast DDS 6.36 MB
 ```
 docker compose build
 docker compose run --rm dev bash
-colcon build --symlink-install && source install/setup.bash
+colcon build --symlink-install && source build/$ROS_DISTRO/install/setup.bash
 
 ros2 run demo_nodes_cpp talker &
 ros2 run demo_nodes_cpp listener &

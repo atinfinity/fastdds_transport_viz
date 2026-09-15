@@ -79,7 +79,8 @@ build() {
   # In `hostnet`, not `dev`: host-network nodes started right after a container left the
   # project bridge announced the bridge address (172.28.0.1) and got another Fast DDS host
   # id (a hash of the interface addresses) than the transport_viz started a few seconds
-  # later, so the hostnet scenarios saw two hosts over UDPv4 instead of SHM.
+  # later, so the hostnet scenarios saw two hosts over UDPv4 instead of SHM. The image's
+  # colcon defaults build into build/<distro>/, which every container's entrypoint sources.
   docker compose run --rm hostnet bash -c \
     "colcon build --symlink-install > /dev/null && echo build ok"
 }

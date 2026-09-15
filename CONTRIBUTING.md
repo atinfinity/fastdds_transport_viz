@@ -19,7 +19,7 @@ packages, verification nodes, multi-container scenarios, existing tests). The sh
 docker compose build
 docker compose run --rm dev bash       # shell in the dev container, repo mounted at /ws
 colcon build --symlink-install
-source install/setup.bash
+source build/$ROS_DISTRO/install/setup.bash
 colcon test && colcon test-result --verbose
 ```
 
