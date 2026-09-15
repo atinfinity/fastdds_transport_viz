@@ -389,3 +389,30 @@ TEST(ParseJson, RejectsForeignDocuments)
     EXPECT_NE(std::string(e.what()).find("schema_version 2"), std::string::npos) << e.what();
   }
 }
+
+TEST(ParseJson, KeepsTheBufferParentOfNativeBufferCompanions)
+{
+  auto s = snapshot();
+  Endpoint companion = ep(true, "W3", "/talker");
+  companion.dds_topic = "rt/chatter/_buf_cpu";
+  companion.ros_topic = "/chatter/_buf_cpu";
+  companion.buffer_parent_guid = "W1";
+  s.endpoints.push_back(companion);
+  s.endpoints[0].buffer_companion_guids = {"W3"};
+  s.topics = summarize(s.endpoints);   // the push invalidated the topics' pointers
+  apply_stats(s.topics, s.stats);
+  const auto text = render_json(s, RenderOptions{});
+  const json doc = json::parse(text);
+  ASSERT_EQ(doc["topics"].size(), 2u);
+  EXPECT_FALSE(doc["topics"][0]["writers"][0].contains("buffer_parent_guid"));   // /chatter
+  EXPECT_EQ(doc["topics"][1]["writers"][0]["buffer_parent_guid"], "W1");
+
+  auto parsed = parse_json(text);
+  ASSERT_EQ(parsed.topics.size(), 2u);
+  EXPECT_EQ(parsed.topics[1].writers[0]->buffer_parent_guid, "W1");
+  EXPECT_EQ(parsed.topics[0].writers[0]->buffer_companion_guids, std::vector<std::string>{"W3"});
+  EXPECT_TRUE(in_default_view(parsed.topics[0]));
+  EXPECT_FALSE(in_default_view(parsed.topics[1]));
+  std::string where;
+  EXPECT_TRUE(close(doc, json::parse(render_json(parsed, RenderOptions{})), "$", &where)) << where;
+}

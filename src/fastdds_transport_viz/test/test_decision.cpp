@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <functional>
+#include <stdexcept>
 #include <tuple>
 #include <string>
 #include <vector>
@@ -1175,7 +1176,8 @@ TEST(Codes, RemediesAreOneSentenceAndExplicitPerCode)
       "qos-incompatible", "datasharing-confirmed-no-traffic", "shm-port-collision",
       "shm-reader-port-not-visible", "shm-writer-port-not-visible",
       "datasharing-reader-segment-not-visible", "datasharing-writer-segment-not-visible",
-      "shm-ipc-namespace-split-but-delivered", "shm-ipc-namespace-split-but-non-shm-traffic"})
+      "shm-ipc-namespace-split-but-delivered", "shm-ipc-namespace-split-but-non-shm-traffic",
+      "buffer-companion-folded", "buffer-companion"})
   {
     EXPECT_FALSE(remedy(c).has_value()) << c;
   }
@@ -1831,4 +1833,250 @@ TEST(DiffSnapshots, RemovedTopicAndAddedTopic)
   ASSERT_EQ(c.removed.size(), 1u);
   EXPECT_EQ(c.added[0].topic, "/other");
   EXPECT_EQ(c.removed[0].topic, "/chatter");
+}
+
+// ---- rmw native-buffer companions (<topic>/_buf_cpu) -------------------------------
+
+namespace
+{
+/// An endpoint of participant `prefix` on `topic` with entity key `key` (GUID bytes 12..14).
+Endpoint entity(
+  bool writer, const std::string & topic, uint32_t key, const std::string & prefix = "P1")
+{
+  Endpoint e = make(writer, HOST_A, {shm()});
+  e.participant_guid_prefix = prefix;
+  e.dds_topic = "rt" + topic;
+  e.ros_topic = topic;
+  e.dds_type = "std_msgs::msg::dds_::UInt8MultiArray_";
+  e.ros_type = "std_msgs/msg/UInt8MultiArray";
+  e.guid_bytes[12] = static_cast<uint8_t>(key >> 16);
+  e.guid_bytes[13] = static_cast<uint8_t>(key >> 8);
+  e.guid_bytes[14] = static_cast<uint8_t>(key);
+  e.guid_bytes[15] = writer ? 0x03 : 0x04;
+  e.guid = prefix + "|" + std::to_string(key);
+  return e;
+}
+
+const TopicSummary & topic_named(const std::vector<TopicSummary> & topics, const std::string & n)
+{
+  for (const auto & t : topics) {
+    if (t.display_topic == n) {return t;}
+  }
+  throw std::runtime_error("no topic " + n);
+}
+
+/// The codes of a topic's pairs and those of the topic itself.
+std::vector<std::string> all_codes(const TopicSummary & t)
+{
+  std::vector<std::string> out = t.unmatched_reasons;
+  for (const auto & p : t.pairs) {
+    out.insert(out.end(), p.verdict.reasons.begin(), p.verdict.reasons.end());
+  }
+  return out;
+}
+
+/// Parent and companion writer in P1, parent and companion reader in P2, as Lyrical creates them.
+std::vector<Endpoint> lyrical_large_array()
+{
+  std::vector<Endpoint> eps;
+  eps.push_back(entity(true, "/large_array", 1));
+  eps.push_back(entity(true, "/large_array/_buf_cpu", 2));
+  eps.push_back(entity(false, "/large_array", 1, "P2"));
+  eps.push_back(entity(false, "/large_array/_buf_cpu", 2, "P2"));
+  link_buffer_companions(eps);
+  return eps;
+}
+}  // namespace
+
+TEST(BufferCompanion, TheSingleCandidateIsTheParentAndTheCompanionTopicLeavesTheDefaultView)
+{
+  auto eps = lyrical_large_array();
+  EXPECT_EQ(eps[1].buffer_parent_guid, eps[0].guid);
+  EXPECT_EQ(eps[0].buffer_companion_guids, std::vector<std::string>{eps[1].guid});
+  EXPECT_EQ(eps[3].buffer_parent_guid, eps[2].guid);
+  EXPECT_EQ(eps[2].buffer_companion_guids, std::vector<std::string>{eps[3].guid});
+  EXPECT_TRUE(eps[0].buffer_parent_guid.empty());
+
+  link_buffer_companions(eps);   // linking again starts over
+  EXPECT_EQ(eps[0].buffer_companion_guids.size(), 1u);
+
+  auto topics = summarize(eps);
+  const auto & parent = topic_named(topics, "/large_array");
+  const auto & companion = topic_named(topics, "/large_array/_buf_cpu");
+  ASSERT_EQ(parent.pairs.size(), 1u);
+  ASSERT_EQ(companion.pairs.size(), 1u);
+  EXPECT_TRUE(has(parent.pairs[0].verdict.reasons, "buffer-companion-folded"));
+  EXPECT_FALSE(has(parent.pairs[0].verdict.reasons, "buffer-companion"));
+  EXPECT_TRUE(has(companion.pairs[0].verdict.reasons, "buffer-companion"));
+  EXPECT_FALSE(has(companion.pairs[0].verdict.reasons, "buffer-companion-folded"));
+  EXPECT_EQ(parent.pairs[0].verdict.transport, decide(eps[0], eps[2]).transport);
+  EXPECT_TRUE(in_default_view(parent));
+  EXPECT_FALSE(in_default_view(companion));
+}
+
+TEST(BufferCompanion, SeveralCandidatesAreToldApartByTheEntityKey)
+{
+  std::vector<Endpoint> eps;
+  eps.push_back(entity(true, "/large_array", 1));
+  eps.push_back(entity(true, "/large_array", 3));
+  eps.push_back(entity(true, "/large_array/_buf_cpu", 4));   // 3 + 1
+  eps.push_back(entity(true, "/large_array/_buf_cpu", 9));   // no writer with key 8
+  Endpoint other_kind = entity(true, "/large_array/_buf_cpu", 2);
+  other_kind.guid_bytes[15] = 0x02;                          // key 1 + 1, another kind
+  eps.push_back(other_kind);
+  link_buffer_companions(eps);
+  EXPECT_EQ(eps[2].buffer_parent_guid, eps[1].guid);
+  EXPECT_TRUE(eps[3].buffer_parent_guid.empty());
+  EXPECT_TRUE(eps[4].buffer_parent_guid.empty());
+  EXPECT_TRUE(eps[0].buffer_companion_guids.empty());
+  EXPECT_EQ(eps[1].buffer_companion_guids, std::vector<std::string>{eps[2].guid});
+
+  // no reader: the codes go to the topic, and an unmatched companion keeps it visible
+  auto topics = summarize(eps);
+  const auto & companion = topic_named(topics, "/large_array/_buf_cpu");
+  EXPECT_TRUE(companion.pairs.empty());
+  EXPECT_TRUE(has(companion.unmatched_reasons, "no-matching-reader"));
+  EXPECT_TRUE(has(companion.unmatched_reasons, "buffer-companion"));
+  EXPECT_TRUE(has(companion.unmatched_reasons, "buffer-companion-unmatched"));
+  EXPECT_TRUE(in_default_view(companion));
+  EXPECT_TRUE(
+    has(topic_named(topics, "/large_array").unmatched_reasons, "buffer-companion-folded"));
+}
+
+TEST(BufferCompanion, OnlyAWriterOrReaderOfTheParentTopicInTheSameParticipantWithTheSameType)
+{
+  std::vector<Endpoint> eps;
+  eps.push_back(entity(true, "/a", 1));
+  eps.push_back(entity(true, "/a/_buf_cpu", 2, "P2"));   // another participant
+  eps.push_back(entity(false, "/a/_buf_cpu", 3));        // a reader for a writer
+  Endpoint other_type = entity(true, "/a/_buf_cpu", 4);
+  other_type.dds_type = "std_msgs::msg::dds_::String_";
+  eps.push_back(other_type);
+  eps.push_back(entity(true, "/b/_buf/0123456789abcdef0123456789abcdef", 5));   // accelerator
+  eps.push_back(entity(true, "/_buf_cpu", 6));             // no parent name at all
+  link_buffer_companions(eps);
+  for (const auto & e : eps) {
+    EXPECT_TRUE(e.buffer_parent_guid.empty()) << e.dds_topic;
+    EXPECT_TRUE(e.buffer_companion_guids.empty()) << e.dds_topic;
+  }
+  auto topics = summarize(eps);
+  EXPECT_TRUE(has(all_codes(topic_named(topics, "/a/_buf_cpu")), "buffer-companion-unmatched"));
+  EXPECT_FALSE(has(all_codes(topic_named(topics, "/a")), "buffer-companion-folded"));
+  const auto & accelerator = topic_named(topics, "/b/_buf/0123456789abcdef0123456789abcdef");
+  const auto accelerator_codes = all_codes(accelerator);
+  EXPECT_EQ(
+    std::count_if(
+      accelerator_codes.begin(), accelerator_codes.end(),
+      [](const std::string & c) {return c.rfind("buffer-", 0) == 0;}), 0);
+  EXPECT_TRUE(in_default_view(accelerator));
+  EXPECT_TRUE(has(topic_named(topics, "/_buf_cpu").unmatched_reasons, "no-matching-reader"));
+}
+
+TEST(BufferCompanion, DefaultViewStillNeedsARosTopic)
+{
+  auto eps = lyrical_large_array();
+  auto topics = summarize(eps);
+  TopicSummary service = topic_named(topics, "/large_array");
+  service.dds_topic = "rq/large_arrayRequest";
+  EXPECT_FALSE(in_default_view(service));
+  TopicSummary raw = topic_named(topics, "/large_array");
+  raw.is_ros_topic = false;
+  EXPECT_FALSE(in_default_view(raw));
+}
+
+TEST(BufferCompanion, FilterByNodeKeepsTheCodes)
+{
+  std::vector<Endpoint> eps;
+  eps.push_back(entity(true, "/large_array", 1));
+  eps.push_back(entity(true, "/large_array/_buf_cpu", 2));
+  eps.push_back(entity(false, "/large_array", 1, "P2"));
+  for (auto & e : eps) {
+    e.node_name = e.is_writer ? "/pub" : "/sub";
+  }
+  link_buffer_companions(eps);
+  auto topics = summarize(eps);
+  filter_by_node(topics, [](const Endpoint & e) {return e.node_name == "/pub";});
+  const auto & parent = topic_named(topics, "/large_array");
+  ASSERT_EQ(parent.pairs.size(), 1u);
+  EXPECT_TRUE(has(parent.pairs[0].verdict.reasons, "buffer-companion-folded"));
+  const auto & companion = topic_named(topics, "/large_array/_buf_cpu");
+  EXPECT_TRUE(has(companion.unmatched_reasons, "no-matching-reader"));
+  EXPECT_TRUE(has(companion.unmatched_reasons, "buffer-companion"));
+}
+
+TEST(ApplyStats, BufferCompanionCountersAreAddedToTheParentPair)
+{
+  auto eps = lyrical_large_array();
+  const std::string W = eps[0].guid, WB = eps[1].guid, R = eps[2].guid, RB = eps[3].guid;
+  auto topics = summarize(eps);
+  StatsData stats;
+  stats.enabled = true;
+  stats.participants_with_stats = {"P1", "P2"};
+  // Lyrical with buffer-aware subscribers: the samples go on the companions only
+  stats.data_count[W] = DataCountSample{0, 0, 2};
+  stats.data_count[WB] = DataCountSample{10, 406, 5};
+  stats.heartbeats[W] = DataCountSample{5, 5, 2};
+  stats.heartbeats[WB] = DataCountSample{0, 242, 5};
+  stats.acknacks[R] = DataCountSample{1, 2, 2};
+  stats.acknacks[RB] = DataCountSample{0, 10, 5};
+  stats.throughput[WB] = ThroughputStat{60.0, 20.0, 3};
+  stats.delivered[{WB, RB}] = 3;
+  LatencyStat parent_latency;
+  parent_latency.add(0.002);
+  stats.latency[{W, R}] = parent_latency;
+  LatencyStat companion_latency;
+  companion_latency.add(0.001);
+  companion_latency.add(0.004);
+  companion_latency.add(0.003);
+  stats.latency[{WB, RB}] = companion_latency;
+  apply_stats(topics, stats);
+
+  const auto & parent = topic_named(topics, "/large_array");
+  const auto & m = parent.pairs[0].measured;
+  EXPECT_TRUE(m.delivered);
+  EXPECT_EQ(m.delivered_samples, 3u);
+  EXPECT_TRUE(m.data_count_available);
+  EXPECT_EQ(m.data_submessages, 396u);
+  EXPECT_TRUE(m.reliability.available);
+  EXPECT_EQ(m.reliability.heartbeats, 242u);
+  EXPECT_EQ(m.reliability.acknacks, 11u);
+  EXPECT_TRUE(m.throughput_available);
+  EXPECT_DOUBLE_EQ(m.throughput, stats.throughput[WB].mean());
+  EXPECT_TRUE(m.latency_available);
+  EXPECT_EQ(m.latency.samples, 4u);
+  EXPECT_NEAR(m.latency.sum, 0.010, 1e-12);
+  EXPECT_DOUBLE_EQ(m.latency.min, 0.001);
+  EXPECT_DOUBLE_EQ(m.latency.max, 0.004);
+  EXPECT_DOUBLE_EQ(m.latency.last, 0.003);   // the companions'
+  EXPECT_TRUE(parent.throughput_available);
+  EXPECT_DOUBLE_EQ(parent.throughput, stats.throughput[WB].mean());
+  EXPECT_NEAR(parent.latency, 0.0025, 1e-12);
+
+  // the companion topic keeps its own numbers
+  const auto & c = topic_named(topics, "/large_array/_buf_cpu").pairs[0].measured;
+  EXPECT_EQ(c.delivered_samples, 3u);
+  EXPECT_EQ(c.data_submessages, 396u);
+  EXPECT_EQ(c.reliability.heartbeats, 242u);
+  EXPECT_EQ(c.reliability.acknacks, 10u);
+  EXPECT_EQ(c.latency.samples, 3u);
+}
+
+TEST(ApplyStats, WithoutCompanionsTheCountersAreThePairsOwn)
+{
+  // rmw_fastrtps_dynamic_cpp or a subscriber without native buffers: everything on the parent
+  std::vector<Endpoint> eps;
+  eps.push_back(entity(true, "/large_array", 1));
+  eps.push_back(entity(false, "/large_array", 1, "P2"));
+  link_buffer_companions(eps);
+  auto topics = summarize(eps);
+  EXPECT_FALSE(has(topics[0].pairs[0].verdict.reasons, "buffer-companion-folded"));
+  StatsData stats;
+  stats.enabled = true;
+  stats.participants_with_stats = {"P1"};
+  stats.data_count[eps[0].guid] = DataCountSample{3, 7, 2};
+  stats.delivered[{eps[0].guid, eps[1].guid}] = 4;
+  apply_stats(topics, stats);
+  EXPECT_EQ(topics[0].pairs[0].measured.data_submessages, 4u);
+  EXPECT_EQ(topics[0].pairs[0].measured.delivered_samples, 4u);
+  EXPECT_FALSE(topics[0].pairs[0].measured.latency_available);
 }

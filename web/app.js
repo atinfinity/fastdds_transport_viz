@@ -10,7 +10,7 @@
   'use strict';
 
   // pure model / formatting functions live in model.js (unit-tested under Node)
-  const { TRANSPORTS, INTERNAL_TOPICS, normalizeDocument, buildModel, filterRegex, visiblePairs, visibleNodesModel, bundle,
+  const { TRANSPORTS, isInternalTopic, normalizeDocument, buildModel, filterRegex, visiblePairs, visibleNodesModel, bundle,
     humanBytes, measuredText, rateText, latencyText, lossText, escapeHtml, codeListHtml, shmText,
     pairKey, keyId, diffDocuments, changeText, changesSummary, decorations, holdChanges, heldDecorations,
     markedPairs, pruneNodes } = globalThis.TransportVizModel;
@@ -52,7 +52,7 @@
     const re = filterRegex(f.topic);
     const nre = filterRegex(f.node);
     return ghosts.filter(g => {
-      if (f.hideInternal && INTERNAL_TOPICS.has(g.key.topic)) return false;
+      if (f.hideInternal && isInternalTopic(g.topic || { topic: g.key.topic })) return false;
       if (re && !re.test(g.key.topic)) return false;
       if (nre && !nre.test(g.key.writer_node) && !nre.test(g.key.reader_node)) return false;
       if (g.pair && !f.transports.has(g.pair.transport)) return false;
@@ -198,7 +198,7 @@
     });
 
     const hideInternal = state.filter.hideInternal;
-    const unmatchedCount = n => n.unmatched.filter(u => !(hideInternal && INTERNAL_TOPICS.has(u.topic.topic))).length;
+    const unmatchedCount = n => n.unmatched.filter(u => !(hideInternal && isInternalTopic(u.topic))).length;
     const nodeData = [...model.nodes.values()].map(n => ({ n, p: pos.get(n.id), unmatched: unmatchedCount(n), matched: matched(n.id) }));
     const nodeSel = root.selectAll('g.node').data(nodeData, d => d.n.id);
     const nodeEnter = nodeSel.enter().append('g').attr('class', 'node');

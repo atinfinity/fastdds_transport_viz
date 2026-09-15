@@ -119,6 +119,27 @@ test('visiblePairs: internal topics, transports, topic and node regexes', () => 
   assert.equal(M.visiblePairs(m, f).length, 0);
 });
 
+test('visiblePairs: folded native-buffer companion topics count as internal', () => {
+  const doc = load('sample.json');
+  const chatter = doc.topics.find(t => t.topic === '/chatter');
+  const companion = JSON.parse(JSON.stringify(chatter));
+  companion.topic = '/chatter/_buf_cpu';
+  companion.dds_topic = 'rt/chatter/_buf_cpu';
+  for (const ep of [...companion.writers, ...companion.readers]) ep.buffer_parent_guid = ep.guid;
+  doc.topics.push(companion);
+  assert.ok(M.isFoldedBufferCompanion(companion));
+  assert.ok(!M.isFoldedBufferCompanion(chatter));
+  assert.ok(!M.isFoldedBufferCompanion({ topic: '/x/_buf_cpu', writers: [], readers: [] }));
+  const f = allFilter();
+  const count = () => M.visiblePairs(M.buildModel(doc), f).filter(vp => vp.topic.topic === '/chatter/_buf_cpu').length;
+  assert.equal(count(), 0);
+  f.hideInternal = false;
+  assert.equal(count(), companion.pairs.length);
+  delete companion.readers[0].buffer_parent_guid;   // an unmatched companion stays visible
+  f.hideInternal = true;
+  assert.equal(count(), companion.pairs.length);
+});
+
 test('visibleNodesModel: matching nodes stay even without pairs, partners are kept', () => {
   const m = M.buildModel(sample);
   const none = M.visibleNodesModel(m, [], '');

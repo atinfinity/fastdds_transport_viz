@@ -51,8 +51,9 @@ writer の payload レートと観測中に運ばれたバイト数も出ます�
 
 ![table view](images/web-viewer-table.jpg)
 
-フィルタ (トピックの正規表現、ノードの正規表現、transport のチェックボックス、`/parameter_events`
-と `/rosout` を隠す「hide ROS internal topics」) はグラフ、表、矢印のパネルに適用されます (ノードの
+フィルタ (トピックの正規表現、ノードの正規表現、transport のチェックボックス、`/parameter_events`、
+`/rosout` と、すべての endpoint が親トピックに畳み込まれた (`buffer_parent_guid`) native buffer の
+コンパニオントピックを隠す「hide ROS internal topics」) はグラフ、表、矢印のパネルに適用されます (ノードの
 パネルはそのノードの全トピックを常に表示)。ノードの
 フィルタは `--node` と同じ意味論です。writer か reader が一致するノードに属するペアを残し、グラフ
 には一致したノード (強調表示。表示中のペアが無くても残る) と残ったペアの相手ノードを描き、それ以外

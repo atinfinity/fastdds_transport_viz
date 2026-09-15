@@ -165,6 +165,12 @@ ros2 transport codes
   `shm-ipc-namespace-split` になります。それ以外では `SHM` のままで、手がかりは共有メモリ行の
   `shm-not-visible` だけです
   ([#101](https://github.com/atinfinity/fastdds_transport_viz/issues/101))。
+- **native buffer のコンパニオン。** Lyrical 以降の `rmw_fastrtps_cpp` は、上限の無い `uint8[]`
+  フィールドを持つ型のサンプルをコンパニオントピック `<topic>/_buf_cpu` で送ります。ツールは
+  コンパニオンのカウンタを親のペアに加算し (`buffer-companion-folded`)、コンパニオンのトピックは
+  `--all` のときだけ表示します。親に結び付けられないコンパニオンは `buffer-companion-unmatched` 付きで
+  表示されたままで、そのとき親のペアには自身のトラフィックが見えません
+  ([#119](https://github.com/atinfinity/fastdds_transport_viz/issues/119))。
 
 ## ライセンス
 

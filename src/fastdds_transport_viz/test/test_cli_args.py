@@ -19,6 +19,9 @@ BINARY = os.path.join(get_package_prefix('fastdds_transport_viz'), 'lib', 'fastd
 SAMPLES = pathlib.Path(__file__).resolve().parents[3] / 'web' / 'sample'
 BEFORE = str(SAMPLES / 'diff_before.json')
 AFTER = str(SAMPLES / 'diff_after.json')
+# a Lyrical capture of /large_array with its native-buffer companion topic folded
+BUFFER_COMPANION = str(pathlib.Path(__file__).resolve().parent / 'fixtures' /
+                       'buffer_companion.json')
 
 
 def run(*args):
@@ -180,6 +183,24 @@ def test_diff_of_a_document_with_itself_exits_0():
         assert r.returncode == 0, (key, r)
         assert 'changes: none' in r.stdout, r.stdout
         assert '(removed)' not in r.stdout
+
+
+def test_diff_shows_folded_buffer_companion_topics_only_with_all():
+    r = run('diff', '--json', BUFFER_COMPANION, BUFFER_COMPANION)
+    assert r.returncode == 0, r
+    doc = json.loads(r.stdout)
+    assert [t['topic'] for t in doc['topics']] == ['/large_array']
+    assert 'buffer-companion-folded' in doc['topics'][0]['pairs'][0]['reasons']
+    r = run('diff', '--all', '--json', BUFFER_COMPANION, BUFFER_COMPANION)
+    assert r.returncode == 0, r
+    parent, companion = json.loads(r.stdout)['topics']
+    assert companion['topic'] == '/large_array/_buf_cpu'
+    assert companion['writers'][0]['buffer_parent_guid'] == parent['writers'][0]['guid']
+    assert companion['readers'][0]['buffer_parent_guid'] == parent['readers'][0]['guid']
+    assert 'buffer_parent_guid' not in parent['writers'][0]
+    r = run('diff', BUFFER_COMPANION, BUFFER_COMPANION)
+    assert r.returncode == 0, r
+    assert '/large_array/_buf_cpu' not in r.stdout and '/large_array' in r.stdout
 
 
 def test_diff_json_is_the_after_document_plus_changes():

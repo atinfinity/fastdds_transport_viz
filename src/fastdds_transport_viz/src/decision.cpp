@@ -375,6 +375,84 @@ Verdict decide(const Endpoint & writer, const Endpoint & reader)
   return v;
 }
 
+namespace
+{
+
+bool is_buffer_companion_topic(const std::string & dds_topic)
+{
+  const std::string suffix = kBufferCompanionSuffix;
+  return dds_topic.size() > suffix.size() &&
+         dds_topic.compare(dds_topic.size() - suffix.size(), suffix.size(), suffix) == 0;
+}
+
+/// The entity key of an endpoint GUID (bytes 12..14, big-endian; byte 15 is the kind).
+uint32_t entity_key(const Endpoint & e)
+{
+  return (static_cast<uint32_t>(e.guid_bytes[12]) << 16) |
+         (static_cast<uint32_t>(e.guid_bytes[13]) << 8) | e.guid_bytes[14];
+}
+
+/// The native-buffer codes of a pair's (or an unpaired topic's) endpoints.
+std::vector<std::string> buffer_codes(const std::vector<const Endpoint *> & endpoints)
+{
+  bool folded = false, companion = false, unmatched = false;
+  for (const auto * e : endpoints) {
+    folded |= !e->buffer_companion_guids.empty();
+    companion |= !e->buffer_parent_guid.empty();
+    unmatched |= e->buffer_parent_guid.empty() && is_buffer_companion_topic(e->dds_topic);
+  }
+  std::vector<std::string> out;
+  if (folded) {out.push_back("buffer-companion-folded");}
+  if (companion) {out.push_back("buffer-companion");}
+  if (unmatched) {out.push_back("buffer-companion-unmatched");}
+  return out;
+}
+
+void add_buffer_codes(std::vector<std::string> & codes, const std::vector<const Endpoint *> & e)
+{
+  const auto more = buffer_codes(e);
+  codes.insert(codes.end(), more.begin(), more.end());
+}
+
+}  // namespace
+
+void link_buffer_companions(std::vector<Endpoint> & endpoints)
+{
+  for (auto & e : endpoints) {
+    e.buffer_parent_guid.clear();
+    e.buffer_companion_guids.clear();
+  }
+  const size_t suffix_size = std::string(kBufferCompanionSuffix).size();
+  for (auto & c : endpoints) {
+    if (!is_buffer_companion_topic(c.dds_topic)) {continue;}
+    const std::string parent_topic = c.dds_topic.substr(0, c.dds_topic.size() - suffix_size);
+    std::vector<Endpoint *> candidates;
+    for (auto & p : endpoints) {
+      if (&p != &c && p.is_writer == c.is_writer &&
+        p.participant_guid_prefix == c.participant_guid_prefix && p.dds_type == c.dds_type &&
+        p.dds_topic == parent_topic)
+      {
+        candidates.push_back(&p);
+      }
+    }
+    Endpoint * parent = candidates.size() == 1 ? candidates.front() : nullptr;
+    if (candidates.size() > 1) {
+      // rmw_fastrtps creates the companion right after its parent under one mutex, and the
+      // participant numbers writers and readers from one counter
+      for (auto * p : candidates) {
+        if (entity_key(*p) + 1 == entity_key(c) && p->guid_bytes[15] == c.guid_bytes[15]) {
+          parent = p;
+          break;
+        }
+      }
+    }
+    if (parent != nullptr) {
+      c.buffer_parent_guid = parent->guid;
+      parent->buffer_companion_guids.push_back(c.guid);
+    }
+  }
+}
+
 std::vector<TopicSummary> summarize(const std::vector<Endpoint> & endpoints)
 {
   std::map<std::string, TopicSummary> by_topic;
@@ -404,6 +482,7 @@ std::vector<TopicSummary> summarize(const std::vector<Endpoint> & endpoints)
         p.writer = w;
         p.reader = r;
         p.verdict = decide(*w, *r);
+        add_buffer_codes(p.verdict.reasons, {w, r});
         t.pairs.push_back(p);
       }
     }
@@ -415,6 +494,11 @@ std::vector<TopicSummary> summarize(const std::vector<Endpoint> & endpoints)
     }
     if (type_mismatch) {
       t.unmatched_reasons.push_back("type-name-mismatch");
+    }
+    if (t.pairs.empty()) {
+      std::vector<const Endpoint *> all = t.writers;
+      all.insert(all.end(), t.readers.begin(), t.readers.end());
+      add_buffer_codes(t.unmatched_reasons, all);
     }
     out.push_back(std::move(t));
   }
@@ -472,9 +556,23 @@ void filter_by_node(
     if (type_mismatch && t.pairs.empty()) {
       t.unmatched_reasons.push_back("type-name-mismatch");
     }
+    if (t.pairs.empty()) {
+      std::vector<const Endpoint *> all = t.writers;
+      all.insert(all.end(), t.readers.begin(), t.readers.end());
+      add_buffer_codes(t.unmatched_reasons, all);
+    }
     out.push_back(std::move(t));
   }
   topics = std::move(out);
+}
+
+bool in_default_view(const TopicSummary & topic)
+{
+  if (!topic.is_ros_topic || topic.dds_topic.rfind("rt/", 0) != 0) {return false;}
+  if (topic.writers.empty() && topic.readers.empty()) {return true;}
+  const auto folded = [](const Endpoint * e) {return !e->buffer_parent_guid.empty();};
+  return !(std::all_of(topic.writers.begin(), topic.writers.end(), folded) &&
+         std::all_of(topic.readers.begin(), topic.readers.end(), folded));
 }
 
 namespace
@@ -549,6 +647,14 @@ void replace_code(
   codes.push_back(to);
 }
 
+/// The GUID of an endpoint followed by those of its native-buffer companions.
+std::vector<std::string> entity_guids(const Endpoint & e)
+{
+  std::vector<std::string> out{e.guid};
+  out.insert(out.end(), e.buffer_companion_guids.begin(), e.buffer_companion_guids.end());
+  return out;
+}
+
 bool is_datasharing_split(const Verdict & v)
 {
   const auto has = [](const std::vector<std::string> & codes, const char * code) {
@@ -582,42 +688,81 @@ void apply_stats(std::vector<TopicSummary> & topics, const StatsData & stats)
     t.lost_packets = 0;
     t.resent = 0;
     for (const auto * w : t.writers) {
-      if (auto th = stats.throughput.find(w->guid); th != stats.throughput.end()) {
-        t.throughput += th->second.mean();
-        t.throughput_available = true;
+      for (const auto & g : entity_guids(*w)) {
+        if (auto th = stats.throughput.find(g); th != stats.throughput.end()) {
+          t.throughput += th->second.mean();
+          t.throughput_available = true;
+        }
       }
     }
     for (auto & p : t.pairs) {
       Measurement & m = p.measured;
       const std::string & src = p.writer->participant_guid_prefix;
       m.available = stats.participants_with_stats.count(src) > 0;
-      if (auto th = stats.throughput.find(p.writer->guid); th != stats.throughput.end()) {
-        m.throughput_available = true;
-        m.throughput = th->second.mean();
+      // a writer (reader) and its native-buffer companions count as one entity: the samples
+      // go through the companions, the heartbeats of the parent still through the parent
+      const std::vector<std::string> writer_guids = entity_guids(*p.writer);
+      const std::vector<std::string> reader_guids = entity_guids(*p.reader);
+      for (const auto & g : writer_guids) {
+        if (auto th = stats.throughput.find(g); th != stats.throughput.end()) {
+          m.throughput_available = true;
+          m.throughput += th->second.mean();
+        }
       }
-      if (auto d = stats.delivered.find({p.writer->guid, p.reader->guid});
-        d != stats.delivered.end())
       {
-        m.delivered_samples = d->second;
-        m.delivered = d->second > 0;
+        bool found = false;
+        size_t delivered = 0;
+        LatencyStat latency;
+        for (const auto & wg : writer_guids) {
+          for (const auto & rg : reader_guids) {
+            if (auto d = stats.delivered.find({wg, rg}); d != stats.delivered.end()) {
+              found = true;
+              delivered += d->second;
+            }
+            if (auto l = stats.latency.find({wg, rg});
+              l != stats.latency.end() && l->second.samples > 0)
+            {
+              // the parent pair comes first: `last` is the companions' when they have one
+              latency.sum += l->second.sum;
+              latency.samples += l->second.samples;
+              latency.min = std::min(latency.min, l->second.min);
+              latency.max = std::max(latency.max, l->second.max);
+              latency.last = l->second.last;
+            }
+          }
+        }
+        if (found) {
+          m.delivered_samples = delivered;
+          m.delivered = delivered > 0;
+        }
+        if (latency.samples > 0) {
+          m.latency_available = true;
+          m.latency = latency;
+        }
       }
       {
         // Reliability: RTPS_LOST reported by the reader's participant for the writer's
         // locators, plus the per-entity counters of writer and reader (window deltas).
         Reliability & rel = m.reliability;
         auto delta = [](
-          const std::map<std::string, DataCountSample> & map, const std::string & guid,
-          uint64_t & out) {
-            auto it = map.find(guid);
-            if (it == map.end()) {return false;}
-            out = it->second.last - std::min(it->second.last, it->second.first);
-            return true;
+          const std::map<std::string, DataCountSample> & map,
+          const std::vector<std::string> & guids, uint64_t & out) {
+            bool found = false;
+            uint64_t sum = 0;
+            for (const auto & g : guids) {
+              auto it = map.find(g);
+              if (it == map.end()) {continue;}
+              found = true;
+              sum += it->second.last - std::min(it->second.last, it->second.first);
+            }
+            out = sum;
+            return found;
           };
-        rel.available |= delta(stats.resent_datas, p.writer->guid, rel.resent);
-        rel.available |= delta(stats.heartbeats, p.writer->guid, rel.heartbeats);
-        rel.available |= delta(stats.gaps, p.writer->guid, rel.gaps);
-        rel.available |= delta(stats.acknacks, p.reader->guid, rel.acknacks);
-        rel.available |= delta(stats.nackfrags, p.reader->guid, rel.nackfrags);
+        rel.available |= delta(stats.resent_datas, writer_guids, rel.resent);
+        rel.available |= delta(stats.heartbeats, writer_guids, rel.heartbeats);
+        rel.available |= delta(stats.gaps, writer_guids, rel.gaps);
+        rel.available |= delta(stats.acknacks, reader_guids, rel.acknacks);
+        rel.available |= delta(stats.nackfrags, reader_guids, rel.nackfrags);
         for (const auto & s : stats.lost) {
           if (s.src_participant_prefix != p.reader->participant_guid_prefix ||
             !reader_has_locator(*p.writer, s.dst, stats.local_addresses))
@@ -634,11 +779,7 @@ void apply_stats(std::vector<TopicSummary> & topics, const StatsData & stats)
           if (rel.lost_packets > 0) {p.verdict.warnings.push_back("rtps-packets-lost");}
         }
       }
-      if (auto l = stats.latency.find({p.writer->guid, p.reader->guid});
-        l != stats.latency.end() && l->second.samples > 0)
-      {
-        m.latency_available = true;
-        m.latency = l->second;
+      if (m.latency_available) {
         if (!t.latency_available || m.latency.mean() > t.latency) {t.latency = m.latency.mean();}
         t.latency_available = true;
         if (m.latency.mean() < 0.0) {
@@ -648,10 +789,15 @@ void apply_stats(std::vector<TopicSummary> & topics, const StatsData & stats)
       }
       // DATA_COUNT is published only when the writer actually sends a DATA submessage,
       // so "the participant has a DATA_COUNT writer but no sample arrived" means zero.
-      if (auto dc = stats.data_count.find(p.writer->guid); dc != stats.data_count.end()) {
-        m.data_count_available = true;
-        m.data_submessages = dc->second.last - dc->second.first;
-      } else if (stats.statistics_writers.count({src, kStatsDataCountTopic})) {
+      for (const auto & g : writer_guids) {
+        if (auto dc = stats.data_count.find(g); dc != stats.data_count.end()) {
+          m.data_count_available = true;
+          m.data_submessages += dc->second.last - dc->second.first;
+        }
+      }
+      if (!m.data_count_available &&
+        stats.statistics_writers.count({src, kStatsDataCountTopic}))
+      {
         m.data_count_available = true;
       }
       for (const auto & s : stats.traffic) {
@@ -1185,6 +1331,26 @@ const std::map<std::string, CodeInfo> & explanations()
         "A writer and a reader on this topic announce different type names, so they do not match.",
         "Use the same message type (package and name) on both sides of the topic; ROS 2 announces "
         "it as <pkg>::msg::dds_::<Name>_."}},
+    // ---- rmw native-buffer companion topics
+    {"buffer-companion-folded", {
+        "rmw_fastrtps_cpp (ROS 2 Lyrical and later) gives a writer or reader of a type with an "
+        "unbounded uint8[] field a companion on the hidden topic <topic>/_buf_cpu and sends the "
+        "samples there whenever every subscription supports native buffers; the statistics "
+        "counters of the companions are added to this pair.",
+        std::nullopt}},
+    {"buffer-companion", {
+        "This is a native-buffer companion topic (<topic>/_buf_cpu) of rmw_fastrtps_cpp: its "
+        "endpoints belong to the writers and readers of the parent topic in the same "
+        "participants, whose pairs also count its statistics. The default view hides it; --all "
+        "shows it with its own counters.",
+        std::nullopt}},
+    {"buffer-companion-unmatched", {
+        "An endpoint on this <topic>/_buf_cpu topic has no single writer or reader of the parent "
+        "topic with the same type in its participant, so its statistics counters are not added "
+        "to a parent pair.",
+        "Nothing needs to change in the nodes: read the counters of this topic together with "
+        "those of the writer or reader of the parent topic (the name without /_buf_cpu) in the "
+        "same participant."}},
     // ---- measured traffic
     {"measured-udpv4-traffic", {
         "Statistics show RTPS packets from the writer's participant to the reader's UDPv4 "

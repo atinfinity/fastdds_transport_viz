@@ -318,6 +318,21 @@ std::string now_iso8601()
   return buf;
 }
 
+/// Without --all, the topics the default view hides after summarize(): native-buffer companion
+/// topics folded into their parents (collect() drops services and raw DDS topics earlier).
+void apply_default_view(
+  std::vector<fastdds_transport_viz::TopicSummary> & topics, const Options & o)
+{
+  if (o.all) {return;}
+  topics.erase(
+    std::remove_if(
+      topics.begin(), topics.end(),
+      [](const fastdds_transport_viz::TopicSummary & t) {
+        return !fastdds_transport_viz::in_default_view(t);
+      }),
+    topics.end());
+}
+
 void apply_node_filter(std::vector<fastdds_transport_viz::TopicSummary> & topics, const Options & o)
 {
   if (o.node_regex.empty()) {return;}
@@ -365,6 +380,8 @@ Snapshot collect(
   if (names != nullptr) {names->poll();}
 
   std::vector<Endpoint> endpoints = observer.snapshot();
+  // before any filter, so that a parent keeps its companions whatever --topic / --all drop
+  fastdds_transport_viz::link_buffer_companions(endpoints);
   std::vector<Endpoint> kept;
   std::regex re;
   if (!o.topic_regex.empty()) {
@@ -491,6 +508,7 @@ Snapshot collect(
     }
   }
   snap.topics = fastdds_transport_viz::summarize(snap.endpoints);
+  apply_default_view(snap.topics, o);
   apply_node_filter(snap.topics, o);
   snap.stats = std::move(stats_data);
   fastdds_transport_viz::apply_stats(snap.topics, snap.stats);
@@ -637,6 +655,7 @@ struct WatchState
     // Snapshot::endpoints, so rebuild them against the copy.
     last_snapshot = snap;
     last_snapshot.topics = fastdds_transport_viz::summarize(last_snapshot.endpoints);
+    apply_default_view(last_snapshot.topics, o);
     apply_node_filter(last_snapshot.topics, o);
     fastdds_transport_viz::apply_stats(last_snapshot.topics, last_snapshot.stats);
     have_previous = true;
@@ -644,8 +663,8 @@ struct WatchState
 };
 
 /// The view options of a one-shot run applied to a loaded document: the default view keeps
-/// ROS topics only (services and raw DDS topics need --all, as when observing), then the
-/// --topic and --node filters.
+/// ROS topics only (services, raw DDS topics and folded native-buffer companion topics need
+/// --all, as when observing), then the --topic and --node filters.
 void apply_view_filters(Snapshot & snap, const Options & o)
 {
   std::regex topic_re;
@@ -654,7 +673,7 @@ void apply_view_filters(Snapshot & snap, const Options & o)
     std::remove_if(
       snap.topics.begin(), snap.topics.end(),
       [&](const fastdds_transport_viz::TopicSummary & t) {
-        if (!o.all && !(t.is_ros_topic && t.dds_topic.rfind("rt/", 0) == 0)) {return true;}
+        if (!o.all && !fastdds_transport_viz::in_default_view(t)) {return true;}
         return !o.topic_regex.empty() && !std::regex_search(t.display_topic, topic_re);
       }),
     snap.topics.end());
