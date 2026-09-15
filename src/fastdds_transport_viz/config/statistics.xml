@@ -1,13 +1,16 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <!-- QoS for the statistics DataWriters that FASTDDS_STATISTICS enables in observed nodes.
 
-     Fast DDS 2.14 applies the default resource limit of 10 instances to those
-     writers. RTPS_SENT is keyed by destination locator, so a participant that
-     talks to more than 10 locators stops reporting the extra ones and
-     transport_viz - -stats shows "stats-writer-instance-limit-suspected".
-     This profile lifts the limit (0 = unlimited) while keeping the QoS the
-     statistics module requires. Profile names must match the aliases passed
-     in FASTDDS_STATISTICS. Use with:
+     Fast DDS before 3.5 (Jazzy's 2.14) applies the default resource limit of
+     10 instances to those writers. RTPS_SENT is keyed by destination locator,
+     so a participant that talks to more than 10 locators stops reporting the
+     extra ones and transport_viz - -stats shows
+     "stats-writer-instance-limit-suspected". This profile lifts the limit
+     (0 = unlimited) while keeping the QoS the statistics module requires.
+     Fast DDS 3.5 and later (Lyrical, Rolling) has no such limit; the profile
+     does no harm there. Profile names must match the aliases passed in
+     FASTDDS_STATISTICS. Use with (Fast DDS 3.x reads FASTDDS_DEFAULT_PROFILES_FILE,
+     and rmw_fastrtps on Lyrical and Rolling reads FASTRTPS_ as well):
        export FASTRTPS_DEFAULT_PROFILES_FILE=$(ros2 pkg prefix fastdds_transport_viz)/share/fastdds_transport_viz/config/statistics.xml
        export FASTDDS_STATISTICS="RTPS_SENT_TOPIC;RTPS_LOST_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC;DATA_COUNT_TOPIC;PUBLICATION_THROUGHPUT_TOPIC;RESENT_DATAS_TOPIC;HEARTBEAT_COUNT_TOPIC;ACKNACK_COUNT_TOPIC;NACKFRAG_COUNT_TOPIC;GAP_COUNT_TOPIC" -->
 <dds xmlns="http://www.eprosima.com/XMLSchemas/fastRTPS_Profiles">

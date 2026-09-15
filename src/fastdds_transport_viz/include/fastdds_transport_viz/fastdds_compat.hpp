@@ -49,6 +49,14 @@
 #define FTV_HAS_STATISTICS 0
 #endif
 
+/// Fast DDS before 3.5 creates the statistics DataWriters with the default resource limit
+/// of 10 instances; 3.5 made the resource limits unlimited by default (Fast-DDS#6261).
+#if FTV_FASTDDS_3 && (FASTDDS_VERSION_MAJOR > 3 || FASTDDS_VERSION_MINOR >= 5)
+#define FTV_STATS_WRITER_INSTANCE_LIMIT 0
+#else
+#define FTV_STATS_WRITER_INSTANCE_LIMIT 1
+#endif
+
 /// Fast DDS below 2.10 delivers only the SHM locator of a participant on the same host
 /// (its UDP locators are filtered out of the discovery data the tool receives).
 #if !FTV_FASTDDS_3 && (FASTRTPS_VERSION_MAJOR < 2 || \

@@ -984,6 +984,26 @@ TEST(ApplyStats, WriterInstanceLimitSuspectedWhenTenLocatorsReported)
   EXPECT_FALSE(has(p.verdict.warnings, "no-traffic-observed"));
 }
 
+TEST(ApplyStats, NoWriterInstanceLimitSuspectedWithoutTheLimit)
+{
+  std::vector<Endpoint> eps;
+  eps.push_back(make(true, HOST_A, {shm(7415)}));
+  eps.push_back(make(false, HOST_A, {shm(7413)}));
+  eps[0].participant_guid_prefix = "P1";
+  auto topics = summarize(eps);
+  std::vector<TrafficSample> traffic;
+  for (uint32_t port = 8000; port < 8010; ++port) {   // 10 unrelated locators
+    traffic.push_back(TrafficSample{"P1", udp4("10.0.0.1", port), 1, 100.0});
+  }
+  auto stats = stats_with(eps[0], traffic);
+  stats.writer_instance_limit = false;   // Fast DDS 3.5 and later
+  apply_stats(topics, stats);
+  const auto & p = topics[0].pairs[0];
+  EXPECT_TRUE(p.measured.transports.empty());
+  EXPECT_FALSE(has(p.verdict.warnings, "stats-writer-instance-limit-suspected"));
+  EXPECT_TRUE(has(p.verdict.warnings, "no-traffic-observed"));
+}
+
 // ---- frame-to-frame diff (--watch) ----------------------------------------------
 
 TEST(Diff, DetectsAddedRemovedAndChangedPairs)

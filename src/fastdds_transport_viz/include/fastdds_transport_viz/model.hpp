@@ -306,6 +306,10 @@ struct StatsData
   /// the same host as 127.0.0.1 / ::1, while a remote writer's RTPS_SENT names the real
   /// address, so both spellings must match.
   std::set<std::string> local_addresses;
+  /// Whether the observed nodes' statistics DataWriters keep the default limit of 10
+  /// instances (Fast DDS before 3.5), taken from the Fast DDS the tool is built with.
+  /// When false, apply_stats never reports stats-writer-instance-limit-suspected.
+  bool writer_instance_limit{true};
   size_t samples{0};
 };
 

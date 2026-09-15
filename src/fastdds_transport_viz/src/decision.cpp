@@ -636,7 +636,7 @@ std::string measured_reason(Transport t)
   }
 }
 
-constexpr size_t kStatsWriterInstanceLimit = 10;   // Fast DDS default resource_limits.max_instances
+constexpr size_t kStatsWriterInstanceLimit = 10;   // Fast DDS < 3.5 default max_instances
 
 void replace_code(
   std::vector<std::string> & codes, const std::string & from, const std::string & to)
@@ -671,10 +671,11 @@ void apply_stats(std::vector<TopicSummary> & topics, const StatsData & stats)
   if (!stats.enabled) {
     return;
   }
-  // Distinct destination locators reported per source participant. The Fast DDS
+  // Distinct destination locators reported per source participant. Before Fast DDS 3.5 the
   // statistics DataWriter keeps the default resource limit of 10 instances, so a
   // participant talking to more than 10 locators silently stops reporting new
   // ones - exactly 10 reported locators plus a missing one is the signature.
+  // StatsData::writer_instance_limit is false when the tool is built with 3.5 or later.
   std::map<std::string, size_t> locators_per_source;
   for (const auto & s : stats.traffic) {
     locators_per_source[s.src_participant_prefix]++;
@@ -916,7 +917,7 @@ void apply_stats(std::vector<TopicSummary> & topics, const StatsData & stats)
         // reader's locators: the statistics did not attribute the packets, which is not
         // the same as an idle link.
         v.warnings.push_back(
-          locators_per_source[src] >= kStatsWriterInstanceLimit ?
+          (stats.writer_instance_limit && locators_per_source[src] >= kStatsWriterInstanceLimit) ?
           "stats-writer-instance-limit-suspected" :
           m.delivered ? "delivered-without-measured-traffic" : "no-traffic-observed");
         continue;
@@ -1383,10 +1384,12 @@ const std::map<std::string, CodeInfo> & explanations()
     // ---- statistics availability
     {"stats-writer-instance-limit-suspected", {
         "The writer's participant reports traffic to 10 or more locators but none to this reader. "
-        "The Fast DDS statistics DataWriter keeps the default resource limit of 10 instances "
-        "(one per destination locator), so counters for further locators are never published.",
-        "Start the observed nodes with FASTDDS_DEFAULT_PROFILES_FILE pointing at this package's "
-        "config/statistics.xml (a data_writer profile per statistics alias whose "
+        "Before Fast DDS 3.5 the statistics DataWriter keeps the default resource limit of 10 "
+        "instances (one per destination locator), so counters for further locators are never "
+        "published.",
+        "Start the observed nodes with FASTRTPS_DEFAULT_PROFILES_FILE (Fast DDS 2.x) or "
+        "FASTDDS_DEFAULT_PROFILES_FILE (3.x, where ROS 2 nodes also accept FASTRTPS_) pointing at "
+        "this package's config/statistics.xml (a data_writer profile per statistics alias whose "
         "<resourceLimitsQos> sets max_instances to 0)."}},
     {"delivered-without-measured-traffic", {
         "HISTORY_LATENCY statistics prove that samples reached the reader, but RTPS_SENT reported "

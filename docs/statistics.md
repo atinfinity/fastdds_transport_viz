@@ -75,11 +75,18 @@ the samples of types with an unbounded `uint8[]` field; see
 
 ## Pitfall: the 10-instance limit
 
-Fast DDS 2.14 creates the statistics DataWriters with the default resource limit of
-10 instances. `RTPS_SENT` is keyed by destination locator, so a node that talks to more
-than 10 locators (a handful of peers is enough: every peer has metatraffic, user-data and
-SHM locators) silently stops reporting the extra ones. The tool flags this as
-`!stats-writer-instance-limit-suspected`.
+Before 3.5, Fast DDS creates the statistics DataWriters with the default resource limit of
+10 instances (Jazzy's 2.14; Humble's 2.6 binary has no statistics module). `RTPS_SENT` is
+keyed by destination locator, so a node that talks to more than 10 locators (a handful of
+peers is enough: every peer has metatraffic, user-data and SHM locators) silently stops
+reporting the extra ones. The tool flags this as `!stats-writer-instance-limit-suspected`.
+
+Fast DDS 3.5 made the limit unlimited by default: Lyrical and Rolling (3.6) do not need the
+profile below (it does no harm there), and a tool built with 3.5 or later never shows the
+warning. A pair without traffic to its reader gets `delivered-without-measured-traffic` or
+`no-traffic-observed` instead. The tool goes by the Fast DDS it is built with, so it misses
+the limit when a Lyrical build observes Jazzy nodes, or when a profile of your own sets
+`max_instances` again.
 
 Lift the limit on the observed nodes with the shipped profile. Fast DDS applies a
 `data_writer` profile whose name is the alias passed in `FASTDDS_STATISTICS`; the file has
@@ -89,6 +96,12 @@ one for every keyed topic (`PHYSICAL_DATA` has a single instance and needs none)
 export FASTRTPS_DEFAULT_PROFILES_FILE=$(ros2 pkg prefix fastdds_transport_viz)/share/fastdds_transport_viz/config/statistics.xml
 export FASTDDS_STATISTICS="RTPS_SENT_TOPIC;RTPS_LOST_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC;DATA_COUNT_TOPIC;PUBLICATION_THROUGHPUT_TOPIC;RESENT_DATAS_TOPIC;HEARTBEAT_COUNT_TOPIC;ACKNACK_COUNT_TOPIC;NACKFRAG_COUNT_TOPIC;GAP_COUNT_TOPIC"
 ```
+
+Fast DDS 2.x reads only `FASTRTPS_DEFAULT_PROFILES_FILE` and Fast DDS 3.x only
+`FASTDDS_DEFAULT_PROFILES_FILE`. On Lyrical and Rolling, rmw_fastrtps reads
+`FASTRTPS_DEFAULT_PROFILES_FILE` as well (with a deprecation warning), so the line above works
+for ROS 2 nodes on every supported distro; a Fast DDS 3.x application that does not go
+through the rmw needs `FASTDDS_DEFAULT_PROFILES_FILE`.
 
 Fast DDS reads a single profiles file; `datasharing_auto_stats.xml` is the merge of this
 file with `datasharing_auto.xml` for observing data-sharing with `--stats`. (The tool's
