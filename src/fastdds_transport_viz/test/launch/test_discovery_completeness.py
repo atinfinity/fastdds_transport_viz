@@ -7,6 +7,10 @@ A one-shot run ends on a --quiet window without discovery events, which a system
 still announcing its endpoints produces as easily as a settled one. The `discovery` object
 of the JSON document, and a warning line on stderr, tell the two apart: every endpoint gid
 the live participants announce in `ros_discovery_info` must have been discovered.
+
+Whether a given run here ends up incomplete is a race, so this file asserts the invariant
+(the warning appears exactly when `complete` is false) and the settled case. The comparison
+itself and the wording of the warning are unit tests in test_decision.cpp.
 """
 import json
 import os

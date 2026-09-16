@@ -13,7 +13,6 @@
 #include <algorithm>
 #include <cerrno>
 #include <chrono>
-#include <cmath>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
@@ -607,26 +606,9 @@ Snapshot collect(
 /// completeness could not be judged (no `ros_discovery_info` sample).
 void warn_if_incomplete(const Snapshot & snap, const Options & o)
 {
-  const auto & d = snap.discovery;
-  if (!d.complete.has_value() || *d.complete) {return;}
-  // Advise at least the values that made a large system complete in docs/development.md
-  // "Scale results", and always more than what this run already used.
-  auto longer = [](double current, int64_t least) {
-      return std::to_string(std::max(least, static_cast<int64_t>(std::ceil(current * 2.0))));
-    };
-  std::ostringstream hint;
-  if (o.stats) {
-    hint << "pass --timeout " << longer(o.timeout, 15);   // --stats ignores --quiet
-  } else if (o.quiet > 0) {
-    hint << "pass --quiet " << longer(o.quiet, 3) << " or --timeout " << longer(o.timeout, 10);
-  } else {
-    hint << "pass --timeout " << longer(o.timeout, 10);
-  }
-  std::cerr << "warning: discovery was still in progress ("
-            << d.announced_not_discovered << " of " << d.announced_by_incomplete
-            << " endpoints announced by " << d.participants_incomplete
-            << (d.participants_incomplete == 1 ? " participant" : " participants")
-            << " were not seen); " << hint.str() << " for a complete view\n";
+  const std::string line = fastdds_transport_viz::incomplete_discovery_warning(
+    snap.discovery, o.quiet, o.timeout, o.stats);
+  if (!line.empty()) {std::cerr << line << "\n";}
 }
 
 /// Raw-mode keyboard input and alternate screen for --watch on a terminal.

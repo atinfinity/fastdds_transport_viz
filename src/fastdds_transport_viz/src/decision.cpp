@@ -6,10 +6,13 @@
 #include <fnmatch.h>
 
 #include <algorithm>
+#include <cmath>
+#include <cstdint>
 #include <functional>
 #include <map>
 #include <optional>
 #include <set>
+#include <sstream>
 #include <string>
 #include <utility>
 #include <vector>
@@ -1006,6 +1009,30 @@ DiscoveryStatus discovery_completeness(
   }
   out.complete = out.announced_not_discovered == 0;
   return out;
+}
+
+std::string incomplete_discovery_warning(
+  const DiscoveryStatus & status, double quiet, double timeout, bool stats)
+{
+  if (!status.complete.has_value() || *status.complete) {return {};}
+  auto longer = [](double current, int64_t least) {
+      return std::to_string(std::max(least, static_cast<int64_t>(std::ceil(current * 2.0))));
+    };
+  std::ostringstream out;
+  out << "warning: discovery was still in progress ("
+      << status.announced_not_discovered << " of " << status.announced_by_incomplete
+      << " endpoints announced by " << status.participants_incomplete
+      << (status.participants_incomplete == 1 ? " participant" : " participants")
+      << " were not seen); ";
+  if (stats) {
+    out << "pass --timeout " << longer(timeout, 15);   // --stats ignores the quiet window
+  } else if (quiet > 0) {
+    out << "pass --quiet " << longer(quiet, 3) << " or --timeout " << longer(timeout, 10);
+  } else {
+    out << "pass --timeout " << longer(timeout, 10);
+  }
+  out << " for a complete view";
+  return out.str();
 }
 
 PairKey pair_key(const TopicSummary & topic, const Pair & pair)

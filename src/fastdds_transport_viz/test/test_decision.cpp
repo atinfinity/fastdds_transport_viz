@@ -2265,3 +2265,57 @@ TEST(DiscoveryCompleteness, DiscoveredEndpointsOutsideTheTableDoNotCount)
   EXPECT_TRUE(*d.complete);
   EXPECT_EQ(d.endpoints, 2u);
 }
+
+TEST(IncompleteDiscoveryWarning, ACompleteOrUnjudgedViewSaysNothing)
+{
+  DiscoveryStatus d;
+  EXPECT_EQ(incomplete_discovery_warning(d, 1.0, 3.0, false), "");   // complete unset
+  d.complete = true;
+  EXPECT_EQ(incomplete_discovery_warning(d, 1.0, 3.0, false), "");
+}
+
+TEST(IncompleteDiscoveryWarning, NamesTheNumbersAndLongerSettings)
+{
+  DiscoveryStatus d;
+  d.complete = false;
+  d.announced_not_discovered = 12;
+  d.announced_by_incomplete = 40;
+  d.participants_incomplete = 3;
+  EXPECT_EQ(
+    incomplete_discovery_warning(d, 1.0, 3.0, false),
+    "warning: discovery was still in progress (12 of 40 endpoints announced by 3 participants "
+    "were not seen); pass --quiet 3 or --timeout 10 for a complete view");
+}
+
+TEST(IncompleteDiscoveryWarning, OneParticipantIsSingular)
+{
+  DiscoveryStatus d;
+  d.complete = false;
+  d.announced_not_discovered = 1;
+  d.announced_by_incomplete = 6;
+  d.participants_incomplete = 1;
+  EXPECT_NE(
+    incomplete_discovery_warning(d, 1.0, 3.0, false).find("by 1 participant were not seen"),
+    std::string::npos);
+}
+
+TEST(IncompleteDiscoveryWarning, TheAdviceIsAlwaysLongerThanWhatTheRunUsed)
+{
+  DiscoveryStatus d;
+  d.complete = false;
+  d.announced_not_discovered = 2;
+  d.announced_by_incomplete = 5;
+  d.participants_incomplete = 1;
+  // already generous settings: double them rather than advise less
+  EXPECT_NE(
+    incomplete_discovery_warning(d, 4.0, 30.0, false).find("--quiet 8 or --timeout 60"),
+    std::string::npos);
+  // --quiet 0 (the window is off): only a timeout is worth advising
+  const auto no_quiet = incomplete_discovery_warning(d, 0.0, 3.0, false);
+  EXPECT_EQ(no_quiet.find("--quiet"), std::string::npos) << no_quiet;
+  EXPECT_NE(no_quiet.find("pass --timeout 10"), std::string::npos) << no_quiet;
+  // --stats runs the full timeout and ignores --quiet
+  const auto with_stats = incomplete_discovery_warning(d, 1.0, 5.0, true);
+  EXPECT_EQ(with_stats.find("--quiet"), std::string::npos) << with_stats;
+  EXPECT_NE(with_stats.find("pass --timeout 15"), std::string::npos) << with_stats;
+}
