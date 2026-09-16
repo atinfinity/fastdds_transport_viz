@@ -14,11 +14,13 @@
 
 #include <atomic>
 #include <chrono>
+#include <condition_variable>
 #include <cstdint>
 #include <map>
 #include <memory>
 #include <mutex>
 #include <string>
+#include <thread>
 #include <tuple>
 #include <vector>
 
@@ -34,10 +36,20 @@
 namespace fastdds_transport_viz
 {
 
+/// How often the observer's own thread takes the statistics readers (#141). The readers keep
+/// only the last sample of an instance, so what bounds the loss is the time between two takes,
+/// not --interval: before this, a --watch run drained once per frame (2 s by default) and not
+/// at all while paused, and a large system overwrote most samples in between.
+inline constexpr int kStatsDrainIntervalMs = 50;
+/// How many samples one drain processes before it hands the aggregate back. A drain of a large
+/// system runs for over a second, and snapshot() must not wait for a whole one.
+inline constexpr size_t kStatsDrainLockBatchSamples = 256;
+
 class StatsObserver
 {
 public:
-  /// Adds statistics readers to an existing participant.
+  /// Adds statistics readers to an existing participant and starts draining them every
+  /// kStatsDrainIntervalMs until the observer is destroyed.
   explicit StatsObserver(eprosima::fastdds::dds::DomainParticipant * participant);
   ~StatsObserver();
 
@@ -47,9 +59,9 @@ public:
   /// Drain every reader and return a copy of the aggregated data.
   StatsData snapshot();
 
-  /// Drain the readers without copying; call periodically during the observation so
-  /// that the first and the last sample of every counter are both seen (the readers
-  /// keep only the latest sample per instance).
+  /// Drain the readers without copying. The observer's own thread calls this every
+  /// kStatsDrainIntervalMs; it stays public because the tests drive a drain deterministically
+  /// instead of waiting for the thread.
   void poll();
 
   /// The subscriber holding the statistics readers (for tests).
@@ -62,6 +74,8 @@ public:
   uint64_t samples_lost() const {return listener_.lost;}
   uint64_t samples_lost_at_start() const {return listener_.lost_at_start;}
   uint64_t samples_rejected() const {return listener_.rejected;}
+  /// Drains that ended in an exception. The drain thread counts them instead of dying.
+  uint64_t drain_errors() const {return drain_errors_;}
 
   /// Value for FASTDDS_STATISTICS that monitored nodes need.
   static std::string required_env_value();
@@ -102,6 +116,7 @@ private:
   Reader create_reader(
     const std::string & topic_name, eprosima::fastdds::dds::TypeSupport type);
   void drain();
+  void drain_loop();
 
   eprosima::fastdds::dds::DomainParticipant * participant_;
   Listener listener_;   // declared before the readers it outlives
@@ -128,6 +143,13 @@ private:
   using LostKey = std::tuple<std::string, std::string, int, std::string, uint32_t>;
   std::map<LostKey, TrafficSample> lost_;
   StatsData data_;
+
+  std::mutex drain_wait_mutex_;
+  std::condition_variable drain_cv_;
+  std::atomic<bool> drain_stop_{false};
+  std::atomic<uint64_t> drain_errors_{0};
+  // declared last so that it is joined before anything it touches goes away
+  std::thread drain_thread_;
 };
 
 }  // namespace fastdds_transport_viz

@@ -988,7 +988,7 @@ int main(int argc, char ** argv)
     // Wait until --timeout, or until discovery has been quiet for --quiet
     // seconds (but never less than --quiet seconds in total).
     for (;; ) {
-      if (stats) {stats->poll();}
+      // The statistics readers are drained by the observer's own thread (#141).
       if (names) {names->poll();}
       std::this_thread::sleep_for(50ms);
       auto now = std::chrono::steady_clock::now();

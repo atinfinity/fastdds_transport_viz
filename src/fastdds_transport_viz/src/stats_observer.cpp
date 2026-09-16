@@ -7,6 +7,7 @@
 #include <cstring>
 #include <stdexcept>
 #include <string>
+#include <thread>
 
 #include <fastdds/dds/core/policy/QosPolicies.hpp>
 #include <fastdds/dds/subscriber/SampleInfo.hpp>
@@ -123,10 +124,19 @@ StatsObserver::StatsObserver(dds::DomainParticipant * participant)
   nackfrag_count_ = create_reader(
     st::NACKFRAG_COUNT_TOPIC, dds::TypeSupport(new st::EntityCountPubSubType()));
   data_.enabled = true;
+  // Last: the thread must not take a reader that does not exist yet.
+  drain_thread_ = std::thread(&StatsObserver::drain_loop, this);
 }
 
 StatsObserver::~StatsObserver()
 {
+  // First: the thread takes every reader deleted below.
+  {
+    std::lock_guard<std::mutex> lock(drain_wait_mutex_);
+    drain_stop_ = true;
+  }
+  drain_cv_.notify_all();
+  if (drain_thread_.joinable()) {drain_thread_.join();}
   for (auto * r : {&rtps_sent_, &history_latency_, &physical_data_, &data_count_,
       &rtps_lost_, &resent_datas_, &heartbeat_count_, &gap_count_, &acknack_count_,
       &nackfrag_count_})
@@ -198,6 +208,19 @@ StatsObserver::Reader StatsObserver::create_reader(
 void StatsObserver::drain()
 {
   dds::SampleInfo info;
+  std::unique_lock<std::mutex> lock(mutex_);
+  // A drain of a large system runs for over a second. Holding the aggregate for all of it
+  // would make every snapshot() wait for a whole one, so the lock is handed back regularly
+  // (#141): a snapshot then sees a drain in progress, which is what it would have seen a
+  // moment earlier anyway.
+  size_t since_yield = 0;
+  auto yield_lock = [&]() {
+      if (++since_yield < kStatsDrainLockBatchSamples) {return;}
+      since_yield = 0;
+      lock.unlock();
+      std::this_thread::yield();
+      lock.lock();
+    };
   // A statistics source is the participant that published a sample. The payload can name
   // another one (RTPS_LOST src_guid, HISTORY_LATENCY writer_guid), which says nothing about
   // whether that participant has statistics enabled.
@@ -230,6 +253,7 @@ void StatsObserver::drain()
     }
     s.samples = slot.samples + 1;
     slot = s;
+    yield_lock();
   }
 
   st::WriterReaderData latency;
@@ -242,6 +266,7 @@ void StatsObserver::drain()
     // write-to-notification latency, nanoseconds as float
     data_.latency[{guid_to_string(w), guid_to_string(r)}].add(
       static_cast<double>(latency.data()) * 1e-9);
+    yield_lock();
   }
 
   // Cumulative per-entity counters: DATA_COUNT and the reliability counters. The first
@@ -256,6 +281,7 @@ void StatsObserver::drain()
         if (d.samples == 0) {d.first = count.count();}
         d.last = count.count();
         ++d.samples;
+        yield_lock();
       }
     };
   drain_counter(data_count_, data_.data_count);
@@ -291,6 +317,7 @@ void StatsObserver::drain()
     }
     s.samples = slot.samples + 1;
     slot = s;
+    yield_lock();
   }
 
   st::PhysicalData physical;
@@ -300,19 +327,41 @@ void StatsObserver::drain()
     rtps::GUID_t g = to_rtps(physical.participant_guid());
     std::string prefix = prefix_to_string(g.guidPrefix);
     data_.physical[prefix] = HostInfo{physical.host(), physical.user(), physical.process()};
+    yield_lock();
+  }
+}
+
+void StatsObserver::drain_loop()
+{
+  std::unique_lock<std::mutex> wait(drain_wait_mutex_);
+  while (!drain_stop_) {
+    drain_cv_.wait_for(
+      wait, std::chrono::milliseconds(kStatsDrainIntervalMs),
+      [this] {return drain_stop_.load();});
+    if (drain_stop_) {break;}
+    wait.unlock();
+    // One failed drain must not end the ingestion for the rest of the run: it is counted
+    // instead, and reported with the drain phase under FTV_PROFILE.
+    try {
+      drain();
+    } catch (...) {
+      ++drain_errors_;
+    }
+    wait.lock();
   }
 }
 
 void StatsObserver::poll()
 {
-  std::lock_guard<std::mutex> lock(mutex_);
   drain();
 }
 
 StatsData StatsObserver::snapshot()
 {
-  std::lock_guard<std::mutex> lock(mutex_);
+  // A final sweep before the copy: the thread drains every kStatsDrainIntervalMs, so how long
+  // this one still takes is the gauge of whether it keeps up (FTV_PROFILE "drain").
   drain();
+  std::lock_guard<std::mutex> lock(mutex_);
   StatsData out = data_;
   out.writer_instance_limit = FTV_STATS_WRITER_INSTANCE_LIMIT;
   out.samples_lost = listener_.lost;
