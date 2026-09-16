@@ -3,6 +3,7 @@
 
 #include "fastdds_transport_viz/stats_observer.hpp"
 
+#include <chrono>
 #include <cstring>
 #include <stdexcept>
 #include <string>
@@ -15,6 +16,7 @@
 #include <fastdds/dds/topic/qos/TopicQos.hpp>
 #include <fastdds/statistics/topic_names.hpp>
 
+#include "fastdds_transport_viz/decision.hpp"
 #include "fastdds_transport_viz/fastdds_compat.hpp"
 #include "fastdds_transport_viz/fastdds_util.hpp"
 #if FTV_FASTDDS_3
@@ -55,6 +57,36 @@ rtps::Locator_t to_rtps(const st::detail::Locator_s & l)
 }
 
 }  // namespace
+
+void StatsObserver::Listener::on_sample_lost(
+  dds::DataReader *, const dds::SampleLostStatus & status)
+{
+  const std::chrono::steady_clock::duration since(
+    std::chrono::steady_clock::now().time_since_epoch().count() - last_match_ticks);
+  const double seconds = std::chrono::duration<double>(since).count();
+  const auto n = static_cast<uint64_t>(status.total_count_change);
+  if (statistics_late_join_window_open(any_match, seconds)) {
+    lost_at_start += n;
+  } else {
+    lost += n;
+  }
+}
+
+void StatsObserver::Listener::on_sample_rejected(
+  dds::DataReader *, const dds::SampleRejectedStatus & status)
+{
+  rejected += static_cast<uint64_t>(status.total_count_change);
+}
+
+void StatsObserver::Listener::on_subscription_matched(
+  dds::DataReader *, const dds::SubscriptionMatchedStatus & status)
+{
+  // Every new writer brings its own burst of history it had already dropped, so each match
+  // opens the window again for the grace period; a writer that goes away does not.
+  if (status.current_count_change <= 0) {return;}
+  last_match_ticks = std::chrono::steady_clock::now().time_since_epoch().count();
+  any_match = true;
+}
 
 std::string StatsObserver::required_env_value()
 {
@@ -157,7 +189,8 @@ StatsObserver::Reader StatsObserver::create_reader(
   }
   r.reader = subscriber_->create_datareader(
     r.topic, qos, &listener_,
-    dds::StatusMask::sample_lost() << dds::StatusMask::sample_rejected());
+    dds::StatusMask::sample_lost() << dds::StatusMask::sample_rejected() <<
+      dds::StatusMask::subscription_matched());
   if (r.reader == nullptr) {
     throw std::runtime_error("failed to create statistics reader for " + topic_name);
   }
@@ -295,6 +328,10 @@ StatsData StatsObserver::snapshot()
   drain();
   StatsData out = data_;
   out.writer_instance_limit = FTV_STATS_WRITER_INSTANCE_LIMIT;
+  out.samples_lost = listener_.lost;
+  out.samples_lost_at_start = listener_.lost_at_start;
+  out.samples_rejected = listener_.rejected;
+  if (statistics_samples_were_lost(out)) {out.warnings.push_back("stats-samples-lost");}
   out.traffic.clear();
   for (const auto & kv : traffic_) {
     out.traffic.push_back(kv.second);

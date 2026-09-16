@@ -1035,6 +1035,34 @@ std::string incomplete_discovery_warning(
   return out.str();
 }
 
+bool statistics_late_join_window_open(
+  bool any_writer_matched, double seconds_since_last_writer_match)
+{
+  // The window follows the matches instead of closing once, and it is wide because the burst
+  // is announced late: a writer says what its history dropped with one of its next heartbeats,
+  // measured up to 1.2 s (Jazzy) and 3.9 s (Lyrical) after the match on a quiet five-node
+  // system. Before the first match there is no "last match" to measure the grace period from.
+  return !any_writer_matched || seconds_since_last_writer_match < kStatisticsLateJoinGraceSeconds;
+}
+
+bool statistics_samples_were_lost(const StatsData & stats)
+{
+  return stats.samples_lost + stats.samples_rejected > 0;
+}
+
+std::string statistics_loss_warning(const StatsData & stats)
+{
+  if (!statistics_samples_were_lost(stats)) {return {};}
+  const uint64_t lost = stats.samples_lost + stats.samples_rejected;
+  std::ostringstream out;
+  // Everything the readers should have had: what arrived plus what did not.
+  out << "warning: " << lost << " of " << lost + stats.samples
+      << " statistics samples were lost (the tool could not keep up); some pairs show no "
+    "measurement although they carry traffic - enable statistics on fewer nodes, or keep "
+    "FASTDDS_STATISTICS to the aliases you need (e.g. RTPS_SENT_TOPIC;RTPS_LOST_TOPIC)";
+  return out.str();
+}
+
 PairKey pair_key(const TopicSummary & topic, const Pair & pair)
 {
   return PairKey{topic.display_topic, pair.writer->guid, pair.reader->guid,
@@ -1483,7 +1511,11 @@ const std::map<std::string, CodeInfo> & explanations()
         "persists, the transport of this pair cannot be measured."}},
     {"no-traffic-observed", {
         "The writer's participant publishes statistics but sent no packets to any locator of the "
-        "reader during the observation window.",
+        "reader during the observation window. On a large system it can also mean that the tool "
+        "did not receive the samples that would have shown the traffic: the document-level "
+        "stats-samples-lost warning and stats.samples_lost say whether any were lost (the "
+        "counters are shared by all statistics readers, so the loss cannot be attributed to "
+        "this pair).",
         "Make the writer publish during the observation (an idle topic has nothing to measure), "
         "or use a longer --timeout."}},
     {"stats-not-enabled-on-writer", {
@@ -1509,6 +1541,17 @@ const std::map<std::string, CodeInfo> & explanations()
         "Check the link (Wi-Fi, MTU, switch), raise the socket buffers (<sendBufferSize> / "
         "<receiveBufferSize> of the transport descriptor, net.core.rmem_max), and use RELIABLE "
         "reliability where samples must not be lost."}},
+    {"stats-samples-lost", {
+        "The tool's statistics readers lost samples: the writers' keep-last history overwrote "
+        "them before the tool read them, or a reader resource limit refused them. A pair can "
+        "therefore show no measurement although it carries traffic, and the counters of the "
+        "pairs that are measured can skip a stretch. The JSON document counts them in "
+        "stats.samples_lost and stats.samples_rejected; stats.samples_lost_at_start holds the "
+        "burst from before the readers had matched the writers, which is normal and not "
+        "counted here.",
+        "Enable statistics on fewer nodes, or keep FASTDDS_STATISTICS to the aliases you need "
+        "(for example RTPS_SENT_TOPIC;RTPS_LOST_TOPIC). A longer --timeout does not help: it "
+        "collects more of the loss, not less."}},
     // ---- shared memory of the environment
     {"shm-stale-files", {
         "Fast DDS files in the shared-memory directory whose lock nobody holds: their owner "

@@ -1,6 +1,6 @@
 # 実測 transport (`--stats`)
 
-> 英語版が正です。この文書は 2026-09-16 時点の英語版に対応しています。
+> 英語版が正です。この文書は 2026-09-17 時点の英語版に対応しています。
 
 discovery のデータは「こうなる*はず*」を教えてくれます。`--stats` を付けると、ツールは
 [Fast DDS statistics モジュール](https://fast-dds.docs.eprosima.com/en/2.14.x/fastdds/statistics/statistics.html)
@@ -137,11 +137,35 @@ Docker の 8 CPU の VM で Jazzy (Fast DDS 2.14.6) を使い、すべてのノ�
 Nav2 (4 participant、1195 ペア) の隣でも、このスレッドだけで 1 コアを使い切ります。追いつけなく
 なると、送信側の keep-last の履歴が届く前のサンプルを上書きします。
 
-ツールは失われた statistics のサンプルをまだ表示しません ([#134](https://github.com/atinfinity/fastdds_transport_viz/issues/134))。そのため大規模な
-システムでは、`no-traffic-observed` が「実測できなかった」の意味にもなり得ます。見る範囲を絞ってください:
+ツールは落としたサンプルを報告します。JSON 文書の `stats.samples_lost` が届かなかった statistics
+サンプルの数で、表の `statistics:` 行にも同じ数が出ます。文書レベルの警告コードは
+`stats-samples-lost` で、ワンショット実行では stderr に 1 行出ます:
+
+```
+warning: 682142 of 690671 statistics samples were lost (the tool could not keep up); some pairs show no measurement although they carry traffic - enable statistics on fewer nodes, or keep FASTDDS_STATISTICS to the aliases you need (e.g. RTPS_SENT_TOPIC;RTPS_LOST_TOPIC)
+```
+
+`--watch` ではこの行は出しません。値はフレームごとに増えるだけで、`statistics:` のフッタが既に
+表示しているからです。カウンタは実行全体の累積なので、損失の無いフレームが来ても、それ以前に
+取り逃した実測値が戻るわけではありません。
+
+この警告が出ているときは、ペアの `no-traffic-observed` が「実測できなかった」の意味にもなり得ます。
+カウンタは 11 個の statistics reader で共有しているため、損失を特定のペアに帰属させられません。
+見る範囲を絞ってください:
 - 見たいノードでだけ statistics を有効にする;
-- `FASTDDS_STATISTICS` を必要な別名 (例: `RTPS_SENT_TOPIC;RTPS_LOST_TOPIC`) に絞る;
-- `--stats` に長めの `--timeout` を渡す。
+- `FASTDDS_STATISTICS` を必要な別名 (例: `RTPS_SENT_TOPIC;RTPS_LOST_TOPIC`) に絞る。
+
+ここでは `--timeout` を延ばしても解決しません。損失が減るのではなく、より多く集めるだけです。
+ツール側が追いつくようにするのは [#141](https://github.com/atinfinity/fastdds_transport_viz/issues/141) です。
+
+`stats.samples_lost_at_start` は別に数えられ、警告にはなりません。reader はマッチした時点で、
+writer の keep-last 履歴が既に捨てていたサンプルをすべて「失われた」と通知されますが、これは
+ツールが追いつけているかとは無関係です。しかもこの通知は遅れて届きます。writer は捨てた分を
+マッチ時ではなく次以降の heartbeat で知らせるためで、静穏な 5 ノード系での実測では、マッチから
+jazzy で最大 1.2 秒、lyrical で最大 3.9 秒あとに届きました。新しい statistics writer は必ずこの
+バーストを伴うので、「直近 5 秒以内に新規マッチがある間」の損失を late-join と数えます。1 度も
+マッチしていない間も同じ扱いです（猶予時間の起点となるマッチがまだ無いため）。途中から起動した
+ノードが言い訳にできるのは 5 秒分だけで、その後も続く損失は計上されます。
 
 ## 実装メモ
 

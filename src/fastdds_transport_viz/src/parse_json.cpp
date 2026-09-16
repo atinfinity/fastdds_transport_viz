@@ -275,6 +275,13 @@ StatsData stats(const json & j)
     th.last = kv.value().value("last", 0.0);
     s.throughput[kv.key()] = th;
   }
+  // #134; absent in documents written before it
+  s.samples_lost = j.value("samples_lost", 0ULL);
+  s.samples_lost_at_start = j.value("samples_lost_at_start", 0ULL);
+  s.samples_rejected = j.value("samples_rejected", 0ULL);
+  for (const auto & w : j.value("warnings", json::array())) {
+    s.warnings.push_back(w.get<std::string>());
+  }
   const json writers = j.value("statistics_writers", json::array());
   for (const auto & w : writers) {
     s.statistics_writers.insert({w.value("participant_guid_prefix", ""), w.value("topic", "")});

@@ -322,6 +322,18 @@ struct StatsData
   /// When false, apply_stats never reports stats-writer-instance-limit-suspected.
   bool writer_instance_limit{true};
   size_t samples{0};
+  /// Statistics samples that never reached the tool (#134). `samples_lost` counts those the
+  /// writers' keep-last history overwrote inside the observation window, `samples_rejected`
+  /// those a reader resource limit refused; both mean a pair can show no measurement although
+  /// it carries traffic. `samples_lost_at_start` counts the burst a reader sees while the
+  /// statistics writers are still matching it (their history had already moved on): it says
+  /// nothing about the tool keeping up, so it stays out of the warning. All three are
+  /// cumulative over the run, `--watch` included.
+  uint64_t samples_lost{0};
+  uint64_t samples_lost_at_start{0};
+  uint64_t samples_rejected{0};
+  /// Document-level warning codes, like ShmInfo::warnings: stats-samples-lost.
+  std::vector<std::string> warnings;
 };
 
 // ---- shared memory of the tool's environment -----------------------------------

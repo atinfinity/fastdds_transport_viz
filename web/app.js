@@ -11,7 +11,7 @@
 
   // pure model / formatting functions live in model.js (unit-tested under Node)
   const { TRANSPORTS, isInternalTopic, normalizeDocument, buildModel, filterRegex, visiblePairs, visibleNodesModel, bundle,
-    humanBytes, measuredText, rateText, latencyText, lossText, escapeHtml, codeListHtml, shmText,
+    humanBytes, measuredText, rateText, latencyText, lossText, escapeHtml, codeListHtml, shmText, statsText,
     pairKey, keyId, diffDocuments, changeText, changesSummary, decorations, holdChanges, heldDecorations,
     markedPairs, pruneNodes } = globalThis.TransportVizModel;
   const COLORS = {
@@ -415,8 +415,9 @@
     const n = d.topics.reduce((a, t) => a + t.pairs.length, 0);
     const c = state.changes;
     const vs = c && c.before ? ` · vs ${c.before.observed_at}${c.before.domain !== d.domain ? ` (domain ${c.before.domain})` : ''} by ${c.key || 'guid'} key` : '';
-    d3.select('#meta').text(`domain ${d.domain} · ${d.observed_at} · ${d.topics.length} topics, ${n} pairs · ` +
-      (d.stats && d.stats.enabled ? `statistics: ${d.stats.samples} samples` : 'no statistics') + vs);
+    d3.select('#meta').html(
+      escapeHtml(`domain ${d.domain} · ${d.observed_at} · ${d.topics.length} topics, ${n} pairs · `) +
+      statsText(d.stats, d.reason_code_descriptions, d.reason_code_remedies) + escapeHtml(vs));
     d3.select('#shm').html(shmText(d.shm, d.reason_code_descriptions, d.reason_code_remedies));
   }
 

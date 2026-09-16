@@ -298,7 +298,7 @@ Budgets (the `limit` steps only record):
 | web viewer | first render < 3 s, filter < 100 ms | the 30 s `--stats` document, by hand (below) |
 | tool CPU | < 1 core | CPU time / wall time of the `--watch` runs and the 30 s `--stats` run, the highest |
 | tool memory | < 300 MB | peak RSS (`wait4`) over every run |
-| dropped statistics samples | 0 | growth of `on_sample_lost` + `on_sample_rejected` of the statistics readers after the first `--watch` frame, the higher of both runs. A reader that matches a writer late counts the samples already gone from the writer's keep-last history as lost; the one-shot `--stats` runs record those (`oneshot_lost_samples`, "at start" in the row) but they are not the tool falling behind |
+| dropped statistics samples | 0 | growth of the `drain` phase's `sample_lost` + `sample_rejected` after the first `--watch` frame, the higher of both runs. A reader that matches a writer late counts the samples already gone from the writer's keep-last history as lost; since #134 the tool keeps those apart as `sample_lost_at_start` (`stats.samples_lost_at_start` in the document), so they no longer inflate this row. The one-shot `--stats` runs record them as `oneshot_lost_samples` ("at start" in the row) |
 | `--stats` coverage | ≥ 95 % | pairs with measured packets or deliveries at `--timeout 5` among those at `--timeout 30`; for the synthetic loads only the `/scale` pairs count (`/parameter_events` often sends nothing within 5 s), for Nav2 every pair; 0 when the 30 s run measured none of them |
 
 A `--watch` run whose frames never held a pair fails its row ("saw no pairs"): its frame times
@@ -324,7 +324,7 @@ interface; nothing in `--json` changes):
 | `ftv_profile` | When | Fields besides `ms` |
 |---|---|---|
 | `discovery` | after the discovery wait, from start | `endpoints` (every endpoint the raw participant knows), `events` (discovery callbacks), `first_event_ms` (polled every 50 ms, 0 when nothing was discovered), `last_event_ms` |
-| `drain` | `--stats`: reading the statistics readers | `samples`, `sample_lost`, `sample_rejected` (cumulative) |
+| `drain` | `--stats`: reading the statistics readers | `samples`, `sample_lost`, `sample_lost_at_start`, `sample_rejected` (cumulative) |
 | `resolve` | node names from the ROS graph (two rmw queries per topic) | |
 | `summarize` | pairing writers and readers | `endpoints`, `topics`, `pairs` (before the view filters) |
 | `apply_stats` | `--stats` overlay | |
@@ -397,7 +397,7 @@ The one-shot pair counts below the total are the `--quiet 1` stops described abo
 - **large:**
   - the load alone keeps 6.7 of the 8 cores busy, and the tool gets about a third of a core;
   - a frame takes seconds (`resolve` 2.9 s: two rmw graph queries per topic every frame, [#135](https://github.com/atinfinity/fastdds_transport_viz/issues/135));
-  - the statistics readers lose millions of samples and measure no `/scale` pair ([#134](https://github.com/atinfinity/fastdds_transport_viz/issues/134));
+  - the statistics readers lose millions of samples and measure no `/scale` pair. The tool now says so (`stats.samples_lost`, the `stats-samples-lost` warning, [#134](https://github.com/atinfinity/fastdds_transport_viz/issues/134)); making it keep up is [#141](https://github.com/atinfinity/fastdds_transport_viz/issues/141);
   - the one-shot table still takes 0.7 s.
 - **large_multi** behaves the same way.
 - **large on the other distributions:**
@@ -408,7 +408,7 @@ The one-shot pair counts below the total are the `--quiet 1` stops described abo
 - **`RATE` of sporadic writers:** a writer that sends one burst gets a single `PUBLICATION_THROUGHPUT` sample of megabytes per second. Examples: `/map` in Nav2 shows 11.5 MB/s, and `/parameter_events` in `large` shows 267 MB/s on Jazzy and 1.7 GB/s on Lyrical ([#137](https://github.com/atinfinity/fastdds_transport_viz/issues/137)).
 - **nav2:**
   - frames and memory are small;
-  - with `--stats`, the tool uses a whole core in every run. All of it is one Fast DDS UDP receive thread (`dds.udp.<port>`: 0.995 cores; the tool without `--stats` uses none): the statistics readers take only UDP ([#106](https://github.com/atinfinity/fastdds_transport_viz/issues/106)), and one thread per port is also the ceiling behind the losses at large ([#134](https://github.com/atinfinity/fastdds_transport_viz/issues/134));
+  - with `--stats`, the tool uses a whole core in every run. All of it is one Fast DDS UDP receive thread (`dds.udp.<port>`: 0.995 cores; the tool without `--stats` uses none): the statistics readers take only UDP ([#106](https://github.com/atinfinity/fastdds_transport_viz/issues/106)), and one thread per port is also the ceiling behind the losses at large ([#141](https://github.com/atinfinity/fastdds_transport_viz/issues/141));
   - in a first run, both 60 s `--watch` runs saw no pair at all while the one-shot runs before them saw 1195. Not reproduced by hand or in the second run; this is why the harness now fails such a run.
 - **limit:**
   - the load alone keeps all 8 cores busy from 60 processes on, so these steps show a starved tool;

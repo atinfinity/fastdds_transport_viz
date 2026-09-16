@@ -174,6 +174,34 @@ TEST(RenderTable, MeasuredCellValues)
   EXPECT_NE(out.find("statistics: 12 samples from 1 participant(s)"), std::string::npos);
 }
 
+TEST(RenderTable, StatisticsFooterCountsWhatTheToolLost)
+{
+  auto s = stats_snapshot();
+  s.stats.samples_lost = 40;
+  s.stats.samples_rejected = 2;
+  // not the tool falling behind: out of the count and out of the warning
+  s.stats.samples_lost_at_start = 900;
+  s.stats.warnings = {"stats-samples-lost"};
+  auto out = render_table(s, RenderOptions{});
+  EXPECT_NE(
+    out.find("statistics: 12 samples from 1 participant(s), 42 sample(s) lost"),
+    std::string::npos) << out;
+  EXPECT_NE(out.find("!stats-samples-lost"), std::string::npos) << out;
+  EXPECT_NE(
+    out.find("a pair can show no measurement although it carries traffic"),
+    std::string::npos) << out;
+  EXPECT_EQ(out.find("900"), std::string::npos) << out;
+
+  // nothing lost: no number, no warning line
+  s.stats.samples_lost = 0;
+  s.stats.samples_rejected = 0;
+  s.stats.warnings.clear();
+  out = render_table(s, RenderOptions{});
+  EXPECT_NE(out.find("statistics: 12 samples from 1 participant(s)"), std::string::npos) << out;
+  EXPECT_EQ(out.find("sample(s) lost"), std::string::npos) << out;
+  EXPECT_EQ(out.find("stats-samples-lost"), std::string::npos) << out;
+}
+
 TEST(RenderTable, StatisticsHintWhenNoParticipantPublishes)
 {
   auto s = stats_snapshot();
