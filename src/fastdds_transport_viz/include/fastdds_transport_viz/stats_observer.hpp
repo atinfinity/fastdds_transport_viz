@@ -87,6 +87,21 @@ private:
     bool owns_topic{true};   // false when reusing a topic Fast DDS created (FASTDDS_STATISTICS)
     eprosima::fastdds::dds::DataReader * reader{nullptr};
   };
+  /// What the tool needs from a statistics topic, which is what its reader's QoS follows.
+  enum class ReaderKind
+  {
+    /// PHYSICAL_DATA: one sample per participant, published once. Reliable and
+    /// transient-local, or the host and pid of a participant that started before the tool
+    /// would never be seen.
+    kIdentity,
+    /// The cumulative counters (RTPS_SENT, RTPS_LOST, DATA_COUNT, ...). The tool reports
+    /// last - first, and `first` is the transient-local sample from before the observation
+    /// started, so these cannot go best-effort or volatile however loud they are.
+    kCounter,
+    /// HISTORY_LATENCY: one sample per delivered change, only counted and averaged. By far
+    /// the loudest topic, and the only one that never looks at `first`.
+    kEvent,
+  };
   /// Counts what the readers did not get (#134). A reader that has just matched a statistics
   /// writer is told about every sample the writer's keep-last history already dropped, which
   /// is not the tool falling behind: a loss within kStatisticsLateJoinGraceSeconds of a new
@@ -114,7 +129,8 @@ private:
       const eprosima::fastdds::dds::SubscriptionMatchedStatus & status) override;
   };
   Reader create_reader(
-    const std::string & topic_name, eprosima::fastdds::dds::TypeSupport type);
+    const std::string & topic_name, eprosima::fastdds::dds::TypeSupport type,
+    ReaderKind kind);
   void drain();
   void drain_loop();
 

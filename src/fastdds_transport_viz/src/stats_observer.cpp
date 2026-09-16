@@ -104,25 +104,35 @@ StatsObserver::StatsObserver(dds::DomainParticipant * participant)
     throw std::runtime_error("failed to create statistics subscriber");
   }
   rtps_sent_ = create_reader(
-    st::RTPS_SENT_TOPIC, dds::TypeSupport(new st::Entity2LocatorTrafficPubSubType()));
+    st::RTPS_SENT_TOPIC, dds::TypeSupport(new st::Entity2LocatorTrafficPubSubType()),
+    ReaderKind::kCounter);
   history_latency_ = create_reader(
-    st::HISTORY_LATENCY_TOPIC, dds::TypeSupport(new st::WriterReaderDataPubSubType()));
+    st::HISTORY_LATENCY_TOPIC, dds::TypeSupport(new st::WriterReaderDataPubSubType()),
+    ReaderKind::kEvent);
   physical_data_ = create_reader(
-    st::PHYSICAL_DATA_TOPIC, dds::TypeSupport(new st::PhysicalDataPubSubType()));
+    st::PHYSICAL_DATA_TOPIC, dds::TypeSupport(new st::PhysicalDataPubSubType()),
+    ReaderKind::kIdentity);
   data_count_ = create_reader(
-    st::DATA_COUNT_TOPIC, dds::TypeSupport(new st::EntityCountPubSubType()));
+    st::DATA_COUNT_TOPIC, dds::TypeSupport(new st::EntityCountPubSubType()),
+    ReaderKind::kCounter);
   rtps_lost_ = create_reader(
-    st::RTPS_LOST_TOPIC, dds::TypeSupport(new st::Entity2LocatorTrafficPubSubType()));
+    st::RTPS_LOST_TOPIC, dds::TypeSupport(new st::Entity2LocatorTrafficPubSubType()),
+    ReaderKind::kCounter);
   resent_datas_ = create_reader(
-    st::RESENT_DATAS_TOPIC, dds::TypeSupport(new st::EntityCountPubSubType()));
+    st::RESENT_DATAS_TOPIC, dds::TypeSupport(new st::EntityCountPubSubType()),
+    ReaderKind::kCounter);
   heartbeat_count_ = create_reader(
-    st::HEARTBEAT_COUNT_TOPIC, dds::TypeSupport(new st::EntityCountPubSubType()));
+    st::HEARTBEAT_COUNT_TOPIC, dds::TypeSupport(new st::EntityCountPubSubType()),
+    ReaderKind::kCounter);
   gap_count_ = create_reader(
-    st::GAP_COUNT_TOPIC, dds::TypeSupport(new st::EntityCountPubSubType()));
+    st::GAP_COUNT_TOPIC, dds::TypeSupport(new st::EntityCountPubSubType()),
+    ReaderKind::kCounter);
   acknack_count_ = create_reader(
-    st::ACKNACK_COUNT_TOPIC, dds::TypeSupport(new st::EntityCountPubSubType()));
+    st::ACKNACK_COUNT_TOPIC, dds::TypeSupport(new st::EntityCountPubSubType()),
+    ReaderKind::kCounter);
   nackfrag_count_ = create_reader(
-    st::NACKFRAG_COUNT_TOPIC, dds::TypeSupport(new st::EntityCountPubSubType()));
+    st::NACKFRAG_COUNT_TOPIC, dds::TypeSupport(new st::EntityCountPubSubType()),
+    ReaderKind::kCounter);
   data_.enabled = true;
   // Last: the thread must not take a reader that does not exist yet.
   drain_thread_ = std::thread(&StatsObserver::drain_loop, this);
@@ -150,7 +160,7 @@ StatsObserver::~StatsObserver()
 }
 
 StatsObserver::Reader StatsObserver::create_reader(
-  const std::string & topic_name, dds::TypeSupport type)
+  const std::string & topic_name, dds::TypeSupport type, ReaderKind kind)
 {
   Reader r;
   type.register_type(participant_);
@@ -171,17 +181,35 @@ StatsObserver::Reader StatsObserver::create_reader(
   // preallocated-with-realloc. The statistics topics are keyed (one instance per
   // (source, destination locator) / per participant), and the Fast DDS default
   // resource limits allow only 10 instances per reader - enough to silently drop
-  // every sample of a participant once ten (src, locator) pairs are seen. We only
-  // need the latest cumulative counter per instance, so: unlimited instances,
-  // keep-last 1.
+  // every sample of a participant once ten (src, locator) pairs are seen, so the
+  // instances stay unlimited. What differs per topic is how much history is worth
+  // keeping and whether the sample from before the observation started matters
+  // (#141; see ReaderKind and docs/statistics.md).
   dds::DataReaderQos qos = dds::DATAREADER_QOS_DEFAULT;
   qos.reliability().kind = dds::RELIABLE_RELIABILITY_QOS;
   qos.durability().kind = dds::TRANSIENT_LOCAL_DURABILITY_QOS;
   qos.history().kind = dds::KEEP_LAST_HISTORY_QOS;
+  // One slot is enough for both of the other kinds: only the newest sample of a cumulative
+  // counter says anything the tool needs, and PHYSICAL_DATA is published once per participant
+  // and never changed. The drain thread takes that sample within kStatsDrainIntervalMs of its
+  // arrival, and keeping ten here was measured to buy no additional measured pair.
   qos.history().depth = 1;
+  if (kind == ReaderKind::kEvent) {
+    // Not a counter but a stream of independent observations reduced to a percentile, so an
+    // older sample still carries something the newest does not replace. Ten is also all a
+    // reader can ever catch up on: the shipped writer profile keeps ten per instance, so past
+    // that the overwrite has already happened on the writer's side.
+    qos.history().depth = 10;
+    // Nothing here is cumulative and nothing is read from before the run, so the samples
+    // this reader misses are worth less than the delivery effort of getting them.
+    qos.reliability().kind = dds::BEST_EFFORT_RELIABILITY_QOS;
+    qos.durability().kind = dds::VOLATILE_DURABILITY_QOS;
+  }
   qos.resource_limits().max_samples = 0;             // 0 = unlimited in Fast DDS
   qos.resource_limits().max_instances = 0;
-  qos.resource_limits().max_samples_per_instance = 0;
+  // Bounded per instance, never in total: a total cap would refuse samples once enough
+  // instances exist, and a rejection is exactly the loss this is meant to prevent.
+  qos.resource_limits().max_samples_per_instance = qos.history().depth;
   qos.resource_limits().allocated_samples = 100;
   qos.endpoint().history_memory_policy = rtps::PREALLOCATED_WITH_REALLOC_MEMORY_MODE;
   // A writer with our host id picks SHM when the reader announces it. From another IPC
