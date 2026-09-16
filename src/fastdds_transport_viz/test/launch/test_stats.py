@@ -15,7 +15,7 @@ import launch_testing  # noqa: E402
 STATS_ENV = {
     'FASTDDS_STATISTICS': (
         'RTPS_SENT_TOPIC;RTPS_LOST_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC;'
-        'DATA_COUNT_TOPIC;PUBLICATION_THROUGHPUT_TOPIC;RESENT_DATAS_TOPIC;'
+        'DATA_COUNT_TOPIC;RESENT_DATAS_TOPIC;'
         'HEARTBEAT_COUNT_TOPIC;ACKNACK_COUNT_TOPIC;NACKFRAG_COUNT_TOPIC;GAP_COUNT_TOPIC'),
     # lift the statistics writers' 10-instance resource limit (see README)
     'FASTRTPS_DEFAULT_PROFILES_FILE': os.path.join(
@@ -66,10 +66,12 @@ class TestStats(Base):
         self.assertIn('measured-udpv4-traffic', udp['reasons'])
         self.assertNotIn('measured-transport-mismatch', udp['warnings'])
 
-        # PUBLICATION_THROUGHPUT gives the writer's payload rate (topic = sum of its writers)
-        self.assertIsNotNone(chatter['throughput_bytes_per_s'], chatter)
-        self.assertGreater(chatter['throughput_bytes_per_s'], 0.0)
-        self.assertGreater(shm['measured']['throughput_bytes_per_s'], 0.0, shm)
+        # #137: there is no rate any more; the keys stay as null placeholders
+        self.assertIsNone(chatter['throughput_bytes_per_s'], chatter)
+        self.assertIsNone(shm['measured']['throughput_bytes_per_s'], shm)
+        self.assertEqual(doc['stats']['throughput'], {}, doc['stats'])
+        # the cumulative counters a rate could be rebuilt from are still collected
+        self.assertTrue(doc['stats']['data_count'], doc['stats'])
         self.assertGreaterEqual(shm['measured']['packets_total'], shm['measured']['packets'])
 
         # PHYSICAL_DATA gives host names and processes

@@ -69,7 +69,6 @@ Snapshot snapshot()
   s.stats.traffic.push_back(
     TrafficSample{"P1", Locator{LocatorKind::SHM, "", 7413}, 10, 1000.0, 4, 400.0, 3});
   s.stats.data_count["W1"] = DataCountSample{2, 5, 2};
-  s.stats.throughput["W1"] = ThroughputStat{60.0, 20.0, 3};
   LatencyStat lat;
   lat.add(0.001); lat.add(0.003);
   s.stats.latency[{"W1", "R1"}] = lat;
@@ -113,7 +112,8 @@ TEST(RenderJson, DocumentKeys)
   ASSERT_EQ(doc["topics"].size(), 1u);
   const auto & t = doc["topics"][0];
   EXPECT_EQ(t["topic"], "/chatter");
-  EXPECT_EQ(t["throughput_bytes_per_s"], 20.0);
+  // #137: the key stays for compatibility but is fixed to null
+  EXPECT_TRUE(t["throughput_bytes_per_s"].is_null());
   EXPECT_EQ(t["writers"][0]["datasharing_history_bytes"], 3928);
   EXPECT_TRUE(t["readers"][0]["datasharing_history_bytes"].is_null());
   EXPECT_EQ(t["writers"][0]["host"], "robot");
@@ -125,7 +125,7 @@ TEST(RenderJson, DocumentKeys)
   EXPECT_EQ(p["measured"]["transports"], json::array({"SHM"}));
   EXPECT_EQ(p["measured"]["packets"], 6);          // 10 - 4 during the observation
   EXPECT_EQ(p["measured"]["packets_total"], 10);
-  EXPECT_EQ(p["measured"]["throughput_bytes_per_s"], 20.0);
+  EXPECT_TRUE(p["measured"]["throughput_bytes_per_s"].is_null());   // #137
   EXPECT_EQ(p["measured"]["data_submessages"], 3);
   EXPECT_EQ(p["measured"]["latency_s"]["mean"], 0.002);
   EXPECT_EQ(p["measured"]["latency_s"]["max"], 0.003);
@@ -146,7 +146,7 @@ TEST(RenderJson, DocumentKeys)
   EXPECT_EQ(doc["stats"]["physical"]["P1"]["process"], "42");
   EXPECT_EQ(doc["stats"]["traffic"][0]["packets_first"], 4);
   EXPECT_EQ(doc["stats"]["data_count"]["W1"]["last"], 5);
-  EXPECT_EQ(doc["stats"]["throughput"]["W1"]["mean"], 20.0);
+  EXPECT_TRUE(doc["stats"]["throughput"].empty());   // #137: no longer subscribed
   // what the tool itself missed (#134), next to `lost`, which is what the system missed
   EXPECT_EQ(doc["stats"]["samples_lost"], 7);
   EXPECT_EQ(doc["stats"]["samples_lost_at_start"], 3);
@@ -243,12 +243,12 @@ TEST(RenderJson, ChangesObjectAndCompactMode)
   EXPECT_NE(render_json(s, RenderOptions{}).find("\n  \"changes\""), std::string::npos);
 }
 
-TEST(StatsObserver, RequiredEnvValueIsTheDocumentedFiveTopicList)
+TEST(StatsObserver, RequiredEnvValueIsTheDocumentedTenTopicList)
 {
   EXPECT_EQ(
     StatsObserver::required_env_value(),
     "RTPS_SENT_TOPIC;RTPS_LOST_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC;"
-    "DATA_COUNT_TOPIC;PUBLICATION_THROUGHPUT_TOPIC;RESENT_DATAS_TOPIC;"
+    "DATA_COUNT_TOPIC;RESENT_DATAS_TOPIC;"
     "HEARTBEAT_COUNT_TOPIC;ACKNACK_COUNT_TOPIC;NACKFRAG_COUNT_TOPIC;GAP_COUNT_TOPIC");
 }
 

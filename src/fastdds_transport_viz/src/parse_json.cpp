@@ -183,9 +183,6 @@ Measurement measurement(const json & j, const std::string & where)
   m.bytes = at(j, "bytes", where).get<double>();
   m.packets_total = j.value("packets_total", 0ULL);
   m.bytes_total = j.value("bytes_total", 0.0);
-  const json throughput = j.value("throughput_bytes_per_s", json(nullptr));
-  m.throughput_available = throughput.is_number();
-  m.throughput = number_or(throughput, 0.0);
   const json latency = j.value("latency_s", json(nullptr));
   if (latency.is_object()) {
     m.latency_available = true;
@@ -266,14 +263,6 @@ StatsData stats(const json & j)
     s.data_count[kv.key()] = DataCountSample{
       kv.value().value("first", 0ULL), kv.value().value("last", 0ULL),
       kv.value().value("samples", 0ULL)};
-  }
-  const json throughput = j.value("throughput", json::object());
-  for (const auto & kv : throughput.items()) {
-    ThroughputStat th;
-    th.samples = kv.value().value("samples", 0ULL);
-    th.sum = kv.value().value("mean", 0.0) * static_cast<double>(th.samples);
-    th.last = kv.value().value("last", 0.0);
-    s.throughput[kv.key()] = th;
   }
   // #134; absent in documents written before it
   s.samples_lost = j.value("samples_lost", 0ULL);
@@ -375,9 +364,6 @@ Snapshot snapshot(const json & doc)
     t.display_type = at(tj, "type", where).get<std::string>();
     t.is_ros_topic = at(tj, "is_ros_topic", where).get<bool>();
     t.unmatched_reasons = at(tj, "unmatched_reasons", where).get<std::vector<std::string>>();
-    const json throughput = tj.value("throughput_bytes_per_s", json(nullptr));
-    t.throughput_available = throughput.is_number();
-    t.throughput = number_or(throughput, 0.0);
     const json latency = tj.value("latency_s", json(nullptr));
     t.latency_available = latency.is_number();
     t.latency = number_or(latency, 0.0);

@@ -171,11 +171,6 @@
     return `${label} ${m.packets} pkt${bytes}`;
   }
 
-  function rateText(m) {
-    if (!m || typeof m.throughput_bytes_per_s !== 'number') return '';
-    return humanBytes(m.throughput_bytes_per_s, 'B/s');
-  }
-
   /** Seconds with 3 significant digits in ns / µs / ms / s (sign kept). */
   function humanSeconds(seconds) {
     const units = ['ns', 'µs', 'ms', 's'];
@@ -437,6 +432,6 @@
     return { ...model, nodes, hosts };
   }
 
-  return { TRANSPORTS, INTERNAL_TOPICS, UNKNOWN_NODE_NAME, isFoldedBufferCompanion, isInternalTopic, normalizeDocument, buildModel, filterRegex, visiblePairs, visibleNodesModel, bundle, humanBytes, humanSeconds, measuredText, rateText, latencyText, lossText, escapeHtml, codeListHtml, shmText, statsText,
+  return { TRANSPORTS, INTERNAL_TOPICS, UNKNOWN_NODE_NAME, isFoldedBufferCompanion, isInternalTopic, normalizeDocument, buildModel, filterRegex, visiblePairs, visibleNodesModel, bundle, humanBytes, humanSeconds, measuredText, latencyText, lossText, escapeHtml, codeListHtml, shmText, statsText,
     pairKey, keyId, pairState, sameState, diffDocuments, changeText, changesSummary, decorations, holdChanges, heldDecorations, markedPairs, pruneNodes };
 });

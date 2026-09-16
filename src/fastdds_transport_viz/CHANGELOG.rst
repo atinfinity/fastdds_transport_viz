@@ -4,6 +4,21 @@ Changelog for package fastdds_transport_viz
 
 Forthcoming
 -----------
+* The ``RATE`` column is gone, and the tool no longer subscribes to
+  ``PUBLICATION_THROUGHPUT``. That statistic is not a rate: Fast DDS publishes one sample
+  per ``write()`` whose value is that sample's payload divided by the interval since the
+  same writer's previous ``write()``, so a writer that sends one burst and then falls
+  silent was shown orders of magnitude too fast (``/parameter_events`` reached 1.7 GB/s at
+  scale) and an idle writer kept its last value. Averaging cannot repair it either: the
+  statistics readers are ``KEEP_LAST`` depth 1 and are drained every 50 ms, so a burst
+  leaves a single sample behind. ``PUBLICATION_THROUGHPUT_TOPIC`` is out of the documented
+  ``FASTDDS_STATISTICS`` value and out of the shipped XML profiles. The JSON keys stay so
+  that documents written earlier keep validating, fixed to ``null``
+  (``measured.throughput_bytes_per_s``, ``topics[].throughput_bytes_per_s``) and to ``{}``
+  (``stats.throughput``); the schema version is unchanged. The cumulative counters an
+  honest rate can be computed from are already in the document -- ``stats.data_count`` and
+  ``stats.traffic`` next to ``observation_seconds`` -- and ``docs/statistics.md`` says how;
+  bringing a real rate column back is #143 (#137).
 * ``RTPS_LOST`` was matched in the reverse direction: the ``lost`` of a pair was what the
   writer's participant missed from the reader's, and real writer → reader loss never
   showed. Fast DDS publishes ``RTPS_LOST`` from the receiving participant with the sender's

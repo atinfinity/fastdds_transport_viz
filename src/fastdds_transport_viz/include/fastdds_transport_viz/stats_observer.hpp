@@ -6,7 +6,7 @@
 //   RTPS_SENT        -> bytes/packets per (source participant, destination locator)
 //   HISTORY_LATENCY  -> proof that a writer's samples reached a reader
 //   PHYSICAL_DATA    -> participant -> host / user / process
-//   DATA_COUNT, PUBLICATION_THROUGHPUT, HISTORY_LATENCY values, and the reliability
+//   DATA_COUNT, HISTORY_LATENCY values, and the reliability
 //   counters RTPS_LOST, RESENT_DATAS, HEARTBEAT_COUNT, GAP_COUNT, ACKNACK_COUNT, NACKFRAG_COUNT
 
 #ifndef FASTDDS_TRANSPORT_VIZ__STATS_OBSERVER_HPP_
@@ -113,7 +113,6 @@ private:
   Reader history_latency_;
   Reader physical_data_;
   Reader data_count_;
-  Reader throughput_;
   Reader rtps_lost_;
   Reader resent_datas_;
   Reader heartbeat_count_;

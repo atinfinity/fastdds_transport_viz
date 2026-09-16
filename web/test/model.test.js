@@ -22,7 +22,7 @@ test('humanBytes: SI prefixes and 3 significant digits', () => {
   assert.equal(M.humanBytes(7.63e6, 'B'), '7.63 MB');
 });
 
-test('measuredText / rateText: every cell value', () => {
+test('measuredText: every cell value', () => {
   assert.equal(M.measuredText(null), '');
   assert.equal(M.measuredText({ available: false }), '');
   assert.equal(M.measuredText({ available: true, transports: [], delivered: false }), 'none');
@@ -38,9 +38,6 @@ test('measuredText / rateText: every cell value', () => {
   assert.equal(
     M.measuredText({ available: true, transports: ['SHM'], locators: [locators[1]], packets: 0 }),
     'SHM:8169 (idle)');
-  assert.equal(M.rateText({ throughput_bytes_per_s: 1.31e6 }), '1.31 MB/s');
-  assert.equal(M.rateText({ throughput_bytes_per_s: null }), '');
-  assert.equal(M.rateText(undefined), '');
 });
 
 test('escapeHtml', () => {

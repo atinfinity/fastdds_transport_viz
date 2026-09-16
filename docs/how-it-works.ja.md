@@ -1,6 +1,6 @@
 # 仕組み
 
-> 英語版が正です。この文書は 2026-09-13 時点の英語版に対応しています。
+> 英語版が正です。この文書は 2026-09-17 時点の英語版に対応しています。
 
 このツールは Fast DDS 2.14 (ROS 2 Jazzy) と 3.x (Lyrical、Rolling) の両方に対してビルドできます。
 API の差分は `include/fastdds_transport_viz/fastdds_compat.hpp` に閉じ込めてあり、以下の判定ルールは
@@ -45,12 +45,21 @@ publisher だけ、または subscription だけのトピックは `-` と理由
 ともに残します。残ったペアの相手側は一致しなくても表示されます。2 つのフィルタは AND です。
 不正な正規表現は起動時に拒否されます (終了コード 2)。
 
-## RATE 列、LATENCY 列、LOSS 列
+## LATENCY 列と LOSS 列
 
-`--stats` を付けると `RATE` 列に、トピックの writer の payload スループット (合算) と、ペア行では
-その writer の値が出ます。statistics の `PUBLICATION_THROUGHPUT` を観測窓で平均した値で、SI 単位
-(`24 B/s`、`1.31 MB/s`) です。writer に渡されたシリアライズ済みサンプルの量なので transport に依らず、
-zero-copy のペアでも出ます。`LATENCY` は statistics の `HISTORY_LATENCY` で、writer の `write()` から
+レート列はありません。[#137](https://github.com/atinfinity/fastdds_transport_viz/issues/137) までは statistics の `PUBLICATION_THROUGHPUT` を元にした
+`RATE` 列がありましたが、この統計値はレートではありません。Fast DDS は `write()` ごとに 1 サンプルを
+publish し、その値は *そのサンプルの* payload を、同じ writer の前回の `write()` からの間隔で割った
+ものです。バースト的に送って黙る writer はバースト中の瞬時値だけを報告してその後は何も出さないため、
+散発的な writer は桁違いに速く表示されていました。ツールが受け取ったサンプルを平均しても直りません。
+statistics の reader は `KEEP_LAST` depth 1 で 50 ms ごとに読み出すため、バーストからは 1 サンプルしか
+残らないからです。ツールはこのトピックを購読しなくなりました。`throughput_bytes_per_s` は `null` に
+固定され、`stats.throughput` は空のままです。まともなレートの材料は既に JSON にあります
+(`stats.data_count` と `stats.traffic` は累積値で、`observation_seconds` が観測の長さを示します。
+[statistics.ja.md](statistics.ja.md#レート列が無い理由と代わりの求め方) を参照)。本物のレート列を
+戻す作業は [#143](https://github.com/atinfinity/fastdds_transport_viz/issues/143) で追っています。
+
+`--stats` を付けると、`LATENCY` は statistics の `HISTORY_LATENCY` で、writer の `write()` から
 reader への通知までの時間をペアごとに観測期間の平均と最大で示します (`420 µs (max 1.30 ms)`)。
 トピック行には最も遅いペアの平均が出ます。2 台のホストのクロックで測るのでマシン間ではその
 ずれが含まれ (平均が負なら `latency-clock-skew-suspected` を警告)、同一ホストでは正確です。
@@ -91,7 +100,7 @@ subscription が native buffer に対応していると、サンプルはコン�
 DATA サブメッセージもハートビートも配送も見えません。ツールは各コンパニオンを親 (同じ participant、
 同じ種別、同じ型、`/_buf_cpu` を除いたトピック名。候補が複数ある場合は、rmw が親の直後に割り当てる
 entity key で見分ける) に結び付け、コンパニオンの statistics カウンタを親のペアに加算します。対象は
-配送サンプル数、DATA サブメッセージ、再送、ハートビート、GAP、ACKNACK、NACKFRAG、スループット、遅延です。
+配送サンプル数、DATA サブメッセージ、再送、ハートビート、GAP、ACKNACK、NACKFRAG、遅延です。
 `RTPS_SENT` と `RTPS_LOST` は participant 単位なので、もともと両方を含みます。親のペアには
 `buffer-companion-folded` が付き、判定ルールは変わりません。コンパニオンのトピックは
 `buffer-companion` 付きで自身の値を保ち、そのすべての endpoint が結び付いていれば `--all` の無い出力
@@ -178,7 +187,7 @@ Humble の Fast DDS 2.6 では 2 点が異なります。
 - **statistics が無い。** Humble のバイナリは statistics モジュール無しでビルドされています
   (`config.h` で `FASTDDS_STATISTICS` が無効)。`FASTDDS_STATISTICS` を設定しても観測対象ノードは
   statistics を出せません。`--stats` は警告を出し、すべてのペアが `stats-not-enabled-on-writer` に
-  なり、`RATE`、`LATENCY`、`measured=` は空のままです。モジュールを有効にしてビルドした Fast DDS
+  なり、`LATENCY` と `measured=` は空のままです。モジュールを有効にしてビルドした Fast DDS
   なら、ツールの 2.6 対応で動きます。
 - **同一ホストの locator がフィルタされる。** 2.10 より前の Fast DDS は、同一ホストの participant に
   ついて SHM locator しかツールに広告しません。相手に SHM locator が無い (UDP のみの participant)
@@ -205,11 +214,11 @@ Humble の Fast DDS 2.6 では 2 点が異なります。
 
 ```
 $ ros2 transport list -v --locators --stats --topic '^/(chatter|bounded)$'
-    /talker@host(61) -> /listener_udp@host(49)  UDPv4  23 B/s  414 us  0  measured=UDPv4 9pkt 1.19 kB  ...
+    /talker@host(61) -> /listener_udp@host(49)  UDPv4  414 us  0  measured=UDPv4 9pkt 1.19 kB  ...
         locators: UDPv4 127.0.0.1:7411 (selected = measured, 9 pkt)
-    /talker@host(61) -> /listener@host(50)      SHM    23 B/s  453 us  0  measured=SHM 10pkt 1.31 kB   ...
+    /talker@host(61) -> /listener@host(50)      SHM    453 us  0  measured=SHM 10pkt 1.31 kB   ...
         locators: SHM port 7413 (selected = measured, 10 pkt)
-    /bounded_pub@host(56) -> /bounded_sub@host(55)  DATA_SHARING  80 B/s  195 us  0  ...
+    /bounded_pub@host(56) -> /bounded_sub@host(55)  DATA_SHARING  195 us  0  ...
         locators: selected DATA_SHARING (no locator) | measured SHM port 7419 (1 pkt)
 ```
 

@@ -178,7 +178,6 @@ classDiagram
         writers, readers
         vector~Pair~ pairs
         unmatched_reasons
-        throughput
     }
     class Pair {
         writer, reader → Endpoint
@@ -194,7 +193,7 @@ classDiagram
         transports
         packets, bytes in the window
         packets_total, bytes_total
-        throughput, delivered
+        delivered
         data_submessages
     }
     Snapshot "1" *-- "*" Endpoint
@@ -215,7 +214,7 @@ classDiagram
   `decision.cpp`, which `--explain` / `--advise`, `--list-codes`, `ros2 transport codes`,
   the JSON `reason_code_descriptions` / `reason_code_remedies` objects and the web viewer
   all use. `StatsData` keeps the raw statistics (per-locator traffic samples with first
-  and last cumulative values, delivery proofs, DATA_COUNT and throughput per writer,
+  and last cumulative values, delivery proofs, DATA_COUNT per writer,
   host info per participant) and what never arrived (`samples_lost`,
   `samples_lost_at_start`, `samples_rejected` and a document-level `warnings` list
   carrying `stats-samples-lost`, #134); `ShmInfo` is the shared-memory scan.

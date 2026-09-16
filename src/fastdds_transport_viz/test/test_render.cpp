@@ -160,17 +160,11 @@ TEST(RenderTable, MeasuredCellValues)
   // idle: transports known, no packets in the window
   only_pair(s).measured.transports = {Transport::SHM};
   EXPECT_NE(render_table(s, opt).find("measured=SHM (idle)"), std::string::npos);
-  // packets and bytes with SI formatting, RATE column
+  // packets and bytes with SI formatting
   only_pair(s).measured.packets = 148;
   only_pair(s).measured.bytes = 7.63e6;
-  only_pair(s).measured.throughput_available = true;
-  only_pair(s).measured.throughput = 1.31e6;
-  s.topics[0].throughput_available = true;
-  s.topics[0].throughput = 23.0;
   auto out = render_table(s, opt);
   EXPECT_NE(out.find("measured=SHM 148pkt 7.63 MB"), std::string::npos);
-  EXPECT_NE(out.find("1.31 MB/s"), std::string::npos);
-  EXPECT_NE(out.find("23 B/s"), std::string::npos);
   EXPECT_NE(out.find("statistics: 12 samples from 1 participant(s)"), std::string::npos);
 }
 
@@ -352,7 +346,8 @@ TEST(RenderTable, LatencyColumn)
   opt.verbose = true;
   auto s = stats_snapshot();
   auto out = render_table(s, opt);
-  EXPECT_NE(out.find("RATE  LATENCY  LOSS  REASON"), std::string::npos);
+  EXPECT_NE(out.find("LATENCY  LOSS  REASON"), std::string::npos);
+  EXPECT_EQ(out.find("RATE"), std::string::npos) << "#137: the RATE column is gone";
   EXPECT_NE(out.find("  -  -  "), std::string::npos) << "no values: dashes";
   only_pair(s).measured.latency_available = true;
   only_pair(s).measured.latency.add(0.0004);

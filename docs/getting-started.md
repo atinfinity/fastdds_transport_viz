@@ -68,9 +68,9 @@ ros2 transport list -v --explain
 ```
 
 ```
-TOPIC     TYPE                 PUBS  SUBS  TRANSPORT  RATE  LATENCY  LOSS  REASON
-/chatter  std_msgs/msg/String  1     1     SHM x1     -     -        -     same-host-guid,datasharing-disabled-writer,both-shm-locators
-    /talker@local -> /listener@local  SHM  -  -  -  same-host-guid,datasharing-disabled-writer,both-shm-locators
+TOPIC     TYPE                 PUBS  SUBS  TRANSPORT  LATENCY  LOSS  REASON
+/chatter  std_msgs/msg/String  1     1     SHM x1     -        -     same-host-guid,datasharing-disabled-writer,both-shm-locators
+    /talker@local -> /listener@local  SHM  -  -  same-host-guid,datasharing-disabled-writer,both-shm-locators
 
 shared memory: /dev/shm 2.19 MB used of 16.7 GB (16.7 GB free) | Fast DDS 2.19 MB in 3 segment(s), 6 port(s), 0 data-sharing histories
 
@@ -110,16 +110,16 @@ Predictions can be confirmed with the Fast DDS statistics module, which the obse
 nodes have to enable through an environment variable before they start:
 
 ```
-export FASTDDS_STATISTICS="RTPS_SENT_TOPIC;RTPS_LOST_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC;DATA_COUNT_TOPIC;PUBLICATION_THROUGHPUT_TOPIC;RESENT_DATAS_TOPIC;HEARTBEAT_COUNT_TOPIC;ACKNACK_COUNT_TOPIC;NACKFRAG_COUNT_TOPIC;GAP_COUNT_TOPIC"
+export FASTDDS_STATISTICS="RTPS_SENT_TOPIC;RTPS_LOST_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC;DATA_COUNT_TOPIC;RESENT_DATAS_TOPIC;HEARTBEAT_COUNT_TOPIC;ACKNACK_COUNT_TOPIC;NACKFRAG_COUNT_TOPIC;GAP_COUNT_TOPIC"
 export FASTRTPS_DEFAULT_PROFILES_FILE=$(ros2 pkg prefix fastdds_transport_viz)/share/fastdds_transport_viz/config/statistics.xml
 ros2 run demo_nodes_cpp talker &
 ros2 run demo_nodes_cpp listener &
 ros2 transport list -v --stats
 ```
 
-The pair row now carries `measured=SHM 47pkt 3.20 kB`, the `RATE` column shows the
-payload throughput, `LATENCY` the write-to-notification latency of the pair (mean and
-max), `LOSS` lost and resent packets, and hosts are shown by name with process ids. The profile file
+The pair row now carries `measured=SHM 47pkt 3.20 kB`, `LATENCY` the write-to-notification
+latency of the pair (mean and max), `LOSS` lost and resent packets, and hosts are shown by
+name with process ids. The profile file
 lifts a resource limit of the statistics writers; [statistics.md](statistics.md) explains
 the topics and the pitfall it avoids.
 
