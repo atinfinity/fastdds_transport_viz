@@ -197,6 +197,25 @@ test('shmText: summary line, stale count, visibility and warnings with descripti
   assert.equal(M.shmText(shm), 'shared memory: /dev/shm 396 MB used of 16.7 GB · Fast DDS 63.4 MB in 114 segment(s), 14 port(s), 2 data-sharing histories, 3 data-sharing notification(s)');
 });
 
+test('statsText: sample count, what the tool lost, and the document-level warning', () => {
+  assert.equal(M.statsText(null), 'no statistics');
+  assert.equal(M.statsText({ enabled: false }), 'no statistics');
+  assert.equal(M.statsText({ enabled: true, samples: 12 }), 'statistics: 12 samples');
+  // the burst from before the readers matched is not the tool falling behind: not shown
+  assert.equal(M.statsText({ enabled: true, samples: 12, samples_lost_at_start: 900 }),
+    'statistics: 12 samples');
+  // lost and rejected are one number: what is missing
+  const lost = { enabled: true, samples: 12, samples_lost: 40, samples_rejected: 2,
+    warnings: ['stats-samples-lost'] };
+  const html = M.statsText(lost, { 'stats-samples-lost': 'could not keep "up"' },
+    { 'stats-samples-lost': 'enable statistics on fewer nodes' });
+  assert.ok(html.startsWith('statistics: 12 samples, 42 lost '), html);
+  assert.ok(html.includes('<b>!stats-samples-lost</b>'), html);
+  assert.ok(html.includes('title="could not keep &quot;up&quot; Fix: enable statistics on fewer nodes"'), html);
+  // a document written before #134 carries none of the keys
+  assert.equal(M.statsText({ enabled: true, samples: 12 }, {}, {}), 'statistics: 12 samples');
+});
+
 test('codeListHtml: description, remedy line only when known, warning prefix, escaping', () => {
   const desc = { 'reader-no-shm-locator': 'no SHM <locator>', 'same-host-guid': 'same host' };
   const rem = { 'reader-no-shm-locator': 'unset FASTDDS_BUILTIN_TRANSPORTS & co', 'same-host-guid': null };

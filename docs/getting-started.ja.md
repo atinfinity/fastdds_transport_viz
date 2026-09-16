@@ -1,6 +1,6 @@
 # はじめに
 
-> 英語版が正です。この文書は 2026-09-16 時点の英語版に対応しています。
+> 英語版が正です。この文書は 2026-09-17 時点の英語版に対応しています。
 
 このページでは、素の ROS 2 環境から、最初の `ros2 transport list`、statistics、web viewer
 までを通します。動作環境は Linux です。ツールは Fast DDS を観測するので、観測対象のノードは
@@ -171,6 +171,7 @@ participant: unset FASTDDS_BUILTIN_TRANSPORTS ...`)。`ros2 transport codes` は
 | トピックが 1 つも出ない | ノードと同じ `ROS_DOMAIN_ID` か。`ROS_AUTOMATIC_DISCOVERY_RANGE=OFF` は各 participant を自分だけに限定する。Discovery Server 使用時はツールにも同じ `ROS_DISCOVERY_SERVER` が必要 (自動で SUPER_CLIENT になる)。 |
 | 別マシンのノードが出ない | 相手のマシンにマルチキャストで届くか、`ROS_STATIC_PEERS` に列挙するか、双方が Discovery Server を使う。[development.md](development.md#two-physical-hosts) (英語) 参照。 |
 | `--stats` で `!stats-not-enabled-on-writer` | ノードが `FASTDDS_STATISTICS` 無しで起動された (変数はノードの起動前に設定する) か、その participant が SHM transport しか持たない。ツールの statistics reader は UDP か TCP で受信する。 |
+| `!stats-samples-lost`、または `warning: ... statistics samples were lost` | statistics の一部がツールに届いていない。実際には通信していても、ペアが `-` のままになり得る。statistics を有効にするノードを減らすか、`FASTDDS_STATISTICS` を必要な別名に絞る (transport を見るだけなら `RTPS_SENT_TOPIC;RTPS_LOST_TOPIC` で足りる)。`--timeout` を延ばしても損失は減らず、より多く集めるだけ。`--json` では `stats.samples_lost` に数が出る。`stats.samples_lost_at_start` は reader がマッチする前の正常な分で、警告にはならない。 |
 | `!shm-not-visible` | ノードが別の `/dev/shm` (別コンテナまたは別ホスト) を使っている。共有メモリの行はツールの環境だけを表す。 |
 | `NONE` のペアに `!shm-ipc-namespace-split` | 2 つのノードのホスト id は同じだが `/dev/shm` が別 (ホストネットワークで IPC 名前空間が別) なので、Fast DDS が SHM や data-sharing を選んでも受信側には何も届かない。両方のコンテナに `ipc: host` を付けるか、片側の SHM (と data-sharing) を無効にする (`--advise` で対処を表示できる)。 |
 | `!shm-stale-files` | クラッシュしたプロセスがセグメントを残している。`fastdds shm clean` で削除できる。 |

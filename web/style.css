@@ -45,6 +45,8 @@ main { display: grid; grid-template-columns: 1fr 380px; height: calc(100% - 84px
 #panel .code { display: block; margin: 4px 0; }
 #panel .code b { font-family: ui-monospace, Menlo, monospace; font-size: 12px; }
 #panel .code.warn b { color: var(--warn); }
+/* the meta bar carries document-level warnings (shm, statistics) inline, tooltip only */
+#meta .code.warn b { color: var(--warn); font-family: ui-monospace, Menlo, monospace; }
 #panel .code .desc { display: block; color: var(--muted); margin-left: 12px; }
 #panel .code .fix { display: block; margin-left: 12px; }
 .badge { display: inline-block; padding: 0 6px; border-radius: 10px; font-size: 11px; color: #fff; background: var(--c-none); }

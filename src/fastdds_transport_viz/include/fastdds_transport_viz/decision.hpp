@@ -93,6 +93,34 @@ DiscoveryStatus discovery_completeness(
 std::string incomplete_discovery_warning(
   const DiscoveryStatus & status, double quiet, double timeout, bool stats);
 
+/// How long after the last statistics writer matched a reader the samples it reports lost are
+/// still counted as the late-join burst rather than as the tool falling behind (#134). Five
+/// seconds, because the burst is announced late: a writer says what its history dropped with
+/// one of its next heartbeats, not at the match. Measured on a quiet five-node system, the
+/// notifications arrived up to 1.2 s (Jazzy) and 3.9 s (Lyrical) after the match.
+inline constexpr double kStatisticsLateJoinGraceSeconds = 5.0;
+
+/// Whether a statistics sample reported lost now still belongs to a late-join burst (#134):
+/// a reader that has just matched a writer is told about everything the writer's keep-last
+/// history dropped before the match, which says nothing about the tool keeping up. Every new
+/// writer brings such a burst, so the window follows the matches: it is open for
+/// kStatisticsLateJoinGraceSeconds after each one, and before the first match of all
+/// (`any_writer_matched`), which the grace period has nothing to measure from. A node joining
+/// mid-run therefore excuses five seconds of loss, never the losses that keep coming after it.
+/// Pure function.
+bool statistics_late_join_window_open(
+  bool any_writer_matched, double seconds_since_last_writer_match);
+
+/// Whether statistics samples were lost inside the observation window (#134): the late-join
+/// burst (StatsData::samples_lost_at_start) does not count, a single sample does. Pure function.
+bool statistics_samples_were_lost(const StatsData & stats);
+
+/// The one stderr line a run that lost statistics samples earns (#134), or "" when nothing was
+/// lost. Names the loss against everything the readers should have had (received + lost). A
+/// longer --timeout is deliberately not advised: it does not lower the loss rate, it only
+/// collects more of it. Pure function.
+std::string statistics_loss_warning(const StatsData & stats);
+
 /// Key and highlight-relevant state of a pair.
 PairKey pair_key(const TopicSummary & topic, const Pair & pair);
 PairState pair_state(const Pair & pair);

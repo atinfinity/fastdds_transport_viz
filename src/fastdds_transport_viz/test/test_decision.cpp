@@ -2319,3 +2319,60 @@ TEST(IncompleteDiscoveryWarning, TheAdviceIsAlwaysLongerThanWhatTheRunUsed)
   EXPECT_EQ(with_stats.find("--quiet"), std::string::npos) << with_stats;
   EXPECT_NE(with_stats.find("pass --timeout 15"), std::string::npos) << with_stats;
 }
+
+TEST(StatisticsLossWarning, NothingLostSaysNothing)
+{
+  StatsData s;
+  EXPECT_FALSE(statistics_samples_were_lost(s));
+  EXPECT_EQ(statistics_loss_warning(s), "");
+  s.samples = 1000;
+  s.samples_lost_at_start = 4000;   // the burst from before the readers matched is not the tool
+  EXPECT_FALSE(statistics_samples_were_lost(s));
+  EXPECT_EQ(statistics_loss_warning(s), "");
+}
+
+TEST(StatisticsLossWarning, NamesTheLossAgainstEverythingThatShouldHaveArrived)
+{
+  StatsData s;
+  s.samples = 8529;
+  s.samples_lost = 682142;
+  s.samples_lost_at_start = 120;   // out of both the numerator and the denominator
+  EXPECT_TRUE(statistics_samples_were_lost(s));
+  EXPECT_EQ(
+    statistics_loss_warning(s),
+    "warning: 682142 of 690671 statistics samples were lost (the tool could not keep up); "
+    "some pairs show no measurement although they carry traffic - enable statistics on fewer "
+    "nodes, or keep FASTDDS_STATISTICS to the aliases you need "
+    "(e.g. RTPS_SENT_TOPIC;RTPS_LOST_TOPIC)");
+}
+
+TEST(StatisticsLossWarning, ASingleRejectedSampleIsEnough)
+{
+  StatsData s;
+  s.samples = 10;
+  s.samples_rejected = 1;
+  EXPECT_TRUE(statistics_samples_were_lost(s));
+  // rejected samples share the count and the code: one number for what is missing
+  EXPECT_NE(statistics_loss_warning(s).find("1 of 11 statistics samples"), std::string::npos);
+  // a longer run collects more of the loss rather than less, so the stderr line never
+  // offers --timeout, and the remedy says outright that it does not help
+  EXPECT_EQ(statistics_loss_warning(s).find("--timeout"), std::string::npos);
+  EXPECT_NE(statistics_loss_warning(s).find("FASTDDS_STATISTICS"), std::string::npos);
+  EXPECT_NE(remedy("stats-samples-lost")->find("--timeout does not help"), std::string::npos);
+}
+
+TEST(StatisticsLateJoinWindow, FollowsEveryWriterMatch)
+{
+  EXPECT_TRUE(statistics_late_join_window_open(true, 0.0));
+  EXPECT_TRUE(statistics_late_join_window_open(true, kStatisticsLateJoinGraceSeconds / 2));
+  // five seconds after the last match the burst is over: a node that joins mid-run excuses
+  // that much loss, never the losses that keep coming after it
+  EXPECT_FALSE(statistics_late_join_window_open(true, kStatisticsLateJoinGraceSeconds));
+  EXPECT_FALSE(statistics_late_join_window_open(true, 60.0));
+
+  // The window has to be this wide because a writer announces what its history dropped with
+  // one of its next heartbeats: up to 3.9 s after the match on Lyrical. Before the first
+  // match of all there is no match for the grace period to run from.
+  EXPECT_TRUE(statistics_late_join_window_open(false, 0.0));
+  EXPECT_TRUE(statistics_late_join_window_open(false, 60.0));
+}

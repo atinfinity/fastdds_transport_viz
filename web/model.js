@@ -237,6 +237,27 @@
       (warnings ? ` ${warnings}` : '');
   }
 
+  /**
+   * The `stats` object as the meta line shows it: what arrived, and what never did (#134).
+   * The loss is cumulative over the run, and a pair can show no measurement because of it.
+   */
+  /**
+   * The `stats` object as one line for the meta bar, warnings as tooltips like shmText.
+   * `lost` is what never reached the tool (#134); `samples_lost_at_start` is the normal
+   * burst from before the readers matched and stays out of it.
+   */
+  function statsText(stats, descriptions, remedies) {
+    if (!stats || !stats.enabled) return 'no statistics';
+    const desc = descriptions || {};
+    const rem = remedies || {};
+    const tip = w => (desc[w] || '') + (rem[w] ? ` Fix: ${rem[w]}` : '');
+    const lost = (stats.samples_lost || 0) + (stats.samples_rejected || 0);
+    const warnings = (stats.warnings || []).map(
+      w => ` <span class="code warn" title="${escapeHtml(tip(w))}"><b>!${escapeHtml(w)}</b></span>`).join('');
+    return escapeHtml(`statistics: ${stats.samples} samples` + (lost ? `, ${lost} lost` : '')) +
+      warnings;
+  }
+
   // ---------------------------------------------------------------- comparing two documents
   //
   // A port of the C++ pair_state() / diff_snapshots() (decision.cpp): the same `changes`
@@ -416,6 +437,6 @@
     return { ...model, nodes, hosts };
   }
 
-  return { TRANSPORTS, INTERNAL_TOPICS, UNKNOWN_NODE_NAME, isFoldedBufferCompanion, isInternalTopic, normalizeDocument, buildModel, filterRegex, visiblePairs, visibleNodesModel, bundle, humanBytes, humanSeconds, measuredText, rateText, latencyText, lossText, escapeHtml, codeListHtml, shmText,
+  return { TRANSPORTS, INTERNAL_TOPICS, UNKNOWN_NODE_NAME, isFoldedBufferCompanion, isInternalTopic, normalizeDocument, buildModel, filterRegex, visiblePairs, visibleNodesModel, bundle, humanBytes, humanSeconds, measuredText, rateText, latencyText, lossText, escapeHtml, codeListHtml, shmText, statsText,
     pairKey, keyId, pairState, sameState, diffDocuments, changeText, changesSummary, decorations, holdChanges, heldDecorations, markedPairs, pruneNodes };
 });

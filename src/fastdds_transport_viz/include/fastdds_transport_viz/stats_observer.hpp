@@ -13,6 +13,7 @@
 #define FASTDDS_TRANSPORT_VIZ__STATS_OBSERVER_HPP_
 
 #include <atomic>
+#include <chrono>
 #include <cstdint>
 #include <map>
 #include <memory>
@@ -55,8 +56,11 @@ public:
   eprosima::fastdds::dds::Subscriber * subscriber() const {return subscriber_;}
 
   /// Samples the statistics readers reported lost (a gap in a writer's sequence) or rejected
-  /// (a resource limit) since they were created; development profiling only (FTV_PROFILE).
+  /// (a resource limit) since they were created. `samples_lost_at_start` holds the burst that
+  /// arrives while the statistics writers are still matching the readers; `samples_lost`
+  /// only what was lost afterwards, which is the tool failing to keep up (#134).
   uint64_t samples_lost() const {return listener_.lost;}
+  uint64_t samples_lost_at_start() const {return listener_.lost_at_start;}
   uint64_t samples_rejected() const {return listener_.rejected;}
 
   /// Value for FASTDDS_STATISTICS that monitored nodes need.
@@ -69,22 +73,31 @@ private:
     bool owns_topic{true};   // false when reusing a topic Fast DDS created (FASTDDS_STATISTICS)
     eprosima::fastdds::dds::DataReader * reader{nullptr};
   };
+  /// Counts what the readers did not get (#134). A reader that has just matched a statistics
+  /// writer is told about every sample the writer's keep-last history already dropped, which
+  /// is not the tool falling behind: a loss within kStatisticsLateJoinGraceSeconds of a new
+  /// writer match, or before the first match of all, lands in `lost_at_start`. A node joining
+  /// later thus excuses five seconds of loss, not what keeps coming after it. Called from
+  /// Fast DDS listener threads.
   struct Listener : public eprosima::fastdds::dds::DataReaderListener
   {
     std::atomic<uint64_t> lost{0};
+    std::atomic<uint64_t> lost_at_start{0};
     std::atomic<uint64_t> rejected{0};
+    /// The grace period is measured from the last writer match, so it cannot run before the
+    /// first one: discovery alone takes longer than it on some distributions.
+    std::atomic<bool> any_match{false};
+    std::atomic<int64_t> last_match_ticks{
+      std::chrono::steady_clock::now().time_since_epoch().count()};
     void on_sample_lost(
       eprosima::fastdds::dds::DataReader *,
-      const eprosima::fastdds::dds::SampleLostStatus & status) override
-    {
-      lost += static_cast<uint64_t>(status.total_count_change);
-    }
+      const eprosima::fastdds::dds::SampleLostStatus & status) override;
     void on_sample_rejected(
       eprosima::fastdds::dds::DataReader *,
-      const eprosima::fastdds::dds::SampleRejectedStatus & status) override
-    {
-      rejected += static_cast<uint64_t>(status.total_count_change);
-    }
+      const eprosima::fastdds::dds::SampleRejectedStatus & status) override;
+    void on_subscription_matched(
+      eprosima::fastdds::dds::DataReader *,
+      const eprosima::fastdds::dds::SubscriptionMatchedStatus & status) override;
   };
   Reader create_reader(
     const std::string & topic_name, eprosima::fastdds::dds::TypeSupport type);

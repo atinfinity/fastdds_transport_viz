@@ -729,6 +729,28 @@
             ]
           }
         },
+        "samples_lost": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "statistics samples that never reached the tool because the writers' keep-last history overwrote them before it read them (#134): a pair can show no measurement although it carries traffic. Cumulative over the run. Not to be confused with `lost` above, which is what the observed system lost (RTPS_LOST)."
+        },
+        "samples_lost_at_start": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "statistics samples lost while the writers were still matching the tool's readers (#134): everything a writer's history had already dropped before the match is reported to the new reader. Normal, and excluded from the stats-samples-lost warning."
+        },
+        "samples_rejected": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "statistics samples a resource limit of the tool's readers refused (#134); counted with samples_lost for the warning"
+        },
+        "warnings": {
+          "type": "array",
+          "description": "document-level warning codes about the statistics observation: stats-samples-lost",
+          "items": {
+            "type": "string"
+          }
+        },
         "statistics_writers": {
           "type": "array",
           "description": "statistics DataWriters seen in discovery (participant prefix, topic)",

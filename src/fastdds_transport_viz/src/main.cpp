@@ -435,6 +435,7 @@ Snapshot collect(
     stats_data = stats->snapshot();
     prof.emit(
       "drain", t, {{"samples", stats_data.samples}, {"sample_lost", stats->samples_lost()},
+        {"sample_lost_at_start", stats->samples_lost_at_start()},
         {"sample_rejected", stats->samples_rejected()}});
     stats_data.local_addresses = local_ip_addresses();
   }
@@ -608,6 +609,15 @@ void warn_if_incomplete(const Snapshot & snap, const Options & o)
 {
   const std::string line = fastdds_transport_viz::incomplete_discovery_warning(
     snap.discovery, o.quiet, o.timeout, o.stats);
+  if (!line.empty()) {std::cerr << line << "\n";}
+}
+
+/// #134: statistics samples the tool never received are measurements that never come back, so
+/// a one-shot run says on stderr how many it lost. `--watch` does not get this line: the count
+/// only grows from frame to frame and the table's statistics footer already carries it.
+void warn_if_statistics_lost(const Snapshot & snap)
+{
+  const std::string line = fastdds_transport_viz::statistics_loss_warning(snap.stats);
   if (!line.empty()) {std::cerr << line << "\n";}
 }
 
@@ -1021,6 +1031,7 @@ int main(int argc, char ** argv)
       prof.emit("render", t, {{"bytes", out.size()}, {"lines", line_count(out)}});
       std::cout << out << std::flush;
       warn_if_incomplete(snap, o);   // after the table: the last line stays in sight
+      warn_if_statistics_lost(snap);
     } else {
       Terminal term(!o.json);
       WatchState ws;

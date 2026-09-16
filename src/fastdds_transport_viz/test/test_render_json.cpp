@@ -60,6 +60,10 @@ Snapshot snapshot()
   s.topics = summarize(s.endpoints);
   s.stats.enabled = true;
   s.stats.samples = 5;
+  s.stats.samples_lost = 7;              // #134: what never reached the tool
+  s.stats.samples_lost_at_start = 3;
+  s.stats.samples_rejected = 1;
+  s.stats.warnings = {"stats-samples-lost"};
   s.stats.participants_with_stats = {"P1"};
   s.stats.physical["P1"] = HostInfo{"robot:1", "user", "42"};
   s.stats.traffic.push_back(
@@ -143,6 +147,14 @@ TEST(RenderJson, DocumentKeys)
   EXPECT_EQ(doc["stats"]["traffic"][0]["packets_first"], 4);
   EXPECT_EQ(doc["stats"]["data_count"]["W1"]["last"], 5);
   EXPECT_EQ(doc["stats"]["throughput"]["W1"]["mean"], 20.0);
+  // what the tool itself missed (#134), next to `lost`, which is what the system missed
+  EXPECT_EQ(doc["stats"]["samples_lost"], 7);
+  EXPECT_EQ(doc["stats"]["samples_lost_at_start"], 3);
+  EXPECT_EQ(doc["stats"]["samples_rejected"], 1);
+  EXPECT_EQ(doc["stats"]["warnings"], json::array({"stats-samples-lost"}));
+  // the document-level code is described and advised like any pair code
+  EXPECT_FALSE(doc["reason_code_descriptions"]["stats-samples-lost"].get<std::string>().empty());
+  EXPECT_FALSE(doc["reason_code_remedies"]["stats-samples-lost"].is_null());
   // shm block and its warning's description
   EXPECT_EQ(doc["shm"]["available"], true);
   EXPECT_EQ(doc["shm"]["used_bytes"], 40);
@@ -352,6 +364,10 @@ TEST(ParseJson, RoundTripsEverythingTheRenderersShow)
   EXPECT_EQ(parsed.stats.lost[0].src_participant_prefix, "P1");
   EXPECT_TRUE(parsed.stats.enabled);
   EXPECT_EQ(parsed.stats.samples, 5u);
+  EXPECT_EQ(parsed.stats.samples_lost, 7u);
+  EXPECT_EQ(parsed.stats.samples_lost_at_start, 3u);
+  EXPECT_EQ(parsed.stats.samples_rejected, 1u);
+  EXPECT_EQ(parsed.stats.warnings, std::vector<std::string>{"stats-samples-lost"});
   EXPECT_EQ(parsed.stats.participants_with_stats, std::set<std::string>{"P1"});
   EXPECT_TRUE(parsed.shm.available);
   EXPECT_EQ(parsed.shm.warnings, std::vector<std::string>{"shm-stale-files"});

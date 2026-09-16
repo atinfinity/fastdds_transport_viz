@@ -261,11 +261,10 @@ def main():
     print('== --stats --json at --timeout 5 and 30', file=sys.stderr, flush=True)
     s5 = stats_run(5, os.path.join(args.out, f'{args.label}.stats5.json'))
     s30 = stats_run(30, os.path.join(args.out, f'{args.label}.viz.json'))
-    # A reader that matches a statistics writer late misses the samples already gone from
-    # its keep-last history and counts them as lost; that is not the tool falling behind, so
-    # these one-shot counts are recorded only (the budget uses --watch growth below).
-    startup_lost = {f'timeout_{t}': (last(r, 'drain', 'sample_lost', 0) or 0)
-                    + (last(r, 'drain', 'sample_rejected', 0) or 0)
+    # A reader that matches a statistics writer late misses the samples already gone from its
+    # keep-last history and counts them as lost; that is not the tool falling behind, and the
+    # tool separates them itself since #134 (sample_lost_at_start). Recorded only.
+    startup_lost = {f'timeout_{t}': (last(r, 'drain', 'sample_lost_at_start', 0) or 0)
                     for t, r in ((5, s5), (30, s30))}
     # Topics without steady data (/parameter_events, /rosout) often have no packet in a 5 s
     # window at all, so the synthetic loads count their 10 Hz /scale pairs only.

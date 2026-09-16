@@ -213,6 +213,9 @@ std::string render_json(const Snapshot & snap, const RenderOptions & opt)
   for (const auto & w : snap.shm.warnings) {
     codes.insert(w);
   }
+  for (const auto & w : snap.stats.warnings) {
+    codes.insert(w);
+  }
   json descriptions = json::object();
   json remedies = json::object();   // same keys; null where there is nothing to change
   for (const auto & c : codes) {
@@ -325,6 +328,13 @@ std::string render_json(const Snapshot & snap, const RenderOptions & opt)
   }
   // RTPS_LOST: what the reporter missed from src, per its own locator src addressed
   stats["lost"] = lost;
+  // What never reached the tool itself (#134) - not to be confused with "lost" above, which
+  // is what the observed system lost. Cumulative, and always written so that a document
+  // without --stats has the same shape.
+  stats["samples_lost"] = snap.stats.samples_lost;
+  stats["samples_lost_at_start"] = snap.stats.samples_lost_at_start;
+  stats["samples_rejected"] = snap.stats.samples_rejected;
+  stats["warnings"] = snap.stats.warnings;
   root["stats"] = stats;
 
   // Shared memory of the environment the tool runs in (see docs/how-it-works.md).

@@ -111,6 +111,24 @@ class TestStats(Base):
                         'dst_locator', 'packets', 'packets_first'):
                 self.assertIn(key, entry)
 
+    def test_no_samples_lost_on_a_small_system(self):
+        """
+        A small, quiet system loses no statistics sample (#134).
+
+        The loss counters are cumulative and shared by all eleven readers, so this is the
+        invariant worth asserting: five nodes give the tool nothing to fall behind on. The
+        stderr line and the `stats-samples-lost` code come from the same predicate, so an
+        empty `warnings` means nothing was printed either. Provoking a real loss would need
+        a load this test cannot carry (see #141).
+        """
+        doc = transport_viz_json(['--stats'], timeout=6.0)
+        stats = doc['stats']
+        self.assertEqual(stats['samples_lost'], 0, stats)
+        self.assertEqual(stats['samples_rejected'], 0, stats)
+        self.assertEqual(stats['warnings'], [], stats)
+        # the burst from before the readers matched is counted apart and never warns
+        self.assertGreaterEqual(stats['samples_lost_at_start'], 0, stats)
+
     def test_statistics_sources_are_the_publishers(self):
         """
         Statistics on the reader's participant only: the writer's still has none.

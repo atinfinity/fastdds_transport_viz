@@ -216,7 +216,9 @@ classDiagram
   the JSON `reason_code_descriptions` / `reason_code_remedies` objects and the web viewer
   all use. `StatsData` keeps the raw statistics (per-locator traffic samples with first
   and last cumulative values, delivery proofs, DATA_COUNT and throughput per writer,
-  host info per participant); `ShmInfo` is the shared-memory scan.
+  host info per participant) and what never arrived (`samples_lost`,
+  `samples_lost_at_start`, `samples_rejected` and a document-level `warnings` list
+  carrying `stats-samples-lost`, #134); `ShmInfo` is the shared-memory scan.
 
 ## The decision
 

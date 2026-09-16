@@ -143,10 +143,36 @@ tool next to the nodes (details: [development.md](development.md#scale-results))
 
 The tool receives all statistics over UDP on one Fast DDS receive thread, and next to Nav2 (4 participants, 1195 pairs) that thread already takes a whole core. Once it cannot keep up, the writers' keep-last history overwrites samples before they arrive.
 
-The tool does not report lost statistics samples yet ([#134](https://github.com/atinfinity/fastdds_transport_viz/issues/134)). On a large system, `no-traffic-observed` can therefore also mean "not measured". Narrow the view instead:
+The tool says what it lost. `stats.samples_lost` in the JSON document counts the statistics
+samples that never reached it, the table's `statistics:` line repeats the number, the
+document-level warning code is `stats-samples-lost`, and a one-shot run adds one line on stderr:
+
+```
+warning: 682142 of 690671 statistics samples were lost (the tool could not keep up); some pairs show no measurement although they carry traffic - enable statistics on fewer nodes, or keep FASTDDS_STATISTICS to the aliases you need (e.g. RTPS_SENT_TOPIC;RTPS_LOST_TOPIC)
+```
+
+`--watch` does not print the line: the count only grows from frame to frame, and the
+`statistics:` footer already carries it. The counters are cumulative for the whole run, so a
+frame that loses nothing does not bring back the measurements the earlier ones missed.
+
+When the warning is there, `no-traffic-observed` on a pair can also mean "not measured": the
+counters are shared by all eleven statistics readers, so a loss cannot be attributed to one
+pair. Narrow the view instead:
 - enable statistics only on the nodes you care about;
-- keep `FASTDDS_STATISTICS` to the aliases you need, for example `RTPS_SENT_TOPIC;RTPS_LOST_TOPIC`;
-- give `--stats` a longer `--timeout`.
+- keep `FASTDDS_STATISTICS` to the aliases you need, for example `RTPS_SENT_TOPIC;RTPS_LOST_TOPIC`.
+
+A longer `--timeout` does not help here: it collects more of the loss, not less. Making the tool
+keep up is [#141](https://github.com/atinfinity/fastdds_transport_viz/issues/141).
+
+`stats.samples_lost_at_start` is counted apart and never warns. Every reader is told about the
+samples a writer's keep-last history had already dropped when it matched, which says nothing
+about the tool keeping up - and it is told late, because a writer announces what it dropped with
+one of its next heartbeats rather than at the match: measured on a quiet five-node system, the
+notifications arrived up to 1.2 seconds (Jazzy) and 3.9 seconds (Lyrical) afterwards. Every new
+statistics writer brings such a burst, so a loss counts as late-join while a writer matched
+within the last five seconds - and before the first match of all, which the grace period has
+nothing to measure from. A node that starts mid-run therefore excuses five seconds of loss,
+never the losses that keep coming after it.
 
 ## Implementation notes
 

@@ -117,9 +117,13 @@
     "participants_with_stats": [],
     "physical": {},
     "samples": 0,
+    "samples_lost": 0,
+    "samples_lost_at_start": 0,
+    "samples_rejected": 0,
     "statistics_writers": [],
     "throughput": {},
-    "traffic": []
+    "traffic": [],
+    "warnings": []
   },
   "topics": [
     {

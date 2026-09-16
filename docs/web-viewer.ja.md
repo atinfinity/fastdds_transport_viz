@@ -1,6 +1,6 @@
 # Web viewer
 
-> 英語版が正です。この文書は 2026-09-16 時点の英語版に対応しています。
+> 英語版が正です。この文書は 2026-09-17 時点の英語版に対応しています。
 
 `web/index.html` は `transport_viz --json` の文書をグラフとして描画します。ホストが列、ROS ノードが
 箱、writer → reader の各ペアが transport ごとに色分けされた矢印です。静的ページ (素の HTML/JS と
@@ -41,6 +41,11 @@ open web/index.html            # macOS。あるいはファイルをダブルク
 (reliability、durability、data-sharing、設定されていれば deadline、liveliness、ownership、
 partition)、data-sharing 履歴のサイズです。ノードをクリックすると publisher、subscription、相手のいない
 トピックが出ます。
+
+ヘッダの 1 行目にはドメイン、観測時刻、件数が出て、最後に statistics の要約が付きます。文書が
+持っているサンプル数と、ツールが取り逃したぶんがあれば `N lost` および `!stats-samples-lost` の
+印です (印にマウスを乗せると説明と対処が出ます)。この印があるときは、実際には通信していても
+ペアに実測値が出ないことがあります ([statistics.ja.md](statistics.ja.md#大規模なシステム) 参照)。
 
 ヘッダの 2 行目は `transport_viz` が動いた環境の共有メモリの要約です (文書の `shm`
 オブジェクト。[how-it-works.md](how-it-works.md#環境の共有メモリ) 参照): `/dev/shm` の容量、

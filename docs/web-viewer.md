@@ -43,6 +43,12 @@ liveliness, ownership and partitions when set) and the size of the data-sharing 
 both endpoints.
 Click a node for its publishers, subscriptions and unmatched topics.
 
+The first header line names the domain, the observation time and the counts, and ends with
+the statistics summary: how many samples the document holds and, when the tool lost some of
+them, `N lost` and a `!stats-samples-lost` marker whose tooltip carries the description and
+the remedy. A pair can then show no measurement although it carries traffic
+([statistics.md](statistics.md#large-systems)).
+
 The second header line summarizes the shared memory of the environment `transport_viz`
 ran in (the document's `shm` object, see [how-it-works.md](how-it-works.md#shared-memory-of-the-environment)):
 capacity of `/dev/shm`, what Fast DDS keeps there, stale files and the `shm-*` warnings.
