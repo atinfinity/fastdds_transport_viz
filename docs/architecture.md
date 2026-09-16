@@ -119,7 +119,15 @@ sequenceDiagram
    `KEEP_LAST 1`, and the tool needs both the first and the last value of every
    cumulative counter to report a window delta. Without `--stats` the loop stops early
    after `--quiet` seconds without discovery events; with it the full `--timeout` is used
-   so that counters can accumulate.
+   so that counters can accumulate. A silent window is not proof that discovery finished:
+   on a large system it also happens between two batches of announcements. `collect()`
+   therefore compares the endpoint gids the live participants announce in
+   `ros_discovery_info` with the raw `DiscoveryObserver::snapshot()` (before any view
+   filter) and records the result in `Snapshot::discovery`
+   ([#133](https://github.com/atinfinity/fastdds_transport_viz/issues/133)); an incomplete
+   view gets one warning line on stderr naming the numbers and a longer `--quiet` or
+   `--timeout`. `complete` stays unset when no live participant announced anything, and a
+   participant that has left is skipped: the `ros_discovery_info` table never evicts it.
 4. **collect()** builds the `Snapshot`: node names from the resolver (or, for the
    endpoints it cannot name, from the own `ros_discovery_info` reader), host names and
    process ids from `PHYSICAL_DATA`, the tool's own endpoints removed, `--all` /
@@ -153,6 +161,7 @@ classDiagram
         vector~TopicSummary~ topics
         StatsData stats
         ShmInfo shm
+        DiscoveryStatus discovery (complete, stopped_on, events, endpoints)
         Changes changes (added, removed, changed, key, before)
     }
     class Endpoint {

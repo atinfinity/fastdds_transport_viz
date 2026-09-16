@@ -11,10 +11,12 @@
 #include <map>
 #include <functional>
 #include <optional>
+#include <set>
 #include <string>
 #include <vector>
 
 #include "fastdds_transport_viz/model.hpp"
+#include "fastdds_transport_viz/ros_names.hpp"
 
 namespace fastdds_transport_viz
 {
@@ -68,6 +70,28 @@ void filter_by_node(
 /// include those of its native-buffer companions (Endpoint::buffer_companion_guids).
 /// Pure function.
 void apply_stats(std::vector<TopicSummary> & topics, const StatsData & stats);
+
+/// How complete the observation was (#133): every endpoint gid a live participant announced
+/// in `ros_discovery_info` must have been discovered. `announced` comes from
+/// NodeNameTable::announced_by_participant(), `live_participants` from
+/// DiscoveryObserver::live_participants() (a participant that left keeps its row in the
+/// table, and its endpoints are gone for good), and `discovered` must be the raw discovery
+/// snapshot, before --all / --topic / --node drop anything. The comparison is one-directional:
+/// an endpoint that discovery delivered but no sample announced (a non-ROS DDS writer, a node
+/// whose sample has not arrived) proves nothing. DiscoveryStatus::complete stays unset when no
+/// live participant announced anything. Pure function.
+DiscoveryStatus discovery_completeness(
+  const std::map<ParticipantPrefix, std::vector<EndpointGid>> & announced,
+  const std::set<ParticipantPrefix> & live_participants,
+  const std::vector<Endpoint> & discovered);
+
+/// The one stderr line an incomplete observation earns (#133), or "" when the view was
+/// complete or could not be judged. `quiet`, `timeout` and `stats` are the settings this run
+/// used: the advice is always longer than they are, and never below what a large system
+/// needed in docs/development.md "Scale results". With --stats only --timeout is advised,
+/// because the quiet window is disabled there. Pure function.
+std::string incomplete_discovery_warning(
+  const DiscoveryStatus & status, double quiet, double timeout, bool stats);
 
 /// Key and highlight-relevant state of a pair.
 PairKey pair_key(const TopicSummary & topic, const Pair & pair);

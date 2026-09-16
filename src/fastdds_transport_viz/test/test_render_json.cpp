@@ -85,6 +85,11 @@ Snapshot snapshot()
   s.shm.checked_ports = {7411};
   s.shm.warnings = {"shm-stale-files"};
   s.shm.stale_segments = 1;
+  s.discovery.complete = false;   // one announced endpoint never arrived (#133)
+  s.discovery.stopped_on = "quiet";
+  s.discovery.events = 12;
+  s.discovery.endpoints = 2;
+  s.discovery.announced_not_discovered = 1;
   return s;
 }
 }  // namespace
@@ -96,6 +101,11 @@ TEST(RenderJson, DocumentKeys)
   EXPECT_EQ(doc["schema_version"], 1);
   EXPECT_EQ(doc["domain"], 3);
   EXPECT_EQ(doc["local_host_id"], "01020304");
+  EXPECT_EQ(doc["discovery"]["complete"], false);
+  EXPECT_EQ(doc["discovery"]["stopped_on"], "quiet");
+  EXPECT_EQ(doc["discovery"]["events"], 12);
+  EXPECT_EQ(doc["discovery"]["endpoints"], 2);
+  EXPECT_EQ(doc["discovery"]["announced_not_discovered"], 1);
   ASSERT_EQ(doc["topics"].size(), 1u);
   const auto & t = doc["topics"][0];
   EXPECT_EQ(t["topic"], "/chatter");
@@ -310,6 +320,12 @@ TEST(ParseJson, RoundTripsEverythingTheRenderersShow)
   EXPECT_EQ(parsed.domain, 3);
   EXPECT_EQ(parsed.observed_at, "2026-09-06T00:00:00Z");
   EXPECT_EQ(parsed.local_host_id, (HostId{1, 2, 3, 4}));
+  ASSERT_TRUE(parsed.discovery.complete.has_value());
+  EXPECT_FALSE(*parsed.discovery.complete);
+  EXPECT_EQ(parsed.discovery.stopped_on, "quiet");
+  EXPECT_EQ(parsed.discovery.events, 12u);
+  EXPECT_EQ(parsed.discovery.endpoints, 2u);
+  EXPECT_EQ(parsed.discovery.announced_not_discovered, 1u);
   ASSERT_EQ(parsed.topics.size(), 1u);
   ASSERT_EQ(parsed.topics[0].pairs.size(), 1u);
   const auto & p = parsed.topics[0].pairs[0];
@@ -458,4 +474,24 @@ TEST(ParseJson, KeepsTheBufferParentOfNativeBufferCompanions)
   EXPECT_FALSE(in_default_view(parsed.topics[1]));
   std::string where;
   EXPECT_TRUE(close(doc, json::parse(render_json(parsed, RenderOptions{})), "$", &where)) << where;
+}
+
+TEST(RenderJson, DiscoveryCompleteIsNullWhenNothingCouldBeJudged)
+{
+  auto s = snapshot();
+  s.discovery.complete.reset();   // no ros_discovery_info sample from a live participant
+  const auto text = render_json(s, RenderOptions{});
+  EXPECT_TRUE(json::parse(text)["discovery"]["complete"].is_null());
+  EXPECT_FALSE(parse_json(text).discovery.complete.has_value());
+}
+
+TEST(ParseJson, ADocumentWithoutTheDiscoveryObjectLeavesItUnset)
+{
+  // written before the field existed (#133): nothing is known about its completeness
+  auto s = snapshot();
+  auto doc = json::parse(render_json(s, RenderOptions{}));
+  doc.erase("discovery");
+  const auto parsed = parse_json(doc.dump());
+  EXPECT_FALSE(parsed.discovery.complete.has_value());
+  EXPECT_EQ(parsed.discovery.stopped_on, "");
 }

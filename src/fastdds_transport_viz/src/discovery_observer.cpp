@@ -172,6 +172,15 @@ void fill_data_sharing(const dds::DataSharingQosPolicy & q, EndpointQos & out)
 namespace
 {
 
+ParticipantPrefix to_participant_prefix(const rtps::GuidPrefix_t & prefix)
+{
+  ParticipantPrefix out{};
+  for (size_t i = 0; i < out.size(); ++i) {
+    out[i] = prefix.value[i];
+  }
+  return out;
+}
+
 template<typename ProxyData>
 Endpoint make_endpoint(const ProxyData & data, bool is_writer)
 {
@@ -259,6 +268,12 @@ size_t DiscoveryObserver::event_count() const
   return event_count_;
 }
 
+std::set<ParticipantPrefix> DiscoveryObserver::live_participants() const
+{
+  std::lock_guard<std::mutex> lock(mutex_);
+  return participants_;
+}
+
 HostId DiscoveryObserver::local_host_id() const
 {
   return local_host_id_;
@@ -286,11 +301,25 @@ void DiscoveryObserver::erase(const std::string & guid)
 
 #if FTV_FASTDDS_3
 void DiscoveryObserver::on_participant_discovery(
-  dds::DomainParticipant *, rtps::ParticipantDiscoveryStatus,
-  const rtps::ParticipantBuiltinTopicData &, bool & should_be_ignored)
+  dds::DomainParticipant *, rtps::ParticipantDiscoveryStatus reason,
+  const rtps::ParticipantBuiltinTopicData & info, bool & should_be_ignored)
 {
   should_be_ignored = false;
   std::lock_guard<std::mutex> lock(mutex_);
+  const auto prefix = to_participant_prefix(info.guid.guidPrefix);
+  switch (reason) {
+    case rtps::ParticipantDiscoveryStatus::DISCOVERED_PARTICIPANT:
+    case rtps::ParticipantDiscoveryStatus::CHANGED_QOS_PARTICIPANT:
+      participants_.insert(prefix);
+      break;
+    case rtps::ParticipantDiscoveryStatus::REMOVED_PARTICIPANT:
+    case rtps::ParticipantDiscoveryStatus::DROPPED_PARTICIPANT:
+    case rtps::ParticipantDiscoveryStatus::IGNORED_PARTICIPANT:
+      participants_.erase(prefix);
+      break;
+    default:
+      break;
+  }
   touch();
 }
 
@@ -331,9 +360,22 @@ void DiscoveryObserver::on_data_writer_discovery(
 }
 #else
 void DiscoveryObserver::on_participant_discovery(
-  dds::DomainParticipant *, rtps::ParticipantDiscoveryInfo &&)
+  dds::DomainParticipant *, rtps::ParticipantDiscoveryInfo && info)
 {
   std::lock_guard<std::mutex> lock(mutex_);
+  const auto prefix = to_participant_prefix(info.info.m_guid.guidPrefix);
+  switch (info.status) {
+    case rtps::ParticipantDiscoveryInfo::DISCOVERED_PARTICIPANT:
+    case rtps::ParticipantDiscoveryInfo::CHANGED_QOS_PARTICIPANT:
+      participants_.insert(prefix);
+      break;
+    case rtps::ParticipantDiscoveryInfo::REMOVED_PARTICIPANT:
+    case rtps::ParticipantDiscoveryInfo::DROPPED_PARTICIPANT:
+      participants_.erase(prefix);
+      break;
+    default:
+      break;
+  }
   touch();
 }
 

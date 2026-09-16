@@ -442,6 +442,25 @@ struct Changes
   bool empty() const {return added.empty() && removed.empty() && changed.empty();}
 };
 
+/// Whether discovery had settled when the observation stopped: the endpoints the nodes
+/// announce in `ros_discovery_info` against the endpoints discovery actually delivered
+/// (#133). Nothing here is a property of the observed system, only of the observation.
+struct DiscoveryStatus
+{
+  /// true when every announced endpoint was discovered, false when some were missed, unset
+  /// when no live participant announced anything (no `ros_discovery_info` sample, or the
+  /// reader could not be created): then nothing can be said either way.
+  std::optional<bool> complete;
+  std::string stopped_on;        // "quiet" (a silent --quiet window) or "timeout"
+  size_t events{0};              // discovery callbacks the observation saw
+  size_t endpoints{0};           // remote endpoints discovered, before any view filter
+  size_t announced_not_discovered{0};   // announced by a live participant, never discovered
+  // ... spread over how many participants, which together announced how many endpoints
+  // (for the message; not in the JSON)
+  size_t participants_incomplete{0};
+  size_t announced_by_incomplete{0};
+};
+
 struct Snapshot
 {
   int domain{0};
@@ -452,6 +471,7 @@ struct Snapshot
   std::vector<TopicSummary> topics;
   StatsData stats;
   ShmInfo shm;                  // shared memory of the environment the tool runs in
+  DiscoveryStatus discovery;    // how complete the view behind this snapshot is
   bool has_changes{false};      // true in --watch mode: `changes` is meaningful
   Changes changes;              // relative to the previously rendered frame
 };

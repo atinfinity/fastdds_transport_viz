@@ -2155,3 +2155,167 @@ TEST(ApplyStats, WithoutCompanionsTheCountersAreThePairsOwn)
   EXPECT_EQ(topics[0].pairs[0].measured.delivered_samples, 4u);
   EXPECT_FALSE(topics[0].pairs[0].measured.latency_available);
 }
+
+// discovery_completeness() (#133): the endpoints the nodes announce in ros_discovery_info
+// against the endpoints discovery actually delivered.
+
+namespace
+{
+
+ParticipantPrefix prefix(uint8_t tag)
+{
+  ParticipantPrefix p{};
+  p[0] = 1;
+  p[11] = tag;
+  return p;
+}
+
+EndpointGid gid(uint8_t participant_tag, uint8_t entity)
+{
+  EndpointGid g{};
+  g[0] = 1;
+  g[11] = participant_tag;
+  g[15] = entity;
+  return g;
+}
+
+Endpoint discovered(const EndpointGid & g)
+{
+  Endpoint e;
+  e.guid_bytes = g;
+  e.guid = "g" + std::to_string(g[11]) + "." + std::to_string(g[15]);
+  return e;
+}
+
+}  // namespace
+
+TEST(DiscoveryCompleteness, EveryAnnouncedEndpointDiscoveredIsComplete)
+{
+  const auto p = prefix(1);
+  std::map<ParticipantPrefix, std::vector<EndpointGid>> announced{{p, {gid(1, 1), gid(1, 2)}}};
+  std::vector<Endpoint> eps{discovered(gid(1, 1)), discovered(gid(1, 2))};
+  const auto d = discovery_completeness(announced, {p}, eps);
+  ASSERT_TRUE(d.complete.has_value());
+  EXPECT_TRUE(*d.complete);
+  EXPECT_EQ(d.announced_not_discovered, 0u);
+  EXPECT_EQ(d.participants_incomplete, 0u);
+  EXPECT_EQ(d.endpoints, 2u);
+}
+
+TEST(DiscoveryCompleteness, AnAnnouncedEndpointNeverDiscoveredIsIncomplete)
+{
+  const auto p1 = prefix(1);
+  const auto p2 = prefix(2);
+  std::map<ParticipantPrefix, std::vector<EndpointGid>> announced{
+    {p1, {gid(1, 1), gid(1, 2)}},
+    {p2, {gid(2, 1)}},
+  };
+  // p1's second endpoint is still on its way: the observation stopped too early
+  std::vector<Endpoint> eps{discovered(gid(1, 1)), discovered(gid(2, 1))};
+  const auto d = discovery_completeness(announced, {p1, p2}, eps);
+  ASSERT_TRUE(d.complete.has_value());
+  EXPECT_FALSE(*d.complete);
+  EXPECT_EQ(d.announced_not_discovered, 1u);
+  EXPECT_EQ(d.participants_incomplete, 1u);
+  EXPECT_EQ(d.announced_by_incomplete, 2u);   // only the incomplete participant's
+  EXPECT_EQ(d.endpoints, 2u);
+}
+
+TEST(DiscoveryCompleteness, AParticipantThatLeftIsNotCompared)
+{
+  const auto gone = prefix(9);
+  // ros_discovery_info never evicts a departed participant, so its row outlives it
+  std::map<ParticipantPrefix, std::vector<EndpointGid>> announced{{gone, {gid(9, 1)}}};
+  const auto d = discovery_completeness(announced, {}, {});
+  EXPECT_FALSE(d.complete.has_value());   // nothing left to compare: no judgement
+  EXPECT_EQ(d.announced_not_discovered, 0u);
+}
+
+TEST(DiscoveryCompleteness, OnlyTheLivePartOfTheTableCounts)
+{
+  const auto live = prefix(1);
+  const auto gone = prefix(9);
+  std::map<ParticipantPrefix, std::vector<EndpointGid>> announced{
+    {live, {gid(1, 1)}},
+    {gone, {gid(9, 1), gid(9, 2)}},
+  };
+  std::vector<Endpoint> eps{discovered(gid(1, 1))};
+  const auto d = discovery_completeness(announced, {live}, eps);
+  ASSERT_TRUE(d.complete.has_value());
+  EXPECT_TRUE(*d.complete);   // the departed participant's endpoints are not missing
+}
+
+TEST(DiscoveryCompleteness, NoAnnouncementAtAllLeavesItUnset)
+{
+  // no ros_discovery_info sample (or the reader could not be created): the endpoints
+  // discovery delivered say nothing about what was not delivered
+  const auto d = discovery_completeness({}, {prefix(1)}, {discovered(gid(1, 1))});
+  EXPECT_FALSE(d.complete.has_value());
+  EXPECT_EQ(d.endpoints, 1u);
+}
+
+TEST(DiscoveryCompleteness, DiscoveredEndpointsOutsideTheTableDoNotCount)
+{
+  // a raw DDS writer of a non-ROS participant is discovered but announces nothing
+  const auto p = prefix(1);
+  std::map<ParticipantPrefix, std::vector<EndpointGid>> announced{{p, {gid(1, 1)}}};
+  std::vector<Endpoint> eps{discovered(gid(1, 1)), discovered(gid(7, 1))};
+  const auto d = discovery_completeness(announced, {p}, eps);
+  ASSERT_TRUE(d.complete.has_value());
+  EXPECT_TRUE(*d.complete);
+  EXPECT_EQ(d.endpoints, 2u);
+}
+
+TEST(IncompleteDiscoveryWarning, ACompleteOrUnjudgedViewSaysNothing)
+{
+  DiscoveryStatus d;
+  EXPECT_EQ(incomplete_discovery_warning(d, 1.0, 3.0, false), "");   // complete unset
+  d.complete = true;
+  EXPECT_EQ(incomplete_discovery_warning(d, 1.0, 3.0, false), "");
+}
+
+TEST(IncompleteDiscoveryWarning, NamesTheNumbersAndLongerSettings)
+{
+  DiscoveryStatus d;
+  d.complete = false;
+  d.announced_not_discovered = 12;
+  d.announced_by_incomplete = 40;
+  d.participants_incomplete = 3;
+  EXPECT_EQ(
+    incomplete_discovery_warning(d, 1.0, 3.0, false),
+    "warning: discovery was still in progress (12 of 40 endpoints announced by 3 participants "
+    "were not seen); pass --quiet 3 or --timeout 10 for a complete view");
+}
+
+TEST(IncompleteDiscoveryWarning, OneParticipantIsSingular)
+{
+  DiscoveryStatus d;
+  d.complete = false;
+  d.announced_not_discovered = 1;
+  d.announced_by_incomplete = 6;
+  d.participants_incomplete = 1;
+  EXPECT_NE(
+    incomplete_discovery_warning(d, 1.0, 3.0, false).find("by 1 participant were not seen"),
+    std::string::npos);
+}
+
+TEST(IncompleteDiscoveryWarning, TheAdviceIsAlwaysLongerThanWhatTheRunUsed)
+{
+  DiscoveryStatus d;
+  d.complete = false;
+  d.announced_not_discovered = 2;
+  d.announced_by_incomplete = 5;
+  d.participants_incomplete = 1;
+  // already generous settings: double them rather than advise less
+  EXPECT_NE(
+    incomplete_discovery_warning(d, 4.0, 30.0, false).find("--quiet 8 or --timeout 60"),
+    std::string::npos);
+  // --quiet 0 (the window is off): only a timeout is worth advising
+  const auto no_quiet = incomplete_discovery_warning(d, 0.0, 3.0, false);
+  EXPECT_EQ(no_quiet.find("--quiet"), std::string::npos) << no_quiet;
+  EXPECT_NE(no_quiet.find("pass --timeout 10"), std::string::npos) << no_quiet;
+  // --stats runs the full timeout and ignores --quiet
+  const auto with_stats = incomplete_discovery_warning(d, 1.0, 5.0, true);
+  EXPECT_EQ(with_stats.find("--quiet"), std::string::npos) << with_stats;
+  EXPECT_NE(with_stats.find("pass --timeout 15"), std::string::npos) << with_stats;
+}

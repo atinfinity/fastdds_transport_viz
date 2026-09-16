@@ -64,6 +64,9 @@
     },
     "shm": {
       "$ref": "#/$defs/shm"
+    },
+    "discovery": {
+      "$ref": "#/$defs/discovery"
     }
   },
   "$defs": {
@@ -944,6 +947,48 @@
               }
             ]
           }
+        }
+      }
+    },
+    "discovery": {
+      "type": "object",
+      "description": "how complete the observation behind this document is - a property of the observation, not of the observed system; absent in documents written before this field existed",
+      "required": [
+        "complete",
+        "stopped_on",
+        "events",
+        "endpoints",
+        "announced_not_discovered"
+      ],
+      "properties": {
+        "complete": {
+          "type": [
+            "boolean",
+            "null"
+          ],
+          "description": "true when every endpoint the live participants announce in ros_discovery_info was discovered, false when some were missed (the run stopped too early), null when no live participant announced anything and nothing can be said either way"
+        },
+        "stopped_on": {
+          "enum": [
+            "quiet",
+            "timeout"
+          ],
+          "description": "what ended the observation: a --quiet window without discovery events, or --timeout"
+        },
+        "events": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "discovery callbacks the observation saw"
+        },
+        "endpoints": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "remote endpoints discovered, before any view filter (--all, --topic, --node)"
+        },
+        "announced_not_discovered": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "endpoints announced by a live participant that discovery never delivered; 0 when complete is true"
         }
       }
     },

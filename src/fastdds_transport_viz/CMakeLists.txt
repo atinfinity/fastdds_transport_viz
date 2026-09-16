@@ -175,6 +175,7 @@ if(BUILD_TESTING)
   add_launch_test(test/launch/test_qos_incompatible.py TIMEOUT 90)
   add_launch_test(test/launch/test_unbounded_vs_bounded.py TIMEOUT 90)
   add_launch_test(test/launch/test_diff.py TIMEOUT 120)
+  add_launch_test(test/launch/test_discovery_completeness.py TIMEOUT 120)
 endif()
 
 ament_package()
