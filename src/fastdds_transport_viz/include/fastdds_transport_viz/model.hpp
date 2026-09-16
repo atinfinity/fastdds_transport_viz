@@ -318,6 +318,9 @@ struct StatsData
   uint64_t samples_lost{0};
   uint64_t samples_lost_at_start{0};
   uint64_t samples_rejected{0};
+  /// Statistics DataWriters the readers could not match because their QoS is incompatible
+  /// (#141): their samples never arrive and are never counted as lost either.
+  uint64_t writers_incompatible_qos{0};
   /// Document-level warning codes, like ShmInfo::warnings: stats-samples-lost.
   std::vector<std::string> warnings;
 };

@@ -74,6 +74,11 @@ public:
   uint64_t samples_lost() const {return listener_.lost;}
   uint64_t samples_lost_at_start() const {return listener_.lost_at_start;}
   uint64_t samples_rejected() const {return listener_.rejected;}
+  /// Statistics writers that were discovered but could not be matched because their QoS is
+  /// incompatible with the readers' (#141). Nothing they publish is ever received, and
+  /// nothing is counted as lost either: a reader only hears about the samples of writers it
+  /// did match, so without this the loss would be invisible.
+  uint64_t writers_incompatible_qos() const {return listener_.incompatible_qos;}
   /// Drains that ended in an exception. The drain thread counts them instead of dying.
   uint64_t drain_errors() const {return drain_errors_;}
 
@@ -113,6 +118,7 @@ private:
     std::atomic<uint64_t> lost{0};
     std::atomic<uint64_t> lost_at_start{0};
     std::atomic<uint64_t> rejected{0};
+    std::atomic<uint64_t> incompatible_qos{0};
     /// The grace period is measured from the last writer match, so it cannot run before the
     /// first one: discovery alone takes longer than it on some distributions.
     std::atomic<bool> any_match{false};
@@ -127,6 +133,9 @@ private:
     void on_subscription_matched(
       eprosima::fastdds::dds::DataReader *,
       const eprosima::fastdds::dds::SubscriptionMatchedStatus & status) override;
+    void on_requested_incompatible_qos(
+      eprosima::fastdds::dds::DataReader *,
+      const eprosima::fastdds::dds::RequestedIncompatibleQosStatus & status) override;
   };
   Reader create_reader(
     const std::string & topic_name, eprosima::fastdds::dds::TypeSupport type,

@@ -436,7 +436,9 @@ Snapshot collect(
     prof.emit(
       "drain", t, {{"samples", stats_data.samples}, {"sample_lost", stats->samples_lost()},
         {"sample_lost_at_start", stats->samples_lost_at_start()},
-        {"sample_rejected", stats->samples_rejected()}});
+        {"sample_rejected", stats->samples_rejected()},
+        {"writers_incompatible_qos", stats->writers_incompatible_qos()},
+        {"drain_errors", stats->drain_errors()}});
     stats_data.local_addresses = local_ip_addresses();
   }
   auto t_resolve = prof.now();

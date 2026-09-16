@@ -89,6 +89,14 @@ void StatsObserver::Listener::on_subscription_matched(
   any_match = true;
 }
 
+void StatsObserver::Listener::on_requested_incompatible_qos(
+  dds::DataReader *, const dds::RequestedIncompatibleQosStatus & status)
+{
+  // Counted per writer, not per sample: a writer that never matched publishes nothing the
+  // readers could count, and samples_rejected must keep the meaning #134 gave it.
+  incompatible_qos += static_cast<uint64_t>(status.total_count_change);
+}
+
 std::string StatsObserver::required_env_value()
 {
   return "RTPS_SENT_TOPIC;RTPS_LOST_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC;"
@@ -226,7 +234,8 @@ StatsObserver::Reader StatsObserver::create_reader(
   r.reader = subscriber_->create_datareader(
     r.topic, qos, &listener_,
     dds::StatusMask::sample_lost() << dds::StatusMask::sample_rejected() <<
-      dds::StatusMask::subscription_matched());
+      dds::StatusMask::subscription_matched() <<
+      dds::StatusMask::requested_incompatible_qos());
   if (r.reader == nullptr) {
     throw std::runtime_error("failed to create statistics reader for " + topic_name);
   }
@@ -395,6 +404,7 @@ StatsData StatsObserver::snapshot()
   out.samples_lost = listener_.lost;
   out.samples_lost_at_start = listener_.lost_at_start;
   out.samples_rejected = listener_.rejected;
+  out.writers_incompatible_qos = listener_.incompatible_qos;
   if (statistics_samples_were_lost(out)) {out.warnings.push_back("stats-samples-lost");}
   out.traffic.clear();
   for (const auto & kv : traffic_) {
