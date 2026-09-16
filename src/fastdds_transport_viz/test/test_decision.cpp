@@ -930,7 +930,7 @@ TEST(ApplyStats, DeliveredWithoutMeasuredTrafficIsItsOwnWarning)
   EXPECT_EQ(p.verdict.confidence, Confidence::Certain);  // nothing measured, prediction stands
 }
 
-TEST(ApplyStats, ThroughputPerWriterAndPerTopicAndWindowDeltas)
+TEST(ApplyStats, WindowDeltas)
 {
   std::vector<Endpoint> eps;
   eps.push_back(make(true, HOST_A, {shm(7415)}));
@@ -947,17 +947,11 @@ TEST(ApplyStats, ThroughputPerWriterAndPerTopicAndWindowDeltas)
   t.samples = 3;
   auto stats = stats_with(eps[0], {t});
   stats.participants_with_stats.insert("P2");
-  stats.throughput[eps[0].guid] = ThroughputStat{300.0, 120.0, 3};   // mean 100 B/s
-  stats.throughput[eps[1].guid] = ThroughputStat{50.0, 50.0, 1};     // 50 B/s
   apply_stats(topics, stats);
   const auto & topic = topics[0];
-  EXPECT_TRUE(topic.throughput_available);
-  EXPECT_DOUBLE_EQ(topic.throughput, 150.0);
   const auto & p = *std::find_if(
     topic.pairs.begin(), topic.pairs.end(),
     [&](const Pair & q) {return q.writer == &eps[0];});
-  EXPECT_TRUE(p.measured.throughput_available);
-  EXPECT_DOUBLE_EQ(p.measured.throughput, 100.0);
   EXPECT_EQ(p.measured.packets, 30u);            // during the observation
   EXPECT_DOUBLE_EQ(p.measured.bytes, 3000.0);
   EXPECT_EQ(p.measured.packets_total, 130u);     // since the participant started
@@ -2094,7 +2088,6 @@ TEST(ApplyStats, BufferCompanionCountersAreAddedToTheParentPair)
   stats.heartbeats[WB] = DataCountSample{0, 242, 5};
   stats.acknacks[R] = DataCountSample{1, 2, 2};
   stats.acknacks[RB] = DataCountSample{0, 10, 5};
-  stats.throughput[WB] = ThroughputStat{60.0, 20.0, 3};
   stats.delivered[{WB, RB}] = 3;
   LatencyStat parent_latency;
   parent_latency.add(0.002);
@@ -2115,16 +2108,12 @@ TEST(ApplyStats, BufferCompanionCountersAreAddedToTheParentPair)
   EXPECT_TRUE(m.reliability.available);
   EXPECT_EQ(m.reliability.heartbeats, 242u);
   EXPECT_EQ(m.reliability.acknacks, 11u);
-  EXPECT_TRUE(m.throughput_available);
-  EXPECT_DOUBLE_EQ(m.throughput, stats.throughput[WB].mean());
   EXPECT_TRUE(m.latency_available);
   EXPECT_EQ(m.latency.samples, 4u);
   EXPECT_NEAR(m.latency.sum, 0.010, 1e-12);
   EXPECT_DOUBLE_EQ(m.latency.min, 0.001);
   EXPECT_DOUBLE_EQ(m.latency.max, 0.004);
   EXPECT_DOUBLE_EQ(m.latency.last, 0.003);   // the companions'
-  EXPECT_TRUE(parent.throughput_available);
-  EXPECT_DOUBLE_EQ(parent.throughput, stats.throughput[WB].mean());
   EXPECT_NEAR(parent.latency, 0.0025, 1e-12);
 
   // the companion topic keeps its own numbers

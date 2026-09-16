@@ -91,7 +91,7 @@ void StatsObserver::Listener::on_subscription_matched(
 std::string StatsObserver::required_env_value()
 {
   return "RTPS_SENT_TOPIC;RTPS_LOST_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC;"
-         "DATA_COUNT_TOPIC;PUBLICATION_THROUGHPUT_TOPIC;RESENT_DATAS_TOPIC;"
+         "DATA_COUNT_TOPIC;RESENT_DATAS_TOPIC;"
          "HEARTBEAT_COUNT_TOPIC;ACKNACK_COUNT_TOPIC;NACKFRAG_COUNT_TOPIC;GAP_COUNT_TOPIC";
 }
 
@@ -110,8 +110,6 @@ StatsObserver::StatsObserver(dds::DomainParticipant * participant)
     st::PHYSICAL_DATA_TOPIC, dds::TypeSupport(new st::PhysicalDataPubSubType()));
   data_count_ = create_reader(
     st::DATA_COUNT_TOPIC, dds::TypeSupport(new st::EntityCountPubSubType()));
-  throughput_ = create_reader(
-    st::PUBLICATION_THROUGHPUT_TOPIC, dds::TypeSupport(new st::EntityDataPubSubType()));
   rtps_lost_ = create_reader(
     st::RTPS_LOST_TOPIC, dds::TypeSupport(new st::Entity2LocatorTrafficPubSubType()));
   resent_datas_ = create_reader(
@@ -129,7 +127,7 @@ StatsObserver::StatsObserver(dds::DomainParticipant * participant)
 
 StatsObserver::~StatsObserver()
 {
-  for (auto * r : {&rtps_sent_, &history_latency_, &physical_data_, &data_count_, &throughput_,
+  for (auto * r : {&rtps_sent_, &history_latency_, &physical_data_, &data_count_,
       &rtps_lost_, &resent_datas_, &heartbeat_count_, &gap_count_, &acknack_count_,
       &nackfrag_count_})
   {
@@ -232,17 +230,6 @@ void StatsObserver::drain()
     }
     s.samples = slot.samples + 1;
     slot = s;
-  }
-
-  st::EntityData throughput;
-  while (retcode_ok(throughput_.reader->take_next_sample(&throughput, &info))) {
-    if (!info.valid_data) {continue;}
-    count_sample();
-    rtps::GUID_t g = to_rtps(throughput.guid());
-    auto & t = data_.throughput[guid_to_string(g)];
-    t.sum += throughput.data();
-    t.last = throughput.data();
-    ++t.samples;
   }
 
   st::WriterReaderData latency;

@@ -692,8 +692,6 @@ void apply_stats(std::vector<TopicSummary> & topics, const StatsData & stats)
     locators_per_source[s.src_participant_prefix]++;
   }
   for (auto & t : topics) {
-    t.throughput = 0.0;
-    t.throughput_available = false;
     t.latency = 0.0;
     t.latency_available = false;
     t.reliability_available = false;
@@ -703,14 +701,6 @@ void apply_stats(std::vector<TopicSummary> & topics, const StatsData & stats)
     // RTPS_LOST entries already in t.lost_packets: several pairs of the topic between the
     // same two participants share one entry
     std::set<const TrafficSample *> topic_lost;
-    for (const auto * w : t.writers) {
-      for (const auto & g : entity_guids(*w)) {
-        if (auto th = stats.throughput.find(g); th != stats.throughput.end()) {
-          t.throughput += th->second.mean();
-          t.throughput_available = true;
-        }
-      }
-    }
     for (auto & p : t.pairs) {
       Measurement & m = p.measured;
       const std::string & src = p.writer->participant_guid_prefix;
@@ -719,12 +709,6 @@ void apply_stats(std::vector<TopicSummary> & topics, const StatsData & stats)
       // go through the companions, the heartbeats of the parent still through the parent
       const std::vector<std::string> writer_guids = entity_guids(*p.writer);
       const std::vector<std::string> reader_guids = entity_guids(*p.reader);
-      for (const auto & g : writer_guids) {
-        if (auto th = stats.throughput.find(g); th != stats.throughput.end()) {
-          m.throughput_available = true;
-          m.throughput += th->second.mean();
-        }
-      }
       {
         bool found = false;
         size_t delivered = 0;
@@ -819,7 +803,7 @@ void apply_stats(std::vector<TopicSummary> & topics, const StatsData & stats)
       for (const auto & g : writer_guids) {
         if (auto dc = stats.data_count.find(g); dc != stats.data_count.end()) {
           m.data_count_available = true;
-          m.data_submessages += dc->second.last - dc->second.first;
+          m.data_submessages += dc->second.last - std::min(dc->second.last, dc->second.first);
         }
       }
       if (!m.data_count_available &&
@@ -1207,7 +1191,7 @@ struct CodeInfo
 
 const char kStatsEnv[] =
   "FASTDDS_STATISTICS=\"RTPS_SENT_TOPIC;RTPS_LOST_TOPIC;HISTORY_LATENCY_TOPIC;"
-  "PHYSICAL_DATA_TOPIC;DATA_COUNT_TOPIC;PUBLICATION_THROUGHPUT_TOPIC;RESENT_DATAS_TOPIC;"
+  "PHYSICAL_DATA_TOPIC;DATA_COUNT_TOPIC;RESENT_DATAS_TOPIC;"
   "HEARTBEAT_COUNT_TOPIC;ACKNACK_COUNT_TOPIC;NACKFRAG_COUNT_TOPIC;GAP_COUNT_TOPIC\"";
 
 const std::map<std::string, CodeInfo> & explanations()

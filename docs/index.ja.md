@@ -1,6 +1,6 @@
 # fastdds_transport_viz
 
-> 英語版が正です。この文書は 2026-09-16 時点の英語版に対応しています。
+> 英語版が正です。この文書は 2026-09-17 時点の英語版に対応しています。
 
 **ROS 2 の各トピックが Fast DDS のどの transport で通信しているか** — UDPv4、UDPv6、TCP、
 共有メモリ (SHM)、zero-copy の data-sharing — を、**その理由とともに**表示します。
@@ -18,12 +18,12 @@
 
 ```
 $ ros2 transport list -v --stats --topic '^/(chatter|bounded)$'
-TOPIC     TYPE                 PUBS  SUBS  TRANSPORT         RATE    LATENCY  LOSS  REASON
-/bounded  std_msgs/msg/Int32   1     1     DATA_SHARING x1   80 B/s  119 µs   0     same-host-guid,datasharing-qos-enabled-both,datasharing-domain-ids-match,datasharing-confirmed-no-data-submessages
-    /bounded_pub@36d321fbf863(174) -> /bounded_sub@36d321fbf863(184)  DATA_SHARING  80 B/s  119 µs (max 164 µs)  0  measured=SHM (idle)  same-host-guid,datasharing-qos-enabled-both,datasharing-domain-ids-match,datasharing-confirmed-no-data-submessages
-/chatter  std_msgs/msg/String  1     2     UDPv4 x1, SHM x1  23 B/s  168 µs   0     same-host-guid,datasharing-disabled-writer,reader-no-shm-locator,common-udpv4-locator,measured-udpv4-traffic,both-shm-locators,measured-shm-traffic
-    /talker@36d321fbf863(175) -> /listener_udp@36d321fbf863(176)  UDPv4  23 B/s  164 µs (max 233 µs)  0  measured=UDPv4 10pkt 1.31 kB  same-host-guid,datasharing-disabled-writer,reader-no-shm-locator,common-udpv4-locator,measured-udpv4-traffic
-    /talker@36d321fbf863(175) -> /listener@36d321fbf863(177)      SHM    23 B/s  168 µs (max 250 µs)  0  measured=SHM 9pkt 1.19 kB     same-host-guid,datasharing-disabled-writer,both-shm-locators,measured-shm-traffic
+TOPIC     TYPE                 PUBS  SUBS  TRANSPORT         LATENCY  LOSS  REASON
+/bounded  std_msgs/msg/Int32   1     1     DATA_SHARING x1   119 µs   0     same-host-guid,datasharing-qos-enabled-both,datasharing-domain-ids-match,datasharing-confirmed-no-data-submessages
+    /bounded_pub@36d321fbf863(174) -> /bounded_sub@36d321fbf863(184)  DATA_SHARING  119 µs (max 164 µs)  0  measured=SHM (idle)  same-host-guid,datasharing-qos-enabled-both,datasharing-domain-ids-match,datasharing-confirmed-no-data-submessages
+/chatter  std_msgs/msg/String  1     2     UDPv4 x1, SHM x1  168 µs   0     same-host-guid,datasharing-disabled-writer,reader-no-shm-locator,common-udpv4-locator,measured-udpv4-traffic,both-shm-locators,measured-shm-traffic
+    /talker@36d321fbf863(175) -> /listener_udp@36d321fbf863(176)  UDPv4  164 µs (max 233 µs)  0  measured=UDPv4 10pkt 1.31 kB  same-host-guid,datasharing-disabled-writer,reader-no-shm-locator,common-udpv4-locator,measured-udpv4-traffic
+    /talker@36d321fbf863(175) -> /listener@36d321fbf863(177)      SHM    168 µs (max 250 µs)  0  measured=SHM 9pkt 1.19 kB     same-host-guid,datasharing-disabled-writer,both-shm-locators,measured-shm-traffic
 
 statistics: 644 samples from 6 participant(s)
 
@@ -52,7 +52,7 @@ shared memory: /dev/shm 371 MB used of 16.7 GB (16.3 GB free) | Fast DDS 6.36 MB
   付けます。観測対象のノードに変更は不要です。QoS が合わないペア (reliability、durability、
   deadline、liveliness、ownership、partition) は `NONE` と、合わないポリシー名で示します。
 - **`--stats` で実測。** Fast DDS の statistics モジュールから、locator ごとに実際に流れた
-  パケット数とバイト数、payload レート (`RATE`)、write-to-notification 遅延 (`LATENCY`)、欠落と再送
+  パケット数とバイト数、write-to-notification 遅延 (`LATENCY`)、欠落と再送
   (`LOSS`)、ホスト名とプロセス id、zero-copy data-sharing の
   証明を取り、予測と食い違う実測は警告します。
 - **複数のフロントエンド。** 色付きの表、`--watch` (変化を強調するライブ表示)、スキーマ付きの
@@ -104,7 +104,7 @@ ros2 transport codes
 | `--explain` | 使われている理由コードの凡例を末尾に付ける |
 | `--locators` | ツールが選んだ locator と、実際にパケットを運んだ locator を ペアごとに 1 行追加する (`-v` を暗黙に有効化。`--json` では無視され、JSON は常に同じ情報を持つ) |
 | `--advise` | ペアごとに、対処のある理由コードについて `fix <code>: …` 行を追加し、凡例の各コードの下にも対処を出す (`-v` と `--explain` を暗黙に有効化。`--json` では無視され、JSON は常に `reason_code_remedies` を持つ) |
-| `--stats` | 実測の transport と `RATE` 列 (トピック/writer ごとの payload バイト数/秒) も表示する (観測対象ノードに `FASTDDS_STATISTICS` が必要。[実測 transport](statistics.md)) |
+| `--stats` | 実測の transport、遅延、欠落も表示する (観測対象ノードに `FASTDDS_STATISTICS` が必要。[実測 transport](statistics.md)) |
 | `--json` | 機械可読な出力 (`schema_version: 1`)。[web viewer](web-viewer.md) で開ける |
 | `--topic REGEX` | 名前が一致するトピックだけ表示する |
 | `--node REGEX` | 完全修飾ノード名が一致するノードが関わるペアだけ表示する (そのノードの未接続エンドポイントも残る) |
@@ -147,10 +147,11 @@ ros2 transport codes
   プロファイルも必要です。
 - **statistics は participant 単位** (ROS ノードごとに 1 つ) なので、同じ 2 ノード間の複数トピックは
   1 つの測定値を共有します。
-- **ベンチマークではありません。** `RATE` と `LATENCY` は Fast DDS 自身の statistics
-  (`PUBLICATION_THROUGHPUT`、`HISTORY_LATENCY`: 2 つの履歴間の write-to-notification) を短い観測の
-  間にサンプリングした値で、負荷試験やエンドツーエンドの測定の代わりにはなりません。ホスト間では
-  遅延にクロックのずれが含まれます。
+- **ベンチマークではありません。** `LATENCY` は Fast DDS 自身の statistics
+  (`HISTORY_LATENCY`: 2 つの履歴間の write-to-notification) を短い観測の間にサンプリングした値で、
+  負荷試験やエンドツーエンドの測定の代わりにはなりません。ホスト間では遅延にクロックのずれが
+  含まれます。publish レートは一切出しません。`PUBLICATION_THROUGHPUT` はレートに見えて
+  レートではないためです ([#137](https://github.com/atinfinity/fastdds_transport_viz/issues/137))。
 - **DDS Security (SROS2) は未対応** で未検証です。ツールの participant にはセキュリティ設定が無いので、
   secure enclave 内の participant は発見できません。
 - **ツール自身の痕跡。** ツールはドメインに自身の participant を 2 つ追加します (出力からは除外)。

@@ -254,11 +254,6 @@ std::string human_bytes(double v, const char * unit)
   return buf;
 }
 
-std::string rate_label(bool available, double bytes_per_s)
-{
-  return available ? human_bytes(bytes_per_s, "B/s") : "-";
-}
-
 /// Seconds with 3 significant digits in ns / µs / ms / s (sign kept).
 std::string human_seconds(double seconds)
 {
@@ -469,7 +464,7 @@ std::string render_table(const Snapshot & snap, const RenderOptions & opt)
 
   std::vector<std::vector<std::string>> rows;
   std::vector<std::string> header = {
-    "TOPIC", "TYPE", "PUBS", "SUBS", "TRANSPORT", "RATE", "LATENCY", "LOSS", "REASON"};
+    "TOPIC", "TYPE", "PUBS", "SUBS", "TRANSPORT", "LATENCY", "LOSS", "REASON"};
   if (watch) {header.insert(header.begin(), " ");}
   rows.push_back(header);
   for (const auto & t : snap.topics) {
@@ -477,7 +472,6 @@ std::string render_table(const Snapshot & snap, const RenderOptions & opt)
       t.display_topic, t.display_type,
       std::to_string(t.writers.size()), std::to_string(t.readers.size()),
       aggregate_transports(t, color),
-      rate_label(snap.stats.enabled && t.throughput_available, t.throughput),
       latency_label(snap.stats.enabled && t.latency_available, t.latency, t.latency, false),
       loss_label(
         snap.stats.enabled && t.reliability_available, t.lost_available, t.lost_packets,
@@ -499,7 +493,7 @@ std::string render_table(const Snapshot & snap, const RenderOptions & opt)
       rows.push_back(
         {
           mark_cell('-', color), paint(g->key.topic, DIM, color), paint(g->type, DIM, color),
-          "-", "-", paint(g->transport_label, DIM, color), "-", paint("(removed)", DIM, color)});
+          "-", "-", paint(g->transport_label, DIM, color), paint("(removed)", DIM, color)});
     }
   }
 
@@ -511,7 +505,7 @@ std::string render_table(const Snapshot & snap, const RenderOptions & opt)
         std::vector<std::string> row = {
           mark_cell('-', color),
           paint(indent.substr(1) + g.writer_label + " -> " + g.reader_label, DIM, color),
-          paint(g.transport_label, DIM, color), "-", "-", "-"};
+          paint(g.transport_label, DIM, color), "-", "-"};
         if (snap.stats.enabled) {row.push_back("");}
         row.push_back(paint("(removed)", DIM, color));
         out.push_back(row);
@@ -545,8 +539,6 @@ std::string render_table(const Snapshot & snap, const RenderOptions & opt)
           indent.substr(watch ? 1 : 0) + endpoint_label(snap, *p.writer, opt) + " -> " +
           endpoint_label(snap, *p.reader, opt));
         row.push_back(transport_label(p.verdict, color));
-        row.push_back(
-          rate_label(snap.stats.enabled && p.measured.throughput_available, p.measured.throughput));
         row.push_back(
           latency_label(
             snap.stats.enabled && p.measured.latency_available,
@@ -605,7 +597,7 @@ std::string render_table(const Snapshot & snap, const RenderOptions & opt)
     if (snap.stats.participants_with_stats.empty()) {
       os << " - start the observed nodes with FASTDDS_STATISTICS=\""
          << "RTPS_SENT_TOPIC;RTPS_LOST_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC;"
-         << "DATA_COUNT_TOPIC;PUBLICATION_THROUGHPUT_TOPIC;RESENT_DATAS_TOPIC;"
+         << "DATA_COUNT_TOPIC;RESENT_DATAS_TOPIC;"
          << "HEARTBEAT_COUNT_TOPIC;ACKNACK_COUNT_TOPIC;NACKFRAG_COUNT_TOPIC;GAP_COUNT_TOPIC\"";
     }
     os << "\n";

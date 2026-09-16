@@ -9,11 +9,44 @@ topics and shows what *did* happen:
 | `_fastdds_statistics_rtps_sent` | RTPS packets/bytes sent by each participant to each destination locator. Matched against the locators the reader announced, this gives the locator kind that actually carried packets (`measured=SHM 47pkt`) and the locators themselves (`--locators`, JSON `measured.locators[]`). A disagreement with the prediction is flagged `!measured-transport-mismatch` for the kind, and `!measured-locator-mismatch` when the kind agrees but the locator the prediction selected carried nothing at all. |
 | `_fastdds_statistics_history2history_latency` | Write-to-notification latency of each writer → reader pair, shown as `LATENCY` (mean and max over the observation; JSON `measured.latency_s`, topic `latency_s` = slowest pair) and, by its mere presence, the proof that samples reached that reader (used to confirm zero-copy data-sharing, which leaves no RTPS trace). Across hosts it includes the clock offset. |
 | `_fastdds_statistics_physical_data` | Host name, user and process id per participant, shown instead of `local` / `host:<id>`. |
-| `_fastdds_statistics_publication_throughput` | Payload bytes per second of each writer; shown as `RATE` (per topic: sum of its writers) and, in JSON, `measured.throughput_bytes_per_s` per pair and `topics[].throughput_bytes_per_s` per topic. Independent of the transport, so it also quantifies zero-copy data-sharing. |
 | `_fastdds_statistics_rtps_lost` | RTPS packets a participant missed (sequence-number gaps), per sending participant and per its own locator the sender addressed. Published by the receiving participant: the loss of a pair is what the reader's participant reports from the writer's participant on the reader's unicast locators. It gives the `lost` part of the `LOSS` column and the warning `rtps-packets-lost` (see [RTPS_LOST](#rtps_lost) for what it covers). |
 | `_fastdds_statistics_resent_datas`, `_fastdds_statistics_heartbeat_count`, `_fastdds_statistics_gap_count` | Per writer: DATA submessages resent, HEARTBEATs and GAPs sent. `resent` is the other part of the `LOSS` column; all three are in JSON `measured.reliability`. |
 | `_fastdds_statistics_acknack_count`, `_fastdds_statistics_nackfrag_count` | Per reader: ACKNACKs and NACKFRAGs sent (how often the reader asked for missing data or fragments); JSON `measured.reliability`. |
 | `_fastdds_statistics_data_count` | DATA/DATA_FRAG submessages each writer sent through a transport. Zero-copy delivery does not touch it, so a growing count settles whether data-sharing was really used (see [data-sharing.md](data-sharing.md#confidence)). |
+
+## No rate column, and what to do instead
+
+`_fastdds_statistics_publication_throughput` is deliberately missing from the list above: the
+tool does not subscribe to it and reports no publish rate ([#137](https://github.com/atinfinity/fastdds_transport_viz/issues/137)). The statistic
+looks like a rate and is not one - Fast DDS publishes one sample per `write()` whose value is
+*that sample's* payload divided by the interval since the same writer's previous `write()`. It
+says how fast the writer was during one inter-write interval, never how much a topic carries
+per second, and for a writer that bursts and then falls silent the two differ by orders of
+magnitude. Nothing downstream can repair it: the tool's statistics readers are `KEEP_LAST`
+depth 1 and are drained every 50 ms, so a burst leaves exactly one sample behind and the
+payloads of the rest are gone.
+
+`measured.throughput_bytes_per_s`, `topics[].throughput_bytes_per_s` and `stats.throughput`
+stay in the JSON so that documents written earlier keep validating, fixed to `null`, `null`
+and `{}`.
+
+What the JSON does carry is cumulative counters and the length of the observation, so a rate
+you compute yourself is well defined:
+
+| Rate | Take | Divide by |
+|---|---|---|
+| DATA submessages per second of a writer | `stats.data_count[<writer guid>].last` − `.first` | `observation_seconds` |
+| RTPS packets or bytes per second a participant sent to a locator | `stats.traffic[].packets` − `.packets_first`, `.bytes` − `.bytes_first` | `observation_seconds` |
+
+`observation_seconds` is how long the tool observed (cumulative under `--watch`), and `first`
+is the first value the tool saw rather than zero, so the difference is what happened during
+the observation.
+
+This is a rate on the wire, not an application publish rate. `DATA_COUNT` does not move for
+intraprocess or data-sharing delivery (that is exactly why it confirms data-sharing, see
+[data-sharing.md](data-sharing.md#confidence)); it counts once per destination locator and
+again per fragment and per retransmission; and `RTPS_SENT` counts whole RTPS packets, headers
+included. [#143](https://github.com/atinfinity/fastdds_transport_viz/issues/143) tracks a rate the tool could show itself.
 
 ## Enabling statistics on the observed nodes
 
@@ -21,7 +54,7 @@ No code change is needed; Fast DDS reads an environment variable when the partic
 created:
 
 ```
-export FASTDDS_STATISTICS="RTPS_SENT_TOPIC;RTPS_LOST_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC;DATA_COUNT_TOPIC;PUBLICATION_THROUGHPUT_TOPIC;RESENT_DATAS_TOPIC;HEARTBEAT_COUNT_TOPIC;ACKNACK_COUNT_TOPIC;NACKFRAG_COUNT_TOPIC;GAP_COUNT_TOPIC"
+export FASTDDS_STATISTICS="RTPS_SENT_TOPIC;RTPS_LOST_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC;DATA_COUNT_TOPIC;RESENT_DATAS_TOPIC;HEARTBEAT_COUNT_TOPIC;ACKNACK_COUNT_TOPIC;NACKFRAG_COUNT_TOPIC;GAP_COUNT_TOPIC"
 ```
 
 A pair judged `qos-incompatible` is not measured; if `HISTORY_LATENCY` nevertheless proves
@@ -67,8 +100,8 @@ slow machines with 2 MB samples over SHM and the default 512 KB segment; a large
 `segment_size` in the SHM transport descriptor helps).
 
 The per-entity counters (`HISTORY_LATENCY`, `DATA_COUNT`, `RESENT_DATAS`,
-`HEARTBEAT_COUNT`, `GAP_COUNT`, `ACKNACK_COUNT`, `NACKFRAG_COUNT`,
-`PUBLICATION_THROUGHPUT`) of a writer or reader include those of its native-buffer
+`HEARTBEAT_COUNT`, `GAP_COUNT`, `ACKNACK_COUNT`, `NACKFRAG_COUNT`) of a writer or reader
+include those of its native-buffer
 companion on `<topic>/_buf_cpu` (`rmw_fastrtps_cpp` on Lyrical and later), which carries
 the samples of types with an unbounded `uint8[]` field; see
 [Native-buffer companion topics](how-it-works.md#native-buffer-companion-topics).
@@ -119,7 +152,7 @@ one for every keyed topic (`PHYSICAL_DATA` has a single instance and needs none)
 
 ```
 export FASTRTPS_DEFAULT_PROFILES_FILE=$(ros2 pkg prefix fastdds_transport_viz)/share/fastdds_transport_viz/config/statistics.xml
-export FASTDDS_STATISTICS="RTPS_SENT_TOPIC;RTPS_LOST_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC;DATA_COUNT_TOPIC;PUBLICATION_THROUGHPUT_TOPIC;RESENT_DATAS_TOPIC;HEARTBEAT_COUNT_TOPIC;ACKNACK_COUNT_TOPIC;NACKFRAG_COUNT_TOPIC;GAP_COUNT_TOPIC"
+export FASTDDS_STATISTICS="RTPS_SENT_TOPIC;RTPS_LOST_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC;DATA_COUNT_TOPIC;RESENT_DATAS_TOPIC;HEARTBEAT_COUNT_TOPIC;ACKNACK_COUNT_TOPIC;NACKFRAG_COUNT_TOPIC;GAP_COUNT_TOPIC"
 ```
 
 Fast DDS 2.x reads only `FASTRTPS_DEFAULT_PROFILES_FILE` and Fast DDS 3.x only

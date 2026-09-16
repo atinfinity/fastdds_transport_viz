@@ -383,7 +383,7 @@
             "null"
           ],
           "minimum": 0,
-          "description": "writer's payload throughput (PUBLICATION_THROUGHPUT, mean over the observation); null when not published"
+          "description": "removed in #137 and always null: PUBLICATION_THROUGHPUT is a per-write payload/interval sample, not a rate, and is no longer subscribed. The key is kept so earlier documents keep validating."
         },
         "latency_s": {
           "type": [
@@ -572,7 +572,7 @@
             "null"
           ],
           "minimum": 0,
-          "description": "sum of the writers' payload throughput; null when no writer publishes PUBLICATION_THROUGHPUT"
+          "description": "removed in #137 and always null; see the pair-level key of the same name"
         },
         "latency_s": {
           "type": [
@@ -708,7 +708,7 @@
         },
         "throughput": {
           "type": "object",
-          "description": "writer guid -> PUBLICATION_THROUGHPUT bytes/s (mean, last, samples)",
+          "description": "removed in #137 and always empty: PUBLICATION_THROUGHPUT is no longer subscribed",
           "additionalProperties": {
             "type": "object",
             "properties": {

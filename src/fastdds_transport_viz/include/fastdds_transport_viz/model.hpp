@@ -203,8 +203,6 @@ struct Measurement
   double bytes{0.0};
   uint64_t packets_total{0};         // ... and since the writer's participant started
   double bytes_total{0.0};
-  bool throughput_available{false};  // writer publishes PUBLICATION_THROUGHPUT
-  double throughput{0.0};            // payload bytes per second (mean over the observation)
   bool latency_available{false};     // HISTORY_LATENCY values seen for this pair
   LatencyStat latency;               // write-to-notification latency (seconds) over the observation
   bool delivered{false};             // HISTORY_LATENCY sample seen for this writer->reader
@@ -233,8 +231,6 @@ struct TopicSummary
   std::vector<const Endpoint *> readers;
   std::vector<Pair> pairs;
   std::vector<std::string> unmatched_reasons;   // e.g. no-matching-reader
-  bool throughput_available{false};  // at least one writer publishes PUBLICATION_THROUGHPUT
-  double throughput{0.0};            // sum of the writers' payload bytes per second
   bool latency_available{false};     // at least one pair has HISTORY_LATENCY values
   double latency{0.0};               // the slowest pair: max of the pairs' mean latency (seconds)
   bool reliability_available{false};  // at least one pair has reliability counters
@@ -268,15 +264,6 @@ struct TrafficSample
   std::string reporter_participant_prefix{};
 };
 
-/// PUBLICATION_THROUGHPUT samples of one writer (payload bytes per second).
-struct ThroughputStat
-{
-  double sum{0.0};
-  double last{0.0};
-  size_t samples{0};
-  double mean() const {return samples ? sum / static_cast<double>(samples) : 0.0;}
-};
-
 /// DATA_COUNT samples of one writer: cumulative count at the first and the last sample.
 struct DataCountSample
 {
@@ -308,7 +295,6 @@ struct StatsData
   std::map<std::string, DataCountSample> gaps;             // writer guid -> GAP_COUNT
   std::map<std::string, DataCountSample> acknacks;         // reader guid -> ACKNACK_COUNT
   std::map<std::string, DataCountSample> nackfrags;        // reader guid -> NACKFRAG_COUNT
-  std::map<std::string, ThroughputStat> throughput;        // writer guid -> PUBLICATION_THROUGHPUT
   // (participant prefix, statistics topic) discovered
   std::set<std::pair<std::string, std::string>> statistics_writers;
   // prefixes of the participants that published a statistics sample (not those named in one)

@@ -45,13 +45,23 @@ together with that node's unpaired endpoints; the other side of a kept pair stay
 visible even if it does not match. Both filters combine with AND. An invalid regex is
 rejected at start-up (exit code 2).
 
-## The RATE, LATENCY and LOSS columns
+## The LATENCY and LOSS columns
 
-With `--stats`, `RATE` shows the payload throughput of the topic's writers (sum) and, in
-the pair rows, of that writer: the `PUBLICATION_THROUGHPUT` statistic, averaged over the
-observation, in SI units (`24 B/s`, `1.31 MB/s`). It counts serialized samples handed to
-the writer, so it is independent of the transport and present for zero-copy pairs too.
-`LATENCY` is the `HISTORY_LATENCY` statistic: the time from the writer's `write()` to the
+There is no rate column. Until [#137](https://github.com/atinfinity/fastdds_transport_viz/issues/137) the table had a `RATE` cell fed by the
+`PUBLICATION_THROUGHPUT` statistic, but that statistic is not a rate: Fast DDS publishes one
+sample per `write()` whose value is *that sample's* payload divided by the interval since the
+same writer's previous `write()`. A writer that sends a burst and then goes quiet reports the
+burst's instantaneous value and nothing afterwards, so a sporadic writer was shown orders of
+magnitude too fast. Averaging the samples the tool catches cannot repair it either: the
+statistics readers are `KEEP_LAST` depth 1 and are drained every 50 ms, so a burst leaves a
+single sample behind and the rest are gone. The tool no longer subscribes to the topic;
+`throughput_bytes_per_s` is fixed to `null` and `stats.throughput` stays empty. The counters
+an honest rate would be built from are in the JSON already - `stats.data_count` and
+`stats.traffic` are cumulative and `observation_seconds` says over how long, see
+[statistics.md](statistics.md#no-rate-column-and-what-to-do-instead) - and [#143](https://github.com/atinfinity/fastdds_transport_viz/issues/143)
+tracks bringing a real rate column back.
+
+With `--stats`, `LATENCY` is the `HISTORY_LATENCY` statistic: the time from the writer's `write()` to the
 notification of the reader, per pair, as mean and maximum over the observation (`420 µs
 (max 1.30 ms)`); the topic row shows the mean of its slowest pair. It is measured with
 the clocks of the two hosts, so between machines it includes their offset (a negative
@@ -101,7 +111,7 @@ The tool links each companion to its parent (same participant, same kind, same t
 topic name without `/_buf_cpu`; several candidates are told apart by the entity key, which
 the rmw allocates right after the parent's) and adds the companion's statistics counters to
 the parent pair: delivered samples, DATA submessages, resends, heartbeats, gaps, acknacks,
-nackfrags, throughput and latency. `RTPS_SENT` and `RTPS_LOST` are per participant and
+nackfrags and latency. `RTPS_SENT` and `RTPS_LOST` are per participant and
 already cover both. The parent pair carries `buffer-companion-folded`; the verdict rules are
 unchanged. The companion topic keeps its own numbers with `buffer-companion` and is left out
 of the output unless `--all` when every endpoint on it is linked. A companion the tool cannot
@@ -193,7 +203,7 @@ Two things differ on Humble's Fast DDS 2.6:
 - **No statistics.** The Humble binary is built without the statistics module
   (`FASTDDS_STATISTICS` off in `config.h`), so the observed nodes cannot publish
   statistics whatever `FASTDDS_STATISTICS` says. `--stats` prints a warning and every
-  pair shows `stats-not-enabled-on-writer`; `RATE`, `LATENCY` and `measured=` stay empty.
+  pair shows `stats-not-enabled-on-writer`; `LATENCY` and `measured=` stay empty.
   A Fast DDS built with the module on works with the tool's 2.6 support.
 - **Same-host locators are filtered.** Fast DDS below 2.10 announces only the SHM locator
   of a participant on the same host to the tool. When the other side has no SHM locator
@@ -223,11 +233,11 @@ packets:
 
 ```
 $ ros2 transport list -v --locators --stats --topic '^/(chatter|bounded)$'
-    /talker@host(61) -> /listener_udp@host(49)  UDPv4  23 B/s  414 us  0  measured=UDPv4 9pkt 1.19 kB  ...
+    /talker@host(61) -> /listener_udp@host(49)  UDPv4  414 us  0  measured=UDPv4 9pkt 1.19 kB  ...
         locators: UDPv4 127.0.0.1:7411 (selected = measured, 9 pkt)
-    /talker@host(61) -> /listener@host(50)      SHM    23 B/s  453 us  0  measured=SHM 10pkt 1.31 kB   ...
+    /talker@host(61) -> /listener@host(50)      SHM    453 us  0  measured=SHM 10pkt 1.31 kB   ...
         locators: SHM port 7413 (selected = measured, 10 pkt)
-    /bounded_pub@host(56) -> /bounded_sub@host(55)  DATA_SHARING  80 B/s  195 us  0  ...
+    /bounded_pub@host(56) -> /bounded_sub@host(55)  DATA_SHARING  195 us  0  ...
         locators: selected DATA_SHARING (no locator) | measured SHM port 7419 (1 pkt)
 ```
 

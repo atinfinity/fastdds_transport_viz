@@ -11,18 +11,48 @@ discovery のデータは「こうなる*はず*」を教えてくれます。`-
 | `_fastdds_statistics_rtps_sent` | 各 participant が各宛先 locator に送った RTPS パケット数/バイト数。reader が広告した locator と突き合わせ、実際にパケットを運んだ locator の種類 (`measured=SHM 47pkt`) と locator そのもの (`--locators`、JSON の `measured.locators[]`) を得ます。種類が予測と食い違えば `!measured-transport-mismatch`、種類は合っていても予測が選んだ locator に何も流れていなければ `!measured-locator-mismatch` を付けます。 |
 | `_fastdds_statistics_history2history_latency` (LATENCY 列: write-to-notification 遅延の平均と最大、JSON の `measured.latency_s` とトピックの `latency_s`。ホスト間ではクロックのずれを含む) | writer のサンプルが特定の reader に届いたことの証明。RTPS の痕跡を残さない zero-copy data-sharing の確認に使います。 |
 | `_fastdds_statistics_physical_data` | participant ごとのホスト名、ユーザー、プロセス id。`local` / `host:<id>` の代わりに表示します。 |
-| `_fastdds_statistics_publication_throughput` | writer ごとの payload バイト数/秒。`RATE` 列 (トピックは writer の合算) と JSON (ペアの `measured.throughput_bytes_per_s`、トピックの `topics[].throughput_bytes_per_s`) に出ます。transport に依らないので zero-copy の data-sharing も定量化できます。 |
 | `_fastdds_statistics_rtps_lost` | participant が取りこぼした RTPS パケット数 (シーケンス番号の欠落)。送信側 participant と、送信側が宛先にした自分の locator ごとに数えます。受信側 participant が publish するので、ペアの取りこぼしは reader の participant が writer の participant から reader の unicast locator 宛てに受け損ねたと報告した数です。`LOSS` 列の `lost` と警告 `rtps-packets-lost` になります (対象範囲は [RTPS_LOST](#rtps_lost) を参照)。 |
 | `_fastdds_statistics_resent_datas`、`_fastdds_statistics_heartbeat_count`、`_fastdds_statistics_gap_count` | writer ごとの再送 DATA、HEARTBEAT、GAP の数。`resent` は `LOSS` 列のもう一方で、3 つとも JSON の `measured.reliability` に入ります。 |
 | `_fastdds_statistics_acknack_count`、`_fastdds_statistics_nackfrag_count` | reader ごとの ACKNACK と NACKFRAG の数 (欠けたデータや断片を要求した回数)。JSON の `measured.reliability`。 |
 | `_fastdds_statistics_data_count` | 各 writer が transport 経由で送った DATA/DATA_FRAG サブメッセージ数。zero-copy 配送では増えないので、増えるかどうかで data-sharing が本当に使われたかが決まります ([data-sharing.ja.md](data-sharing.ja.md#確信度) を参照)。 |
+
+## レート列が無い理由と代わりの求め方
+
+上の表に `_fastdds_statistics_publication_throughput` が無いのは意図的です。ツールはこのトピックを
+購読せず、publish レートを表示しません ([#137](https://github.com/atinfinity/fastdds_transport_viz/issues/137))。この統計値はレートに見えますがレートでは
+ありません。Fast DDS は `write()` ごとに 1 サンプルを publish し、その値は *そのサンプルの* payload を、
+同じ writer の前回の `write()` からの間隔で割ったものです。writer が 1 回の書き込み間隔でどれだけ
+速かったかを示すだけで、トピックが 1 秒あたりどれだけ運んでいるかではありません。バースト的に送って
+黙る writer では両者は桁違いにずれます。後段で直すこともできません。ツールの statistics reader は
+`KEEP_LAST` depth 1 で 50 ms ごとに読み出すため、バーストからはちょうど 1 サンプルしか残らず、他の
+サンプルの payload は失われているからです。
+
+`measured.throughput_bytes_per_s`、`topics[].throughput_bytes_per_s`、`stats.throughput` は、以前に
+書かれた文書が検証を通り続けるように JSON に残し、それぞれ `null`、`null`、`{}` に固定しています。
+
+JSON に実際に入っているのは累積カウンタと観測の長さなので、自分で計算するレートは定義がはっきり
+しています。
+
+| レート | 使う値 | 割る値 |
+|---|---|---|
+| writer の DATA サブメッセージ数/秒 | `stats.data_count[<writer の guid>].last` − `.first` | `observation_seconds` |
+| participant がある locator に送った RTPS パケット数/バイト数の毎秒 | `stats.traffic[].packets` − `.packets_first`、`.bytes` − `.bytes_first` | `observation_seconds` |
+
+`observation_seconds` はツールが観測した長さ (`--watch` では累積) で、`first` は 0 ではなくツールが
+最初に見た値なので、差は観測期間中に起きたことそのものです。
+
+これはワイヤ上のレートであって、アプリケーションの publish レートではありません。`DATA_COUNT` は
+intraprocess や data-sharing の配送では増えず (だからこそ data-sharing の確認に使えます。
+[data-sharing.ja.md](data-sharing.ja.md#確信度) を参照)、宛先 locator ごとに 1 回、さらに断片ごと・
+再送ごとに数えます。`RTPS_SENT` はヘッダを含む RTPS パケット全体を数えます。ツール自身がレートを
+表示する件は [#143](https://github.com/atinfinity/fastdds_transport_viz/issues/143) で追っています。
 
 ## 観測対象ノードで statistics を有効にする
 
 コードの変更は不要です。Fast DDS は participant 作成時に環境変数を読みます。
 
 ```
-export FASTDDS_STATISTICS="RTPS_SENT_TOPIC;RTPS_LOST_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC;DATA_COUNT_TOPIC;PUBLICATION_THROUGHPUT_TOPIC;RESENT_DATAS_TOPIC;HEARTBEAT_COUNT_TOPIC;ACKNACK_COUNT_TOPIC;NACKFRAG_COUNT_TOPIC;GAP_COUNT_TOPIC"
+export FASTDDS_STATISTICS="RTPS_SENT_TOPIC;RTPS_LOST_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC;DATA_COUNT_TOPIC;RESENT_DATAS_TOPIC;HEARTBEAT_COUNT_TOPIC;ACKNACK_COUNT_TOPIC;NACKFRAG_COUNT_TOPIC;GAP_COUNT_TOPIC"
 ```
 
 `qos-incompatible` と判定したペアは実測しません。それでも `HISTORY_LATENCY` が配送を証明した場合は
@@ -64,7 +94,7 @@ reader のノードのリンクに対するものです。個々のペアを区�
 流したときに見られました。SHM transport descriptor の `segment_size` を大きくすると改善します)。
 
 writer や reader 単位のカウンタ (`HISTORY_LATENCY`、`DATA_COUNT`、`RESENT_DATAS`、
-`HEARTBEAT_COUNT`、`GAP_COUNT`、`ACKNACK_COUNT`、`NACKFRAG_COUNT`、`PUBLICATION_THROUGHPUT`) には、
+`HEARTBEAT_COUNT`、`GAP_COUNT`、`ACKNACK_COUNT`、`NACKFRAG_COUNT`) には、
 `<topic>/_buf_cpu` 上の native buffer のコンパニオン (Lyrical 以降の `rmw_fastrtps_cpp`。上限の無い
 `uint8[]` フィールドを持つ型のサンプルを運ぶ) の値も含まれます。
 [native buffer のコンパニオントピック](how-it-works.ja.md#native-buffer-のコンパニオントピック) を参照してください。
@@ -110,7 +140,7 @@ Fast DDS 3.5 で既定の上限は無制限になりました。Lyrical と Roll
 
 ```
 export FASTRTPS_DEFAULT_PROFILES_FILE=$(ros2 pkg prefix fastdds_transport_viz)/share/fastdds_transport_viz/config/statistics.xml
-export FASTDDS_STATISTICS="RTPS_SENT_TOPIC;RTPS_LOST_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC;DATA_COUNT_TOPIC;PUBLICATION_THROUGHPUT_TOPIC;RESENT_DATAS_TOPIC;HEARTBEAT_COUNT_TOPIC;ACKNACK_COUNT_TOPIC;NACKFRAG_COUNT_TOPIC;GAP_COUNT_TOPIC"
+export FASTDDS_STATISTICS="RTPS_SENT_TOPIC;RTPS_LOST_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC;DATA_COUNT_TOPIC;RESENT_DATAS_TOPIC;HEARTBEAT_COUNT_TOPIC;ACKNACK_COUNT_TOPIC;NACKFRAG_COUNT_TOPIC;GAP_COUNT_TOPIC"
 ```
 
 Fast DDS 2.x は `FASTRTPS_DEFAULT_PROFILES_FILE` だけを、Fast DDS 3.x は

@@ -11,7 +11,7 @@
 
   // pure model / formatting functions live in model.js (unit-tested under Node)
   const { TRANSPORTS, isInternalTopic, normalizeDocument, buildModel, filterRegex, visiblePairs, visibleNodesModel, bundle,
-    humanBytes, measuredText, rateText, latencyText, lossText, escapeHtml, codeListHtml, shmText, statsText,
+    humanBytes, measuredText, latencyText, lossText, escapeHtml, codeListHtml, shmText, statsText,
     pairKey, keyId, diffDocuments, changeText, changesSummary, decorations, holdChanges, heldDecorations,
     markedPairs, pruneNodes } = globalThis.TransportVizModel;
   const COLORS = {
@@ -230,7 +230,6 @@
     { key: 'reader', label: 'Reader', get: v => `${v.pair.reader_node || v.readerNode}@${v.pair.reader_host}` },
     { key: 'transport', label: 'Transport', get: v => v.pair.transport },
     { key: 'confidence', label: 'Confidence', get: v => v.pair.confidence },
-    { key: 'rate', label: 'Rate', get: v => rateText(v.pair.measured) },
     { key: 'latency', label: 'Latency', get: v => latencyText(v.pair.measured) },
     { key: 'loss', label: 'Loss', get: v => lossText(v.pair.measured) },
     { key: 'measured', label: 'Measured', get: v => measuredText(v.pair.measured) },
@@ -274,7 +273,7 @@
         if (v.ghost) return v.pair.transport ? badge(v.pair) + ' <span class="muted">(removed)</span>' : '<span class="muted">(removed)</span>';
         return v.from && v.from.transport !== v.pair.transport ? `${badge(v.from)}<span class="arrow">→</span>${badge(v.pair)}` : badge(v.pair);
       }
-      if (v.ghost && !v.pair.transport && ['confidence', 'rate', 'latency', 'loss', 'measured', 'reasons'].includes(c.key)) return '';
+      if (v.ghost && !v.pair.transport && ['confidence', 'latency', 'loss', 'measured', 'reasons'].includes(c.key)) return '';
       return escapeHtml(c.get(v));
     });
   }
@@ -351,7 +350,7 @@
     return `<div class="pair ${selected ? 'selected' : ''}">
       ${marks ? changeHtml(vp, marks) : ''}
       <div><b>${escapeHtml(vp.topic.topic)}</b> <span class="muted">${escapeHtml(vp.topic.type)}</span></div>
-      <div style="margin:4px 0">${badge(p)} confidence ${p.confidence}${p.measured && p.measured.available ? ` · measured ${escapeHtml(measuredText(p.measured))}` : ''}${rateText(p.measured) ? ` · rate ${escapeHtml(rateText(p.measured))}` : ''}${latencyText(p.measured) ? ` · latency ${escapeHtml(latencyText(p.measured))}` : ''}${lossText(p.measured) ? ` · loss ${escapeHtml(lossText(p.measured))}` : ''}</div>
+      <div style="margin:4px 0">${badge(p)} confidence ${p.confidence}${p.measured && p.measured.available ? ` · measured ${escapeHtml(measuredText(p.measured))}` : ''}${latencyText(p.measured) ? ` · latency ${escapeHtml(latencyText(p.measured))}` : ''}${lossText(p.measured) ? ` · loss ${escapeHtml(lossText(p.measured))}` : ''}</div>
       ${p.measured && p.measured.reliability ? `<div class="muted">heartbeats ${p.measured.reliability.heartbeats}, gaps ${p.measured.reliability.gaps}, acknacks ${p.measured.reliability.acknacks}, nackfrags ${p.measured.reliability.nackfrags}</div>` : ''}
       <div>${escapeHtml(p.writer_node || vp.writerNode)}@${escapeHtml(p.writer_host)} → ${escapeHtml(p.reader_node || vp.readerNode)}@${escapeHtml(p.reader_host)}</div>
       ${codeList(p.reasons, false)}${codeList(p.warnings, true)}

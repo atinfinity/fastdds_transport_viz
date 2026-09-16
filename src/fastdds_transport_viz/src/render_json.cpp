@@ -124,7 +124,9 @@ std::string render_json(const Snapshot & snap, const RenderOptions & opt)
     tj["type"] = t.display_type;
     tj["is_ros_topic"] = t.is_ros_topic;
     tj["unmatched_reasons"] = t.unmatched_reasons;
-    tj["throughput_bytes_per_s"] = t.throughput_available ? json(t.throughput) : json(nullptr);
+    // #137: PUBLICATION_THROUGHPUT was not a rate and is no longer subscribed; the key
+    // stays, fixed to null, so documents keep their shape and schema_version stays 1
+    tj["throughput_bytes_per_s"] = json(nullptr);
     // slowest pair's mean
     tj["latency_s"] = t.latency_available ? json(t.latency) : json(nullptr);
     tj["lost_packets"] = t.lost_available ? json(t.lost_packets) : json(nullptr);
@@ -168,8 +170,7 @@ std::string render_json(const Snapshot & snap, const RenderOptions & opt)
               {"bytes", p.measured.bytes},
               {"packets_total", p.measured.packets_total},
               {"bytes_total", p.measured.bytes_total},
-              {"throughput_bytes_per_s", p.measured.throughput_available ?
-                json(p.measured.throughput) : json(nullptr)},
+              {"throughput_bytes_per_s", json(nullptr)},   // #137: removed, fixed to null
               {"latency_s", p.measured.latency_available ? json{
                   {"mean", p.measured.latency.mean()}, {"min", p.measured.latency.min},
                   {"max", p.measured.latency.max}, {"last", p.measured.latency.last},
@@ -283,12 +284,7 @@ std::string render_json(const Snapshot & snap, const RenderOptions & opt)
         {"first", kv.second.first}, {"last", kv.second.last}, {"samples", kv.second.samples}};
     }
     stats["data_count"] = dc;   // writer guid -> cumulative DATA_COUNT at first/last sample
-    json th = json::object();
-    for (const auto & kv : snap.stats.throughput) {
-      th[kv.first] = {
-        {"mean", kv.second.mean()}, {"last", kv.second.last}, {"samples", kv.second.samples}};
-    }
-    stats["throughput"] = th;   // writer guid -> PUBLICATION_THROUGHPUT bytes/s
+    stats["throughput"] = json::object();   // #137: always empty, no longer subscribed
   }
   stats["participants_with_stats"] = snap.stats.participants_with_stats;
   {

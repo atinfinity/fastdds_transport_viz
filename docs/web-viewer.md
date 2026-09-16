@@ -54,7 +54,7 @@ ran in (the document's `shm` object, see [how-it-works.md](how-it-works.md#share
 capacity of `/dev/shm`, what Fast DDS keeps there, stale files and the `shm-*` warnings.
 
 The **Table** tab shows one row per pair (sortable by clicking a header); with statistics
-it includes the writer's payload rate and the bytes carried during the observation.
+it includes the packets and bytes carried during the observation, the latency and the loss.
 
 ![table view](images/web-viewer-table.jpg)
 

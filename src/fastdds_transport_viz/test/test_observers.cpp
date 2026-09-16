@@ -253,7 +253,7 @@ TEST(StatsObserver, ReadersAnnounceNoShmLocator)
   std::vector<fdds::DataReader *> readers;
   ASSERT_NE(stats.subscriber(), nullptr);
   ASSERT_TRUE(retcode_ok(stats.subscriber()->get_datareaders(readers)));
-  EXPECT_EQ(readers.size(), 11u);   // the probe reader is gone
+  EXPECT_EQ(readers.size(), 10u);   // the probe reader is gone, and PUBLICATION_THROUGHPUT (#137)
   for (auto * r : readers) {
     eprosima::fastdds::rtps::LocatorList locators;
     ASSERT_TRUE(retcode_ok(r->get_listening_locators(locators)));
