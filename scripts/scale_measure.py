@@ -33,9 +33,12 @@ BUDGETS = {
     'watch_frame_p95_ms': (250.0, '<', '--watch frame, p95 of every run (--stats, --stats -v, no --stats)'),
     'tool_cpu_cores': (1.0, '<', 'tool CPU, average over the --watch and 30 s --stats runs'),
     'tool_rss_mb': (300.0, '<', 'tool peak RSS over every run'),
-    'stats_dropped_samples': (0, '<=', 'counter statistics samples lost or rejected after the '
-                              'first --watch frame (both runs); the best-effort '
-                              'HISTORY_LATENCY losses are counted apart and not judged'),
+    # Not stats_dropped_samples (#147): the counters are cumulative and the tool prints
+    # last - first, so a lost sample costs nothing until a pair ends up without a measurement.
+    # The dropped samples stay in the report (stats.dropped_samples), unjudged.
+    'stats_watch_coverage': (0.95, '>=', 'pairs with measured packets / pairs with a delivery '
+                             'proof (HISTORY_LATENCY) at the last --watch frame, the lower of '
+                             'the two --stats runs'),
     'stats_coverage': (0.95, '>=', 'measured pairs at --timeout 5 / measured pairs at 30, over '
                        'the /scale pairs when there are any'),
 }
@@ -278,7 +281,7 @@ def main():
     coverage = len(m5 & m30) / len(m30) if m30 else (0.0 if s30['pairs'] else None)
     scale_pairs = sum(1 for k in s30['pairs'] if k[0].startswith('/scale/'))
     missing_5s = {}
-    for topic, _, _ in s30['measured'] - s5['measured']:
+    for topic, _, _ in m30 - m5:   # the same pairs the coverage is judged on
         group = '/scale/*' if topic.startswith('/scale/') else topic
         missing_5s[group] = missing_5s.get(group, 0) + 1
     result['stats'] = {
@@ -319,6 +322,12 @@ def main():
                   (e.get('sample_rejected', 0) or 0)
                   for e in phase(run, 'drain')]
         drains_latency = [e.get('sample_lost_latency', 0) or 0 for e in phase(run, 'drain')]
+        # The lost measurements themselves (#147), judged where the run ends. Only a delivery
+        # proof tells a pair whose RTPS_SENT samples did not arrive from an idle one: an
+        # RTPS_SENT instance with a single sample is most often a locator nothing was sent to
+        # since the tool started (113 of 1270 at medium in a run that lost no sample).
+        delivered = last(run, 'apply_stats', 'pairs_delivered')
+        unmeasured = last(run, 'apply_stats', 'pairs_delivered_unmeasured')
         watch[name] = {
             'frames': len(frames),
             # A watch that sees no pair has nothing to time: fast frames, not a pass.
@@ -337,13 +346,20 @@ def main():
             'lost_latency_samples_first_last':
                 [drains_latency[0], drains_latency[-1]] if drains_latency else None,
             'dropped_samples': drains[-1] - drains[0] if drains else None,
+            'pairs_delivered': delivered,
+            'pairs_delivered_unmeasured': unmeasured,
+            'watch_coverage': round(1 - (unmeasured or 0) / delivered, 4) if delivered else None,
             'render_lines_median': statistics.median(
                 e['lines'] for e in phase(run, 'render')) if frames else None,
             **summarize_run(run),
         }
     result['watch'] = watch
-    dropped = max((w['dropped_samples'] or 0) for w in watch.values())
-    result['stats']['dropped_samples'] = dropped
+    # `nostats` drains nothing, so both numbers come from the two --stats runs only
+    stats_runs = [watch['plain'], watch['verbose']]
+    result['stats']['dropped_samples'] = max((w['dropped_samples'] or 0) for w in stats_runs)
+    coverages = [w['watch_coverage'] for w in stats_runs if w['watch_coverage'] is not None]
+    watch_coverage = min(coverages) if coverages else None
+    result['stats']['watch_coverage'] = watch_coverage
     result['load_after'] = load_state()
 
     measured = {
@@ -353,8 +369,8 @@ def main():
                               + [s30['cpu_cores']]),
         'tool_rss_mb': max(r['rss_mb'] for r in oneshots + [verbose, s5, s30]
                            + [dict(rss_mb=w['rss_mb']) for w in watch.values()]),
-        'stats_dropped_samples': dropped,
         'stats_coverage': coverage if coverage is not None else 0.0,
+        'stats_watch_coverage': watch_coverage,
     }
     # No participant publishes statistics (Humble's Fast DDS 2.6 has no statistics module):
     # the statistics budgets have nothing to judge.
@@ -362,7 +378,8 @@ def main():
     budgets = {}
     for key, (limit, op, description) in BUDGETS.items():
         value = measured[key]
-        if no_stats and key.startswith('stats_'):
+        # no pair with a delivery proof in either --watch run: nothing to take a ratio of
+        if (no_stats and key.startswith('stats_')) or value is None:
             budgets[key] = {'value': None, 'limit': limit, 'op': op, 'pass': None,
                             'description': description}
             continue
@@ -406,6 +423,7 @@ def markdown_row(r):
         f"| {r['budgets']['tool_cpu_cores']['value']:.2f} / {r['budgets']['tool_rss_mb']['value']:.0f} MB "
         f"| {s['dropped_samples']} ({max(s['oneshot_lost_samples'].values())} at start) "
         f"/ {s['coverage'] if r['budgets']['stats_coverage']['pass'] is not None else 'n/a'} "
+        f"/ watch {s['watch_coverage'] if s['watch_coverage'] is not None else 'n/a'} "
         f"| {o['verbose_lines']} "
         f"| {r['load_after']['load_rss_mb']} MB, {r['load_after']['mem_available_mb']} MB free "
         f"| {verdict} |")
