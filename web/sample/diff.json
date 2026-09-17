@@ -115,6 +115,7 @@
     "enabled": false,
     "lost": [],
     "pairs_delivered": 0,
+    "pairs_delivered_absent": 0,
     "pairs_delivered_unmeasured": 0,
     "participants_with_stats": [],
     "physical": {},

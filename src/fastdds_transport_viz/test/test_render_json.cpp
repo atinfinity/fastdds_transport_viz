@@ -66,6 +66,7 @@ Snapshot snapshot()
   s.stats.writers_incompatible_qos = 2;  // #141: writers the readers could not match
   s.stats.samples_lost_latency = 4;      // #141: the best-effort part of samples_lost
   s.stats.pairs_delivered = 9;           // #147: pairs with a delivery proof ...
+  s.stats.pairs_delivered_absent = 2;
   s.stats.pairs_delivered_unmeasured = 5;   // ... and the measurements the loss cost
   s.stats.warnings = {"stats-samples-lost"};
   s.stats.participants_with_stats = {"P1"};
@@ -160,6 +161,7 @@ TEST(RenderJson, DocumentKeys)
   EXPECT_EQ(doc["stats"]["samples_lost_latency"], 4);
   EXPECT_EQ(doc["stats"]["pairs_delivered"], 9);
   EXPECT_EQ(doc["stats"]["pairs_delivered_unmeasured"], 5);
+  EXPECT_EQ(doc["stats"]["pairs_delivered_absent"], 2);
   EXPECT_EQ(doc["stats"]["warnings"], json::array({"stats-samples-lost"}));
   // the document-level code is described and advised like any pair code
   EXPECT_FALSE(doc["reason_code_descriptions"]["stats-samples-lost"].get<std::string>().empty());
@@ -380,6 +382,7 @@ TEST(ParseJson, RoundTripsEverythingTheRenderersShow)
   EXPECT_EQ(parsed.stats.samples_lost_latency, 4u);
   EXPECT_EQ(parsed.stats.pairs_delivered, 9u);
   EXPECT_EQ(parsed.stats.pairs_delivered_unmeasured, 5u);
+  EXPECT_EQ(parsed.stats.pairs_delivered_absent, 2u);
   EXPECT_EQ(parsed.stats.warnings, std::vector<std::string>{"stats-samples-lost"});
   EXPECT_EQ(parsed.stats.participants_with_stats, std::set<std::string>{"P1"});
   EXPECT_TRUE(parsed.shm.available);

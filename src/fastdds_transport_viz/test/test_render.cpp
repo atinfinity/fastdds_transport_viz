@@ -188,6 +188,19 @@ TEST(RenderTable, StatisticsFooterCountsWhatTheToolLost)
     std::string::npos) << out;
   EXPECT_EQ(out.find("900"), std::string::npos) << out;
 
+  // #152: the pairs no lost sample explains are named by their own warning
+  s.stats.pairs_delivered_absent = 2;
+  s.stats.warnings = {"stats-samples-lost", "rtps-sent-absent"};
+  out = render_table(s, RenderOptions{});
+  EXPECT_NE(out.find("!stats-samples-lost: 1 of 40 pairs"), std::string::npos) << out;
+  EXPECT_NE(
+    out.find(
+      "!rtps-sent-absent: 2 of 40 pairs with proven deliveries show no measured packet and "
+      "no lost sample explains it"),
+    std::string::npos) << out;
+  s.stats.pairs_delivered_absent = 0;
+  s.stats.warnings = {"stats-samples-lost"};
+
   // a document written before #147 warns without the count
   s.stats.pairs_delivered_unmeasured = 0;
   out = render_table(s, RenderOptions{});

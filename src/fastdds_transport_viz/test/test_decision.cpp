@@ -2410,8 +2410,12 @@ TEST(StatisticsLossWarning, CountsThePairsADeliveryProofShowsUnmeasured)
   note_unmeasured_pairs({t}, s);
   EXPECT_EQ(s.pairs_delivered, 2u);
   EXPECT_EQ(s.pairs_delivered_unmeasured, 1u);
-  EXPECT_TRUE(s.warnings.empty());   // nothing was lost
+  // #152: nothing was lost, so nothing the tool did explains the pair
+  EXPECT_EQ(s.pairs_delivered_absent, 1u);
+  EXPECT_EQ(s.warnings, std::vector<std::string>{"rtps-sent-absent"});
 
+  // its RTPS_SENT instance was seen and samples were lost: that loss explains it
+  t.pairs[1].measured.packets_total = 40;
   s.samples_lost = 5;
   note_unmeasured_pairs({t}, s);
   note_unmeasured_pairs({t}, s);     // every --watch frame: one code, not one per frame
@@ -2422,6 +2426,42 @@ TEST(StatisticsLossWarning, CountsThePairsADeliveryProofShowsUnmeasured)
   note_unmeasured_pairs({t}, s);
   EXPECT_EQ(s.pairs_delivered_unmeasured, 0u);
   EXPECT_TRUE(s.warnings.empty());
+}
+
+TEST(RtpsSentAbsentWarning, SplitsTheUnmeasuredPairsByWhatALossCanExplain)
+{
+  // #152: Fast DDS 3.6 statistics writers stall between periodic heartbeats. A pair whose
+  // RTPS_SENT instance never arrived is not explained by a lost sample, whatever was lost.
+  TopicSummary t;
+  t.pairs.push_back(delivered_pair(0));   // no instance at all
+  t.pairs.push_back(delivered_pair(0));   // instance seen, no delta
+  t.pairs.back().measured.packets_total = 7;
+  t.pairs.push_back(delivered_pair(9));
+
+  StatsData s;
+  s.samples = 100;
+  note_unmeasured_pairs({t}, s);
+  EXPECT_EQ(s.pairs_delivered_unmeasured, 2u);
+  EXPECT_EQ(s.pairs_delivered_absent, 2u);   // no loss: both
+  EXPECT_EQ(s.warnings, std::vector<std::string>{"rtps-sent-absent"});
+  EXPECT_EQ(statistics_loss_warning(s), "");
+  EXPECT_NE(rtps_sent_absent_warning(s).find("2 of 3 pairs"), std::string::npos);
+  EXPECT_NE(rtps_sent_absent_warning(s).find("FASTDDS_DEFAULT_PROFILES_FILE"), std::string::npos);
+  EXPECT_NE(rtps_sent_absent_warning(s).find("FASTRTPS_DEFAULT_PROFILES_FILE"), std::string::npos);
+
+  s.samples_rejected = 1;   // both fire, each counting its own pairs
+  note_unmeasured_pairs({t}, s);
+  EXPECT_EQ(s.pairs_delivered_absent, 1u);
+  EXPECT_EQ(s.warnings, (std::vector<std::string>{"stats-samples-lost", "rtps-sent-absent"}));
+  EXPECT_NE(statistics_loss_warning(s).find("and 1 of 3 pairs"), std::string::npos);
+  EXPECT_NE(rtps_sent_absent_warning(s).find("1 of 3 pairs"), std::string::npos);
+
+  t.pairs[0].measured.packets = 1;
+  t.pairs[1].measured.packets = 1;
+  note_unmeasured_pairs({t}, s);
+  EXPECT_TRUE(s.warnings.empty());
+  EXPECT_EQ(rtps_sent_absent_warning(s), "");
+  EXPECT_FALSE(remedy("rtps-sent-absent")->empty());
 }
 
 TEST(StatisticsLossWarning, BestEffortLatencyLossIsNotTheToolFallingBehind)

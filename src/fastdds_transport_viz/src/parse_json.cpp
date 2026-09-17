@@ -275,6 +275,7 @@ StatsData stats(const json & j)
   // #147; absent in documents written before it
   s.pairs_delivered = j.value("pairs_delivered", 0ULL);
   s.pairs_delivered_unmeasured = j.value("pairs_delivered_unmeasured", 0ULL);
+  s.pairs_delivered_absent = j.value("pairs_delivered_absent", 0ULL);
   for (const auto & w : j.value("warnings", json::array())) {
     s.warnings.push_back(w.get<std::string>());
   }

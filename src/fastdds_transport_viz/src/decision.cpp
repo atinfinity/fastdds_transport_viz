@@ -1042,7 +1042,7 @@ bool statistics_samples_were_lost(const StatsData & stats)
   // where it measures every pair. The same goes for counter loss that costs nothing (#147):
   // 925130 of 1040228 samples lost and every pair measured was one and the same run.
   return statistics_counter_samples_lost(stats) + stats.samples_rejected > 0 &&
-         stats.pairs_delivered_unmeasured > 0;
+         stats.pairs_delivered_unmeasured > stats.pairs_delivered_absent;
 }
 
 std::string statistics_loss_warning(const StatsData & stats)
@@ -1053,10 +1053,23 @@ std::string statistics_loss_warning(const StatsData & stats)
   // Everything the readers should have had: what arrived plus what did not.
   out << "warning: " << lost << " of " << lost + stats.samples
       << " statistics samples were lost (the tool could not keep up) and "
-      << stats.pairs_delivered_unmeasured << " of " << stats.pairs_delivered
+      << stats.pairs_delivered_unmeasured - stats.pairs_delivered_absent << " of "
+      << stats.pairs_delivered
       << " pairs with proven deliveries show no measured packet - enable statistics on fewer "
     "nodes, or keep "
     "FASTDDS_STATISTICS to the aliases you need (e.g. RTPS_SENT_TOPIC;RTPS_LOST_TOPIC)";
+  return out.str();
+}
+
+std::string rtps_sent_absent_warning(const StatsData & stats)
+{
+  if (stats.pairs_delivered_absent == 0) {return {};}
+  std::ostringstream out;
+  out << "warning: " << stats.pairs_delivered_absent << " of " << stats.pairs_delivered
+      << " pairs with proven deliveries show no measured packet and no lost statistics sample "
+    "explains it (RTPS_SENT did not arrive) - on Fast DDS 3.6 the statistics counters stall; "
+    "start the observed nodes with the shipped config/statistics.xml "
+    "(FASTDDS_DEFAULT_PROFILES_FILE or FASTRTPS_DEFAULT_PROFILES_FILE)";
   return out.str();
 }
 
@@ -1064,6 +1077,10 @@ void note_unmeasured_pairs(const std::vector<TopicSummary> & topics, StatsData &
 {
   stats.pairs_delivered = 0;
   stats.pairs_delivered_unmeasured = 0;
+  stats.pairs_delivered_absent = 0;
+  // #152: a lost sample can only explain a pair whose RTPS_SENT instance the tool has seen.
+  // Without any loss nothing the tool did explains an unmeasured pair at all.
+  const bool lost = statistics_counter_samples_lost(stats) + stats.samples_rejected > 0;
   for (const auto & t : topics) {
     for (const auto & p : t.pairs) {
       const auto & m = p.measured;
@@ -1076,12 +1093,17 @@ void note_unmeasured_pairs(const std::vector<TopicSummary> & topics, StatsData &
         continue;
       }
       ++stats.pairs_delivered;
-      if (m.packets == 0) {++stats.pairs_delivered_unmeasured;}
+      if (m.packets == 0) {
+        ++stats.pairs_delivered_unmeasured;
+        if (!lost || m.packets_total == 0) {++stats.pairs_delivered_absent;}
+      }
     }
   }
   auto & codes = stats.warnings;
   codes.erase(std::remove(codes.begin(), codes.end(), "stats-samples-lost"), codes.end());
   if (statistics_samples_were_lost(stats)) {codes.push_back("stats-samples-lost");}
+  codes.erase(std::remove(codes.begin(), codes.end(), "rtps-sent-absent"), codes.end());
+  if (stats.pairs_delivered_absent > 0) {codes.push_back("rtps-sent-absent");}
 }
 
 PairKey pair_key(const TopicSummary & topic, const Pair & pair)
@@ -1562,6 +1584,18 @@ const std::map<std::string, CodeInfo> & explanations()
         "Check the link (Wi-Fi, MTU, switch), raise the socket buffers (<sendBufferSize> / "
         "<receiveBufferSize> of the transport descriptor, net.core.rmem_max), and use RELIABLE "
         "reliability where samples must not be lost."}},
+    {"rtps-sent-absent", {
+        "Pairs whose deliveries HISTORY_LATENCY proves show no measured packet, and no lost "
+        "statistics sample explains it (stats.pairs_delivered_absent of "
+        "stats.pairs_delivered): the tool never saw an RTPS_SENT instance for the pair, or no "
+        "counter sample was lost at all. The RTPS_SENT samples did not arrive in time. On Fast "
+        "DDS 3.6 the statistics writers deliver almost only on their periodic heartbeat "
+        "(3 s by default), so the counters stall for seconds (#152). The tool's readers "
+        "cannot change that; the writers' profile can.",
+        "Start the observed nodes with the installed config/statistics.xml of this package "
+        "(FASTDDS_DEFAULT_PROFILES_FILE, or FASTRTPS_DEFAULT_PROFILES_FILE on older Fast "
+        "DDS): on Fast DDS 3 it shortens the statistics writers' heartbeat period. A longer "
+        "--timeout also lets more of the stalled samples arrive."}},
     {"stats-samples-lost", {
         "The tool's statistics readers lost counter samples: the writers' keep-last history "
         "overwrote them before the tool read them, or a reader resource limit refused them - "

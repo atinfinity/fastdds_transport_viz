@@ -337,6 +337,7 @@ std::string render_json(const Snapshot & snap, const RenderOptions & opt)
   // The lost measurements themselves, which is what stats-samples-lost is about (#147).
   stats["pairs_delivered"] = snap.stats.pairs_delivered;
   stats["pairs_delivered_unmeasured"] = snap.stats.pairs_delivered_unmeasured;
+  stats["pairs_delivered_absent"] = snap.stats.pairs_delivered_absent;
   stats["warnings"] = snap.stats.warnings;
   root["stats"] = stats;
 
