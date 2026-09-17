@@ -592,8 +592,12 @@ std::string render_table(const Snapshot & snap, const RenderOptions & opt)
        << snap.stats.participants_with_stats.size() << " participant(s)";
     // What never reached the tool (#134). Cumulative, so under --watch it only grows: a frame
     // that loses nothing does not bring back the measurements the earlier ones missed.
-    const auto lost = snap.stats.samples_lost + snap.stats.samples_rejected;
+    const auto lost = statistics_counter_samples_lost(snap.stats) + snap.stats.samples_rejected;
     if (lost > 0) {os << ", " << lost << " sample(s) lost";}
+    // Named apart: best-effort by design, and it coarsens LATENCY rather than losing a pair.
+    if (snap.stats.samples_lost_latency > 0) {
+      os << ", " << snap.stats.samples_lost_latency << " latency sample(s) lost";
+    }
     if (snap.stats.participants_with_stats.empty()) {
       os << " - start the observed nodes with FASTDDS_STATISTICS=\""
          << "RTPS_SENT_TOPIC;RTPS_LOST_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC;"

@@ -246,11 +246,15 @@
     const desc = descriptions || {};
     const rem = remedies || {};
     const tip = w => (desc[w] || '') + (rem[w] ? ` Fix: ${rem[w]}` : '');
-    const lost = (stats.samples_lost || 0) + (stats.samples_rejected || 0);
+    // HISTORY_LATENCY is received best-effort (#141): its gaps coarsen LATENCY, they do not
+    // cost a pair its measurement, so they are named apart and raise no warning.
+    const lostLatency = stats.samples_lost_latency || 0;
+    const lostCounters = Math.max((stats.samples_lost || 0) - lostLatency, 0);
+    const lost = lostCounters + (stats.samples_rejected || 0);
     const warnings = (stats.warnings || []).map(
       w => ` <span class="code warn" title="${escapeHtml(tip(w))}"><b>!${escapeHtml(w)}</b></span>`).join('');
-    return escapeHtml(`statistics: ${stats.samples} samples` + (lost ? `, ${lost} lost` : '')) +
-      warnings;
+    return escapeHtml(`statistics: ${stats.samples} samples` + (lost ? `, ${lost} lost` : '') +
+      (lostLatency ? `, ${lostLatency} latency lost` : '')) + warnings;
   }
 
   // ---------------------------------------------------------------- comparing two documents

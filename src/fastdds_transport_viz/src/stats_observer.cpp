@@ -60,7 +60,7 @@ rtps::Locator_t to_rtps(const st::detail::Locator_s & l)
 }  // namespace
 
 void StatsObserver::Listener::on_sample_lost(
-  dds::DataReader *, const dds::SampleLostStatus & status)
+  dds::DataReader * reader, const dds::SampleLostStatus & status)
 {
   const std::chrono::steady_clock::duration since(
     std::chrono::steady_clock::now().time_since_epoch().count() - last_match_ticks);
@@ -70,6 +70,7 @@ void StatsObserver::Listener::on_sample_lost(
     lost_at_start += n;
   } else {
     lost += n;
+    if (reader == event_reader.load()) {lost_latency += n;}
   }
 }
 
@@ -117,6 +118,7 @@ StatsObserver::StatsObserver(dds::DomainParticipant * participant)
   history_latency_ = create_reader(
     st::HISTORY_LATENCY_TOPIC, dds::TypeSupport(new st::WriterReaderDataPubSubType()),
     ReaderKind::kEvent);
+  listener_.event_reader = history_latency_.reader;
   physical_data_ = create_reader(
     st::PHYSICAL_DATA_TOPIC, dds::TypeSupport(new st::PhysicalDataPubSubType()),
     ReaderKind::kIdentity);
@@ -405,6 +407,7 @@ StatsData StatsObserver::snapshot()
   out.samples_lost_at_start = listener_.lost_at_start;
   out.samples_rejected = listener_.rejected;
   out.writers_incompatible_qos = listener_.incompatible_qos;
+  out.samples_lost_latency = listener_.lost_latency;
   if (statistics_samples_were_lost(out)) {out.warnings.push_back("stats-samples-lost");}
   out.traffic.clear();
   for (const auto & kv : traffic_) {

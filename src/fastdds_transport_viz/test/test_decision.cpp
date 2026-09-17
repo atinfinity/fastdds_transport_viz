@@ -2335,6 +2335,37 @@ TEST(StatisticsLossWarning, NamesTheLossAgainstEverythingThatShouldHaveArrived)
     "(e.g. RTPS_SENT_TOPIC;RTPS_LOST_TOPIC)");
 }
 
+TEST(StatisticsLossWarning, BestEffortLatencyLossIsNotTheToolFallingBehind)
+{
+  // #141: the HISTORY_LATENCY reader is best-effort by design, so it reports every sequence
+  // gap in the loudest topic there is. Those samples coarsen a percentile the pair still
+  // shows; they cost no pair its measurement, so they must not raise the warning.
+  StatsData s;
+  s.samples = 8529;
+  s.samples_lost = 248312;
+  s.samples_lost_latency = 248312;
+  EXPECT_EQ(statistics_counter_samples_lost(s), 0u);
+  EXPECT_FALSE(statistics_samples_were_lost(s));
+  EXPECT_EQ(statistics_loss_warning(s), "");
+
+  // only the counter part is named, and it alone decides the warning
+  s.samples_lost_latency = 248300;
+  EXPECT_EQ(statistics_counter_samples_lost(s), 12u);
+  EXPECT_TRUE(statistics_samples_were_lost(s));
+  EXPECT_NE(
+    statistics_loss_warning(s).find("12 of 8541 statistics samples"),
+    std::string::npos) << statistics_loss_warning(s);
+
+  // a document written before #141 carries no latency part: everything counts, as it did
+  s.samples_lost_latency = 0;
+  EXPECT_EQ(statistics_counter_samples_lost(s), 248312u);
+
+  // hand-edited or truncated: the subtraction saturates instead of wrapping around
+  s.samples_lost_latency = 999999;
+  EXPECT_EQ(statistics_counter_samples_lost(s), 0u);
+  EXPECT_FALSE(statistics_samples_were_lost(s));
+}
+
 TEST(StatisticsLossWarning, ASingleRejectedSampleIsEnough)
 {
   StatsData s;

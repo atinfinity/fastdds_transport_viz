@@ -1029,15 +1029,24 @@ bool statistics_late_join_window_open(
   return !any_writer_matched || seconds_since_last_writer_match < kStatisticsLateJoinGraceSeconds;
 }
 
+uint64_t statistics_counter_samples_lost(const StatsData & stats)
+{
+  return stats.samples_lost > stats.samples_lost_latency ?
+         stats.samples_lost - stats.samples_lost_latency : 0;
+}
+
 bool statistics_samples_were_lost(const StatsData & stats)
 {
-  return stats.samples_lost + stats.samples_rejected > 0;
+  // HISTORY_LATENCY is received best-effort by design (#141), so its reader reports every
+  // sequence gap. Counting those here would warn that the tool cannot keep up on systems
+  // where it measures every pair.
+  return statistics_counter_samples_lost(stats) + stats.samples_rejected > 0;
 }
 
 std::string statistics_loss_warning(const StatsData & stats)
 {
   if (!statistics_samples_were_lost(stats)) {return {};}
-  const uint64_t lost = stats.samples_lost + stats.samples_rejected;
+  const uint64_t lost = statistics_counter_samples_lost(stats) + stats.samples_rejected;
   std::ostringstream out;
   // Everything the readers should have had: what arrived plus what did not.
   out << "warning: " << lost << " of " << lost + stats.samples
@@ -1526,13 +1535,15 @@ const std::map<std::string, CodeInfo> & explanations()
         "<receiveBufferSize> of the transport descriptor, net.core.rmem_max), and use RELIABLE "
         "reliability where samples must not be lost."}},
     {"stats-samples-lost", {
-        "The tool's statistics readers lost samples: the writers' keep-last history overwrote "
-        "them before the tool read them, or a reader resource limit refused them. A pair can "
-        "therefore show no measurement although it carries traffic, and the counters of the "
-        "pairs that are measured can skip a stretch. The JSON document counts them in "
-        "stats.samples_lost and stats.samples_rejected; stats.samples_lost_at_start holds the "
-        "burst from before the readers had matched the writers, which is normal and not "
-        "counted here.",
+        "The tool's statistics readers lost counter samples: the writers' keep-last history "
+        "overwrote them before the tool read them, or a reader resource limit refused them. A "
+        "pair can therefore show no measurement although it carries traffic, and the counters "
+        "of the pairs that are measured can skip a stretch. The JSON document counts them in "
+        "stats.samples_lost and stats.samples_rejected. Two parts are excluded and never "
+        "warn: stats.samples_lost_at_start, the burst from before the readers had matched the "
+        "writers, and stats.samples_lost_latency, the gaps HISTORY_LATENCY's best-effort "
+        "reader reports (#141) - those coarsen the LATENCY of a pair instead of costing its "
+        "measurement.",
         "Enable statistics on fewer nodes, or keep FASTDDS_STATISTICS to the aliases you need "
         "(for example RTPS_SENT_TOPIC;RTPS_LOST_TOPIC). A longer --timeout does not help: it "
         "collects more of the loss, not less."}},

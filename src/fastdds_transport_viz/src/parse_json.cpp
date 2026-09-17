@@ -270,6 +270,8 @@ StatsData stats(const json & j)
   s.samples_rejected = j.value("samples_rejected", 0ULL);
   // #141; absent in documents written before it
   s.writers_incompatible_qos = j.value("writers_incompatible_qos", 0ULL);
+  // #141; absent in documents written before it
+  s.samples_lost_latency = j.value("samples_lost_latency", 0ULL);
   for (const auto & w : j.value("warnings", json::array())) {
     s.warnings.push_back(w.get<std::string>());
   }

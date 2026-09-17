@@ -744,6 +744,11 @@
           "minimum": 0,
           "description": "statistics samples a resource limit of the tool's readers refused (#134); counted with samples_lost for the warning"
         },
+        "samples_lost_latency": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "the part of samples_lost that HISTORY_LATENCY's reader reported (#141). That reader is best-effort by design, so it sees every sequence gap; the samples it misses coarsen the LATENCY of a pair instead of costing its measurement, and they raise no stats-samples-lost warning. Optional; documents written before #141 do not carry it."
+        },
         "writers_incompatible_qos": {
           "type": "integer",
           "minimum": 0,

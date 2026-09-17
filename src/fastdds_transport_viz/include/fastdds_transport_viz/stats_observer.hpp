@@ -72,6 +72,8 @@ public:
   /// arrives while the statistics writers are still matching the readers; `samples_lost`
   /// only what was lost afterwards, which is the tool failing to keep up (#134).
   uint64_t samples_lost() const {return listener_.lost;}
+  /// The part of samples_lost() that HISTORY_LATENCY's best-effort reader reported (#141).
+  uint64_t samples_lost_latency() const {return listener_.lost_latency;}
   uint64_t samples_lost_at_start() const {return listener_.lost_at_start;}
   uint64_t samples_rejected() const {return listener_.rejected;}
   /// Statistics writers that were discovered but could not be matched because their QoS is
@@ -116,6 +118,15 @@ private:
   struct Listener : public eprosima::fastdds::dds::DataReaderListener
   {
     std::atomic<uint64_t> lost{0};
+    /// The part of `lost` that belongs to HISTORY_LATENCY, whose reader is best-effort by
+    /// design (#141). Its samples are independent observations reduced to a percentile, so
+    /// losing them coarsens a number the tool still reports, while losing a counter sample
+    /// costs the measurement of an entity. Kept apart so the warning can say which happened.
+    std::atomic<uint64_t> lost_latency{0};
+    /// The HISTORY_LATENCY reader, to tell its losses from the counters'. Assigned right
+    /// after that reader is created: a sample cannot be lost before its reader matched a
+    /// writer, and a loss before the first match of all lands in `lost_at_start` anyway.
+    std::atomic<eprosima::fastdds::dds::DataReader *> event_reader{nullptr};
     std::atomic<uint64_t> lost_at_start{0};
     std::atomic<uint64_t> rejected{0};
     std::atomic<uint64_t> incompatible_qos{0};
