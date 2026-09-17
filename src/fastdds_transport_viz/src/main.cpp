@@ -442,10 +442,15 @@ Snapshot collect(
         {"drain_errors", stats->drain_errors()}});
     stats_data.local_addresses = local_ip_addresses();
   }
-  auto t_resolve = prof.now();
-  resolver.refresh();
-  prof.emit("resolve", t_resolve);
   if (names != nullptr) {names->poll();}
+  auto t_resolve = prof.now();
+  // The rmw graph only changes with the endpoints and the ros_discovery_info samples, so a
+  // quiet graph is not queried again (#135).
+  const bool refreshed = resolver.refresh_if_changed(
+    observer.event_count() + (names != nullptr ? names->samples_taken() : 0),
+    std::chrono::duration<double>(
+      std::chrono::steady_clock::now() - observer.last_event()).count());
+  prof.emit("resolve", t_resolve, {{"refreshed", static_cast<uint64_t>(refreshed)}});
 
   std::vector<Endpoint> endpoints = observer.snapshot();
   // Was discovery still running when the wait ended (#74 saw one-shot runs print a fraction

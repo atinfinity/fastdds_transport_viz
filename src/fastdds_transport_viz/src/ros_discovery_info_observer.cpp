@@ -274,6 +274,7 @@ void RosDiscoveryInfoObserver::poll()
   dds::SampleInfo info;
   while (retcode_ok(reader_->take_next_sample(&msg, &info))) {
     if (!info.valid_data) {continue;}
+    ++samples_taken_;
     ParticipantPrefix participant{};
     std::copy_n(to_endpoint_gid(msg.gid).begin(), participant.size(), participant.begin());
     std::vector<NodeEntities> nodes;

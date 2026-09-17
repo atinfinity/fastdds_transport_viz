@@ -72,6 +72,14 @@ std::string fully_qualified_node_name(const std::string & ns, const std::string 
   return ns + "/" + name;
 }
 
+bool should_refresh_graph(
+  bool refreshed_before, size_t events, size_t events_at_last_refresh,
+  double seconds_since_last_event)
+{
+  return !refreshed_before || events != events_at_last_refresh ||
+         seconds_since_last_event <= kGraphRefreshGraceSeconds;
+}
+
 std::string merge_node_name(const std::string & graph_name, const std::string & discovery_name)
 {
   std::string name = normalize_node_name(graph_name);

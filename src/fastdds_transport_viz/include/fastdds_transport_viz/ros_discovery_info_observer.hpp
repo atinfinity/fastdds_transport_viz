@@ -46,6 +46,9 @@ public:
 
   const NodeNameTable & table() const {return table_;}
 
+  /// Valid samples taken so far: it moves when a participant announces other nodes.
+  size_t samples_taken() const {return samples_taken_;}
+
   /// The reader and its participant (for tests).
   eprosima::fastdds::dds::DataReader * reader() const {return reader_;}
   eprosima::fastdds::dds::DomainParticipant * participant() const {return participant_;}
@@ -63,6 +66,7 @@ private:
   eprosima::fastdds::dds::Topic * topic_{nullptr};
   eprosima::fastdds::dds::DataReader * reader_{nullptr};
   NodeNameTable table_;
+  size_t samples_taken_{0};
 };
 
 }  // namespace fastdds_transport_viz
