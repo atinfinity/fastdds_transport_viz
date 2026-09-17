@@ -326,6 +326,15 @@ struct StatsData
   /// Statistics DataWriters the readers could not match because their QoS is incompatible
   /// (#141): their samples never arrive and are never counted as lost either.
   uint64_t writers_incompatible_qos{0};
+  /// Pairs in this document whose delivery HISTORY_LATENCY proves (#147), and those of them
+  /// RTPS_SENT shows no packet for: the lost measurements. Only a delivery proof tells a
+  /// starved RTPS_SENT instance from an idle one - the instance itself looks the same, one
+  /// sample from before the run and nothing to subtract it from. Data-sharing pairs (no RTPS
+  /// trace by design), pairs that should carry nothing (qos-incompatible, IPC split) and
+  /// stats-writer-instance-limit-suspected pairs (the writer side's limit, not the tool's
+  /// loss) are in neither number. Set by note_unmeasured_pairs().
+  uint64_t pairs_delivered{0};
+  uint64_t pairs_delivered_unmeasured{0};
   /// Document-level warning codes, like ShmInfo::warnings: stats-samples-lost.
   std::vector<std::string> warnings;
 };

@@ -130,6 +130,10 @@ class TestStats(Base):
         # nothing here changes the statistics writers' QoS, so every one of them matches (#141)
         self.assertEqual(stats['writers_incompatible_qos'], 0, stats)
         self.assertEqual(stats['warnings'], [], stats)
+        # the talker/listener pairs are delivered and measured; not pinned to 0 unmeasured,
+        # which large samples on a slow machine can rightly produce without any loss (#147)
+        self.assertGreater(stats['pairs_delivered'], 0, stats)
+        self.assertLessEqual(stats['pairs_delivered_unmeasured'], stats['pairs_delivered'], stats)
         # the burst from before the readers matched is counted apart and never warns
         self.assertGreaterEqual(stats['samples_lost_at_start'], 0, stats)
 

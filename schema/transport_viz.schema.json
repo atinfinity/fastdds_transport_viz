@@ -754,6 +754,16 @@
           "minimum": 0,
           "description": "statistics DataWriters the tool's readers could not match because the writers' QoS is incompatible with theirs (#141). Nothing such a writer publishes ever arrives, and nothing is counted in samples_lost either: a reader is only told about the samples of writers it did match. Optional; documents written before #141 do not carry it."
         },
+        "pairs_delivered": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "pairs of this document whose delivery HISTORY_LATENCY proves (#147). Data-sharing pairs (no RTPS trace by design), pairs that should carry nothing (qos-incompatible, shm-ipc-namespace-split) and stats-writer-instance-limit-suspected pairs are left out. Optional; documents written before #147 do not carry it."
+        },
+        "pairs_delivered_unmeasured": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "the pairs_delivered that RTPS_SENT shows no packet for during the observation: the lost measurements (#147). Only a delivery proof tells a pair whose RTPS_SENT samples did not arrive from an idle one. stats-samples-lost is raised only when this is above 0 and counter samples were lost or rejected. Optional; documents written before #147 do not carry it."
+        },
         "warnings": {
           "type": "array",
           "description": "document-level warning codes about the statistics observation: stats-samples-lost",

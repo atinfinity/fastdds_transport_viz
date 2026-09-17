@@ -111,17 +111,28 @@ inline constexpr double kStatisticsLateJoinGraceSeconds = 5.0;
 bool statistics_late_join_window_open(
   bool any_writer_matched, double seconds_since_last_writer_match);
 
-/// Whether statistics samples were lost inside the observation window (#134): the late-join
-/// burst (StatsData::samples_lost_at_start) does not count, a single sample does. Pure function.
+/// Whether losing statistics samples cost a measurement (#134, #147): counter samples were lost
+/// or rejected inside the observation window AND a pair with a delivery proof shows no measured
+/// packet (StatsData::pairs_delivered_unmeasured). Loss alone is harmless - the counters are
+/// cumulative and the tool prints `last - first` - and an unmeasured pair without any loss is
+/// not the tool falling behind. The late-join burst (StatsData::samples_lost_at_start) and the
+/// HISTORY_LATENCY gaps never count. Pure function.
 bool statistics_samples_were_lost(const StatsData & stats);
+
+/// Counts StatsData::pairs_delivered / pairs_delivered_unmeasured over `topics` (after
+/// apply_stats) and raises the document-level stats-samples-lost when
+/// statistics_samples_were_lost() then holds (#147). Replaces an earlier verdict, so it can be
+/// called on every --watch frame.
+void note_unmeasured_pairs(const std::vector<TopicSummary> & topics, StatsData & stats);
 
 /// The losses that cost a measurement: samples_lost without the best-effort HISTORY_LATENCY
 /// part (#141). Saturates at 0, because a document written before #141 carries no
 /// samples_lost_latency and every document may be edited by hand. Pure function.
 uint64_t statistics_counter_samples_lost(const StatsData & stats);
 
-/// The one stderr line a run that lost statistics samples earns (#134), or "" when nothing was
-/// lost. Names the loss against everything the readers should have had (received + lost). A
+/// The one stderr line a run whose losses cost a measurement earns (#134, #147), or "" when
+/// statistics_samples_were_lost() is false. Names the loss against everything the readers
+/// should have had (received + lost) and the pairs left without a measurement. A
 /// longer --timeout is deliberately not advised: it does not lower the loss rate, it only
 /// collects more of it. Pure function.
 std::string statistics_loss_warning(const StatsData & stats);
