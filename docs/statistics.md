@@ -22,9 +22,9 @@ looks like a rate and is not one - Fast DDS publishes one sample per `write()` w
 *that sample's* payload divided by the interval since the same writer's previous `write()`. It
 says how fast the writer was during one inter-write interval, never how much a topic carries
 per second, and for a writer that bursts and then falls silent the two differ by orders of
-magnitude. Nothing downstream can repair it: the tool's statistics readers are `KEEP_LAST`
-depth 1 and are drained every 50 ms, so a burst leaves exactly one sample behind and the
-payloads of the rest are gone.
+magnitude. Nothing downstream can repair it: the tool's statistics readers keep one
+sample per instance of a counter topic and are drained every 50 ms, so everything but the
+newest value is gone before the tool can see it.
 
 `measured.throughput_bytes_per_s`, `topics[].throughput_bytes_per_s` and `stats.throughput`
 stay in the JSON so that documents written earlier keep validating, fixed to `null`, `null`
@@ -165,37 +165,91 @@ Fast DDS reads a single profiles file; `datasharing_auto_stats.xml` is the merge
 file with `datasharing_auto.xml` for observing data-sharing with `--stats`. (The tool's
 own statistics readers already use unlimited instances.)
 
+## Reader QoS
+
+The tool's ten statistics readers took the Fast DDS default for these topics until
+[#141](https://github.com/atinfinity/fastdds_transport_viz/issues/141): reliable,
+transient-local, keep-last 1 and - less visibly - at most ten instances. The instance limit is
+the one this page warns about on the writer side, and it applies just as much to a reader: the
+statistics topics are keyed, so a reader stops receiving a participant's samples entirely once
+ten `(source, locator)` instances exist. The readers now leave the instance count unlimited,
+and differ per topic in what else they ask for:
+
+| Topic | Reliability | Durability | Depth | Why |
+|---|---|---|---|---|
+| the eight counter topics (`rtps_sent`, `rtps_lost`, `data_count`, `resent_datas`, `heartbeat_count`, `acknack_count`, `nackfrag_count`, `gap_count`) | reliable | transient-local | 1 | the tool reports `last - first`, and `first` is the sample from before the observation began: losing it costs the measurement of a whole entity, not one sample |
+| `_fastdds_statistics_physical_data` | reliable | transient-local | 1 | one sample per participant, published once at discovery; a second one would say the same thing |
+| `_fastdds_statistics_history2history_latency` | best-effort | volatile | 10 | by far the loudest topic, nothing it carries is cumulative, and it is the only one that never reads `first` |
+
+One sample per instance is enough for a cumulative counter: only its newest value says anything
+the tool needs, and the observer's own thread takes it within 50 ms of its arrival. Keeping ten
+was measured and rejected - it bought no extra measured pair and cost a fifth of a core and
+twice the `--watch` frame p95.
+
+`max_samples` stays unlimited and only `max_samples_per_instance` is bounded. A total cap would
+start refusing samples once enough instances exist, and a refusal is counted as
+`samples_rejected` - exactly the loss the limit is meant to prevent.
+
+Receiving `HISTORY_LATENCY` reliably is not affordable either: measured at 20 processes and
+2400 pairs, its acknacks and retransmissions took the tool below the coverage it had before
+#141 (0.746 against 0.947) and its `--watch` frame p95 to 20 s. Best-effort makes the losses on
+that topic visible instead - see `stats.samples_lost_latency` below - which is a report, not
+a regression.
+
+The readers are drained by a thread the observer owns, every 50 ms, in both modes and while the
+display is paused - not once per `--interval` as before. What bounds the loss on these topics is
+the time between two takes, so the cadence matters more than the depth.
+
 ## Large systems
 
 Measured on an 8-CPU Docker VM with Jazzy (Fast DDS 2.14.6), statistics on every node, the
 tool next to the nodes (details: [development.md](development.md#scale-results)):
 
 - **Up to about 10 processes and 500 pairs** everything keeps up: every pair is measured within the default 5 s.
-- **From about 20 processes and 2400 pairs** the tool starts to lose statistics samples, and about a quarter of the pairs have no measurement after 5 s.
-- **At 40 processes and 5600 pairs** almost no pair is measured.
+- **At 20 processes and 2400 pairs** every pair is measured within 5 s as well, and the one-shot table shows all of them. Before [#141](https://github.com/atinfinity/fastdds_transport_viz/issues/141) a quarter of them had no measurement after 5 s and the table showed one.
+- **At 40 processes and 5600 pairs** the tool measures most or all of the pairs: the coverage at 5 s was 0.62, 0.97 and 1.0 over three runs of the same build, where before #141 it was 0.0 in all three. The spread is the host rather than the tool - at this size the load alone takes 6.7 to 7.5 of the 8 cores before the tool starts - and a `--watch` frame still takes seconds ([#135](https://github.com/atinfinity/fastdds_transport_viz/issues/135), [#136](https://github.com/atinfinity/fastdds_transport_viz/issues/136)).
 
-The tool receives all statistics over UDP on one Fast DDS receive thread, and next to Nav2 (4 participants, 1195 pairs) that thread already takes a whole core. Once it cannot keep up, the writers' keep-last history overwrites samples before they arrive.
+The tool receives all statistics over UDP on one Fast DDS receive thread, and next to Nav2 (4
+participants, 1195 pairs) that thread already takes a whole core. What bounds the loss is how
+often the tool takes from its readers, which is what the 50 ms drain above is for; past that,
+the writers' keep-last history overwrites samples before they arrive.
 
 The tool says what it lost. `stats.samples_lost` in the JSON document counts the statistics
 samples that never reached it, the table's `statistics:` line repeats the number, the
 document-level warning code is `stats-samples-lost`, and a one-shot run adds one line on stderr:
 
 ```
-warning: 682142 of 690671 statistics samples were lost (the tool could not keep up); some pairs show no measurement although they carry traffic - enable statistics on fewer nodes, or keep FASTDDS_STATISTICS to the aliases you need (e.g. RTPS_SENT_TOPIC;RTPS_LOST_TOPIC)
+warning: 925130 of 1040228 statistics samples were lost (the tool could not keep up); some pairs show no measurement although they carry traffic - enable statistics on fewer nodes, or keep FASTDDS_STATISTICS to the aliases you need (e.g. RTPS_SENT_TOPIC;RTPS_LOST_TOPIC)
 ```
 
 `--watch` does not print the line: the count only grows from frame to frame, and the
 `statistics:` footer already carries it. The counters are cumulative for the whole run, so a
 frame that loses nothing does not bring back the measurements the earlier ones missed.
 
+Losing samples is not the same as losing measurements, and the line above is the proof: it
+comes from the 40-process run whose coverage was 1.0, in which every `/scale` pair was
+measured. The statistics counters are cumulative and the tool reports `last - first` over the
+observation window, so a sample it never receives between two it did changes nothing. A loss
+costs a measurement only when it leaves an instance with fewer than two samples in the window
+- which is why the warning says a pair *can* show no measurement, not that one does.
+
+`stats.samples_lost_latency` is counted apart, as a part of `stats.samples_lost` rather than
+beside it, and nothing warns about it. `HISTORY_LATENCY` is received best-effort by design
+(see [Reader QoS](#reader-qos)), so its reader reports every sequence gap in the loudest topic
+there is: 1.7 to 1.9 million of them in a 60 s run at 40 processes. Those samples are
+independent observations that the tool reduces to a mean and a max, so losing them coarsens a
+number the pair still shows. The table names them apart (`..., 42 sample(s) lost, 1000 latency
+sample(s) lost`), the web viewer does too, and the `stats-samples-lost` warning leaves them out.
+
 When the warning is there, `no-traffic-observed` on a pair can also mean "not measured": the
-counters are shared by all eleven statistics readers, so a loss cannot be attributed to one
+counters are shared by all ten statistics readers, so a loss cannot be attributed to one
 pair. Narrow the view instead:
 - enable statistics only on the nodes you care about;
 - keep `FASTDDS_STATISTICS` to the aliases you need, for example `RTPS_SENT_TOPIC;RTPS_LOST_TOPIC`.
 
-A longer `--timeout` does not help here: it collects more of the loss, not less. Making the tool
-keep up is [#141](https://github.com/atinfinity/fastdds_transport_viz/issues/141).
+A longer `--timeout` does not reduce the loss - it collects more of it - but it does give every
+instance more chances to be sampled twice, which is exactly what the coverage figures above
+compare: what is measured at 5 s against what is measured at 30 s.
 
 `stats.samples_lost_at_start` is counted apart and never warns. Every reader is told about the
 samples a writer's keep-last history had already dropped when it matched, which says nothing

@@ -52,8 +52,8 @@ publisher だけ、または subscription だけのトピックは `-` と理由
 publish し、その値は *そのサンプルの* payload を、同じ writer の前回の `write()` からの間隔で割った
 ものです。バースト的に送って黙る writer はバースト中の瞬時値だけを報告してその後は何も出さないため、
 散発的な writer は桁違いに速く表示されていました。ツールが受け取ったサンプルを平均しても直りません。
-statistics の reader は `KEEP_LAST` depth 1 で 50 ms ごとに読み出すため、バーストからは 1 サンプルしか
-残らないからです。ツールはこのトピックを購読しなくなりました。`throughput_bytes_per_s` は `null` に
+statistics の reader はカウンタトピックについてインスタンスあたり 1 サンプルしか保持せず、50 ms
+ごとに読み出すため、最新の値以外は失われるからです。ツールはこのトピックを購読しなくなりました。`throughput_bytes_per_s` は `null` に
 固定され、`stats.throughput` は空のままです。まともなレートの材料は既に JSON にあります
 (`stats.data_count` と `stats.traffic` は累積値で、`observation_seconds` が観測の長さを示します。
 [statistics.ja.md](statistics.ja.md#レート列が無い理由と代わりの求め方) を参照)。本物のレート列を
