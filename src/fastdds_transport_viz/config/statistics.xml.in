@@ -7,9 +7,14 @@
      extra ones and transport_viz - -stats shows
      "stats-writer-instance-limit-suspected". This profile lifts the limit
      (0 = unlimited) while keeping the QoS the statistics module requires.
-     Fast DDS 3.5 and later (Lyrical, Rolling) has no such limit; the profile
-     does no harm there. Profile names must match the aliases passed in
-     FASTDDS_STATISTICS. Use with (Fast DDS 3.x reads FASTDDS_DEFAULT_PROFILES_FILE,
+     Fast DDS 3.5 and later (Lyrical, Rolling) has no such limit, but on 3.6 the
+     counter writers deliver almost only on their periodic heartbeat (3 s by
+     default) and the samples reach transport_viz in bursts, most of them too
+     late (#152): heartbeat_period 500 ms on every writer but HISTORY_LATENCY
+     keeps them flowing. CMake adds it when the package is built with Fast DDS
+     3.x (2.x spells the element differently and drops a profile it cannot
+     parse), so use the installed statistics.xml, not this template. Profile
+     names must match the aliases passed in FASTDDS_STATISTICS. Use with (Fast DDS 3.x reads FASTDDS_DEFAULT_PROFILES_FILE,
      and rmw_fastrtps on Lyrical and Rolling reads FASTRTPS_ as well):
        export FASTRTPS_DEFAULT_PROFILES_FILE=$(ros2 pkg prefix fastdds_transport_viz)/share/fastdds_transport_viz/config/statistics.xml
        export FASTDDS_STATISTICS="RTPS_SENT_TOPIC;RTPS_LOST_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC;DATA_COUNT_TOPIC;RESENT_DATAS_TOPIC;HEARTBEAT_COUNT_TOPIC;ACKNACK_COUNT_TOPIC;NACKFRAG_COUNT_TOPIC;GAP_COUNT_TOPIC" -->
@@ -29,7 +34,7 @@
         <durability><kind>TRANSIENT_LOCAL</kind></durability>
         <reliability><kind>RELIABLE</kind></reliability>
         <publishMode><kind>ASYNCHRONOUS</kind></publishMode>
-      </qos>
+      </qos>@FTV_STATS_WRITER_TIMES@
     </data_writer>
     <data_writer profile_name="HISTORY_LATENCY_TOPIC">
       <topic>
@@ -61,7 +66,7 @@
         <durability><kind>TRANSIENT_LOCAL</kind></durability>
         <reliability><kind>RELIABLE</kind></reliability>
         <publishMode><kind>ASYNCHRONOUS</kind></publishMode>
-      </qos>
+      </qos>@FTV_STATS_WRITER_TIMES@
     </data_writer>
     <data_writer profile_name="RTPS_LOST_TOPIC">
       <topic>
@@ -77,7 +82,7 @@
         <durability><kind>TRANSIENT_LOCAL</kind></durability>
         <reliability><kind>RELIABLE</kind></reliability>
         <publishMode><kind>ASYNCHRONOUS</kind></publishMode>
-      </qos>
+      </qos>@FTV_STATS_WRITER_TIMES@
     </data_writer>
     <data_writer profile_name="RESENT_DATAS_TOPIC">
       <topic>
@@ -93,7 +98,7 @@
         <durability><kind>TRANSIENT_LOCAL</kind></durability>
         <reliability><kind>RELIABLE</kind></reliability>
         <publishMode><kind>ASYNCHRONOUS</kind></publishMode>
-      </qos>
+      </qos>@FTV_STATS_WRITER_TIMES@
     </data_writer>
     <data_writer profile_name="HEARTBEAT_COUNT_TOPIC">
       <topic>
@@ -109,7 +114,7 @@
         <durability><kind>TRANSIENT_LOCAL</kind></durability>
         <reliability><kind>RELIABLE</kind></reliability>
         <publishMode><kind>ASYNCHRONOUS</kind></publishMode>
-      </qos>
+      </qos>@FTV_STATS_WRITER_TIMES@
     </data_writer>
     <data_writer profile_name="ACKNACK_COUNT_TOPIC">
       <topic>
@@ -125,7 +130,7 @@
         <durability><kind>TRANSIENT_LOCAL</kind></durability>
         <reliability><kind>RELIABLE</kind></reliability>
         <publishMode><kind>ASYNCHRONOUS</kind></publishMode>
-      </qos>
+      </qos>@FTV_STATS_WRITER_TIMES@
     </data_writer>
     <data_writer profile_name="NACKFRAG_COUNT_TOPIC">
       <topic>
@@ -141,7 +146,7 @@
         <durability><kind>TRANSIENT_LOCAL</kind></durability>
         <reliability><kind>RELIABLE</kind></reliability>
         <publishMode><kind>ASYNCHRONOUS</kind></publishMode>
-      </qos>
+      </qos>@FTV_STATS_WRITER_TIMES@
     </data_writer>
     <data_writer profile_name="GAP_COUNT_TOPIC">
       <topic>
@@ -157,7 +162,7 @@
         <durability><kind>TRANSIENT_LOCAL</kind></durability>
         <reliability><kind>RELIABLE</kind></reliability>
         <publishMode><kind>ASYNCHRONOUS</kind></publishMode>
-      </qos>
+      </qos>@FTV_STATS_WRITER_TIMES@
     </data_writer>
   </profiles>
 </dds>

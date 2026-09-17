@@ -4,7 +4,8 @@
        export FASTRTPS_DEFAULT_PROFILES_FILE=$(ros2 pkg prefix fastdds_transport_viz)/share/fastdds_transport_viz/config/datasharing_auto_stats.xml
        export RMW_FASTRTPS_USE_QOS_FROM_XML=1
        export FASTDDS_STATISTICS="RTPS_SENT_TOPIC;RTPS_LOST_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC;DATA_COUNT_TOPIC;RESENT_DATAS_TOPIC;HEARTBEAT_COUNT_TOPIC;ACKNACK_COUNT_TOPIC;NACKFRAG_COUNT_TOPIC;GAP_COUNT_TOPIC"
-     Keep the three files in sync when changing one of them. -->
+     Keep the three files in sync when changing one of them. Like statistics.xml, the
+     installed file is generated from this template (heartbeat period on Fast DDS 3.x, #152). -->
 <dds xmlns="http://www.eprosima.com/XMLSchemas/fastRTPS_Profiles">
   <profiles>
     <data_writer profile_name="ds_writer" is_default_profile="true">
@@ -29,7 +30,7 @@
         <durability><kind>TRANSIENT_LOCAL</kind></durability>
         <reliability><kind>RELIABLE</kind></reliability>
         <publishMode><kind>ASYNCHRONOUS</kind></publishMode>
-      </qos>
+      </qos>@FTV_STATS_WRITER_TIMES@
     </data_writer>
     <data_writer profile_name="HISTORY_LATENCY_TOPIC">
       <topic>
@@ -61,7 +62,7 @@
         <durability><kind>TRANSIENT_LOCAL</kind></durability>
         <reliability><kind>RELIABLE</kind></reliability>
         <publishMode><kind>ASYNCHRONOUS</kind></publishMode>
-      </qos>
+      </qos>@FTV_STATS_WRITER_TIMES@
     </data_writer>
     <data_writer profile_name="RTPS_LOST_TOPIC">
       <topic>
@@ -77,7 +78,7 @@
         <durability><kind>TRANSIENT_LOCAL</kind></durability>
         <reliability><kind>RELIABLE</kind></reliability>
         <publishMode><kind>ASYNCHRONOUS</kind></publishMode>
-      </qos>
+      </qos>@FTV_STATS_WRITER_TIMES@
     </data_writer>
     <data_writer profile_name="RESENT_DATAS_TOPIC">
       <topic>
@@ -93,7 +94,7 @@
         <durability><kind>TRANSIENT_LOCAL</kind></durability>
         <reliability><kind>RELIABLE</kind></reliability>
         <publishMode><kind>ASYNCHRONOUS</kind></publishMode>
-      </qos>
+      </qos>@FTV_STATS_WRITER_TIMES@
     </data_writer>
     <data_writer profile_name="HEARTBEAT_COUNT_TOPIC">
       <topic>
@@ -109,7 +110,7 @@
         <durability><kind>TRANSIENT_LOCAL</kind></durability>
         <reliability><kind>RELIABLE</kind></reliability>
         <publishMode><kind>ASYNCHRONOUS</kind></publishMode>
-      </qos>
+      </qos>@FTV_STATS_WRITER_TIMES@
     </data_writer>
     <data_writer profile_name="ACKNACK_COUNT_TOPIC">
       <topic>
@@ -125,7 +126,7 @@
         <durability><kind>TRANSIENT_LOCAL</kind></durability>
         <reliability><kind>RELIABLE</kind></reliability>
         <publishMode><kind>ASYNCHRONOUS</kind></publishMode>
-      </qos>
+      </qos>@FTV_STATS_WRITER_TIMES@
     </data_writer>
     <data_writer profile_name="NACKFRAG_COUNT_TOPIC">
       <topic>
@@ -141,7 +142,7 @@
         <durability><kind>TRANSIENT_LOCAL</kind></durability>
         <reliability><kind>RELIABLE</kind></reliability>
         <publishMode><kind>ASYNCHRONOUS</kind></publishMode>
-      </qos>
+      </qos>@FTV_STATS_WRITER_TIMES@
     </data_writer>
     <data_writer profile_name="GAP_COUNT_TOPIC">
       <topic>
@@ -157,7 +158,7 @@
         <durability><kind>TRANSIENT_LOCAL</kind></durability>
         <reliability><kind>RELIABLE</kind></reliability>
         <publishMode><kind>ASYNCHRONOUS</kind></publishMode>
-      </qos>
+      </qos>@FTV_STATS_WRITER_TIMES@
     </data_writer>
   </profiles>
 </dds>
