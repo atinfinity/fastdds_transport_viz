@@ -764,9 +764,14 @@
           "minimum": 0,
           "description": "the pairs_delivered that RTPS_SENT shows no packet for during the observation: the lost measurements (#147). Only a delivery proof tells a pair whose RTPS_SENT samples did not arrive from an idle one. stats-samples-lost is raised only when this is above 0 and counter samples were lost or rejected. Optional; documents written before #147 do not carry it."
         },
+        "pairs_delivered_absent": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "the pairs_delivered_unmeasured that no lost statistics sample explains (#152): no RTPS_SENT instance was seen for the pair at all, or no counter sample was lost. Above 0 it raises rtps-sent-absent (on Fast DDS 3.6 the statistics writers stall between periodic heartbeats); stats-samples-lost counts only the remaining unmeasured pairs. Optional; documents written before #152 do not carry it."
+        },
         "warnings": {
           "type": "array",
-          "description": "document-level warning codes about the statistics observation: stats-samples-lost",
+          "description": "document-level warning codes about the statistics observation: stats-samples-lost, rtps-sent-absent",
           "items": {
             "type": "string"
           }

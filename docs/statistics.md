@@ -245,6 +245,20 @@ Data-sharing pairs, `qos-incompatible` and IPC-split pairs and
 delivery proof stays the ambiguity `no-traffic-observed` describes. The numbers follow the
 frame, so under `--watch` the warning goes away once the measurements are back.
 
+Not every unmeasured pair is the tool's loss. Since
+[#152](https://github.com/atinfinity/fastdds_transport_viz/issues/152) the document also counts
+the unmeasured pairs that no lost sample explains (`stats.pairs_delivered_absent`): pairs the
+tool never saw an `RTPS_SENT` instance for (`packets_total` 0), and every unmeasured pair of a
+run that lost no counter sample. They raise their own document-level warning,
+`rtps-sent-absent` (one stderr line in a one-shot run, the `statistics:` footer, the web
+viewer), and `stats-samples-lost` counts only the rest, so both can appear in one run. The
+usual cause is Fast DDS 3.6 (ROS 2 Lyrical): its statistics writers deliver almost only on
+their periodic heartbeat, 3 s by default, so the counters arrive in bursts with stalls of
+several seconds and nothing is reported lost. The tool's readers cannot change that. Start the
+observed nodes with the installed `config/statistics.xml` of this package
+(`FASTDDS_DEFAULT_PROFILES_FILE`, or `FASTRTPS_DEFAULT_PROFILES_FILE`), which shortens that
+heartbeat period on Fast DDS 3. The warning judges what it observes, not the Fast DDS version.
+
 `stats.samples_lost_latency` is counted apart, as a part of `stats.samples_lost` rather than
 beside it, and nothing warns about it. `HISTORY_LATENCY` is received best-effort by design
 (see [Reader QoS](#reader-qos)), so its reader reports every sequence gap in the loudest topic

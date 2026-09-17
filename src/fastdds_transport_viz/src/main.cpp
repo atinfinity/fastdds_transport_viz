@@ -605,7 +605,8 @@ Snapshot collect(
   fastdds_transport_viz::note_unmeasured_pairs(snap.topics, snap.stats);
   prof.emit(
     "apply_stats", t, {{"pairs_delivered", snap.stats.pairs_delivered},
-      {"pairs_delivered_unmeasured", snap.stats.pairs_delivered_unmeasured}});
+      {"pairs_delivered_unmeasured", snap.stats.pairs_delivered_unmeasured},
+      {"pairs_delivered_absent", snap.stats.pairs_delivered_absent}});
   prof.emit(
     "collect", collect_start, {{"endpoints", snap.endpoints.size()},
       {"topics", snap.topics.size()}, {"pairs", count_pairs(snap.topics)}});
@@ -630,6 +631,8 @@ void warn_if_statistics_lost(const Snapshot & snap)
 {
   const std::string line = fastdds_transport_viz::statistics_loss_warning(snap.stats);
   if (!line.empty()) {std::cerr << line << "\n";}
+  const std::string absent = fastdds_transport_viz::rtps_sent_absent_warning(snap.stats);
+  if (!absent.empty()) {std::cerr << absent << "\n";}
 }
 
 /// Raw-mode keyboard input and alternate screen for --watch on a terminal.

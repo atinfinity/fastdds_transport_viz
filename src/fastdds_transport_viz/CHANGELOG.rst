@@ -4,6 +4,15 @@ Changelog for package fastdds_transport_viz
 
 Forthcoming
 -----------
+* An unmeasured pair is no longer blamed on the tool when no lost sample explains it (#152).
+  ``stats.pairs_delivered_absent`` counts the pairs with a delivery proof and no measured
+  packet that the tool never saw an ``RTPS_SENT`` instance for, and every such pair of a run
+  that lost no counter sample; they raise the new document-level warning
+  ``rtps-sent-absent`` (one stderr line, the ``statistics:`` footer, the web viewer), whose
+  remedy is the shipped statistics profile: on Fast DDS 3.6 the statistics writers deliver
+  almost only on their 3 s periodic heartbeat. ``stats-samples-lost`` now counts only the
+  pairs a loss can explain, and both warnings can appear in one run. The property is
+  optional, so documents written earlier still validate and the schema version is unchanged.
 * A ``--watch`` frame on a large graph is two to five times faster (#135): 152 ms instead of
   344 ms at 20 processes and 2400 pairs with ``--stats``, 1.6 s instead of 8.9 s at 40
   processes. The ROS graph is queried only on the frames that follow a discovery event or a

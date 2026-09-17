@@ -234,6 +234,20 @@ warning: 682142 of 690671 statistics samples were lost (the tool could not keep 
 数にも入らず、配送の証拠が無いペアは `no-traffic-observed` が説明するあいまいさのままです。
 数はフレームごとに数え直すので、`--watch` では実測が戻れば警告も消えます。
 
+未実測のペアがすべてツールの取りこぼしとは限りません。
+[#152](https://github.com/atinfinity/fastdds_transport_viz/issues/152) 以降、文書は失われた
+サンプルでは説明できない未実測ペアの数 (`stats.pairs_delivered_absent`) も持ちます。ツールが
+`RTPS_SENT` のインスタンスを一度も見ていないペア (`packets_total` が 0) と、カウンタのサンプルを
+1 つも失っていない実行の未実測ペアすべてです。これらには文書単位の別の警告 `rtps-sent-absent` が
+付きます (ワンショット実行の stderr 1 行、`statistics:` フッター、web ビューア)。
+`stats-samples-lost` は残りだけを数えるので、1 回の実行で両方が出ることもあります。主な原因は
+Fast DDS 3.6 (ROS 2 Lyrical) です。statistics の writer がほぼ周期ハートビート (既定 3 秒) でしか
+配送しないため、カウンタは数秒の停滞をはさんでまとめて届き、損失は報告されません。ツールの reader
+側では変えられません。観測対象のノードを、このパッケージがインストールする
+`config/statistics.xml` (`FASTDDS_DEFAULT_PROFILES_FILE` または
+`FASTRTPS_DEFAULT_PROFILES_FILE`) 付きで起動してください。Fast DDS 3 ではこのハートビート周期を
+短くします。警告は観測した事実で判定し、Fast DDS のバージョンでは分岐しません。
+
 `stats.samples_lost_latency` は別に数えます。`stats.samples_lost` の**内数**であって並ぶ数では
 なく、これを警告の対象にするものはありません。`HISTORY_LATENCY` は設計として best-effort で
 受け取る ([Reader QoS](#reader-qos)) ため、その reader は最も賑やかなトピックのシーケンスの

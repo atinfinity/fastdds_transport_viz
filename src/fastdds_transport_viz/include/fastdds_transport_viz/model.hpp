@@ -335,7 +335,11 @@ struct StatsData
   /// loss) are in neither number. Set by note_unmeasured_pairs().
   uint64_t pairs_delivered{0};
   uint64_t pairs_delivered_unmeasured{0};
-  /// Document-level warning codes, like ShmInfo::warnings: stats-samples-lost.
+  /// The unmeasured pairs no lost sample explains (#152): no RTPS_SENT instance was ever seen
+  /// for the pair (packets_total 0), or no counter sample was lost at all. They raise
+  /// rtps-sent-absent; stats-samples-lost counts only the rest.
+  uint64_t pairs_delivered_absent{0};
+  /// Document-level warning codes, like ShmInfo::warnings: stats-samples-lost, rtps-sent-absent.
   std::vector<std::string> warnings;
 };
 

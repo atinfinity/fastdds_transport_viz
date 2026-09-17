@@ -119,6 +119,11 @@ bool statistics_late_join_window_open(
 /// HISTORY_LATENCY gaps never count. Pure function.
 bool statistics_samples_were_lost(const StatsData & stats);
 
+/// The one stderr line a run earns whose unmeasured pairs no lost sample explains (#152), or
+/// "" when StatsData::pairs_delivered_absent is 0. Pure function.
+std::string rtps_sent_absent_warning(const StatsData & stats);
+
+/// Also counts pairs_delivered_absent and raises rtps-sent-absent when it is above 0 (#152).
 /// Counts StatsData::pairs_delivered / pairs_delivered_unmeasured over `topics` (after
 /// apply_stats) and raises the document-level stats-samples-lost when
 /// statistics_samples_were_lost() then holds (#147). Replaces an earlier verdict, so it can be
