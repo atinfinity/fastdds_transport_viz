@@ -140,8 +140,9 @@ peers is enough: every peer has metatraffic, user-data and SHM locators) silentl
 reporting the extra ones. The tool flags this as `!stats-writer-instance-limit-suspected`.
 
 Fast DDS 3.5 made the limit unlimited by default: Lyrical and Rolling (3.6) do not need the
-profile below (it does no harm there), and a tool built with 3.5 or later never shows the
-warning. A pair without traffic to its reader gets `delivered-without-measured-traffic` or
+profile below for the instance limit - they need it for another reason, see
+[the next pitfall](#pitfall-stalled-counters-on-fast-dds-36) - and a tool built with 3.5 or
+later never shows the warning. A pair without traffic to its reader gets `delivered-without-measured-traffic` or
 `no-traffic-observed` instead. The tool goes by the Fast DDS it is built with, so it misses
 the limit when a Lyrical build observes Jazzy nodes, or when a profile of your own sets
 `max_instances` again.
@@ -164,6 +165,26 @@ through the rmw needs `FASTDDS_DEFAULT_PROFILES_FILE`.
 Fast DDS reads a single profiles file; `datasharing_auto_stats.xml` is the merge of this
 file with `datasharing_auto.xml` for observing data-sharing with `--stats`. (The tool's
 own statistics readers already use unlimited instances.)
+
+## Pitfall: stalled counters on Fast DDS 3.6
+
+On Fast DDS 3.6 (Lyrical, Rolling) the statistics DataWriters of the counters deliver almost
+only on their periodic heartbeat, which defaults to 3 s: the samples reach a reader in bursts
+with stalls of many seconds, none is reported lost, and with many `RTPS_SENT` instances most
+of them have not arrived after 30 s. Every pair then reads `measured=none(delivered)` with
+`delivered-without-measured-traffic`, already at 20 processes and 500 topics
+([#152](https://github.com/atinfinity/fastdds_transport_viz/issues/152); Jazzy's 2.14 is not
+affected). A reader cannot ask for heartbeats, so the tool cannot fix this on its side.
+
+The shipped profiles set `heartbeat_period` to 500 ms on the counter writers (every profile
+but `HISTORY_LATENCY_TOPIC`) when the package is built with Fast DDS 3.x, which restores
+continuous delivery. Fast DDS 2.x spells the element `heartbeatPeriod` and drops a whole
+profile it cannot parse, so CMake generates the installed `statistics.xml` and
+`datasharing_auto_stats.xml` from `config/*.xml.in` for the Fast DDS of the build: use the
+installed files, on the machine of the observed nodes. 500 ms is the longest of 100 ms,
+250 ms, 500 ms and 1 s that kept the `--watch` coverage at 1.0 on the medium rung (1 s reads
+0.21). Use the profile on the observed nodes of every distro, with the two lines of
+[the previous section](#pitfall-the-10-instance-limit).
 
 ## Reader QoS
 

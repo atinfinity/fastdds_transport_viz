@@ -118,7 +118,20 @@ if(EXISTS ${WEB_DIR}/index.html)
 else()
   message(WARNING "web/ not found next to the package; transport_viz_web will not be installed")
 endif()
-install(DIRECTORY config DESTINATION share/${PROJECT_NAME})
+# The statistics profiles are generated for the Fast DDS of this build (#152): 3.6 delivers
+# the counters almost only on the periodic heartbeat, so 3.x gets a heartbeat period on the
+# counter writers. 2.x needs none, and spells the element differently (heartbeatPeriod): an
+# unknown element makes Fast DDS drop the whole profile, so one file cannot serve both.
+if(FTV_FASTDDS_MAJOR GREATER_EQUAL 3)
+  set(FTV_STATS_WRITER_TIMES "\n      <times><heartbeat_period><sec>0</sec><nanosec>500000000</nanosec></heartbeat_period></times>")
+else()
+  set(FTV_STATS_WRITER_TIMES "")
+endif()
+foreach(profile statistics.xml datasharing_auto_stats.xml)
+  configure_file(config/${profile}.in ${CMAKE_CURRENT_BINARY_DIR}/config/${profile} @ONLY)
+  install(FILES ${CMAKE_CURRENT_BINARY_DIR}/config/${profile} DESTINATION share/${PROJECT_NAME}/config)
+endforeach()
+install(DIRECTORY config DESTINATION share/${PROJECT_NAME} PATTERN "*.in" EXCLUDE)
 
 # --- tests -------------------------------------------------------------------------
 if(BUILD_TESTING)

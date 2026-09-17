@@ -119,7 +119,7 @@ writer や reader 単位のカウンタ (`HISTORY_LATENCY`、`DATA_COUNT`、`RES
   participant には `FASTDDS_STATISTICS` の `RTPS_LOST_TOPIC` が必要で、無ければ取りこぼしは不明です。
   `LOSS` 列は `- lost`、JSON は `lost_packets: null` になり、他の信頼性カウンタはそのまま出ます。
 
-## 落とし穴: 10 インスタンスの上限
+## 落とし穴: 10 インスタンスの上限 {#instance-limit}
 
 Fast DDS は 3.5 より前、statistics の DataWriter を既定のリソース上限 (10 インスタンス) で作ります
 (Jazzy の 2.14。Humble の 2.6 のバイナリには statistics モジュールがありません)。
@@ -128,8 +128,9 @@ Fast DDS は 3.5 より前、statistics の DataWriter を既定のリソース�
 超過分を黙って報告しなくなります。ツールはこれを `!stats-writer-instance-limit-suspected` で
 示します。
 
-Fast DDS 3.5 で既定の上限は無制限になりました。Lyrical と Rolling (3.6) では下のプロファイルは
-不要で (指定しても害はありません)、3.5 以降でビルドしたツールはこの警告を出しません。reader 宛ての
+Fast DDS 3.5 で既定の上限は無制限になりました。Lyrical と Rolling (3.6) では、インスタンス上限の
+ためには下のプロファイルは不要です (別の理由で必要です。[次の落とし穴](#fast-dds-36)を
+参照)。3.5 以降でビルドしたツールはこの警告を出しません。reader 宛ての
 トラフィックが無いペアには、代わりに `delivered-without-measured-traffic` か `no-traffic-observed`
 が付きます。判定はツールをビルドした Fast DDS で決まるので、Lyrical でビルドしたツールで Jazzy の
 ノードを観測するときや、自分のプロファイルで `max_instances` を再び設定したときは、上限に気付けません。
@@ -152,6 +153,25 @@ Fast DDS 2.x は `FASTRTPS_DEFAULT_PROFILES_FILE` だけを、Fast DDS 3.x は
 Fast DDS はプロファイルファイルを 1 つしか読みません。data-sharing を `--stats` で観測するときは、
 このファイルと `datasharing_auto.xml` を結合した `datasharing_auto_stats.xml` を使います。
 (ツール自身の statistics reader は最初からインスタンス数無制限です。)
+
+## 落とし穴: Fast DDS 3.6 でカウンタが停滞する {#fast-dds-36}
+
+Fast DDS 3.6 (Lyrical、Rolling) では、カウンタの statistics DataWriter はほぼ周期 heartbeat
+(既定 3 秒) でしか配送が進みません。サンプルはバーストと数秒以上の停滞を繰り返して reader に届き、
+lost は 1 つも報告されず、`RTPS_SENT` のインスタンスが多いと 30 秒たっても大半が届きません。
+その結果、20 プロセス・500 トピックの規模で、すべてのペアが `measured=none(delivered)` と
+`delivered-without-measured-traffic` になります
+([#152](https://github.com/atinfinity/fastdds_transport_viz/issues/152)。Jazzy の 2.14 では
+起きません)。reader から heartbeat を要求することはできないので、ツール側では直せません。
+
+同梱のプロファイルは、カウンタの writer (`HISTORY_LATENCY_TOPIC` 以外のすべてのプロファイル) の
+`heartbeat_period` を、パッケージを Fast DDS 3.x でビルドしたときに 500 ms にして、連続した配送に
+戻します。Fast DDS 2.x ではこの要素の綴りが `heartbeatPeriod` で、パースできないプロファイルは丸ごと
+捨てられるため、インストールされる `statistics.xml` と `datasharing_auto_stats.xml` は CMake が
+`config/*.xml.in` からビルド対象の Fast DDS 向けに生成します。観測対象ノードのマシンにインストール
+されたファイルを使ってください。500 ms は100 ms、250 ms、500 ms、1 s のうち、
+medium の規模で `--watch` のカバレッジを 1.0 に保てた最長の値です (1 s では 0.21)。どのディストリでも、
+[前の節](#instance-limit)の 2 行で観測対象ノードにこのプロファイルを適用してください。
 
 ## reader の QoS
 

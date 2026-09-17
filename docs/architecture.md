@@ -296,8 +296,9 @@ src/fastdds_transport_viz/
                                    render.hpp, ros_names.hpp, fastdds_compat.hpp, fastdds_util.hpp
   src/                             implementation + main.cpp
   src/test_nodes/                  verification nodes (bounded_pub/sub, unbounded_pub/sub, large_array_pub/sub)
-  config/                          statistics.xml, datasharing_auto.xml, datasharing_auto_stats.xml,
-                                   unicast_discovery.xml
+  config/                          statistics.xml.in, datasharing_auto.xml, datasharing_auto_stats.xml.in,
+                                   unicast_discovery.xml (the .in templates are installed without the
+                                   suffix, generated for the Fast DDS of the build)
   third_party/fastdds_statistics_types/     vendored generated statistics types (Fast DDS 2.14)
   third_party/fastdds_statistics_types_v3/  same for Fast DDS 3.x
   test/                            gtest (decision, render, shm_info), pytest (json schema, web serve),
@@ -320,7 +321,7 @@ docs/, mkdocs.yml                  this site (English source, *.ja.md translatio
 - **A new statistics topic**: add a `Reader` to `StatsObserver` (`create_reader` reuses
   a topic Fast DDS already created when the observed node is in the same process),
   drain it in `drain()` into a new `StatsData` field, consume the field in
-  `apply_stats()`, extend `required_env_value()` and the `config/statistics.xml` profile
+  `apply_stats()`, extend `required_env_value()` and the `config/statistics.xml.in` profile
   (one `data_writer` profile per topic alias lifts the 10-instance limit), and document
   the topic in [statistics.md](statistics.md).
 - **A new output format**: a function `std::string render_x(const Snapshot &, const RenderOptions &)`

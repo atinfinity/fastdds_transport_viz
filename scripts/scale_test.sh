@@ -71,10 +71,26 @@ run_synthetic() {
   return $rc
 }
 
+# The budgets are judged on Jazzy; the other distros are recorded only. The one exception
+# (#152): on Fast DDS 3.6 the statistics counters stall without the heartbeat period of
+# the installed config/statistics.xml, which reads as a --watch coverage of 0.0 at medium.
+assert_lyrical_watch_coverage() {
+  [[ "$ROS_DISTRO" == "lyrical" ]] || return 0
+  python3 - "$out/medium.json" <<'EOF'
+import json, sys
+b = json.load(open(sys.argv[1]))['budgets']['stats_watch_coverage']
+print(f"== medium (lyrical): stats_watch_coverage {b['value']} (must be {b['op']} {b['limit']})")
+sys.exit(0 if b['pass'] else 1)
+EOF
+}
+
 build
 case "$scenario" in
   small) run_synthetic small 10 100 ;;
-  medium) run_synthetic medium 20 500 ;;
+  medium)
+    run_synthetic medium 20 500
+    assert_lyrical_watch_coverage
+    ;;
   large) run_synthetic large 40 1000 ;;
   large_multi) run_synthetic large_multi 40 1000 split ;;
   limit)

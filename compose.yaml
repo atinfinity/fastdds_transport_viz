@@ -51,11 +51,12 @@ x-base: &base
     - RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION:-rmw_fastrtps_cpp}
 
 # Fast DDS statistics on the observed nodes (see docs/statistics.md).
+# The installed statistics.xml: CMake generates it for the Fast DDS of the build (#152).
 x-stats-env: &stats_env
   ROS_DOMAIN_ID: ${ROS_DOMAIN_ID:-0}
   RMW_IMPLEMENTATION: ${RMW_IMPLEMENTATION:-rmw_fastrtps_cpp}
   FASTDDS_STATISTICS: RTPS_SENT_TOPIC;RTPS_LOST_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC;DATA_COUNT_TOPIC;RESENT_DATAS_TOPIC;HEARTBEAT_COUNT_TOPIC;ACKNACK_COUNT_TOPIC;NACKFRAG_COUNT_TOPIC;GAP_COUNT_TOPIC
-  FASTRTPS_DEFAULT_PROFILES_FILE: /ws/src/fastdds_transport_viz/config/statistics.xml
+  FASTRTPS_DEFAULT_PROFILES_FILE: /ws/build/${ROS_DISTRO:-jazzy}/install/fastdds_transport_viz/share/fastdds_transport_viz/config/statistics.xml
 
 # LARGE_DATA builtin transports (UDPv4 discovery, TCPv4 + SHM user data) with statistics.
 x-large-data-env: &large_data_env
@@ -63,7 +64,7 @@ x-large-data-env: &large_data_env
   RMW_IMPLEMENTATION: ${RMW_IMPLEMENTATION:-rmw_fastrtps_cpp}
   FASTDDS_BUILTIN_TRANSPORTS: LARGE_DATA
   FASTDDS_STATISTICS: RTPS_SENT_TOPIC;RTPS_LOST_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC;DATA_COUNT_TOPIC;RESENT_DATAS_TOPIC;HEARTBEAT_COUNT_TOPIC;ACKNACK_COUNT_TOPIC;NACKFRAG_COUNT_TOPIC;GAP_COUNT_TOPIC
-  FASTRTPS_DEFAULT_PROFILES_FILE: /ws/src/fastdds_transport_viz/config/statistics.xml
+  FASTRTPS_DEFAULT_PROFILES_FILE: /ws/build/${ROS_DISTRO:-jazzy}/install/fastdds_transport_viz/share/fastdds_transport_viz/config/statistics.xml
 
 # Fast DDS 3.2+ Easy Mode (ROS2_EASY_MODE, Kilted / Lyrical / Rolling): every container
 # spawns its own Discovery Server and points it at the talker's fixed address; user data
@@ -73,7 +74,7 @@ x-easy-mode-env: &easy_mode_env
   RMW_IMPLEMENTATION: ${RMW_IMPLEMENTATION:-rmw_fastrtps_cpp}
   ROS2_EASY_MODE: 172.28.0.10
   FASTDDS_STATISTICS: RTPS_SENT_TOPIC;RTPS_LOST_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC;DATA_COUNT_TOPIC;RESENT_DATAS_TOPIC;HEARTBEAT_COUNT_TOPIC;ACKNACK_COUNT_TOPIC;NACKFRAG_COUNT_TOPIC;GAP_COUNT_TOPIC
-  FASTRTPS_DEFAULT_PROFILES_FILE: /ws/src/fastdds_transport_viz/config/statistics.xml
+  FASTRTPS_DEFAULT_PROFILES_FILE: /ws/build/${ROS_DISTRO:-jazzy}/install/fastdds_transport_viz/share/fastdds_transport_viz/config/statistics.xml
 
 # Data-sharing (zero-copy) for the bounded_pub / bounded_sub nodes of this package.
 x-datasharing-env: &datasharing_env
