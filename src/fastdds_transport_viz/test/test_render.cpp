@@ -709,3 +709,44 @@ TEST(KeepChangedTopics, DropsTopicsWithoutAMarkOrGhost)
   ASSERT_EQ(snap.topics.size(), 1u);
   EXPECT_EQ(snap.topics[0].display_topic, "/chatter");
 }
+
+TEST(WatchState, GhostsComeFromTheFrameKeptByMove)
+{
+  RenderOptions opt;
+  WatchState ws;
+  auto first = snapshot();
+  first.endpoints.push_back(ep(false, "R2", "/gone", LocatorKind::SHM));
+  first.topics = summarize(first.endpoints);
+  const Endpoint * writer_before = first.topics[0].pairs[0].writer;
+  ws.diff(first, opt);
+  EXPECT_EQ(ws.deco.summary, "first frame");
+  EXPECT_TRUE(first.changes.removed.empty());
+  ws.keep(std::move(first));
+  // the summaries of the kept frame still point into its own endpoints (#135: the frame is
+  // no longer copied and summarized again)
+  ASSERT_EQ(ws.last_snapshot.topics.size(), 1u);
+  EXPECT_EQ(ws.last_snapshot.topics[0].pairs[0].writer, writer_before);
+  EXPECT_EQ(ws.last_snapshot.topics[0].pairs[0].writer, &ws.last_snapshot.endpoints[0]);
+
+  auto second = snapshot();
+  ws.diff(second, opt);
+  ASSERT_EQ(second.changes.removed.size(), 1u);
+  ASSERT_EQ(ws.deco.ghosts.size(), 1u);
+  EXPECT_EQ(ws.deco.ghosts[0].reader_label, "/gone@local");
+  EXPECT_EQ(ws.deco.ghosts[0].transport_label, "SHM");
+  EXPECT_EQ(ws.deco.summary, "-1 pair");
+  ws.keep(std::move(second));
+
+  // the ghost is held for kHoldFrames frames, and a pair that comes back drops it at once
+  auto third = snapshot();
+  ws.diff(third, opt);
+  EXPECT_EQ(ws.deco.ghosts.size(), 1u);
+  EXPECT_EQ(ws.deco.summary, "none");
+  ws.keep(std::move(third));
+  auto fourth = snapshot();
+  fourth.endpoints.push_back(ep(false, "R2", "/gone", LocatorKind::SHM));
+  fourth.topics = summarize(fourth.endpoints);
+  ws.diff(fourth, opt);
+  EXPECT_TRUE(ws.deco.ghosts.empty());
+  EXPECT_EQ(ws.deco.marks.count(PairKey{"/chatter", "W1", "R2"}), 1u);
+}

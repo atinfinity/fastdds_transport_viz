@@ -9,7 +9,7 @@ has warmed up:
   one-shot   the default table 3 times (median), plus one -v table for its line count
   --stats    --json at the default --timeout 5 and at --timeout 30: statistics coverage, dropped
              statistics samples; the 30 s document is kept for the web viewer
-  --watch    --interval 2 --stats for --watch-seconds, without and with -v: frame times
+  --watch    --interval 2 for --watch-seconds with --stats, --stats -v and no --stats: frame times
 
 Timings come from FTV_PROFILE=1 (JSON lines on stderr); CPU time and peak RSS of the tool from
 wait4(), CPU of the whole VM from /proc/stat. Writes <out>/<label>.json and prints a Markdown row.
@@ -30,7 +30,7 @@ import time
 BUDGETS = {
     # name: (limit, comparison, description)
     'oneshot_table_ms': (2000.0, '<', 'one-shot table after discovery (collect + render, median)'),
-    'watch_frame_p95_ms': (250.0, '<', '--watch frame, p95 of both runs'),
+    'watch_frame_p95_ms': (250.0, '<', '--watch frame, p95 of every run (--stats, --stats -v, no --stats)'),
     'tool_cpu_cores': (1.0, '<', 'tool CPU, average over the --watch and 30 s --stats runs'),
     'tool_rss_mb': (300.0, '<', 'tool peak RSS over every run'),
     'stats_dropped_samples': (0, '<=', 'counter statistics samples lost or rejected after the '
@@ -303,10 +303,11 @@ def main():
     }
 
     watch = {}
-    for name, extra in (('plain', []), ('verbose', ['-v'])):
-        print(f'== --watch --stats {" ".join(extra)} for {args.watch_seconds:.0f} s',
+    # `nostats` is the frame a user without --stats waits for: the budget holds there too (#135)
+    for name, extra in (('plain', ['--stats']), ('verbose', ['--stats', '-v']), ('nostats', [])):
+        print(f'== --watch {" ".join(extra)} for {args.watch_seconds:.0f} s',
               file=sys.stderr, flush=True)
-        run = run_tool(['--watch', '--interval', '2', '--stats'] + extra,
+        run = run_tool(['--watch', '--interval', '2'] + extra,
                        seconds=args.watch_seconds,
                        keep_stdout=os.path.join(args.out, f'{args.label}.watch-{name}.txt'))
         frames = [e['ms'] for e in phase(run, 'frame')]
@@ -330,6 +331,8 @@ def main():
                 p: round(statistics.median(e['ms'] for e in phase(run, p)), 1)
                 for p in ('drain', 'resolve', 'summarize', 'apply_stats', 'collect', 'update', 'render')
                 if phase(run, p)},
+            # frames that queried the ROS graph: only while discovery goes on (#135)
+            'graph_refreshes': sum(e.get('refreshed', 1) for e in phase(run, 'resolve')),
             'lost_samples_first_last': [drains[0], drains[-1]] if drains else None,
             'lost_latency_samples_first_last':
                 [drains_latency[0], drains_latency[-1]] if drains_latency else None,
@@ -385,7 +388,8 @@ def markdown_row(r):
     o, s, w = r['oneshot'], r['stats'], r['watch']
     failed = [k for k, b in r['budgets'].items() if b['pass'] is False]
     failed = [f'`{k}`' for k in failed]
-    failed += [f'`--watch{" -v" if k == "verbose" else ""}` saw no pairs'
+    flags = {'plain': ' --stats', 'verbose': ' --stats -v', 'nostats': ''}
+    failed += [f'`--watch{flags[k]}` saw no pairs'
                for k, run in w.items() if not (run.get('pairs_min_max') or [0, 0])[1]]
     if not r['load_healthy']:
         failed.append('load processes died')
@@ -397,7 +401,8 @@ def markdown_row(r):
         f"| {o['discovery_ms_median'] / 1000:.1f} s / {o['table_ms_median']:.0f} ms "
         f"(pairs {min(p or 0 for p in o['pairs'])}) "
         f"| {w['plain']['frame_ms_median']} / {w['plain']['frame_ms_p95']} ms "
-        f"(`-v` {w['verbose']['frame_ms_median']} / {w['verbose']['frame_ms_p95']} ms) "
+        f"(`-v` {w['verbose']['frame_ms_median']} / {w['verbose']['frame_ms_p95']} ms, "
+        f"no `--stats` {w['nostats']['frame_ms_median']} / {w['nostats']['frame_ms_p95']} ms) "
         f"| {r['budgets']['tool_cpu_cores']['value']:.2f} / {r['budgets']['tool_rss_mb']['value']:.0f} MB "
         f"| {s['dropped_samples']} ({max(s['oneshot_lost_samples'].values())} at start) "
         f"/ {s['coverage'] if r['budgets']['stats_coverage']['pass'] is not None else 'n/a'} "

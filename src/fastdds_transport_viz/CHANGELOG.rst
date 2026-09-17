@@ -4,6 +4,13 @@ Changelog for package fastdds_transport_viz
 
 Forthcoming
 -----------
+* A ``--watch`` frame on a large graph is two to five times faster (#135): 152 ms instead of
+  344 ms at 20 processes and 2400 pairs with ``--stats``, 1.6 s instead of 8.9 s at 40
+  processes. The ROS graph is queried only on the frames that follow a discovery event or a
+  ``ros_discovery_info`` sample, or come within 5 s of the last event, instead of twice per
+  topic on every frame; and the previous frame is kept by move for its ghost rows instead of
+  being copied, summarized and given its statistics a second time. ``scripts/scale_test.sh``
+  also times a ``--watch`` run without ``--stats``.
 * The tool keeps up with the statistics its readers are sent, on systems where it used to
   miss most of them (#141). Two things changed. ``StatsObserver`` now owns a thread that
   takes from every reader every 50 ms, for as long as the observer lives -- in both modes

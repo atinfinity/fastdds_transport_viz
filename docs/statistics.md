@@ -207,7 +207,7 @@ tool next to the nodes (details: [development.md](development.md#scale-results))
 
 - **Up to about 10 processes and 500 pairs** everything keeps up: every pair is measured within the default 5 s.
 - **At 20 processes and 2400 pairs** every pair is measured within 5 s as well, and the one-shot table shows all of them. Before [#141](https://github.com/atinfinity/fastdds_transport_viz/issues/141) a quarter of them had no measurement after 5 s and the table showed one.
-- **At 40 processes and 5600 pairs** the tool measures most or all of the pairs: the coverage at 5 s was 0.62, 0.97 and 1.0 over three runs of the same build, where before #141 it was 0.0 in all three. The spread is the host rather than the tool - at this size the load alone takes 6.7 to 7.5 of the 8 cores before the tool starts - and a `--watch` frame still takes seconds ([#135](https://github.com/atinfinity/fastdds_transport_viz/issues/135), [#136](https://github.com/atinfinity/fastdds_transport_viz/issues/136)).
+- **At 40 processes and 5600 pairs** the tool measures most or all of the pairs: the coverage at 5 s was 0.62, 0.97 and 1.0 over three runs of the same build, where before #141 it was 0.0 in all three. The spread is the host rather than the tool - at this size the load alone takes 6.7 to 7.5 of the 8 cores before the tool starts - and a `--watch --stats` frame still takes 1.6 s here (0.44 s without `--stats`; at 20 processes 0.15 s, within the 250 ms budget since [#135](https://github.com/atinfinity/fastdds_transport_viz/issues/135)).
 
 The tool receives all statistics over UDP on one Fast DDS receive thread, and next to Nav2 (4
 participants, 1195 pairs) that thread already takes a whole core. What bounds the loss is how

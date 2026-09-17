@@ -9,6 +9,7 @@
 #include <array>
 #include <cstdint>
 #include <map>
+#include <cstddef>
 #include <string>
 #include <vector>
 
@@ -45,6 +46,17 @@ std::string normalize_node_name(const std::string & name);
 
 /// "/ns/name"; "/name" for an empty or root namespace.
 std::string fully_qualified_node_name(const std::string & ns, const std::string & name);
+
+/// Seconds after the last discovery event during which the ROS graph is still re-queried:
+/// the ros_discovery_info sample naming an endpoint's node arrives after the endpoint does.
+constexpr double kGraphRefreshGraceSeconds = 5.0;
+
+/// Whether a --watch frame has to query the ROS graph again (#135: two rmw queries per topic,
+/// seconds on a thousand topics). `events` counts discovery events and ros_discovery_info
+/// samples; a graph that stays quiet past the grace period is not queried at all.
+bool should_refresh_graph(
+  bool refreshed_before, size_t events, size_t events_at_last_refresh,
+  double seconds_since_last_event);
 
 /// The rclcpp graph name when it is known, the name read from `ros_discovery_info` otherwise.
 std::string merge_node_name(const std::string & graph_name, const std::string & discovery_name);

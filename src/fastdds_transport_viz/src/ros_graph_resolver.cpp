@@ -30,6 +30,19 @@ void RosGraphResolver::refresh()
   }
 }
 
+bool RosGraphResolver::refresh_if_changed(size_t events, double seconds_since_last_event)
+{
+  if (!should_refresh_graph(
+      refreshed_, events, events_at_last_refresh_, seconds_since_last_event))
+  {
+    return false;
+  }
+  refresh();
+  refreshed_ = true;
+  events_at_last_refresh_ = events;
+  return true;
+}
+
 void RosGraphResolver::refresh_names()
 {
   std::map<std::array<uint8_t, 16>, std::string> fresh;

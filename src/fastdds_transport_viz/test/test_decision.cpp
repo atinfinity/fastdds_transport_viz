@@ -500,6 +500,18 @@ TEST(RosNames, UnknownNodeNameBecomesEmpty)
     fully_qualified_node_name("_NODE_NAMESPACE_UNKNOWN_", "_NODE_NAME_UNKNOWN_"), kUnknownNodeName);
 }
 
+TEST(RosNames, GraphIsQueriedOnlyWhileItChanges)
+{
+  // the first frame, and the one-shot run, always query
+  EXPECT_TRUE(should_refresh_graph(false, 0, 0, 60.0));
+  // an endpoint or a ros_discovery_info sample since the last query
+  EXPECT_TRUE(should_refresh_graph(true, 12, 11, 60.0));
+  // the node names of the last endpoints may still be on their way
+  EXPECT_TRUE(should_refresh_graph(true, 12, 12, kGraphRefreshGraceSeconds));
+  // a quiet graph costs nothing
+  EXPECT_FALSE(should_refresh_graph(true, 12, 12, kGraphRefreshGraceSeconds + 0.1));
+}
+
 TEST(RosNames, GraphNameWinsOverDiscoveryInfo)
 {
   EXPECT_EQ(merge_node_name("/talker", "/other"), "/talker");

@@ -442,10 +442,15 @@ Snapshot collect(
         {"drain_errors", stats->drain_errors()}});
     stats_data.local_addresses = local_ip_addresses();
   }
-  auto t_resolve = prof.now();
-  resolver.refresh();
-  prof.emit("resolve", t_resolve);
   if (names != nullptr) {names->poll();}
+  auto t_resolve = prof.now();
+  // The rmw graph only changes with the endpoints and the ros_discovery_info samples, so a
+  // quiet graph is not queried again (#135).
+  const bool refreshed = resolver.refresh_if_changed(
+    observer.event_count() + (names != nullptr ? names->samples_taken() : 0),
+    std::chrono::duration<double>(
+      std::chrono::steady_clock::now() - observer.last_event()).count());
+  prof.emit("resolve", t_resolve, {{"refreshed", static_cast<uint64_t>(refreshed)}});
 
   std::vector<Endpoint> endpoints = observer.snapshot();
   // Was discovery still running when the wait ended (#74 saw one-shot runs print a fraction
@@ -695,80 +700,6 @@ public:
 private:
   bool enabled_;
   termios saved_{};
-};
-
-/// Frame-to-frame highlight state for --watch.
-struct WatchState
-{
-  static constexpr int kHoldFrames = 3;
-  std::map<PairKey, PairState> last_rendered;
-  Snapshot last_snapshot;
-  bool have_previous{false};
-  std::map<PairKey, int> mark_ttl;
-  std::map<PairKey, int> ghost_ttl;
-  WatchDecorations deco;
-
-  /// Apply the diff between the previously rendered frame and `snap`.
-  void update(Snapshot & snap, const RenderOptions & ropt, const Options & o)
-  {
-    auto current = fastdds_transport_viz::pair_states(snap);
-    snap.has_changes = true;
-    if (have_previous) {
-      snap.changes = fastdds_transport_viz::diff(last_rendered, current);
-    }
-    // age existing marks / ghosts
-    for (auto it = mark_ttl.begin(); it != mark_ttl.end(); ) {
-      if (--it->second <= 0) {deco.marks.erase(it->first); it = mark_ttl.erase(it);} else {++it;}
-    }
-    for (auto it = ghost_ttl.begin(); it != ghost_ttl.end(); ) {
-      if (--it->second <= 0) {
-        auto & g = deco.ghosts;
-        g.erase(
-          std::remove_if(
-            g.begin(), g.end(), [&](const GhostPair & x) {return x.key == it->first;}),
-          g.end());
-        it = ghost_ttl.erase(it);
-      } else {++it;}
-    }
-    for (const auto & k : snap.changes.added) {deco.marks[k] = '+'; mark_ttl[k] = kHoldFrames;}
-    for (const auto & c : snap.changes.changed) {
-      deco.marks[c.key] = '~';
-      mark_ttl[c.key] = kHoldFrames;
-    }
-    for (const auto & k : snap.changes.removed) {
-      // a pair that came back is no ghost any more
-      deco.ghosts.erase(
-        std::remove_if(
-          deco.ghosts.begin(), deco.ghosts.end(),
-          [&](const GhostPair & x) {return x.key == k;}), deco.ghosts.end());
-      for (const auto & t : last_snapshot.topics) {
-        for (const auto & p : t.pairs) {
-          if (fastdds_transport_viz::pair_key(t, p) == k) {
-            deco.ghosts.push_back(fastdds_transport_viz::ghost_pair(last_snapshot, t, p, ropt));
-            ghost_ttl[k] = kHoldFrames;
-          }
-        }
-      }
-    }
-    for (const auto & k : snap.changes.added) {
-      deco.ghosts.erase(
-        std::remove_if(
-          deco.ghosts.begin(), deco.ghosts.end(),
-          [&](const GhostPair & x) {return x.key == k;}), deco.ghosts.end());
-      ghost_ttl.erase(k);
-    }
-    deco.summary = have_previous ?
-      fastdds_transport_viz::changes_summary(snap.changes) : "first frame";
-    last_rendered = std::move(current);
-    // Keep the frame for ghost rows. TopicSummary holds pointers into
-    // Snapshot::endpoints, so rebuild them against the copy.
-    last_snapshot = snap;
-    last_snapshot.topics = fastdds_transport_viz::summarize(last_snapshot.endpoints);
-    apply_default_view(last_snapshot.topics, o);
-    apply_node_filter(last_snapshot.topics, o);
-    fastdds_transport_viz::apply_stats(last_snapshot.topics, last_snapshot.stats);
-    have_previous = true;
-  }
 };
 
 /// The view options of a one-shot run applied to a loaded document: the default view keeps
@@ -1037,7 +968,7 @@ int main(int argc, char ** argv)
       warn_if_statistics_lost(snap);
     } else {
       Terminal term(!o.json);
-      WatchState ws;
+      fastdds_transport_viz::WatchState ws;
       bool first_frame = true;
       bool paused = false;
       bool quit = false;
@@ -1058,8 +989,10 @@ int main(int argc, char ** argv)
           ropt.explain = o.explain;
           ropt.locators = o.locators;
           ropt.advise = o.advise;
+          // Ctrl-C during a slow collect: leave without painting a frame nobody waits for
+          if (!rclcpp::ok()) {break;}
           auto t = prof.now();
-          ws.update(snap, ropt, o);
+          ws.diff(snap, ropt);
           prof.emit("update", t);
           t = prof.now();
           if (o.json) {
@@ -1102,6 +1035,7 @@ int main(int argc, char ** argv)
             // overwrite it anyway, so it is left to the JSON `discovery` object there.
             if (!term.enabled()) {warn_if_incomplete(snap, o);}
           }
+          ws.keep(std::move(snap));
         }
         char key = term.read_key(50);
         switch (key) {

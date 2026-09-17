@@ -62,6 +62,30 @@ std::string changes_summary(const Changes & changes);
 WatchDecorations decorations_for(
   const Changes & changes, const Snapshot & before, const RenderOptions & opt);
 
+/// Frame-to-frame highlight state for --watch. A frame is diff(), render, keep(): the
+/// previous frame is kept by move, not rebuilt, since summarizing and applying the statistics
+/// a second time cost as much as the rest of the frame on a large graph (#135).
+struct WatchState
+{
+  static constexpr int kHoldFrames = 3;
+  std::map<PairKey, PairState> last_rendered;
+  Snapshot last_snapshot;
+  bool have_previous{false};
+  std::map<PairKey, int> mark_ttl;
+  std::map<PairKey, int> ghost_ttl;
+  WatchDecorations deco;
+
+  /// Set `snap.changes` and the decorations from the previously kept frame.
+  void diff(Snapshot & snap, const RenderOptions & ropt);
+
+  /// Keep the rendered frame for the ghost rows of the next one. `snap` is moved from:
+  /// TopicSummary points into Snapshot::endpoints, and a moved vector keeps its elements.
+  void keep(Snapshot && snap);
+
+private:
+  std::map<PairKey, PairState> current_;
+};
+
 /// Drop the topics that carry no mark and no ghost (`--changes-only`).
 void keep_changed_topics(Snapshot & snap, const WatchDecorations & deco);
 

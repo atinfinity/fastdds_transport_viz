@@ -25,6 +25,9 @@ public:
   /// Re-query the ROS graph (publishers/subscriptions of every topic).
   void refresh();
 
+  /// refresh() when should_refresh_graph() says so; returns whether it did.
+  bool refresh_if_changed(size_t events, double seconds_since_last_event);
+
   /// Fully qualified node name ("/ns/node") for an endpoint GUID, or "".
   std::string node_for_guid(const std::array<uint8_t, 16> & guid) const;
 
@@ -32,6 +35,8 @@ private:
   void refresh_names();
   rclcpp::Node::SharedPtr node_;
   std::map<std::array<uint8_t, 16>, std::string> guid_to_node_;
+  bool refreshed_{false};
+  size_t events_at_last_refresh_{0};
 };
 
 }  // namespace fastdds_transport_viz
