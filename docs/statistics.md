@@ -215,23 +215,35 @@ often the tool takes from its readers, which is what the 50 ms drain above is fo
 the writers' keep-last history overwrites samples before they arrive.
 
 The tool says what it lost. `stats.samples_lost` in the JSON document counts the statistics
-samples that never reached it, the table's `statistics:` line repeats the number, the
-document-level warning code is `stats-samples-lost`, and a one-shot run adds one line on stderr:
+samples that never reached it and the table's `statistics:` line repeats the number. When the
+loss also cost a measurement (below), the document carries the warning code
+`stats-samples-lost` and a one-shot run adds one line on stderr:
 
 ```
-warning: 925130 of 1040228 statistics samples were lost (the tool could not keep up); some pairs show no measurement although they carry traffic - enable statistics on fewer nodes, or keep FASTDDS_STATISTICS to the aliases you need (e.g. RTPS_SENT_TOPIC;RTPS_LOST_TOPIC)
+warning: 682142 of 690671 statistics samples were lost (the tool could not keep up) and 37 of 2400 pairs with proven deliveries show no measured packet - enable statistics on fewer nodes, or keep FASTDDS_STATISTICS to the aliases you need (e.g. RTPS_SENT_TOPIC;RTPS_LOST_TOPIC)
 ```
 
 `--watch` does not print the line: the count only grows from frame to frame, and the
 `statistics:` footer already carries it. The counters are cumulative for the whole run, so a
 frame that loses nothing does not bring back the measurements the earlier ones missed.
 
-Losing samples is not the same as losing measurements, and the line above is the proof: it
-comes from the 40-process run whose coverage was 1.0, in which every `/scale` pair was
-measured. The statistics counters are cumulative and the tool reports `last - first` over the
-observation window, so a sample it never receives between two it did changes nothing. A loss
-costs a measurement only when it leaves an instance with fewer than two samples in the window
-- which is why the warning says a pair *can* show no measurement, not that one does.
+Losing samples is not the same as losing measurements: a 40-process run lost 925130 of
+1040228 samples and measured every `/scale` pair. The statistics counters are cumulative and
+the tool reports `last - first` over the observation window, so a sample it never receives
+between two it did changes nothing. A loss costs a measurement only when the `RTPS_SENT`
+samples of a pair's locators did not arrive at all, so that there is nothing to subtract. The
+instance itself cannot tell: one sample and no difference is also what a locator looks like
+that nothing was sent to since the tool started, and at 20 processes that is one in ten of
+them in a run that lost no sample. What tells the two apart is a delivery proof. Since
+[#147](https://github.com/atinfinity/fastdds_transport_viz/issues/147) the document counts the pairs whose deliveries `HISTORY_LATENCY` proves
+(`stats.pairs_delivered`) and those of them without a measured packet
+(`stats.pairs_delivered_unmeasured`), and the warning needs both: counter samples lost or
+rejected **and** at least one such pair. A loss alone is reported as a number and warns
+nobody; an unmeasured pair without a loss keeps its own `delivered-without-measured-traffic`.
+Data-sharing pairs, `qos-incompatible` and IPC-split pairs and
+`stats-writer-instance-limit-suspected` pairs are in neither number, and a pair without a
+delivery proof stays the ambiguity `no-traffic-observed` describes. The numbers follow the
+frame, so under `--watch` the warning goes away once the measurements are back.
 
 `stats.samples_lost_latency` is counted apart, as a part of `stats.samples_lost` rather than
 beside it, and nothing warns about it. `HISTORY_LATENCY` is received best-effort by design

@@ -218,7 +218,8 @@ classDiagram
   host info per participant) and what never arrived (`samples_lost`, of which
   `samples_lost_latency` is the best-effort `HISTORY_LATENCY` part that raises no warning,
   `samples_lost_at_start`, `samples_rejected` and a document-level `warnings` list
-  carrying `stats-samples-lost`, #134 and #141); `ShmInfo` is the shared-memory scan.
+  carrying `stats-samples-lost`, #134 and #141, and `pairs_delivered` /
+  `pairs_delivered_unmeasured`, the lost measurements that warning is about, #147); `ShmInfo` is the shared-memory scan.
 
 ## The decision
 
