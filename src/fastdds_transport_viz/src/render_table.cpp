@@ -196,6 +196,64 @@ std::string changes_summary(const Changes & c)
   return s;
 }
 
+void WatchState::diff(Snapshot & snap, const RenderOptions & ropt)
+{
+  current_ = pair_states(snap);
+  snap.has_changes = true;
+  if (have_previous) {
+    snap.changes = fastdds_transport_viz::diff(last_rendered, current_);
+  }
+  const auto drop_ghost = [this](const PairKey & k) {
+      auto & g = deco.ghosts;
+      g.erase(
+        std::remove_if(g.begin(), g.end(), [&](const GhostPair & x) {return x.key == k;}),
+        g.end());
+    };
+  // age existing marks / ghosts
+  for (auto it = mark_ttl.begin(); it != mark_ttl.end(); ) {
+    if (--it->second <= 0) {deco.marks.erase(it->first); it = mark_ttl.erase(it);} else {++it;}
+  }
+  for (auto it = ghost_ttl.begin(); it != ghost_ttl.end(); ) {
+    if (--it->second <= 0) {drop_ghost(it->first); it = ghost_ttl.erase(it);} else {++it;}
+  }
+  for (const auto & k : snap.changes.added) {
+    deco.marks[k] = '+';
+    mark_ttl[k] = kHoldFrames;
+  }
+  for (const auto & c : snap.changes.changed) {
+    deco.marks[c.key] = '~';
+    mark_ttl[c.key] = kHoldFrames;
+  }
+  if (!snap.changes.removed.empty()) {
+    const std::set<PairKey> removed(snap.changes.removed.begin(), snap.changes.removed.end());
+    // a pair that came back is no ghost any more
+    for (const auto & k : removed) {
+      drop_ghost(k);
+    }
+    for (const auto & t : last_snapshot.topics) {
+      for (const auto & p : t.pairs) {
+        const PairKey k = pair_key(t, p);
+        if (removed.count(k) > 0) {
+          deco.ghosts.push_back(ghost_pair(last_snapshot, t, p, ropt));
+          ghost_ttl[k] = kHoldFrames;
+        }
+      }
+    }
+  }
+  for (const auto & k : snap.changes.added) {
+    drop_ghost(k);
+    ghost_ttl.erase(k);
+  }
+  deco.summary = have_previous ? changes_summary(snap.changes) : "first frame";
+}
+
+void WatchState::keep(Snapshot && snap)
+{
+  last_rendered = std::move(current_);
+  last_snapshot = std::move(snap);
+  have_previous = true;
+}
+
 WatchDecorations decorations_for(
   const Changes & changes, const Snapshot & before, const RenderOptions & opt)
 {
