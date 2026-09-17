@@ -316,8 +316,16 @@ struct StatsData
   /// nothing about the tool keeping up, so it stays out of the warning. All three are
   /// cumulative over the run, `--watch` included.
   uint64_t samples_lost{0};
+  /// The part of samples_lost that HISTORY_LATENCY's reader reported (#141). That reader is
+  /// best-effort by design, so it sees every sequence gap; the samples it misses coarsen the
+  /// LATENCY of a pair instead of costing its measurement, which is why the warning leaves
+  /// them out.
+  uint64_t samples_lost_latency{0};
   uint64_t samples_lost_at_start{0};
   uint64_t samples_rejected{0};
+  /// Statistics DataWriters the readers could not match because their QoS is incompatible
+  /// (#141): their samples never arrive and are never counted as lost either.
+  uint64_t writers_incompatible_qos{0};
   /// Document-level warning codes, like ShmInfo::warnings: stats-samples-lost.
   std::vector<std::string> warnings;
 };

@@ -209,6 +209,11 @@ test('statsText: sample count, what the tool lost, and the document-level warnin
   assert.ok(html.startsWith('statistics: 12 samples, 42 lost '), html);
   assert.ok(html.includes('<b>!stats-samples-lost</b>'), html);
   assert.ok(html.includes('title="could not keep &quot;up&quot; Fix: enable statistics on fewer nodes"'), html);
+  // #141: HISTORY_LATENCY is received best-effort by design, so its gaps are named apart
+  // and stay out of the number that means a pair may be unmeasured
+  const lat = { enabled: true, samples: 12, samples_lost: 1040, samples_lost_latency: 1000,
+    samples_rejected: 2 };
+  assert.equal(M.statsText(lat, {}, {}), 'statistics: 12 samples, 42 lost, 1000 latency lost');
   // a document written before #134 carries none of the keys
   assert.equal(M.statsText({ enabled: true, samples: 12 }, {}, {}), 'statistics: 12 samples');
 });

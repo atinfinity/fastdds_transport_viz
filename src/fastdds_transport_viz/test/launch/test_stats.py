@@ -117,7 +117,7 @@ class TestStats(Base):
         """
         A small, quiet system loses no statistics sample (#134).
 
-        The loss counters are cumulative and shared by all eleven readers, so this is the
+        The loss counters are cumulative and shared by all ten readers, so this is the
         invariant worth asserting: five nodes give the tool nothing to fall behind on. The
         stderr line and the `stats-samples-lost` code come from the same predicate, so an
         empty `warnings` means nothing was printed either. Provoking a real loss would need
@@ -127,6 +127,8 @@ class TestStats(Base):
         stats = doc['stats']
         self.assertEqual(stats['samples_lost'], 0, stats)
         self.assertEqual(stats['samples_rejected'], 0, stats)
+        # nothing here changes the statistics writers' QoS, so every one of them matches (#141)
+        self.assertEqual(stats['writers_incompatible_qos'], 0, stats)
         self.assertEqual(stats['warnings'], [], stats)
         # the burst from before the readers matched is counted apart and never warns
         self.assertGreaterEqual(stats['samples_lost_at_start'], 0, stats)

@@ -4,15 +4,63 @@ Changelog for package fastdds_transport_viz
 
 Forthcoming
 -----------
+* The tool keeps up with the statistics its readers are sent, on systems where it used to
+  miss most of them (#141). Two things changed. ``StatsObserver`` now owns a thread that
+  takes from every reader every 50 ms, for as long as the observer lives -- in both modes
+  and while ``--watch`` is paused; until now the only drain during ``--watch`` was the one
+  ``snapshot()`` does inside ``collect()``, once per ``--interval`` (two seconds by default)
+  and not at all while paused, and the readers keep only the newest sample of an instance,
+  so what bounds the loss is the time between two takes. And the readers no longer take the
+  Fast DDS default resource limits: the statistics topics are keyed, the default allows ten
+  instances per reader, and past that a reader stops receiving a participant's samples
+  altogether -- the same limit the tool already warns about on the writer side. Instances
+  and ``max_samples`` are now unlimited and only ``max_samples_per_instance`` is bounded,
+  because a total cap would refuse samples once enough instances exist and a refusal is
+  counted as ``samples_rejected``. At 20 processes and 2400 pairs this takes the statistics
+  coverage from 0.947 to 1.0 and the one-shot table from one measured pair to all 2400.
+  ``HISTORY_LATENCY`` also goes best-effort and volatile: it is by far the loudest topic,
+  nothing it carries is cumulative, it is the only one that never reads ``first``, and
+  receiving it reliably costs more than it is worth -- measured at the same size, its
+  acknacks and retransmissions dropped the coverage to 0.746 and took the ``--watch`` frame
+  p95 to 20 s. Its losses are now visible, counted apart in
+  ``stats.samples_lost_latency`` (below), which is a report rather than a regression: the
+  samples were being discarded before too, silently, by a reliable reader overwriting its
+  own unread history.
+* ``stats.writers_incompatible_qos`` counts the statistics DataWriters the readers could not
+  match because the writers' QoS is incompatible with theirs (#141). Nothing such a writer
+  publishes is ever received and nothing is counted as lost either -- a reader is only told
+  about the samples of writers it did match -- so that loss was invisible, which is the one
+  thing #134 set out to end. Writers, not samples: folding them into ``samples_rejected``
+  would take back the meaning #134 gave it. The property is optional, so documents written
+  earlier still validate and the schema version is unchanged, and it raises no warning code:
+  with ``FASTDDS_STATISTICS`` set as the docs recommend the number is zero, and it is the
+  profile of the observed nodes that would have to change for it not to be.
+* Losing a ``HISTORY_LATENCY`` sample and losing a counter sample are no longer one number
+  (#141). The latency reader is best-effort by design -- that is what lets the tool keep up
+  -- so it reports every sequence gap in the loudest topic there is, and ``samples_lost``
+  therefore grew by orders of magnitude in the very change that took the statistics coverage
+  at 20 processes from 0.74 to 1.0: the tool measures every pair and says louder than ever
+  that it cannot keep up. ``stats.samples_lost_latency`` now counts that part apart -- as a
+  part of ``samples_lost``, so nothing about the existing field changes -- and the
+  ``stats-samples-lost`` warning, the one stderr line, the table's ``statistics:`` footer,
+  the web viewer's meta bar and the scale harness's ``stats_dropped_samples`` budget all
+  judge ``samples_lost`` without it and name the latency losses separately. The two are not
+  the same failure: a counter is read as ``last - first`` over the observation window, so
+  losing a counter sample shortens the window that difference covers and, when it leaves an
+  instance with fewer than two samples in it, costs the entity its measurement, while a
+  latency sample is one observation reduced to a mean and a max, so losing one only
+  coarsens a number the pair still shows. The property is optional, so documents written
+  earlier still validate and the schema version is unchanged.
 * The ``RATE`` column is gone, and the tool no longer subscribes to
   ``PUBLICATION_THROUGHPUT``. That statistic is not a rate: Fast DDS publishes one sample
   per ``write()`` whose value is that sample's payload divided by the interval since the
   same writer's previous ``write()``, so a writer that sends one burst and then falls
   silent was shown orders of magnitude too fast (``/parameter_events`` reached 1.7 GB/s at
   scale) and an idle writer kept its last value. Averaging cannot repair it either: the
-  statistics readers are ``KEEP_LAST`` depth 1 and are drained every 50 ms, so a burst
-  leaves a single sample behind. ``PUBLICATION_THROUGHPUT_TOPIC`` is out of the documented
-  ``FASTDDS_STATISTICS`` value and out of the shipped XML profiles. The JSON keys stay so
+  statistics readers keep one sample per instance of a counter topic and are drained
+  every 50 ms, so everything but the newest value is gone.
+  ``PUBLICATION_THROUGHPUT_TOPIC`` is out of the documented ``FASTDDS_STATISTICS`` value and
+  out of the shipped XML profiles. The JSON keys stay so
   that documents written earlier keep validating, fixed to ``null``
   (``measured.throughput_bytes_per_s``, ``topics[].throughput_bytes_per_s``) and to ``{}``
   (``stats.throughput``); the schema version is unchanged. The cumulative counters an

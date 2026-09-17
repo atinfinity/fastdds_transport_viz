@@ -196,6 +196,23 @@ TEST(RenderTable, StatisticsFooterCountsWhatTheToolLost)
   EXPECT_EQ(out.find("stats-samples-lost"), std::string::npos) << out;
 }
 
+TEST(RenderTable, StatisticsFooterNamesTheLatencyLossApart)
+{
+  // #141: best-effort by design, so the number is reported but is not the tool falling behind
+  auto s = stats_snapshot();
+  s.stats.samples_lost = 1040;
+  s.stats.samples_lost_latency = 1000;
+  s.stats.samples_rejected = 2;
+  auto out = render_table(s, RenderOptions{});
+  EXPECT_NE(
+    out.find(
+      "statistics: 12 samples from 1 participant(s), 42 sample(s) lost, "
+      "1000 latency sample(s) lost"),
+    std::string::npos) << out;
+  // no warning: nothing here says a pair went unmeasured
+  EXPECT_EQ(out.find("stats-samples-lost"), std::string::npos) << out;
+}
+
 TEST(RenderTable, StatisticsHintWhenNoParticipantPublishes)
 {
   auto s = stats_snapshot();

@@ -435,8 +435,11 @@ Snapshot collect(
     stats_data = stats->snapshot();
     prof.emit(
       "drain", t, {{"samples", stats_data.samples}, {"sample_lost", stats->samples_lost()},
+        {"sample_lost_latency", stats->samples_lost_latency()},
         {"sample_lost_at_start", stats->samples_lost_at_start()},
-        {"sample_rejected", stats->samples_rejected()}});
+        {"sample_rejected", stats->samples_rejected()},
+        {"writers_incompatible_qos", stats->writers_incompatible_qos()},
+        {"drain_errors", stats->drain_errors()}});
     stats_data.local_addresses = local_ip_addresses();
   }
   auto t_resolve = prof.now();
@@ -988,7 +991,7 @@ int main(int argc, char ** argv)
     // Wait until --timeout, or until discovery has been quiet for --quiet
     // seconds (but never less than --quiet seconds in total).
     for (;; ) {
-      if (stats) {stats->poll();}
+      // The statistics readers are drained by the observer's own thread (#141).
       if (names) {names->poll();}
       std::this_thread::sleep_for(50ms);
       auto now = std::chrono::steady_clock::now();

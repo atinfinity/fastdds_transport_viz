@@ -744,6 +744,16 @@
           "minimum": 0,
           "description": "statistics samples a resource limit of the tool's readers refused (#134); counted with samples_lost for the warning"
         },
+        "samples_lost_latency": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "the part of samples_lost that HISTORY_LATENCY's reader reported (#141). That reader is best-effort by design, so it sees every sequence gap; the samples it misses coarsen the LATENCY of a pair instead of costing its measurement, and they raise no stats-samples-lost warning. Optional; documents written before #141 do not carry it."
+        },
+        "writers_incompatible_qos": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "statistics DataWriters the tool's readers could not match because the writers' QoS is incompatible with theirs (#141). Nothing such a writer publishes ever arrives, and nothing is counted in samples_lost either: a reader is only told about the samples of writers it did match. Optional; documents written before #141 do not carry it."
+        },
         "warnings": {
           "type": "array",
           "description": "document-level warning codes about the statistics observation: stats-samples-lost",

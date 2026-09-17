@@ -119,11 +119,13 @@
     "samples": 0,
     "samples_lost": 0,
     "samples_lost_at_start": 0,
+    "samples_lost_latency": 0,
     "samples_rejected": 0,
     "statistics_writers": [],
     "throughput": {},
     "traffic": [],
-    "warnings": []
+    "warnings": [],
+    "writers_incompatible_qos": 0
   },
   "topics": [
     {

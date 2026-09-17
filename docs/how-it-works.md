@@ -53,8 +53,8 @@ sample per `write()` whose value is *that sample's* payload divided by the inter
 same writer's previous `write()`. A writer that sends a burst and then goes quiet reports the
 burst's instantaneous value and nothing afterwards, so a sporadic writer was shown orders of
 magnitude too fast. Averaging the samples the tool catches cannot repair it either: the
-statistics readers are `KEEP_LAST` depth 1 and are drained every 50 ms, so a burst leaves a
-single sample behind and the rest are gone. The tool no longer subscribes to the topic;
+statistics readers keep one sample per instance of a counter topic and are drained every
+50 ms, so everything but the newest value is gone. The tool no longer subscribes to the topic;
 `throughput_bytes_per_s` is fixed to `null` and `stats.throughput` stays empty. The counters
 an honest rate would be built from are in the JSON already - `stats.data_count` and
 `stats.traffic` are cumulative and `observation_seconds` says over how long, see

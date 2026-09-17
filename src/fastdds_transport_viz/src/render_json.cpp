@@ -330,6 +330,10 @@ std::string render_json(const Snapshot & snap, const RenderOptions & opt)
   stats["samples_lost"] = snap.stats.samples_lost;
   stats["samples_lost_at_start"] = snap.stats.samples_lost_at_start;
   stats["samples_rejected"] = snap.stats.samples_rejected;
+  // Writers, not samples: what never matched never published anything to count (#141).
+  stats["writers_incompatible_qos"] = snap.stats.writers_incompatible_qos;
+  // Part of samples_lost, named apart because it costs no measurement (#141).
+  stats["samples_lost_latency"] = snap.stats.samples_lost_latency;
   stats["warnings"] = snap.stats.warnings;
   root["stats"] = stats;
 

@@ -24,8 +24,8 @@ discovery のデータは「こうなる*はず*」を教えてくれます。`-
 同じ writer の前回の `write()` からの間隔で割ったものです。writer が 1 回の書き込み間隔でどれだけ
 速かったかを示すだけで、トピックが 1 秒あたりどれだけ運んでいるかではありません。バースト的に送って
 黙る writer では両者は桁違いにずれます。後段で直すこともできません。ツールの statistics reader は
-`KEEP_LAST` depth 1 で 50 ms ごとに読み出すため、バーストからはちょうど 1 サンプルしか残らず、他の
-サンプルの payload は失われているからです。
+statistics reader はカウンタトピックについてインスタンスあたり 1 サンプルしか保持せず、50 ms ごとに
+読み出すため、最新の値以外はツールが見る前に失われているからです。
 
 `measured.throughput_bytes_per_s`、`topics[].throughput_bytes_per_s`、`stats.throughput` は、以前に
 書かれた文書が検証を通り続けるように JSON に残し、それぞれ `null`、`null`、`{}` に固定しています。
@@ -153,40 +153,93 @@ Fast DDS はプロファイルファイルを 1 つしか読みません。data-
 このファイルと `datasharing_auto.xml` を結合した `datasharing_auto_stats.xml` を使います。
 (ツール自身の statistics reader は最初からインスタンス数無制限です。)
 
+## reader の QoS
+
+[#141](https://github.com/atinfinity/fastdds_transport_viz/issues/141) までは、ツールの 10 個の
+statistics reader はすべて Fast DDS の既定値を使っていました。reliable、transient-local、keep-last 1、
+そして目立たないところで**インスタンス数の上限 10** です。このインスタンス上限は、このページが
+writer 側について警告しているものと同じで、reader にも等しく効きます。statistics のトピックはキー付き
+なので、`(送信元, locator)` のインスタンスが 10 個を超えると、その participant のサンプルを reader は
+一切受け取らなくなります。現在はインスタンス数を無制限にし、トピックごとに次のように使い分けます。
+
+| トピック | 信頼性 | 永続性 | depth | 理由 |
+|---|---|---|---|---|
+| 8 つのカウンタトピック (`rtps_sent`、`rtps_lost`、`data_count`、`resent_datas`、`heartbeat_count`、`acknack_count`、`nackfrag_count`、`gap_count`) | reliable | transient-local | 1 | ツールが報告するのは `last - first` で、`first` は観測開始より前のサンプル。これを失うと 1 サンプルではなくエンティティ 1 つ分の実測値が失われる |
+| `_fastdds_statistics_physical_data` | reliable | transient-local | 1 | participant ごとに 1 サンプル、discovery 時に 1 度だけ publish される。2 つ目は同じことしか言わない |
+| `_fastdds_statistics_history2history_latency` | best-effort | volatile | 10 | 群を抜いて量が多く、運ぶ値は累積ではなく、`first` を一切見ない唯一のトピック |
+
+累積カウンタにはインスタンスあたり 1 サンプルで足ります。ツールが必要とするのは最新の値だけで、
+observer 自身のスレッドが到着から 50 ms 以内にそれを取り出すからです。10 サンプル保持する案は実測の
+うえで棄却しました。実測できるペアは 1 つも増えないまま、CPU を 0.2 コア近く余分に使い、`--watch` の
+フレーム p95 を倍にしたためです。
+
+`max_samples` は無制限のままで、上限を掛けるのは `max_samples_per_instance` だけです。合計で上限を
+掛けると、インスタンスが増えた時点でサンプルの受け取りを拒否し始め、その拒否は `samples_rejected`
+として数えられます。上限で防ごうとしている損失そのものです。
+
+`HISTORY_LATENCY` を reliable で受け取るのも割に合いません。20 プロセス・2400 ペアでの実測では、
+acknack と再送によって coverage が #141 以前 (0.947) を下回る 0.746 まで落ち、`--watch` のフレーム
+p95 は 20 秒に達しました。best-effort にすると、代わりにこのトピックの損失が見えるようになります
+(後述の `stats.samples_lost_latency`)。これは悪化ではなく報告です。
+
+reader の読み出しは observer が持つスレッドが 50 ms ごとに行います。両モードで、表示を一時停止して
+いる間も動き続けます (以前のように `--interval` ごとではありません)。これらのトピックで損失を決める
+のは 2 回の読み出しの間隔なので、depth よりも読み出しの頻度が効きます。
+
 ## 大規模なシステム
 
 Docker の 8 CPU の VM で Jazzy (Fast DDS 2.14.6) を使い、すべてのノードで statistics を有効にし、
 ツールをノードと同じ場所で動かして測りました (詳細は [development.md](development.md#scale-results))。
 
 - **約 10 プロセス、500 ペアまで**は取りこぼしが無く、既定の 5 秒ですべてのペアが実測されます。
-- **約 20 プロセス、2400 ペアから**ツールが statistics のサンプルを落とし始め、5 秒後に実測の無い
-  ペアが約 4 分の 1 残ります。
-- **40 プロセス、5600 ペア**ではほとんどのペアが実測されません。
+- **20 プロセス、2400 ペア**でも 5 秒ですべてのペアが実測され、ワンショットの表にも全ペアが出ます。
+  [#141](https://github.com/atinfinity/fastdds_transport_viz/issues/141) より前は 4 分の 1 のペアが 5 秒後も未実測で、表に出るのは 1 ペアだけでした。
+- **40 プロセス、5600 ペア**でも大半から全部のペアが実測されます。同じビルドの 3 回の実行で 5 秒
+  時点の coverage は 0.62 / 0.97 / 1.0 でした。#141 より前は 3 回とも 0.0 です。このばらつきは
+  ツールではなくホスト側の事情で、この規模では負荷だけで 8 コア中 6.7〜7.5 コアを使ってしまいます。
+  `--watch` の 1 フレームは依然として数秒かかります ([#135](https://github.com/atinfinity/fastdds_transport_viz/issues/135)、[#136](https://github.com/atinfinity/fastdds_transport_viz/issues/136))。
 
 ツールは statistics をすべて UDP で受け取り、Fast DDS はそれを 1 本の受信スレッドで処理します。
-Nav2 (4 participant、1195 ペア) の隣でも、このスレッドだけで 1 コアを使い切ります。追いつけなく
-なると、送信側の keep-last の履歴が届く前のサンプルを上書きします。
+Nav2 (4 participant、1195 ペア) の隣でも、このスレッドだけで 1 コアを使い切ります。損失を決めるのは
+reader からどれだけ頻繁に読み出すかで、そのための 50 ms の読み出しが上記のスレッドです。それを
+超えると、送信側の keep-last の履歴が届く前のサンプルを上書きします。
 
 ツールは落としたサンプルを報告します。JSON 文書の `stats.samples_lost` が届かなかった statistics
 サンプルの数で、表の `statistics:` 行にも同じ数が出ます。文書レベルの警告コードは
 `stats-samples-lost` で、ワンショット実行では stderr に 1 行出ます:
 
 ```
-warning: 682142 of 690671 statistics samples were lost (the tool could not keep up); some pairs show no measurement although they carry traffic - enable statistics on fewer nodes, or keep FASTDDS_STATISTICS to the aliases you need (e.g. RTPS_SENT_TOPIC;RTPS_LOST_TOPIC)
+warning: 925130 of 1040228 statistics samples were lost (the tool could not keep up); some pairs show no measurement although they carry traffic - enable statistics on fewer nodes, or keep FASTDDS_STATISTICS to the aliases you need (e.g. RTPS_SENT_TOPIC;RTPS_LOST_TOPIC)
 ```
 
 `--watch` ではこの行は出しません。値はフレームごとに増えるだけで、`statistics:` のフッタが既に
 表示しているからです。カウンタは実行全体の累積なので、損失の無いフレームが来ても、それ以前に
 取り逃した実測値が戻るわけではありません。
 
+サンプルを落とすことと実測を失うことは別です。上の 1 行がその証拠で、これは coverage が 1.0
+だった 40 プロセスの実行、つまりすべての `/scale` ペアが実測できた実行のものです。statistics の
+カウンタは累積値で、ツールは観測窓の `last - first` を報告するので、受け取れた 2 つのサンプルの
+間にある届かなかったサンプルは何も変えません。実測が失われるのは、窓の中にそのインスタンスの
+サンプルが 2 つ残らなかったときだけです。警告が「ペアが未実測になり得る」と言うのはそのためで、
+必ずそうなるという意味ではありません。
+
+`stats.samples_lost_latency` は別に数えます。`stats.samples_lost` の**内数**であって並ぶ数では
+なく、これを警告の対象にするものはありません。`HISTORY_LATENCY` は設計として best-effort で
+受け取る ([Reader QoS](#reader-qos)) ため、その reader は最も賑やかなトピックのシーケンスの
+抜けをすべて報告します。40 プロセスでは 60 秒の実行で 170 万〜190 万に達します。これらは独立した
+観測値で、ツールはそれを平均と最大に畳むので、落ちても出ている数値が粗くなるだけです。表では
+別項目として出し (`..., 42 sample(s) lost, 1000 latency sample(s) lost`)、web ビューアも同様で、
+`stats-samples-lost` の警告はこれを数えません。
+
 この警告が出ているときは、ペアの `no-traffic-observed` が「実測できなかった」の意味にもなり得ます。
-カウンタは 11 個の statistics reader で共有しているため、損失を特定のペアに帰属させられません。
+カウンタは 10 個の statistics reader で共有しているため、損失を特定のペアに帰属させられません。
 見る範囲を絞ってください:
 - 見たいノードでだけ statistics を有効にする;
 - `FASTDDS_STATISTICS` を必要な別名 (例: `RTPS_SENT_TOPIC;RTPS_LOST_TOPIC`) に絞る。
 
-ここでは `--timeout` を延ばしても解決しません。損失が減るのではなく、より多く集めるだけです。
-ツール側が追いつくようにするのは [#141](https://github.com/atinfinity/fastdds_transport_viz/issues/141) です。
+`--timeout` を延ばしても損失は減りません (より多く集めるだけです)。ただし各インスタンスが 2 回
+サンプリングされる機会は増えます。上の coverage はまさにそれを比べたもので、5 秒時点の実測と
+30 秒時点の実測の比です。
 
 `stats.samples_lost_at_start` は別に数えられ、警告にはなりません。reader はマッチした時点で、
 writer の keep-last 履歴が既に捨てていたサンプルをすべて「失われた」と通知されますが、これは

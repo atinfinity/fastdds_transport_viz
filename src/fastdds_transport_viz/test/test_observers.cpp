@@ -8,12 +8,14 @@
 
 #include <gtest/gtest.h>
 
+#include <chrono>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <stdexcept>
 #include <string>
+#include <thread>
 #include <utility>
 #include <vector>
 
@@ -231,6 +233,13 @@ TEST(StatsObserver, ReusesAnExistingTopicAndRejectsANonTopicDescription)
     StatsObserver stats(participant);
     EXPECT_EQ(stats.snapshot().samples, 0u);
     stats.poll();
+    // The observer drains on a thread of its own (#141), so a run that never calls poll()
+    // still empties the readers. Nothing publishes statistics here, so what can be checked
+    // is that the thread keeps going: it is still counting nothing several intervals later,
+    // and it survives the observer being destroyed while it runs.
+    std::this_thread::sleep_for(std::chrono::milliseconds(3 * kStatsDrainIntervalMs));
+    EXPECT_EQ(stats.drain_errors(), 0u);
+    EXPECT_EQ(stats.snapshot().samples, 0u);
   }
   // still usable after the observer released its readers
   EXPECT_NE(participant->lookup_topicdescription("_fastdds_statistics_rtps_sent"), nullptr);
@@ -258,9 +267,33 @@ TEST(StatsObserver, ReadersAnnounceNoShmLocator)
     eprosima::fastdds::rtps::LocatorList locators;
     ASSERT_TRUE(retcode_ok(r->get_listening_locators(locators)));
     EXPECT_FALSE(locators.empty());
+    const std::string name = r->get_topicdescription()->get_name();
     for (const auto & l : locators) {
-      EXPECT_NE(l.kind, LOCATOR_KIND_SHM) << r->get_topicdescription()->get_name();
+      EXPECT_NE(l.kind, LOCATOR_KIND_SHM) << name;
     }
+    // The QoS each topic gets is a decision, not a default, so it is pinned here (#141).
+    const auto qos = r->get_qos();
+    EXPECT_EQ(qos.history().kind, fdds::KEEP_LAST_HISTORY_QOS) << name;
+    if (name == "_fastdds_statistics_history2history_latency") {
+      // the loudest topic, and the only one that never reads the sample from before the run
+      EXPECT_EQ(qos.reliability().kind, fdds::BEST_EFFORT_RELIABILITY_QOS) << name;
+      EXPECT_EQ(qos.durability().kind, fdds::VOLATILE_DURABILITY_QOS) << name;
+      EXPECT_EQ(qos.history().depth, 10) << name;
+    } else if (name == "_fastdds_statistics_physical_data") {
+      // published once per participant: one slot is the whole topic
+      EXPECT_EQ(qos.reliability().kind, fdds::RELIABLE_RELIABILITY_QOS) << name;
+      EXPECT_EQ(qos.durability().kind, fdds::TRANSIENT_LOCAL_DURABILITY_QOS) << name;
+      EXPECT_EQ(qos.history().depth, 1) << name;
+    } else {
+      // the cumulative counters: last - first, so `first` has to survive
+      EXPECT_EQ(qos.reliability().kind, fdds::RELIABLE_RELIABILITY_QOS) << name;
+      EXPECT_EQ(qos.durability().kind, fdds::TRANSIENT_LOCAL_DURABILITY_QOS) << name;
+      EXPECT_EQ(qos.history().depth, 1) << name;
+    }
+    // unlimited instances and no total cap: a rejection is the loss this is to prevent
+    EXPECT_EQ(qos.resource_limits().max_instances, 0) << name;
+    EXPECT_EQ(qos.resource_limits().max_samples, 0) << name;
+    EXPECT_EQ(qos.resource_limits().max_samples_per_instance, qos.history().depth) << name;
   }
 }
 

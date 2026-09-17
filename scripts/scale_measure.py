@@ -33,8 +33,9 @@ BUDGETS = {
     'watch_frame_p95_ms': (250.0, '<', '--watch frame, p95 of both runs'),
     'tool_cpu_cores': (1.0, '<', 'tool CPU, average over the --watch and 30 s --stats runs'),
     'tool_rss_mb': (300.0, '<', 'tool peak RSS over every run'),
-    'stats_dropped_samples': (0, '<=', 'statistics samples lost or rejected after the first '
-                              '--watch frame (both runs)'),
+    'stats_dropped_samples': (0, '<=', 'counter statistics samples lost or rejected after the '
+                              'first --watch frame (both runs); the best-effort '
+                              'HISTORY_LATENCY losses are counted apart and not judged'),
     'stats_coverage': (0.95, '>=', 'measured pairs at --timeout 5 / measured pairs at 30, over '
                        'the /scale pairs when there are any'),
 }
@@ -310,8 +311,13 @@ def main():
                        keep_stdout=os.path.join(args.out, f'{args.label}.watch-{name}.txt'))
         frames = [e['ms'] for e in phase(run, 'frame')]
         frame_pairs = [e.get('pairs', 0) for e in phase(run, 'frame')]
-        drains = [(e.get('sample_lost', 0) or 0) + (e.get('sample_rejected', 0) or 0)
+        # Without the best-effort HISTORY_LATENCY gaps (#141): those coarsen a percentile,
+        # they do not cost a pair its measurement. Absent in profiles written before #141.
+        drains = [max((e.get('sample_lost', 0) or 0) -
+                      (e.get('sample_lost_latency', 0) or 0), 0) +
+                  (e.get('sample_rejected', 0) or 0)
                   for e in phase(run, 'drain')]
+        drains_latency = [e.get('sample_lost_latency', 0) or 0 for e in phase(run, 'drain')]
         watch[name] = {
             'frames': len(frames),
             # A watch that sees no pair has nothing to time: fast frames, not a pass.
@@ -325,6 +331,8 @@ def main():
                 for p in ('drain', 'resolve', 'summarize', 'apply_stats', 'collect', 'update', 'render')
                 if phase(run, p)},
             'lost_samples_first_last': [drains[0], drains[-1]] if drains else None,
+            'lost_latency_samples_first_last':
+                [drains_latency[0], drains_latency[-1]] if drains_latency else None,
             'dropped_samples': drains[-1] - drains[0] if drains else None,
             'render_lines_median': statistics.median(
                 e['lines'] for e in phase(run, 'render')) if frames else None,

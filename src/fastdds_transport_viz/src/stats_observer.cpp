@@ -7,6 +7,7 @@
 #include <cstring>
 #include <stdexcept>
 #include <string>
+#include <thread>
 
 #include <fastdds/dds/core/policy/QosPolicies.hpp>
 #include <fastdds/dds/subscriber/SampleInfo.hpp>
@@ -59,7 +60,7 @@ rtps::Locator_t to_rtps(const st::detail::Locator_s & l)
 }  // namespace
 
 void StatsObserver::Listener::on_sample_lost(
-  dds::DataReader *, const dds::SampleLostStatus & status)
+  dds::DataReader * reader, const dds::SampleLostStatus & status)
 {
   const std::chrono::steady_clock::duration since(
     std::chrono::steady_clock::now().time_since_epoch().count() - last_match_ticks);
@@ -69,6 +70,7 @@ void StatsObserver::Listener::on_sample_lost(
     lost_at_start += n;
   } else {
     lost += n;
+    if (reader == event_reader.load()) {lost_latency += n;}
   }
 }
 
@@ -88,6 +90,14 @@ void StatsObserver::Listener::on_subscription_matched(
   any_match = true;
 }
 
+void StatsObserver::Listener::on_requested_incompatible_qos(
+  dds::DataReader *, const dds::RequestedIncompatibleQosStatus & status)
+{
+  // Counted per writer, not per sample: a writer that never matched publishes nothing the
+  // readers could count, and samples_rejected must keep the meaning #134 gave it.
+  incompatible_qos += static_cast<uint64_t>(status.total_count_change);
+}
+
 std::string StatsObserver::required_env_value()
 {
   return "RTPS_SENT_TOPIC;RTPS_LOST_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC;"
@@ -103,30 +113,50 @@ StatsObserver::StatsObserver(dds::DomainParticipant * participant)
     throw std::runtime_error("failed to create statistics subscriber");
   }
   rtps_sent_ = create_reader(
-    st::RTPS_SENT_TOPIC, dds::TypeSupport(new st::Entity2LocatorTrafficPubSubType()));
+    st::RTPS_SENT_TOPIC, dds::TypeSupport(new st::Entity2LocatorTrafficPubSubType()),
+    ReaderKind::kCounter);
   history_latency_ = create_reader(
-    st::HISTORY_LATENCY_TOPIC, dds::TypeSupport(new st::WriterReaderDataPubSubType()));
+    st::HISTORY_LATENCY_TOPIC, dds::TypeSupport(new st::WriterReaderDataPubSubType()),
+    ReaderKind::kEvent);
+  listener_.event_reader = history_latency_.reader;
   physical_data_ = create_reader(
-    st::PHYSICAL_DATA_TOPIC, dds::TypeSupport(new st::PhysicalDataPubSubType()));
+    st::PHYSICAL_DATA_TOPIC, dds::TypeSupport(new st::PhysicalDataPubSubType()),
+    ReaderKind::kIdentity);
   data_count_ = create_reader(
-    st::DATA_COUNT_TOPIC, dds::TypeSupport(new st::EntityCountPubSubType()));
+    st::DATA_COUNT_TOPIC, dds::TypeSupport(new st::EntityCountPubSubType()),
+    ReaderKind::kCounter);
   rtps_lost_ = create_reader(
-    st::RTPS_LOST_TOPIC, dds::TypeSupport(new st::Entity2LocatorTrafficPubSubType()));
+    st::RTPS_LOST_TOPIC, dds::TypeSupport(new st::Entity2LocatorTrafficPubSubType()),
+    ReaderKind::kCounter);
   resent_datas_ = create_reader(
-    st::RESENT_DATAS_TOPIC, dds::TypeSupport(new st::EntityCountPubSubType()));
+    st::RESENT_DATAS_TOPIC, dds::TypeSupport(new st::EntityCountPubSubType()),
+    ReaderKind::kCounter);
   heartbeat_count_ = create_reader(
-    st::HEARTBEAT_COUNT_TOPIC, dds::TypeSupport(new st::EntityCountPubSubType()));
+    st::HEARTBEAT_COUNT_TOPIC, dds::TypeSupport(new st::EntityCountPubSubType()),
+    ReaderKind::kCounter);
   gap_count_ = create_reader(
-    st::GAP_COUNT_TOPIC, dds::TypeSupport(new st::EntityCountPubSubType()));
+    st::GAP_COUNT_TOPIC, dds::TypeSupport(new st::EntityCountPubSubType()),
+    ReaderKind::kCounter);
   acknack_count_ = create_reader(
-    st::ACKNACK_COUNT_TOPIC, dds::TypeSupport(new st::EntityCountPubSubType()));
+    st::ACKNACK_COUNT_TOPIC, dds::TypeSupport(new st::EntityCountPubSubType()),
+    ReaderKind::kCounter);
   nackfrag_count_ = create_reader(
-    st::NACKFRAG_COUNT_TOPIC, dds::TypeSupport(new st::EntityCountPubSubType()));
+    st::NACKFRAG_COUNT_TOPIC, dds::TypeSupport(new st::EntityCountPubSubType()),
+    ReaderKind::kCounter);
   data_.enabled = true;
+  // Last: the thread must not take a reader that does not exist yet.
+  drain_thread_ = std::thread(&StatsObserver::drain_loop, this);
 }
 
 StatsObserver::~StatsObserver()
 {
+  // First: the thread takes every reader deleted below.
+  {
+    std::lock_guard<std::mutex> lock(drain_wait_mutex_);
+    drain_stop_ = true;
+  }
+  drain_cv_.notify_all();
+  if (drain_thread_.joinable()) {drain_thread_.join();}
   for (auto * r : {&rtps_sent_, &history_latency_, &physical_data_, &data_count_,
       &rtps_lost_, &resent_datas_, &heartbeat_count_, &gap_count_, &acknack_count_,
       &nackfrag_count_})
@@ -140,7 +170,7 @@ StatsObserver::~StatsObserver()
 }
 
 StatsObserver::Reader StatsObserver::create_reader(
-  const std::string & topic_name, dds::TypeSupport type)
+  const std::string & topic_name, dds::TypeSupport type, ReaderKind kind)
 {
   Reader r;
   type.register_type(participant_);
@@ -161,17 +191,35 @@ StatsObserver::Reader StatsObserver::create_reader(
   // preallocated-with-realloc. The statistics topics are keyed (one instance per
   // (source, destination locator) / per participant), and the Fast DDS default
   // resource limits allow only 10 instances per reader - enough to silently drop
-  // every sample of a participant once ten (src, locator) pairs are seen. We only
-  // need the latest cumulative counter per instance, so: unlimited instances,
-  // keep-last 1.
+  // every sample of a participant once ten (src, locator) pairs are seen, so the
+  // instances stay unlimited. What differs per topic is how much history is worth
+  // keeping and whether the sample from before the observation started matters
+  // (#141; see ReaderKind and docs/statistics.md).
   dds::DataReaderQos qos = dds::DATAREADER_QOS_DEFAULT;
   qos.reliability().kind = dds::RELIABLE_RELIABILITY_QOS;
   qos.durability().kind = dds::TRANSIENT_LOCAL_DURABILITY_QOS;
   qos.history().kind = dds::KEEP_LAST_HISTORY_QOS;
+  // One slot is enough for both of the other kinds: only the newest sample of a cumulative
+  // counter says anything the tool needs, and PHYSICAL_DATA is published once per participant
+  // and never changed. The drain thread takes that sample within kStatsDrainIntervalMs of its
+  // arrival, and keeping ten here was measured to buy no additional measured pair.
   qos.history().depth = 1;
+  if (kind == ReaderKind::kEvent) {
+    // Not a counter but a stream of independent observations reduced to a percentile, so an
+    // older sample still carries something the newest does not replace. Ten is also all a
+    // reader can ever catch up on: the shipped writer profile keeps ten per instance, so past
+    // that the overwrite has already happened on the writer's side.
+    qos.history().depth = 10;
+    // Nothing here is cumulative and nothing is read from before the run, so the samples
+    // this reader misses are worth less than the delivery effort of getting them.
+    qos.reliability().kind = dds::BEST_EFFORT_RELIABILITY_QOS;
+    qos.durability().kind = dds::VOLATILE_DURABILITY_QOS;
+  }
   qos.resource_limits().max_samples = 0;             // 0 = unlimited in Fast DDS
   qos.resource_limits().max_instances = 0;
-  qos.resource_limits().max_samples_per_instance = 0;
+  // Bounded per instance, never in total: a total cap would refuse samples once enough
+  // instances exist, and a rejection is exactly the loss this is meant to prevent.
+  qos.resource_limits().max_samples_per_instance = qos.history().depth;
   qos.resource_limits().allocated_samples = 100;
   qos.endpoint().history_memory_policy = rtps::PREALLOCATED_WITH_REALLOC_MEMORY_MODE;
   // A writer with our host id picks SHM when the reader announces it. From another IPC
@@ -188,7 +236,8 @@ StatsObserver::Reader StatsObserver::create_reader(
   r.reader = subscriber_->create_datareader(
     r.topic, qos, &listener_,
     dds::StatusMask::sample_lost() << dds::StatusMask::sample_rejected() <<
-      dds::StatusMask::subscription_matched());
+      dds::StatusMask::subscription_matched() <<
+      dds::StatusMask::requested_incompatible_qos());
   if (r.reader == nullptr) {
     throw std::runtime_error("failed to create statistics reader for " + topic_name);
   }
@@ -198,6 +247,19 @@ StatsObserver::Reader StatsObserver::create_reader(
 void StatsObserver::drain()
 {
   dds::SampleInfo info;
+  std::unique_lock<std::mutex> lock(mutex_);
+  // A drain of a large system runs for over a second. Holding the aggregate for all of it
+  // would make every snapshot() wait for a whole one, so the lock is handed back regularly
+  // (#141): a snapshot then sees a drain in progress, which is what it would have seen a
+  // moment earlier anyway.
+  size_t since_yield = 0;
+  auto yield_lock = [&]() {
+      if (++since_yield < kStatsDrainLockBatchSamples) {return;}
+      since_yield = 0;
+      lock.unlock();
+      std::this_thread::yield();
+      lock.lock();
+    };
   // A statistics source is the participant that published a sample. The payload can name
   // another one (RTPS_LOST src_guid, HISTORY_LATENCY writer_guid), which says nothing about
   // whether that participant has statistics enabled.
@@ -230,6 +292,7 @@ void StatsObserver::drain()
     }
     s.samples = slot.samples + 1;
     slot = s;
+    yield_lock();
   }
 
   st::WriterReaderData latency;
@@ -242,6 +305,7 @@ void StatsObserver::drain()
     // write-to-notification latency, nanoseconds as float
     data_.latency[{guid_to_string(w), guid_to_string(r)}].add(
       static_cast<double>(latency.data()) * 1e-9);
+    yield_lock();
   }
 
   // Cumulative per-entity counters: DATA_COUNT and the reliability counters. The first
@@ -256,6 +320,7 @@ void StatsObserver::drain()
         if (d.samples == 0) {d.first = count.count();}
         d.last = count.count();
         ++d.samples;
+        yield_lock();
       }
     };
   drain_counter(data_count_, data_.data_count);
@@ -291,6 +356,7 @@ void StatsObserver::drain()
     }
     s.samples = slot.samples + 1;
     slot = s;
+    yield_lock();
   }
 
   st::PhysicalData physical;
@@ -300,24 +366,48 @@ void StatsObserver::drain()
     rtps::GUID_t g = to_rtps(physical.participant_guid());
     std::string prefix = prefix_to_string(g.guidPrefix);
     data_.physical[prefix] = HostInfo{physical.host(), physical.user(), physical.process()};
+    yield_lock();
+  }
+}
+
+void StatsObserver::drain_loop()
+{
+  std::unique_lock<std::mutex> wait(drain_wait_mutex_);
+  while (!drain_stop_) {
+    drain_cv_.wait_for(
+      wait, std::chrono::milliseconds(kStatsDrainIntervalMs),
+      [this] {return drain_stop_.load();});
+    if (drain_stop_) {break;}
+    wait.unlock();
+    // One failed drain must not end the ingestion for the rest of the run: it is counted
+    // instead, and reported with the drain phase under FTV_PROFILE.
+    try {
+      drain();
+    } catch (...) {
+      ++drain_errors_;
+    }
+    wait.lock();
   }
 }
 
 void StatsObserver::poll()
 {
-  std::lock_guard<std::mutex> lock(mutex_);
   drain();
 }
 
 StatsData StatsObserver::snapshot()
 {
-  std::lock_guard<std::mutex> lock(mutex_);
+  // A final sweep before the copy: the thread drains every kStatsDrainIntervalMs, so how long
+  // this one still takes is the gauge of whether it keeps up (FTV_PROFILE "drain").
   drain();
+  std::lock_guard<std::mutex> lock(mutex_);
   StatsData out = data_;
   out.writer_instance_limit = FTV_STATS_WRITER_INSTANCE_LIMIT;
   out.samples_lost = listener_.lost;
   out.samples_lost_at_start = listener_.lost_at_start;
   out.samples_rejected = listener_.rejected;
+  out.writers_incompatible_qos = listener_.incompatible_qos;
+  out.samples_lost_latency = listener_.lost_latency;
   if (statistics_samples_were_lost(out)) {out.warnings.push_back("stats-samples-lost");}
   out.traffic.clear();
   for (const auto & kv : traffic_) {

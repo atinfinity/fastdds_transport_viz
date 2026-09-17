@@ -14,11 +14,13 @@
 
 #include <atomic>
 #include <chrono>
+#include <condition_variable>
 #include <cstdint>
 #include <map>
 #include <memory>
 #include <mutex>
 #include <string>
+#include <thread>
 #include <tuple>
 #include <vector>
 
@@ -34,10 +36,20 @@
 namespace fastdds_transport_viz
 {
 
+/// How often the observer's own thread takes the statistics readers (#141). The readers keep
+/// only the last sample of an instance, so what bounds the loss is the time between two takes,
+/// not --interval: before this, a --watch run drained once per frame (2 s by default) and not
+/// at all while paused, and a large system overwrote most samples in between.
+inline constexpr int kStatsDrainIntervalMs = 50;
+/// How many samples one drain processes before it hands the aggregate back. A drain of a large
+/// system runs for over a second, and snapshot() must not wait for a whole one.
+inline constexpr size_t kStatsDrainLockBatchSamples = 256;
+
 class StatsObserver
 {
 public:
-  /// Adds statistics readers to an existing participant.
+  /// Adds statistics readers to an existing participant and starts draining them every
+  /// kStatsDrainIntervalMs until the observer is destroyed.
   explicit StatsObserver(eprosima::fastdds::dds::DomainParticipant * participant);
   ~StatsObserver();
 
@@ -47,9 +59,9 @@ public:
   /// Drain every reader and return a copy of the aggregated data.
   StatsData snapshot();
 
-  /// Drain the readers without copying; call periodically during the observation so
-  /// that the first and the last sample of every counter are both seen (the readers
-  /// keep only the latest sample per instance).
+  /// Drain the readers without copying. The observer's own thread calls this every
+  /// kStatsDrainIntervalMs; it stays public because the tests drive a drain deterministically
+  /// instead of waiting for the thread.
   void poll();
 
   /// The subscriber holding the statistics readers (for tests).
@@ -60,8 +72,17 @@ public:
   /// arrives while the statistics writers are still matching the readers; `samples_lost`
   /// only what was lost afterwards, which is the tool failing to keep up (#134).
   uint64_t samples_lost() const {return listener_.lost;}
+  /// The part of samples_lost() that HISTORY_LATENCY's best-effort reader reported (#141).
+  uint64_t samples_lost_latency() const {return listener_.lost_latency;}
   uint64_t samples_lost_at_start() const {return listener_.lost_at_start;}
   uint64_t samples_rejected() const {return listener_.rejected;}
+  /// Statistics writers that were discovered but could not be matched because their QoS is
+  /// incompatible with the readers' (#141). Nothing they publish is ever received, and
+  /// nothing is counted as lost either: a reader only hears about the samples of writers it
+  /// did match, so without this the loss would be invisible.
+  uint64_t writers_incompatible_qos() const {return listener_.incompatible_qos;}
+  /// Drains that ended in an exception. The drain thread counts them instead of dying.
+  uint64_t drain_errors() const {return drain_errors_;}
 
   /// Value for FASTDDS_STATISTICS that monitored nodes need.
   static std::string required_env_value();
@@ -73,6 +94,21 @@ private:
     bool owns_topic{true};   // false when reusing a topic Fast DDS created (FASTDDS_STATISTICS)
     eprosima::fastdds::dds::DataReader * reader{nullptr};
   };
+  /// What the tool needs from a statistics topic, which is what its reader's QoS follows.
+  enum class ReaderKind
+  {
+    /// PHYSICAL_DATA: one sample per participant, published once. Reliable and
+    /// transient-local, or the host and pid of a participant that started before the tool
+    /// would never be seen.
+    kIdentity,
+    /// The cumulative counters (RTPS_SENT, RTPS_LOST, DATA_COUNT, ...). The tool reports
+    /// last - first, and `first` is the transient-local sample from before the observation
+    /// started, so these cannot go best-effort or volatile however loud they are.
+    kCounter,
+    /// HISTORY_LATENCY: one sample per delivered change, only counted and averaged. By far
+    /// the loudest topic, and the only one that never looks at `first`.
+    kEvent,
+  };
   /// Counts what the readers did not get (#134). A reader that has just matched a statistics
   /// writer is told about every sample the writer's keep-last history already dropped, which
   /// is not the tool falling behind: a loss within kStatisticsLateJoinGraceSeconds of a new
@@ -82,8 +118,18 @@ private:
   struct Listener : public eprosima::fastdds::dds::DataReaderListener
   {
     std::atomic<uint64_t> lost{0};
+    /// The part of `lost` that belongs to HISTORY_LATENCY, whose reader is best-effort by
+    /// design (#141). Its samples are independent observations reduced to a percentile, so
+    /// losing them coarsens a number the tool still reports, while losing a counter sample
+    /// costs the measurement of an entity. Kept apart so the warning can say which happened.
+    std::atomic<uint64_t> lost_latency{0};
+    /// The HISTORY_LATENCY reader, to tell its losses from the counters'. Assigned right
+    /// after that reader is created: a sample cannot be lost before its reader matched a
+    /// writer, and a loss before the first match of all lands in `lost_at_start` anyway.
+    std::atomic<eprosima::fastdds::dds::DataReader *> event_reader{nullptr};
     std::atomic<uint64_t> lost_at_start{0};
     std::atomic<uint64_t> rejected{0};
+    std::atomic<uint64_t> incompatible_qos{0};
     /// The grace period is measured from the last writer match, so it cannot run before the
     /// first one: discovery alone takes longer than it on some distributions.
     std::atomic<bool> any_match{false};
@@ -98,10 +144,15 @@ private:
     void on_subscription_matched(
       eprosima::fastdds::dds::DataReader *,
       const eprosima::fastdds::dds::SubscriptionMatchedStatus & status) override;
+    void on_requested_incompatible_qos(
+      eprosima::fastdds::dds::DataReader *,
+      const eprosima::fastdds::dds::RequestedIncompatibleQosStatus & status) override;
   };
   Reader create_reader(
-    const std::string & topic_name, eprosima::fastdds::dds::TypeSupport type);
+    const std::string & topic_name, eprosima::fastdds::dds::TypeSupport type,
+    ReaderKind kind);
   void drain();
+  void drain_loop();
 
   eprosima::fastdds::dds::DomainParticipant * participant_;
   Listener listener_;   // declared before the readers it outlives
@@ -128,6 +179,13 @@ private:
   using LostKey = std::tuple<std::string, std::string, int, std::string, uint32_t>;
   std::map<LostKey, TrafficSample> lost_;
   StatsData data_;
+
+  std::mutex drain_wait_mutex_;
+  std::condition_variable drain_cv_;
+  std::atomic<bool> drain_stop_{false};
+  std::atomic<uint64_t> drain_errors_{0};
+  // declared last so that it is joined before anything it touches goes away
+  std::thread drain_thread_;
 };
 
 }  // namespace fastdds_transport_viz

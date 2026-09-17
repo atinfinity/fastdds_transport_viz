@@ -115,6 +115,11 @@ bool statistics_late_join_window_open(
 /// burst (StatsData::samples_lost_at_start) does not count, a single sample does. Pure function.
 bool statistics_samples_were_lost(const StatsData & stats);
 
+/// The losses that cost a measurement: samples_lost without the best-effort HISTORY_LATENCY
+/// part (#141). Saturates at 0, because a document written before #141 carries no
+/// samples_lost_latency and every document may be edited by hand. Pure function.
+uint64_t statistics_counter_samples_lost(const StatsData & stats);
+
 /// The one stderr line a run that lost statistics samples earns (#134), or "" when nothing was
 /// lost. Names the loss against everything the readers should have had (received + lost). A
 /// longer --timeout is deliberately not advised: it does not lower the loss rate, it only
