@@ -197,7 +197,8 @@ Docker の 8 CPU の VM で Jazzy (Fast DDS 2.14.6) を使い、すべてのノ�
 - **40 プロセス、5600 ペア**でも大半から全部のペアが実測されます。同じビルドの 3 回の実行で 5 秒
   時点の coverage は 0.62 / 0.97 / 1.0 でした。#141 より前は 3 回とも 0.0 です。このばらつきは
   ツールではなくホスト側の事情で、この規模では負荷だけで 8 コア中 6.7〜7.5 コアを使ってしまいます。
-  `--watch` の 1 フレームは依然として数秒かかります ([#135](https://github.com/atinfinity/fastdds_transport_viz/issues/135)、[#136](https://github.com/atinfinity/fastdds_transport_viz/issues/136))。
+  この規模では `--watch --stats` の 1 フレームに依然として 1.6 秒かかります (`--stats` なしで 0.44 秒)。
+  20 プロセスでは 0.15 秒で、[#135](https://github.com/atinfinity/fastdds_transport_viz/issues/135) 以降は 250 ms の予算内です。
 
 ツールは statistics をすべて UDP で受け取り、Fast DDS はそれを 1 本の受信スレッドで処理します。
 Nav2 (4 participant、1195 ペア) の隣でも、このスレッドだけで 1 コアを使い切ります。損失を決めるのは
