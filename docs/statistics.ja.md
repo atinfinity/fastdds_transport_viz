@@ -206,23 +206,33 @@ reader からどれだけ頻繁に読み出すかで、そのための 50 ms の
 超えると、送信側の keep-last の履歴が届く前のサンプルを上書きします。
 
 ツールは落としたサンプルを報告します。JSON 文書の `stats.samples_lost` が届かなかった statistics
-サンプルの数で、表の `statistics:` 行にも同じ数が出ます。文書レベルの警告コードは
-`stats-samples-lost` で、ワンショット実行では stderr に 1 行出ます:
+サンプルの数で、表の `statistics:` 行にも同じ数が出ます。その損失で実測まで失われたとき (後述) は、
+文書に警告コード `stats-samples-lost` が付き、ワンショット実行では stderr に 1 行出ます:
 
 ```
-warning: 925130 of 1040228 statistics samples were lost (the tool could not keep up); some pairs show no measurement although they carry traffic - enable statistics on fewer nodes, or keep FASTDDS_STATISTICS to the aliases you need (e.g. RTPS_SENT_TOPIC;RTPS_LOST_TOPIC)
+warning: 682142 of 690671 statistics samples were lost (the tool could not keep up) and 37 of 2400 pairs with proven deliveries show no measured packet - enable statistics on fewer nodes, or keep FASTDDS_STATISTICS to the aliases you need (e.g. RTPS_SENT_TOPIC;RTPS_LOST_TOPIC)
 ```
 
 `--watch` ではこの行は出しません。値はフレームごとに増えるだけで、`statistics:` のフッタが既に
 表示しているからです。カウンタは実行全体の累積なので、損失の無いフレームが来ても、それ以前に
 取り逃した実測値が戻るわけではありません。
 
-サンプルを落とすことと実測を失うことは別です。上の 1 行がその証拠で、これは coverage が 1.0
-だった 40 プロセスの実行、つまりすべての `/scale` ペアが実測できた実行のものです。statistics の
-カウンタは累積値で、ツールは観測窓の `last - first` を報告するので、受け取れた 2 つのサンプルの
-間にある届かなかったサンプルは何も変えません。実測が失われるのは、窓の中にそのインスタンスの
-サンプルが 2 つ残らなかったときだけです。警告が「ペアが未実測になり得る」と言うのはそのためで、
-必ずそうなるという意味ではありません。
+サンプルを落とすことと実測を失うことは別です。40 プロセスの実行では 1040228 個のうち 925130 個を
+落としながら、すべての `/scale` ペアを実測できました。statistics のカウンタは累積値で、ツールは
+観測窓の `last - first` を報告するので、受け取れた 2 つのサンプルの間にある届かなかったサンプルは
+何も変えません。実測が失われるのは、あるペアの locator の `RTPS_SENT` サンプルがまったく届かず、
+引く相手が無いときだけです。ただしインスタンスだけを見てもそれは分かりません。サンプルが 1 つで
+差が 0 というのは、ツールの起動後に何も送られていない locator の姿でもあり、20 プロセスの実行では
+サンプルを 1 つも落としていないのに 1 割のインスタンスがそうでした。両者を区別できるのは配送の
+証拠です。[#147](https://github.com/atinfinity/fastdds_transport_viz/issues/147) 以降、文書は `HISTORY_LATENCY` が配送を証明しているペアの数
+(`stats.pairs_delivered`) と、そのうち実測パケットが無いペアの数
+(`stats.pairs_delivered_unmeasured`) を持ち、警告は両方がそろったときだけ出ます。つまり、
+カウンタのサンプルが失われた (または拒否された) こと**と**、そうしたペアが 1 つ以上あることです。
+損失だけなら数として報告されるだけで警告にはなりません。損失の無い未実測ペアには、従来どおり
+ペア単位の `delivered-without-measured-traffic` が付きます。data-sharing のペア、
+`qos-incompatible` や IPC 分断のペア、`stats-writer-instance-limit-suspected` のペアはどちらの
+数にも入らず、配送の証拠が無いペアは `no-traffic-observed` が説明するあいまいさのままです。
+数はフレームごとに数え直すので、`--watch` では実測が戻れば警告も消えます。
 
 `stats.samples_lost_latency` は別に数えます。`stats.samples_lost` の**内数**であって並ぶ数では
 なく、これを警告の対象にするものはありません。`HISTORY_LATENCY` は設計として best-effort で

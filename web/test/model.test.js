@@ -214,6 +214,11 @@ test('statsText: sample count, what the tool lost, and the document-level warnin
   const lat = { enabled: true, samples: 12, samples_lost: 1040, samples_lost_latency: 1000,
     samples_rejected: 2 };
   assert.equal(M.statsText(lat, {}, {}), 'statistics: 12 samples, 42 lost, 1000 latency lost');
+  // #147: a loss that cost no measurement is a number without a marker
+  const harmless = { enabled: true, samples: 12, samples_lost: 40, samples_rejected: 2,
+    pairs_delivered_unmeasured: 0, warnings: [] };
+  assert.equal(M.statsText(harmless, { 'stats-samples-lost': 'x' }, {}),
+    'statistics: 12 samples, 42 lost');
   // a document written before #134 carries none of the keys
   assert.equal(M.statsText({ enabled: true, samples: 12 }, {}, {}), 'statistics: 12 samples');
 });

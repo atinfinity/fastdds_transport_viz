@@ -2338,13 +2338,90 @@ TEST(StatisticsLossWarning, NamesTheLossAgainstEverythingThatShouldHaveArrived)
   s.samples = 8529;
   s.samples_lost = 682142;
   s.samples_lost_at_start = 120;   // out of both the numerator and the denominator
+  s.pairs_delivered = 2400;
+  s.pairs_delivered_unmeasured = 37;
   EXPECT_TRUE(statistics_samples_were_lost(s));
   EXPECT_EQ(
     statistics_loss_warning(s),
-    "warning: 682142 of 690671 statistics samples were lost (the tool could not keep up); "
-    "some pairs show no measurement although they carry traffic - enable statistics on fewer "
-    "nodes, or keep FASTDDS_STATISTICS to the aliases you need "
+    "warning: 682142 of 690671 statistics samples were lost (the tool could not keep up) and "
+    "37 of 2400 pairs with proven deliveries show no measured packet - enable statistics on "
+    "fewer nodes, or keep FASTDDS_STATISTICS to the aliases you need "
     "(e.g. RTPS_SENT_TOPIC;RTPS_LOST_TOPIC)");
+}
+
+TEST(StatisticsLossWarning, LossThatCostsNoMeasurementSaysNothing)
+{
+  // #147: the counters are cumulative and the tool prints last - first, so a sample lost
+  // between two that arrived changes nothing. The large rung of #141 lost 925130 of 1040228
+  // samples and measured every pair.
+  StatsData s;
+  s.samples = 115098;
+  s.samples_lost = 925130;
+  s.samples_rejected = 3;
+  EXPECT_FALSE(statistics_samples_were_lost(s));
+  EXPECT_EQ(statistics_loss_warning(s), "");
+}
+
+TEST(StatisticsLossWarning, AnUnmeasuredPairWithoutLossIsNotTheToolFallingBehind)
+{
+  // large samples over SHM on a slow machine (delivered-without-measured-traffic): nothing lost
+  StatsData s;
+  s.samples = 1000;
+  s.pairs_delivered = 10;
+  s.pairs_delivered_unmeasured = 4;
+  s.samples_lost_at_start = 4000;
+  EXPECT_FALSE(statistics_samples_were_lost(s));
+  EXPECT_EQ(statistics_loss_warning(s), "");
+}
+
+namespace
+{
+Pair delivered_pair(uint64_t packets)
+{
+  Pair p;
+  p.measured.available = true;
+  p.measured.delivered = true;
+  p.measured.packets = packets;
+  p.verdict.transport = Transport::SHM;
+  return p;
+}
+}  // namespace
+
+TEST(StatisticsLossWarning, CountsThePairsADeliveryProofShowsUnmeasured)
+{
+  TopicSummary t;
+  t.pairs.push_back(delivered_pair(12));   // measured
+  t.pairs.push_back(delivered_pair(0));    // delivered, no packet: the lost measurement
+  // no delivery proof: idle and starved look the same, so it is in neither number
+  t.pairs.push_back(delivered_pair(0));
+  t.pairs.back().measured.delivered = false;
+  // no RTPS trace by design
+  t.pairs.push_back(delivered_pair(0));
+  t.pairs.back().verdict.transport = Transport::DataSharing;
+  // explained by the writer side's instance limit, not by the tool's loss
+  t.pairs.push_back(delivered_pair(0));
+  t.pairs.back().verdict.warnings = {"stats-writer-instance-limit-suspected"};
+  // the writer's participant publishes no statistics
+  t.pairs.push_back(delivered_pair(0));
+  t.pairs.back().measured.available = false;
+
+  StatsData s;
+  s.samples = 100;
+  note_unmeasured_pairs({t}, s);
+  EXPECT_EQ(s.pairs_delivered, 2u);
+  EXPECT_EQ(s.pairs_delivered_unmeasured, 1u);
+  EXPECT_TRUE(s.warnings.empty());   // nothing was lost
+
+  s.samples_lost = 5;
+  note_unmeasured_pairs({t}, s);
+  note_unmeasured_pairs({t}, s);     // every --watch frame: one code, not one per frame
+  EXPECT_EQ(s.warnings, std::vector<std::string>{"stats-samples-lost"});
+
+  // the second RTPS_SENT sample arrived: the measurement is back and the warning goes
+  t.pairs[1].measured.packets = 3;
+  note_unmeasured_pairs({t}, s);
+  EXPECT_EQ(s.pairs_delivered_unmeasured, 0u);
+  EXPECT_TRUE(s.warnings.empty());
 }
 
 TEST(StatisticsLossWarning, BestEffortLatencyLossIsNotTheToolFallingBehind)
@@ -2356,6 +2433,7 @@ TEST(StatisticsLossWarning, BestEffortLatencyLossIsNotTheToolFallingBehind)
   s.samples = 8529;
   s.samples_lost = 248312;
   s.samples_lost_latency = 248312;
+  s.pairs_delivered_unmeasured = 1;
   EXPECT_EQ(statistics_counter_samples_lost(s), 0u);
   EXPECT_FALSE(statistics_samples_were_lost(s));
   EXPECT_EQ(statistics_loss_warning(s), "");
@@ -2383,6 +2461,8 @@ TEST(StatisticsLossWarning, ASingleRejectedSampleIsEnough)
   StatsData s;
   s.samples = 10;
   s.samples_rejected = 1;
+  EXPECT_FALSE(statistics_samples_were_lost(s));   // #147: harmless until it costs a measurement
+  s.pairs_delivered_unmeasured = 1;
   EXPECT_TRUE(statistics_samples_were_lost(s));
   // rejected samples share the count and the code: one number for what is missing
   EXPECT_NE(statistics_loss_warning(s).find("1 of 11 statistics samples"), std::string::npos);

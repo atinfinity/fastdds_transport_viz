@@ -602,7 +602,10 @@ Snapshot collect(
   snap.stats = std::move(stats_data);
   t = prof.now();
   fastdds_transport_viz::apply_stats(snap.topics, snap.stats);
-  prof.emit("apply_stats", t);
+  fastdds_transport_viz::note_unmeasured_pairs(snap.topics, snap.stats);
+  prof.emit(
+    "apply_stats", t, {{"pairs_delivered", snap.stats.pairs_delivered},
+      {"pairs_delivered_unmeasured", snap.stats.pairs_delivered_unmeasured}});
   prof.emit(
     "collect", collect_start, {{"endpoints", snap.endpoints.size()},
       {"topics", snap.topics.size()}, {"pairs", count_pairs(snap.topics)}});

@@ -1039,8 +1039,10 @@ bool statistics_samples_were_lost(const StatsData & stats)
 {
   // HISTORY_LATENCY is received best-effort by design (#141), so its reader reports every
   // sequence gap. Counting those here would warn that the tool cannot keep up on systems
-  // where it measures every pair.
-  return statistics_counter_samples_lost(stats) + stats.samples_rejected > 0;
+  // where it measures every pair. The same goes for counter loss that costs nothing (#147):
+  // 925130 of 1040228 samples lost and every pair measured was one and the same run.
+  return statistics_counter_samples_lost(stats) + stats.samples_rejected > 0 &&
+         stats.pairs_delivered_unmeasured > 0;
 }
 
 std::string statistics_loss_warning(const StatsData & stats)
@@ -1050,10 +1052,36 @@ std::string statistics_loss_warning(const StatsData & stats)
   std::ostringstream out;
   // Everything the readers should have had: what arrived plus what did not.
   out << "warning: " << lost << " of " << lost + stats.samples
-      << " statistics samples were lost (the tool could not keep up); some pairs show no "
-    "measurement although they carry traffic - enable statistics on fewer nodes, or keep "
+      << " statistics samples were lost (the tool could not keep up) and "
+      << stats.pairs_delivered_unmeasured << " of " << stats.pairs_delivered
+      << " pairs with proven deliveries show no measured packet - enable statistics on fewer "
+    "nodes, or keep "
     "FASTDDS_STATISTICS to the aliases you need (e.g. RTPS_SENT_TOPIC;RTPS_LOST_TOPIC)";
   return out.str();
+}
+
+void note_unmeasured_pairs(const std::vector<TopicSummary> & topics, StatsData & stats)
+{
+  stats.pairs_delivered = 0;
+  stats.pairs_delivered_unmeasured = 0;
+  for (const auto & t : topics) {
+    for (const auto & p : t.pairs) {
+      const auto & m = p.measured;
+      const auto & w = p.verdict.warnings;
+      auto has = [&w](const char * code) {return std::find(w.begin(), w.end(), code) != w.end();};
+      if (!m.available || !m.delivered || p.verdict.transport == Transport::DataSharing ||
+        has("qos-incompatible") || has("shm-ipc-namespace-split") ||
+        has("stats-writer-instance-limit-suspected"))
+      {
+        continue;
+      }
+      ++stats.pairs_delivered;
+      if (m.packets == 0) {++stats.pairs_delivered_unmeasured;}
+    }
+  }
+  auto & codes = stats.warnings;
+  codes.erase(std::remove(codes.begin(), codes.end(), "stats-samples-lost"), codes.end());
+  if (statistics_samples_were_lost(stats)) {codes.push_back("stats-samples-lost");}
 }
 
 PairKey pair_key(const TopicSummary & topic, const Pair & pair)
@@ -1536,10 +1564,14 @@ const std::map<std::string, CodeInfo> & explanations()
         "reliability where samples must not be lost."}},
     {"stats-samples-lost", {
         "The tool's statistics readers lost counter samples: the writers' keep-last history "
-        "overwrote them before the tool read them, or a reader resource limit refused them. A "
-        "pair can therefore show no measurement although it carries traffic, and the counters "
-        "of the pairs that are measured can skip a stretch. The JSON document counts them in "
-        "stats.samples_lost and stats.samples_rejected. Two parts are excluded and never "
+        "overwrote them before the tool read them, or a reader resource limit refused them - "
+        "and at least one pair whose deliveries HISTORY_LATENCY proves shows no measured packet "
+        "(stats.pairs_delivered_unmeasured of stats.pairs_delivered). The counters are "
+        "cumulative and a measurement is last - first, so a lost sample alone costs nothing; "
+        "it costs a measurement when the RTPS_SENT samples of a pair's locators did not "
+        "arrive, and only a delivery proof tells that from an idle pair. The JSON document "
+        "counts the losses in stats.samples_lost and stats.samples_rejected whether they warn "
+        "or not. Two parts are excluded and never "
         "warn: stats.samples_lost_at_start, the burst from before the readers had matched the "
         "writers, and stats.samples_lost_latency, the gaps HISTORY_LATENCY's best-effort "
         "reader reports (#141) - those coarsen the LATENCY of a pair instead of costing its "

@@ -239,7 +239,9 @@
   /**
    * The `stats` object as one line for the meta bar, warnings as tooltips like shmText.
    * `lost` is what never reached the tool (#134); `samples_lost_at_start` is the normal
-   * burst from before the readers matched and stays out of it.
+   * burst from before the readers matched and stays out of it. Whether the loss cost a
+   * measurement is the tool's call (#147): the marker follows `stats.warnings`, never the
+   * numbers, so a lost count without a marker is a loss that did no harm.
    */
   function statsText(stats, descriptions, remedies) {
     if (!stats || !stats.enabled) return 'no statistics';

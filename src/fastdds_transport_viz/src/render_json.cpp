@@ -334,6 +334,9 @@ std::string render_json(const Snapshot & snap, const RenderOptions & opt)
   stats["writers_incompatible_qos"] = snap.stats.writers_incompatible_qos;
   // Part of samples_lost, named apart because it costs no measurement (#141).
   stats["samples_lost_latency"] = snap.stats.samples_lost_latency;
+  // The lost measurements themselves, which is what stats-samples-lost is about (#147).
+  stats["pairs_delivered"] = snap.stats.pairs_delivered;
+  stats["pairs_delivered_unmeasured"] = snap.stats.pairs_delivered_unmeasured;
   stats["warnings"] = snap.stats.warnings;
   root["stats"] = stats;
 

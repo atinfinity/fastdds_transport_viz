@@ -175,16 +175,31 @@ TEST(RenderTable, StatisticsFooterCountsWhatTheToolLost)
   s.stats.samples_rejected = 2;
   // not the tool falling behind: out of the count and out of the warning
   s.stats.samples_lost_at_start = 900;
+  s.stats.pairs_delivered = 40;
+  s.stats.pairs_delivered_unmeasured = 3;
   s.stats.warnings = {"stats-samples-lost"};
   auto out = render_table(s, RenderOptions{});
   EXPECT_NE(
     out.find("statistics: 12 samples from 1 participant(s), 42 sample(s) lost"),
     std::string::npos) << out;
-  EXPECT_NE(out.find("!stats-samples-lost"), std::string::npos) << out;
   EXPECT_NE(
-    out.find("a pair can show no measurement although it carries traffic"),
+    out.find(
+      "!stats-samples-lost: 3 of 40 pairs with proven deliveries show no measured packet"),
     std::string::npos) << out;
   EXPECT_EQ(out.find("900"), std::string::npos) << out;
+
+  // a document written before #147 warns without the count
+  s.stats.pairs_delivered_unmeasured = 0;
+  out = render_table(s, RenderOptions{});
+  EXPECT_NE(
+    out.find("!stats-samples-lost: a pair can show no measurement although it carries traffic"),
+    std::string::npos) << out;
+
+  // #147: the loss is still reported when it cost no measurement, the warning is not
+  s.stats.warnings.clear();
+  out = render_table(s, RenderOptions{});
+  EXPECT_NE(out.find("42 sample(s) lost"), std::string::npos) << out;
+  EXPECT_EQ(out.find("stats-samples-lost"), std::string::npos) << out;
 
   // nothing lost: no number, no warning line
   s.stats.samples_lost = 0;

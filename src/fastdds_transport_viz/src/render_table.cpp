@@ -666,7 +666,14 @@ std::string render_table(const Snapshot & snap, const RenderOptions & opt)
     for (const auto & w : snap.stats.warnings) {
       os << "  " << paint("!" + w, RED, color);
       if (w == "stats-samples-lost") {
-        os << ": a pair can show no measurement although it carries traffic";
+        // A document written before #147 warns without naming the pairs.
+        if (snap.stats.pairs_delivered_unmeasured > 0) {
+          os << ": " << snap.stats.pairs_delivered_unmeasured << " of "
+             << snap.stats.pairs_delivered
+             << " pairs with proven deliveries show no measured packet";
+        } else {
+          os << ": a pair can show no measurement although it carries traffic";
+        }
       }
       os << "\n";
     }

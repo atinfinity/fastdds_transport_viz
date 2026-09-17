@@ -408,7 +408,6 @@ StatsData StatsObserver::snapshot()
   out.samples_rejected = listener_.rejected;
   out.writers_incompatible_qos = listener_.incompatible_qos;
   out.samples_lost_latency = listener_.lost_latency;
-  if (statistics_samples_were_lost(out)) {out.warnings.push_back("stats-samples-lost");}
   out.traffic.clear();
   for (const auto & kv : traffic_) {
     out.traffic.push_back(kv.second);
