@@ -16,12 +16,14 @@
 #include <chrono>
 #include <condition_variable>
 #include <cstdint>
+#include <deque>
 #include <map>
 #include <memory>
 #include <mutex>
 #include <string>
 #include <thread>
 #include <tuple>
+#include <utility>
 #include <vector>
 
 #include <fastdds/dds/domain/DomainParticipant.hpp>
@@ -44,6 +46,13 @@ inline constexpr int kStatsDrainIntervalMs = 50;
 /// How many samples one drain processes before it hands the aggregate back. A drain of a large
 /// system runs for over a second, and snapshot() must not wait for a whole one.
 inline constexpr size_t kStatsDrainLockBatchSamples = 256;
+/// The HISTORY_LATENCY reader's depth per instance (#143). Samples are counted per pair, and
+/// what the reader can hold between two drains bounds the rate it can count: 10 saturated at
+/// about 200 samples/s per pair, 100 counts 1000/s per pair to within 0.1 %.
+inline constexpr int kStatsLatencyHistoryDepth = 100;
+/// The window a --watch frame's delivered rate is measured over (#143), in whole seconds of
+/// the samples' source timestamps.
+inline constexpr int kStatsRateWindowSeconds = 5;
 
 class StatsObserver
 {
@@ -58,6 +67,10 @@ public:
 
   /// Drain every reader and return a copy of the aggregated data.
   StatsData snapshot();
+
+  /// Keep only the last kStatsRateWindowSeconds of HISTORY_LATENCY samples for the delivered
+  /// rate (#143): --watch. Without it the window is the whole observation.
+  void set_rate_window(bool sliding);
 
   /// Drain the readers without copying. The observer's own thread calls this every
   /// kStatsDrainIntervalMs; it stays public because the tests drive a drain deterministically
@@ -179,6 +192,16 @@ private:
   using LostKey = std::tuple<std::string, std::string, int, std::string, uint32_t>;
   std::map<LostKey, TrafficSample> lost_;
   StatsData data_;
+  /// HISTORY_LATENCY per second of source timestamp (#143): per pair the count and the first
+  /// and last timestamp, per reader-side participant the sequence numbers of its statistics
+  /// writer. Pruned to the rate window under --watch, kept whole otherwise.
+  struct PairSecond {int64_t sec; DeliveryWindow w;};
+  struct WriterSecond {int64_t sec; uint64_t min_seq; uint64_t max_seq; uint64_t samples;};
+  std::map<std::pair<std::string, std::string>, std::deque<PairSecond>> pair_seconds_;
+  std::map<std::string, std::deque<WriterSecond>> writer_seconds_;   // participant prefix
+  int64_t newest_second_{INT64_MIN};
+  bool sliding_window_{false};
+  void prune_rate_window();
 
   std::mutex drain_wait_mutex_;
   std::condition_variable drain_cv_;

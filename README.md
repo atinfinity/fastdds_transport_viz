@@ -20,12 +20,12 @@ All distros below use `rmw_fastrtps_cpp` (`rmw_fastrtps_dynamic_cpp` works the s
 
 ```
 $ ros2 transport list -v --stats --topic '^/(chatter|bounded)$'
-TOPIC     TYPE                 PUBS  SUBS  TRANSPORT         LATENCY  LOSS  REASON
-/bounded  std_msgs/msg/Int32   1     1     DATA_SHARING x1   119 µs   0     same-host-guid,datasharing-qos-enabled-both,datasharing-domain-ids-match,datasharing-confirmed-no-data-submessages
-    /bounded_pub@36d321fbf863(174) -> /bounded_sub@36d321fbf863(184)  DATA_SHARING  119 µs (max 164 µs)  0  measured=SHM (idle)  same-host-guid,datasharing-qos-enabled-both,datasharing-domain-ids-match,datasharing-confirmed-no-data-submessages
-/chatter  std_msgs/msg/String  1     2     UDPv4 x1, SHM x1  168 µs   0     same-host-guid,datasharing-disabled-writer,reader-no-shm-locator,common-udpv4-locator,measured-udpv4-traffic,both-shm-locators,measured-shm-traffic
-    /talker@36d321fbf863(175) -> /listener_udp@36d321fbf863(176)  UDPv4  164 µs (max 233 µs)  0  measured=UDPv4 10pkt 1.31 kB  same-host-guid,datasharing-disabled-writer,reader-no-shm-locator,common-udpv4-locator,measured-udpv4-traffic
-    /talker@36d321fbf863(175) -> /listener@36d321fbf863(177)      SHM    168 µs (max 250 µs)  0  measured=SHM 9pkt 1.19 kB     same-host-guid,datasharing-disabled-writer,both-shm-locators,measured-shm-traffic
+TOPIC     TYPE                 PUBS  SUBS  TRANSPORT         LATENCY  HZ  LOSS  REASON
+/bounded  std_msgs/msg/Int32   1     1     DATA_SHARING x1   119 µs       0     same-host-guid,datasharing-qos-enabled-both,datasharing-domain-ids-match,datasharing-confirmed-no-data-submessages
+    /bounded_pub@36d321fbf863(174) -> /bounded_sub@36d321fbf863(184)  DATA_SHARING  119 µs (max 164 µs)  10.0  0  measured=SHM (idle)  same-host-guid,datasharing-qos-enabled-both,datasharing-domain-ids-match,datasharing-confirmed-no-data-submessages
+/chatter  std_msgs/msg/String  1     2     UDPv4 x1, SHM x1  168 µs       0     same-host-guid,datasharing-disabled-writer,reader-no-shm-locator,common-udpv4-locator,measured-udpv4-traffic,both-shm-locators,measured-shm-traffic
+    /talker@36d321fbf863(175) -> /listener_udp@36d321fbf863(176)  UDPv4  164 µs (max 233 µs)  1.0   0  measured=UDPv4 10pkt 1.31 kB  same-host-guid,datasharing-disabled-writer,reader-no-shm-locator,common-udpv4-locator,measured-udpv4-traffic
+    /talker@36d321fbf863(175) -> /listener@36d321fbf863(177)      SHM    168 µs (max 250 µs)  1.0   0  measured=SHM 9pkt 1.19 kB     same-host-guid,datasharing-disabled-writer,both-shm-locators,measured-shm-traffic
 
 statistics: 644 samples from 6 participant(s)
 
@@ -56,7 +56,8 @@ The same run opened in the [web viewer](docs/web-viewer.md) (table view):
   shown as `NONE` with the policy that breaks them.
 - **Measurement with `--stats`.** The Fast DDS statistics module supplies the packets and
   bytes that actually flowed per locator, the write-to-notification
-  latency (`LATENCY`), lost and resent packets (`LOSS`), host names and process ids, and
+  latency (`LATENCY`), the delivered samples per second of each pair (`HZ`), lost and
+  resent packets (`LOSS`), host names and process ids, and
   the proof of zero-copy data-sharing; a measurement that contradicts the
   prediction is flagged.
 - **Several front-ends.** A table with colors, `--watch` (live terminal view that marks

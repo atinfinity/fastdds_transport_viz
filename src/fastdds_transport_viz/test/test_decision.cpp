@@ -2157,6 +2157,85 @@ TEST(ApplyStats, WithoutCompanionsTheCountersAreThePairsOwn)
   EXPECT_FALSE(topics[0].pairs[0].measured.latency_available);
 }
 
+// Delivered rate (#143): HISTORY_LATENCY samples of the pair inside the rate window
+TEST(ApplyStats, DeliveredRateIsSamplesMinusOneOverTheTimestampSpan)
+{
+  std::vector<Endpoint> eps;
+  eps.push_back(entity(true, "/chatter", 1));
+  eps.push_back(entity(false, "/chatter", 1, "P2"));
+  auto topics = summarize(eps);
+  StatsData stats;
+  stats.enabled = true;
+  stats.participants_with_stats = {"P1", "P2"};
+  stats.delivered[{eps[0].guid, eps[1].guid}] = 11;
+  stats.delivery_window[{eps[0].guid, eps[1].guid}] = DeliveryWindow{11, 100.0, 101.0};
+  apply_stats(topics, stats);
+  const auto & m = topics[0].pairs[0].measured;
+  EXPECT_TRUE(m.rate_available);
+  EXPECT_DOUBLE_EQ(m.delivered_per_s, 10.0);
+  EXPECT_FALSE(m.rate_lower_bound);
+  EXPECT_DOUBLE_EQ(m.rate_window_s, 0.0);   // one-shot: the whole observation
+
+  // a gap in the statistics writer of the reader's participant marks its pairs
+  stats.latency_gaps["P2"] = 3;
+  stats.rate_window_s = 5.0;
+  apply_stats(topics, stats);
+  EXPECT_TRUE(topics[0].pairs[0].measured.rate_lower_bound);
+  EXPECT_DOUBLE_EQ(topics[0].pairs[0].measured.rate_window_s, 5.0);
+  // ... and not the pairs read elsewhere
+  stats.latency_gaps.clear();
+  stats.latency_gaps["P1"] = 3;
+  apply_stats(topics, stats);
+  EXPECT_FALSE(topics[0].pairs[0].measured.rate_lower_bound);
+}
+
+TEST(ApplyStats, DeliveredRateNeedsTwoSamplesApart)
+{
+  std::vector<Endpoint> eps;
+  eps.push_back(entity(true, "/chatter", 1));
+  eps.push_back(entity(false, "/chatter", 1, "P2"));
+  auto topics = summarize(eps);
+  StatsData stats;
+  stats.enabled = true;
+  stats.participants_with_stats = {"P1"};
+  stats.delivery_window[{eps[0].guid, eps[1].guid}] = DeliveryWindow{1, 100.0, 100.0};
+  stats.latency_gaps["P2"] = 1;
+  apply_stats(topics, stats);
+  EXPECT_FALSE(topics[0].pairs[0].measured.rate_available);
+  EXPECT_FALSE(topics[0].pairs[0].measured.rate_lower_bound);
+  // two samples with the same timestamp: no span, no rate
+  stats.delivery_window[{eps[0].guid, eps[1].guid}] = DeliveryWindow{2, 100.0, 100.0};
+  apply_stats(topics, stats);
+  EXPECT_FALSE(topics[0].pairs[0].measured.rate_available);
+  // no stats at all: nothing
+  StatsData none;
+  apply_stats(topics, none);
+  EXPECT_FALSE(topics[0].pairs[0].measured.rate_available);
+}
+
+TEST(ApplyStats, DeliveredRateFoldsTheBufferCompanions)
+{
+  std::vector<Endpoint> eps;
+  eps.push_back(entity(true, "/large_array", 1));
+  eps.push_back(entity(false, "/large_array", 1, "P2"));
+  eps.push_back(entity(true, "/large_array/_buf_cpu", 2));
+  eps.push_back(entity(false, "/large_array/_buf_cpu", 2, "P2"));
+  link_buffer_companions(eps);
+  auto topics = summarize(eps);
+  const std::string W = eps[0].guid, R = eps[1].guid, WB = eps[2].guid, RB = eps[3].guid;
+  StatsData stats;
+  stats.enabled = true;
+  stats.participants_with_stats = {"P1", "P2"};
+  stats.delivery_window[{W, R}] = DeliveryWindow{2, 100.0, 100.5};
+  stats.delivery_window[{WB, RB}] = DeliveryWindow{5, 100.6, 102.0};
+  apply_stats(topics, stats);
+  const auto & m = topic_named(topics, "/large_array").pairs[0].measured;
+  EXPECT_TRUE(m.rate_available);
+  EXPECT_NEAR(m.delivered_per_s, 6.0 / 2.0, 1e-9);   // 7 samples over 100.0 .. 102.0
+  const auto & c = topic_named(topics, "/large_array/_buf_cpu").pairs[0].measured;
+  EXPECT_NEAR(c.delivered_per_s, 4.0 / 1.4, 1e-9);   // the companion keeps its own
+}
+
 // discovery_completeness() (#133): the endpoints the nodes announce in ros_discovery_info
 // against the endpoints discovery actually delivered.
 

@@ -77,6 +77,8 @@ Snapshot snapshot()
   LatencyStat lat;
   lat.add(0.001); lat.add(0.003);
   s.stats.latency[{"W1", "R1"}] = lat;
+  s.stats.delivery_window[{"W1", "R1"}] = DeliveryWindow{2, 10.0, 10.5};   // #143
+  s.stats.latency_gaps["P2"] = 1;
   s.stats.resent_datas["W1"] = DataCountSample{1, 3, 2};
   s.stats.acknacks["R1"] = DataCountSample{0, 4, 2};
   // the reader's participant P2 missed nothing from P1 during the observation
@@ -137,6 +139,10 @@ TEST(RenderJson, DocumentKeys)
   EXPECT_EQ(p["measured"]["latency_s"]["min"], 0.001);
   EXPECT_EQ(p["measured"]["latency_s"]["samples"], 2);
   EXPECT_EQ(t["latency_s"], 0.002);
+  // #143: 2 samples 0.5 s apart, the reader's participant skipped one, one-shot window
+  EXPECT_EQ(p["measured"]["delivered_per_s"], 2.0);
+  EXPECT_EQ(p["measured"]["delivered_per_s_lower_bound"], true);
+  EXPECT_EQ(p["measured"]["delivered_per_s_window_s"], 2.5);
   EXPECT_EQ(p["measured"]["reliability"]["resent_datas"], 2);
   EXPECT_EQ(p["measured"]["reliability"]["acknacks"], 4);
   EXPECT_EQ(p["measured"]["reliability"]["lost_packets"], 0);
@@ -200,6 +206,16 @@ TEST(RenderJson, ShmUnavailableOmitsSizes)
   doc = json::parse(render_json(s, RenderOptions{}));
   EXPECT_TRUE(doc["topics"][0]["pairs"][0]["measured"]["latency_s"].is_null());
   EXPECT_TRUE(doc["topics"][0]["latency_s"].is_null());
+  // #143: under two samples in the window the rate is null, the window still told
+  s.stats.delivery_window.clear();
+  s.stats.rate_window_s = 5.0;
+  s.topics = summarize(s.endpoints);
+  apply_stats(s.topics, s.stats);
+  doc = json::parse(render_json(s, RenderOptions{}));
+  EXPECT_TRUE(doc["topics"][0]["pairs"][0]["measured"]["delivered_per_s"].is_null());
+  EXPECT_EQ(doc["topics"][0]["pairs"][0]["measured"]["delivered_per_s_lower_bound"], false);
+  EXPECT_EQ(doc["topics"][0]["pairs"][0]["measured"]["delivered_per_s_window_s"], 5.0);
+  s.stats.rate_window_s = 0.0;
   // counters, but no RTPS_LOST from the reader's participant
   s.stats.lost.clear();
   s.topics = summarize(s.endpoints);
@@ -360,6 +376,10 @@ TEST(ParseJson, RoundTripsEverythingTheRenderersShow)
   EXPECT_EQ(p.writer->datasharing_history_bytes, 3928u);
   EXPECT_EQ(p.reader->guid, "R1");
   EXPECT_FALSE(p.reader->is_writer);
+  EXPECT_TRUE(p.measured.rate_available);   // #143
+  EXPECT_DOUBLE_EQ(p.measured.delivered_per_s, 2.0);
+  EXPECT_TRUE(p.measured.rate_lower_bound);
+  EXPECT_DOUBLE_EQ(p.measured.rate_window_s, 2.5);
   EXPECT_EQ(p.verdict.transport, Transport::SHM);
   EXPECT_EQ(p.verdict.locator.kind, LocatorKind::SHM);
   EXPECT_EQ(p.measured.transports, std::vector<Transport>{Transport::SHM});

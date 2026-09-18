@@ -45,21 +45,18 @@ together with that node's unpaired endpoints; the other side of a kept pair stay
 visible even if it does not match. Both filters combine with AND. An invalid regex is
 rejected at start-up (exit code 2).
 
-## The LATENCY and LOSS columns
+## The LATENCY, HZ and LOSS columns
 
-There is no rate column. Until [#137](https://github.com/atinfinity/fastdds_transport_viz/issues/137) the table had a `RATE` cell fed by the
-`PUBLICATION_THROUGHPUT` statistic, but that statistic is not a rate: Fast DDS publishes one
-sample per `write()` whose value is *that sample's* payload divided by the interval since the
-same writer's previous `write()`. A writer that sends a burst and then goes quiet reports the
-burst's instantaneous value and nothing afterwards, so a sporadic writer was shown orders of
-magnitude too fast. Averaging the samples the tool catches cannot repair it either: the
-statistics readers keep one sample per instance of a counter topic and are drained every
-50 ms, so everything but the newest value is gone. The tool no longer subscribes to the topic;
-`throughput_bytes_per_s` is fixed to `null` and `stats.throughput` stays empty. The counters
-an honest rate would be built from are in the JSON already - `stats.data_count` and
-`stats.traffic` are cumulative and `observation_seconds` says over how long, see
-[statistics.md](statistics.md#no-rate-column-and-what-to-do-instead) - and [#143](https://github.com/atinfinity/fastdds_transport_viz/issues/143)
-tracks bringing a real rate column back.
+`HZ` is the number of samples per second that reached the reader of a pair, counted by the
+tool from the `HISTORY_LATENCY` statistic (one sample per delivered sample, on every delivery
+path) over the whole observation, or over the last 5 s under `--watch`. `≥120` says the
+statistics of the reader's participant were partly lost on their way to the tool, so the value
+is a lower bound. Only pair rows have it. It replaces the `RATE` column removed in
+[#137](https://github.com/atinfinity/fastdds_transport_viz/issues/137), which was fed by
+`PUBLICATION_THROUGHPUT` - a per-write payload/interval sample, not a rate - and it is a
+delivered rate, not a publish rate: see
+[statistics.md](statistics.md#the-hz-column-delivered-samples-per-second)
+([#143](https://github.com/atinfinity/fastdds_transport_viz/issues/143)).
 
 With `--stats`, `LATENCY` is the `HISTORY_LATENCY` statistic: the time from the writer's `write()` to the
 notification of the reader, per pair, as mean and maximum over the observation (`420 µs
@@ -203,7 +200,7 @@ Two things differ on Humble's Fast DDS 2.6:
 - **No statistics.** The Humble binary is built without the statistics module
   (`FASTDDS_STATISTICS` off in `config.h`), so the observed nodes cannot publish
   statistics whatever `FASTDDS_STATISTICS` says. `--stats` prints a warning and every
-  pair shows `stats-not-enabled-on-writer`; `LATENCY` and `measured=` stay empty.
+  pair shows `stats-not-enabled-on-writer`; `LATENCY`, `HZ` and `measured=` stay empty.
   A Fast DDS built with the module on works with the tool's 2.6 support.
 - **Same-host locators are filtered.** Fast DDS below 2.10 announces only the SHM locator
   of a participant on the same host to the tool. When the other side has no SHM locator

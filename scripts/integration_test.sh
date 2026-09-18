@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Multi-container integration tests (run on the Docker host, not inside a container).
 #
-#   scripts/integration_test.sh [multi_container|stats_multi_container|stats_loss_multi_container|hostnet_shm|hostnet_noipc_shm|hostnet_split_shm|hostnet_split_shm_visible|hostnet_split_shm_shared_port|hostnet_split_stats|hostnet_split_datasharing|hostnet_split_datasharing_udp|large_data_tcp|udpv6_multi_container|easy_mode_shm|easy_mode_tcp|all]
+#   scripts/integration_test.sh [multi_container|stats_multi_container|stats_loss_multi_container|rate_stats|hostnet_shm|hostnet_noipc_shm|hostnet_split_shm|hostnet_split_shm_visible|hostnet_split_shm_shared_port|hostnet_split_stats|hostnet_split_datasharing|hostnet_split_datasharing_udp|large_data_tcp|udpv6_multi_container|easy_mode_shm|easy_mode_tcp|all]
 #
 #   multi_container        talker and listener in two bridged containers (separate
 #                          network and IPC namespaces => different Fast DDS host ids).
@@ -9,6 +9,12 @@
 #   stats_multi_container  same, nodes started with FASTDDS_STATISTICS and transport_viz
 #                          run with --stats. Expect measured UDPv4 and two different
 #                          PHYSICAL_DATA host names.
+#   rate_stats             one container with rate_load pairs of three kinds (SHM between two
+#                          processes, Fast DDS intraprocess in one process, shown as SHM
+#                          without traffic, and data-sharing) at 10, 100 and
+#                          1000 Hz, transport_viz --stats alongside (skipped on Humble). Expect
+#                          the HZ column (delivered_per_s) within 3 % of the nominal rate for
+#                          every pair and no lower bound (#143).
 #   stats_loss_multi_container  same with NET_ADMIN and a 20 Hz talker; tc netem drops 30% of
 #                          one node's packets to the other at a time (skipped on Humble).
 #                          Expect no lost packets on /chatter while the listener drops, lost
@@ -108,9 +114,12 @@ import json, sys
 scenario, path = sys.argv[1], sys.argv[2]
 doc = json.load(open(path))
 topic = '/bounded' if scenario.startswith('hostnet_split_datasharing') else '/chatter'
-chatter = next(t for t in doc['topics'] if t['topic'] == topic)
-assert len(chatter['pairs']) == 1, chatter
-p = chatter['pairs'][0]
+if scenario.startswith('rate_stats_'):
+    chatter, p = None, None   # its own topics, checked below
+else:
+    chatter = next(t for t in doc['topics'] if t['topic'] == topic)
+    assert len(chatter['pairs']) == 1, chatter
+    p = chatter['pairs'][0]
 if scenario == 'hostnet_noipc_shm' or scenario.startswith('hostnet_split_'):
     # nodes whose ros_discovery_info goes into another /dev/shm than the tool's: their names
     # come from the tool's own UDP reader (#112)
@@ -141,6 +150,27 @@ elif scenario == 'stats_multi_container':
     assert set(doc['stats']['participants_with_stats']) == {
         w['participant_guid_prefix'], r['participant_guid_prefix']}, (w, r, doc['stats'])
     print(f"PASS: --stats measured UDPv4 between hosts {p['writer_host']} and {p['reader_host']}")
+elif scenario.startswith('rate_stats_'):
+    hz = float(scenario.split('_')[-1])
+    # the same-process pair has no transport of its own: Fast DDS delivers it inside the
+    # participant, the tool shows the SHM locators both announce and no traffic on them
+    expect = {'/rate_shm': ('SHM', ['SHM']), '/rate_intra': ('SHM', []),
+              '/rate_ds': ('DATA_SHARING', None)}
+    for name, (transport, measured) in expect.items():
+        t = next(t for t in doc['topics'] if t['topic'] == name)
+        assert len(t['pairs']) == 1, t
+        q = t['pairs'][0]
+        assert q['transport'] == transport, q
+        m = q['measured']
+        if measured is not None:
+            assert m['transports'] == measured, (name, m['transports'])
+        assert m['delivered'], q
+        assert isinstance(m['delivered_per_s'], (int, float)), m
+        assert not m['delivered_per_s_lower_bound'], m
+        assert abs(m['delivered_per_s'] - hz) <= 0.03 * hz, (name, m['delivered_per_s'], hz)
+        assert m['delivered_per_s_window_s'] == doc['observation_seconds'], m
+        print(f"PASS: {name} {transport} delivered {m['delivered_per_s']:.1f}/s at {hz:g} Hz "
+              f"over {m['delivered_per_s_window_s']:.1f} s")
 elif scenario in ('stats_loss_listener_drops', 'stats_loss_talker_drops'):
     # RTPS_LOST is published by the receiving participant: only the talker's drops are the
     # pair's loss, the listener's (its ACKNACKs) are the talker's to report (#122)
@@ -352,6 +382,32 @@ scenario_stats_loss_multi_container() {
   done
 }
 
+scenario_rate_stats() {
+  if [ "${ROS_DISTRO:-jazzy}" = humble ]; then
+    echo "SKIP: rate_stats needs the Fast DDS statistics module (Jazzy or newer)"
+    return 0
+  fi
+  local hz out
+  for hz in 10 100 1000; do
+    out="$out_dir/transport_viz_rate_stats_$hz.json"
+    echo "== rate_load pairs at $hz Hz (SHM, intraprocess, data-sharing) with transport_viz --stats"
+    # everything in one container: same host id and /dev/shm; the profile enables
+    # statistics and data-sharing AUTO (only the bounded topic qualifies)
+    docker compose run --rm -T rate_load bash -c "
+      set -e
+      ros2 run fastdds_transport_viz rate_load pub --topic /rate_shm --hz $hz > /dev/null 2>&1 &
+      ros2 run fastdds_transport_viz rate_load sub --topic /rate_shm > /dev/null 2>&1 &
+      ros2 run fastdds_transport_viz rate_load both --topic /rate_intra --hz $hz > /dev/null 2>&1 &
+      ros2 run fastdds_transport_viz rate_load pub --topic /rate_ds --hz $hz --bounded > /dev/null 2>&1 &
+      ros2 run fastdds_transport_viz rate_load sub --topic /rate_ds --bounded > /dev/null 2>&1 &
+      sleep 3
+      ros2 run fastdds_transport_viz transport_viz --json --timeout 10 --quiet 0 --stats
+      kill %1 %2 %3 %4 %5 2>/dev/null; wait" > "$out"
+    jq '.topics[] | select(.topic|startswith("/rate_")) | .topic as $topic | .pairs[] | {topic: $topic, transport, measured: .measured.transports, delivered_per_s: .measured.delivered_per_s, lower_bound: .measured.delivered_per_s_lower_bound, window_s: .measured.delivered_per_s_window_s, reasons}' "$out"
+    assert "rate_stats_$hz" "$out"
+  done
+}
+
 scenario_large_data_tcp() {
   local out="$out_dir/transport_viz_large_data_tcp.json"
   echo "== starting talker_large_data / listener_large_data containers"
@@ -548,14 +604,14 @@ scenario_easy_mode_tcp() {
 
 build
 case "$scenario" in
-  multi_container|stats_multi_container|stats_loss_multi_container|hostnet_shm|hostnet_noipc_shm|hostnet_split_shm|hostnet_split_shm_visible|hostnet_split_shm_shared_port|hostnet_split_stats|hostnet_split_datasharing|hostnet_split_datasharing_udp|large_data_tcp|udpv6_multi_container|easy_mode_shm|easy_mode_tcp)
+  multi_container|stats_multi_container|stats_loss_multi_container|rate_stats|hostnet_shm|hostnet_noipc_shm|hostnet_split_shm|hostnet_split_shm_visible|hostnet_split_shm_shared_port|hostnet_split_stats|hostnet_split_datasharing|hostnet_split_datasharing_udp|large_data_tcp|udpv6_multi_container|easy_mode_shm|easy_mode_tcp)
     "scenario_$scenario" ;;
   all)
-    for s in multi_container stats_multi_container stats_loss_multi_container hostnet_shm hostnet_noipc_shm hostnet_split_shm hostnet_split_shm_visible hostnet_split_shm_shared_port hostnet_split_stats hostnet_split_datasharing hostnet_split_datasharing_udp large_data_tcp udpv6_multi_container easy_mode_shm easy_mode_tcp; do
+    for s in multi_container stats_multi_container stats_loss_multi_container rate_stats hostnet_shm hostnet_noipc_shm hostnet_split_shm hostnet_split_shm_visible hostnet_split_shm_shared_port hostnet_split_stats hostnet_split_datasharing hostnet_split_datasharing_udp large_data_tcp udpv6_multi_container easy_mode_shm easy_mode_tcp; do
       echo; echo "#### $s"
       "scenario_$s"
       cleanup
     done ;;
   *)
-    echo "usage: $0 [multi_container|stats_multi_container|stats_loss_multi_container|hostnet_shm|hostnet_noipc_shm|hostnet_split_shm|hostnet_split_shm_visible|hostnet_split_shm_shared_port|hostnet_split_stats|hostnet_split_datasharing|hostnet_split_datasharing_udp|large_data_tcp|udpv6_multi_container|easy_mode_shm|easy_mode_tcp|all]" >&2; exit 2 ;;
+    echo "usage: $0 [multi_container|stats_multi_container|stats_loss_multi_container|rate_stats|hostnet_shm|hostnet_noipc_shm|hostnet_split_shm|hostnet_split_shm_visible|hostnet_split_shm_shared_port|hostnet_split_stats|hostnet_split_datasharing|hostnet_split_datasharing_udp|large_data_tcp|udpv6_multi_container|easy_mode_shm|easy_mode_tcp|all]" >&2; exit 2 ;;
 esac

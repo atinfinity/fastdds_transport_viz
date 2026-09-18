@@ -185,6 +185,12 @@ std::string render_json(const Snapshot & snap, const RenderOptions & opt)
                   {"nackfrags", p.measured.reliability.nackfrags}} : json(nullptr)},
               {"delivered", p.measured.delivered},
               {"delivered_samples", p.measured.delivered_samples},
+              // #143: samples per second inside the rate window, null below two samples
+              {"delivered_per_s", p.measured.rate_available ?
+                json(p.measured.delivered_per_s) : json(nullptr)},
+              {"delivered_per_s_lower_bound", p.measured.rate_lower_bound},
+              {"delivered_per_s_window_s", p.measured.rate_window_s > 0.0 ?
+                p.measured.rate_window_s : snap.observation_seconds},
               {"data_submessages", p.measured.data_count_available ?
                 json(p.measured.data_submessages) : json(nullptr)},
             }},

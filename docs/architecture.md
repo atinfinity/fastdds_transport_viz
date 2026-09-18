@@ -295,7 +295,8 @@ src/fastdds_transport_viz/
                                    ros_graph_resolver.hpp, stats_observer.hpp, shm_info.hpp,
                                    render.hpp, ros_names.hpp, fastdds_compat.hpp, fastdds_util.hpp
   src/                             implementation + main.cpp
-  src/test_nodes/                  verification nodes (bounded_pub/sub, unbounded_pub/sub, large_array_pub/sub)
+  src/test_nodes/                  verification nodes (bounded_pub/sub, unbounded_pub/sub, large_array_pub/sub,
+                                   scale_load, rate_load)
   config/                          statistics.xml.in, datasharing_auto.xml, datasharing_auto_stats.xml.in,
                                    unicast_discovery.xml (the .in templates are installed without the
                                    suffix, generated for the Fast DDS of the build)

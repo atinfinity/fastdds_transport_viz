@@ -351,6 +351,19 @@ std::string latency_label(bool available, double mean, double max, bool with_max
   return s;
 }
 
+/// "120", "9.9", ">=120" (#143): delivered samples per second of a pair; blank without one.
+std::string rate_label(bool available, double per_s, bool lower_bound)
+{
+  if (!available) {return "";}
+  char buf[32];
+  if (per_s >= 100.0) {
+    std::snprintf(buf, sizeof(buf), "%.0f", per_s);
+  } else {
+    std::snprintf(buf, sizeof(buf), "%.1f", per_s);
+  }
+  return std::string(lower_bound ? "\u2265" : "") + buf;
+}
+
 std::string measured_label(const Pair & p)
 {
   if (!p.measured.available) {
@@ -522,7 +535,7 @@ std::string render_table(const Snapshot & snap, const RenderOptions & opt)
 
   std::vector<std::vector<std::string>> rows;
   std::vector<std::string> header = {
-    "TOPIC", "TYPE", "PUBS", "SUBS", "TRANSPORT", "LATENCY", "LOSS", "REASON"};
+    "TOPIC", "TYPE", "PUBS", "SUBS", "TRANSPORT", "LATENCY", "HZ", "LOSS", "REASON"};
   if (watch) {header.insert(header.begin(), " ");}
   rows.push_back(header);
   for (const auto & t : snap.topics) {
@@ -531,6 +544,7 @@ std::string render_table(const Snapshot & snap, const RenderOptions & opt)
       std::to_string(t.writers.size()), std::to_string(t.readers.size()),
       aggregate_transports(t, color),
       latency_label(snap.stats.enabled && t.latency_available, t.latency, t.latency, false),
+      "",   // the rate is per pair (#143)
       loss_label(
         snap.stats.enabled && t.reliability_available, t.lost_available, t.lost_packets,
         t.resent),
@@ -601,6 +615,10 @@ std::string render_table(const Snapshot & snap, const RenderOptions & opt)
           latency_label(
             snap.stats.enabled && p.measured.latency_available,
             p.measured.latency.mean(), p.measured.latency.max, true));
+        row.push_back(
+          rate_label(
+            snap.stats.enabled && p.measured.rate_available, p.measured.delivered_per_s,
+            p.measured.rate_lower_bound));
         row.push_back(
           loss_label(
             snap.stats.enabled && p.measured.reliability.available,

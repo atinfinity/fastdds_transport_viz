@@ -207,6 +207,16 @@ struct Measurement
   LatencyStat latency;               // write-to-notification latency (seconds) over the observation
   bool delivered{false};             // HISTORY_LATENCY sample seen for this writer->reader
   size_t delivered_samples{0};       // HISTORY_LATENCY samples seen for this pair
+  /// Delivered samples per second (#143): HISTORY_LATENCY samples of the pair inside the rate
+  /// window, (n - 1) over the span of their source timestamps. Nothing below two samples.
+  bool rate_available{false};
+  double delivered_per_s{0.0};
+  /// The reader-side participant's statistics writer skipped sequence numbers inside the
+  /// window: the rate is at least this, and the tool cannot say which of its pairs lost.
+  bool rate_lower_bound{false};
+  /// The window the rate was measured over, seconds: 0 stands for the whole observation
+  /// (one-shot, printed as observation_seconds), kStatsRateWindowSeconds under --watch.
+  double rate_window_s{0.0};
   Reliability reliability;           // losses, resends, heartbeats, acknacks (window deltas)
   bool data_count_available{false};  // the writer's participant publishes DATA_COUNT
   uint64_t data_submessages{0};      // DATA/DATA_FRAG the writer sent through a transport
@@ -277,6 +287,16 @@ inline constexpr const char * kStatsDataCountTopic = "_fastdds_statistics_data_c
 /// DDS name of the Fast DDS RTPS_LOST statistics topic.
 inline constexpr const char * kStatsRtpsLostTopic = "_fastdds_statistics_rtps_lost";
 
+/// HISTORY_LATENCY samples of one writer -> reader pair inside the rate window (#143): how
+/// many, and the source timestamps (seconds) of the first and the last. The delivered rate is
+/// (samples - 1) / (last - first), so two samples are the least that gives one.
+struct DeliveryWindow
+{
+  uint64_t samples{0};
+  double first_s{0.0};
+  double last_s{0.0};
+};
+
 struct StatsData
 {
   bool enabled{false};
@@ -286,6 +306,16 @@ struct StatsData
   std::map<std::pair<std::string, std::string>, size_t> delivered;
   // (writer, reader) guid -> HISTORY_LATENCY values
   std::map<std::pair<std::string, std::string>, LatencyStat> latency;
+  /// (writer, reader) guid -> HISTORY_LATENCY samples inside the rate window (#143)
+  std::map<std::pair<std::string, std::string>, DeliveryWindow> delivery_window;
+  /// Reader-side participant prefix -> HISTORY_LATENCY samples its statistics writer numbered
+  /// inside the rate window that the tool did not get (#143). The sequence numbers are per
+  /// statistics writer, one per participant, across all of its pairs: a gap says the counts of
+  /// every pair that participant reads are lower bounds, and never which of them.
+  std::map<std::string, uint64_t> latency_gaps;
+  /// The rate window in seconds: kStatsRateWindowSeconds under --watch, 0 for the whole
+  /// observation (one-shot).
+  double rate_window_s{0.0};
   std::map<std::string, DataCountSample> data_count;       // writer guid -> DATA_COUNT
   // RTPS_LOST: reporter = the receiving participant (the sample's publisher), src = the
   // remote sending participant, dst = the reporter's own locator that src addressed

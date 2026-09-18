@@ -203,6 +203,20 @@
     return `${humanSeconds(m.latency_s.mean)} (max ${humanSeconds(m.latency_s.max)})`;
   }
 
+  /** "120", "9.9" or "≥120" from measured.delivered_per_s (#143), '' without a rate. */
+  function rateText(m) {
+    if (!m || typeof m.delivered_per_s !== 'number') return '';
+    const v = m.delivered_per_s;
+    return (m.delivered_per_s_lower_bound ? '\u2265' : '') + (v >= 100 ? v.toFixed(0) : v.toFixed(1));
+  }
+
+  /** "delivered samples/s over the last 5 s" for the rate cell's tooltip (#143), '' without a rate. */
+  function rateTitle(m) {
+    if (!rateText(m)) return '';
+    const w = typeof m.delivered_per_s_window_s === 'number' ? ` over ${m.delivered_per_s_window_s.toFixed(1)} s` : '';
+    return `delivered samples/s${w}${m.delivered_per_s_lower_bound ? '; at least: the reader participant\'s statistics writer skipped samples' : ''}`;
+  }
+
   function escapeHtml(s) { return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 
   /**
@@ -438,6 +452,6 @@
     return { ...model, nodes, hosts };
   }
 
-  return { TRANSPORTS, INTERNAL_TOPICS, UNKNOWN_NODE_NAME, isFoldedBufferCompanion, isInternalTopic, normalizeDocument, buildModel, filterRegex, visiblePairs, visibleNodesModel, bundle, humanBytes, humanSeconds, measuredText, latencyText, lossText, escapeHtml, codeListHtml, shmText, statsText,
+  return { TRANSPORTS, INTERNAL_TOPICS, UNKNOWN_NODE_NAME, isFoldedBufferCompanion, isInternalTopic, normalizeDocument, buildModel, filterRegex, visiblePairs, visibleNodesModel, bundle, humanBytes, humanSeconds, measuredText, latencyText, rateText, rateTitle, lossText, escapeHtml, codeListHtml, shmText, statsText,
     pairKey, keyId, pairState, sameState, diffDocuments, changeText, changesSummary, decorations, holdChanges, heldDecorations, markedPairs, pruneNodes };
 });

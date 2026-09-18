@@ -3,6 +3,7 @@
 
 #include "fastdds_transport_viz/stats_observer.hpp"
 
+#include <algorithm>
 #include <chrono>
 #include <cstring>
 #include <stdexcept>
@@ -206,10 +207,10 @@ StatsObserver::Reader StatsObserver::create_reader(
   qos.history().depth = 1;
   if (kind == ReaderKind::kEvent) {
     // Not a counter but a stream of independent observations reduced to a percentile, so an
-    // older sample still carries something the newest does not replace. Ten is also all a
-    // reader can ever catch up on: the shipped writer profile keeps ten per instance, so past
-    // that the overwrite has already happened on the writer's side.
-    qos.history().depth = 10;
+    // older sample still carries something the newest does not replace - and since #143
+    // counted: depth over the drain interval is the highest rate a pair can show, so the
+    // depth is what the counted rate needs, not what the writer's ten-deep history holds.
+    qos.history().depth = kStatsLatencyHistoryDepth;
     // Nothing here is cumulative and nothing is read from before the run, so the samples
     // this reader misses are worth less than the delivery effort of getting them.
     qos.reliability().kind = dds::BEST_EFFORT_RELIABILITY_QOS;
@@ -305,8 +306,39 @@ void StatsObserver::drain()
     // write-to-notification latency, nanoseconds as float
     data_.latency[{guid_to_string(w), guid_to_string(r)}].add(
       static_cast<double>(latency.data()) * 1e-9);
+    // #143: the delivered rate, per second of the sample's source timestamp (the reader-side
+    // participant's clock, which the drain's batching cannot smear), and per statistics
+    // writer the sequence numbers, whose gaps are the samples the tool did not get.
+    // take_next_sample returns instances one after the other, so the seconds arrive out of
+    // order across pairs; within a pair they are monotonic.
+    const double ts = static_cast<double>(info.source_timestamp.seconds()) +
+      static_cast<double>(info.source_timestamp.nanosec()) * 1e-9;
+    const int64_t sec = static_cast<int64_t>(info.source_timestamp.seconds());
+    if (sec > newest_second_) {newest_second_ = sec;}
+    auto add = [ts](DeliveryWindow & b) {
+        ++b.samples;
+        b.first_s = std::min(b.first_s, ts);
+        b.last_s = std::max(b.last_s, ts);
+      };
+    auto & ps = pair_seconds_[{guid_to_string(w), guid_to_string(r)}];
+    if (ps.empty() || ps.back().sec < sec) {
+      ps.push_back(PairSecond{sec, DeliveryWindow{1, ts, ts}});
+    } else {
+      add(ps.back().w);
+    }
+    const uint64_t seq = static_cast<uint64_t>(info.sample_identity.sequence_number().to64long());
+    auto & ws = writer_seconds_[sample_publisher_prefix(info)];
+    if (ws.empty() || ws.back().sec < sec) {
+      ws.push_back(WriterSecond{sec, seq, seq, 1});
+    } else {
+      auto & b = ws.back();
+      ++b.samples;
+      b.min_seq = std::min(b.min_seq, seq);
+      b.max_seq = std::max(b.max_seq, seq);
+    }
     yield_lock();
   }
+  prune_rate_window();
 
   // Cumulative per-entity counters: DATA_COUNT and the reliability counters. The first
   // sample (TRANSIENT_LOCAL) is the value before we started.
@@ -395,6 +427,32 @@ void StatsObserver::poll()
   drain();
 }
 
+void StatsObserver::set_rate_window(bool sliding)
+{
+  std::lock_guard<std::mutex> lock(mutex_);
+  sliding_window_ = sliding;
+  data_.rate_window_s = sliding ? static_cast<double>(kStatsRateWindowSeconds) : 0.0;
+  prune_rate_window();
+}
+
+void StatsObserver::prune_rate_window()
+{
+  // Called with mutex_ held. The window ends at the newest second any sample carried, so a
+  // clock that differs from the tool's still sees a window of kStatsRateWindowSeconds.
+  if (!sliding_window_ || newest_second_ == INT64_MIN) {return;}
+  const int64_t oldest = newest_second_ - kStatsRateWindowSeconds + 1;
+  for (auto it = pair_seconds_.begin(); it != pair_seconds_.end(); ) {
+    auto & d = it->second;
+    while (!d.empty() && d.front().sec < oldest) {d.pop_front();}
+    it = d.empty() ? pair_seconds_.erase(it) : std::next(it);
+  }
+  for (auto it = writer_seconds_.begin(); it != writer_seconds_.end(); ) {
+    auto & d = it->second;
+    while (!d.empty() && d.front().sec < oldest) {d.pop_front();}
+    it = d.empty() ? writer_seconds_.erase(it) : std::next(it);
+  }
+}
+
 StatsData StatsObserver::snapshot()
 {
   // A final sweep before the copy: the thread drains every kStatsDrainIntervalMs, so how long
@@ -408,6 +466,31 @@ StatsData StatsObserver::snapshot()
   out.samples_rejected = listener_.rejected;
   out.writers_incompatible_qos = listener_.incompatible_qos;
   out.samples_lost_latency = listener_.lost_latency;
+  // #143: the rate window as it stands, reduced from the per-second slots
+  out.delivery_window.clear();
+  for (const auto & kv : pair_seconds_) {
+    DeliveryWindow w;
+    for (const auto & s : kv.second) {
+      if (w.samples == 0) {w = s.w; continue;}
+      w.samples += s.w.samples;
+      w.first_s = std::min(w.first_s, s.w.first_s);
+      w.last_s = std::max(w.last_s, s.w.last_s);
+    }
+    if (w.samples > 0) {out.delivery_window[kv.first] = w;}
+  }
+  out.latency_gaps.clear();
+  for (const auto & kv : writer_seconds_) {
+    uint64_t min_seq = 0, max_seq = 0, samples = 0;
+    for (const auto & s : kv.second) {
+      if (samples == 0) {min_seq = s.min_seq; max_seq = s.max_seq;}
+      samples += s.samples;
+      min_seq = std::min(min_seq, s.min_seq);
+      max_seq = std::max(max_seq, s.max_seq);
+    }
+    if (samples == 0) {continue;}
+    const uint64_t numbered = max_seq - min_seq + 1;
+    if (numbered > samples) {out.latency_gaps[kv.first] = numbered - samples;}
+  }
   out.traffic.clear();
   for (const auto & kv : traffic_) {
     out.traffic.push_back(kv.second);
