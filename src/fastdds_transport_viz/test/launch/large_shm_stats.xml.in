@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!-- Test fixture for test_large_shm.py: the statistics writer profiles of
+     config/statistics.xml plus a SHM transport whose segment holds several 2 MB samples,
+     so that a slow machine does not starve the SHM port (see issue #33).
+     CMake generates share/fastdds_transport_viz/test/large_shm_stats.xml from this template
+     when BUILD_TESTING is on, pasting the writer profiles of config/statistics_writers.xml.in
+     in place of FTV_STATS_WRITER_PROFILES, so the fixture carries the same QoS (and, on
+     Fast DDS 3.x, the same heartbeat period) as the shipped statistics.xml (#159). -->
+<dds xmlns="http://www.eprosima.com/XMLSchemas/fastRTPS_Profiles">
+  <profiles>
+    <transport_descriptors>
+      <transport_descriptor>
+        <transport_id>shm_large</transport_id>
+        <type>SHM</type>
+        <segment_size>16777216</segment_size>
+        <maxMessageSize>4194304</maxMessageSize>
+      </transport_descriptor>
+      <transport_descriptor>
+        <transport_id>udp_default</transport_id>
+        <type>UDPv4</type>
+      </transport_descriptor>
+    </transport_descriptors>
+    <participant profile_name="large_shm" is_default_profile="true">
+      <rtps>
+        <userTransports>
+          <transport_id>shm_large</transport_id>
+          <transport_id>udp_default</transport_id>
+        </userTransports>
+        <useBuiltinTransports>false</useBuiltinTransports>
+      </rtps>
+    </participant>
+@FTV_STATS_WRITER_PROFILES@
+  </profiles>
+</dds>

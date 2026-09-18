@@ -1,34 +1,5 @@
-<?xml version="1.0" encoding="UTF-8" ?>
-<!-- Test fixture for test_large_shm.py: the statistics writer profiles of
-     config/statistics.xml plus a SHM transport whose segment holds several 2 MB samples,
-     so that a slow machine does not starve the SHM port (see issue #33).
-     Hand-kept copy of config/statistics.xml.in: it is not generated, so it carries no
-     <times> (the 3.x heartbeat_period spelling would make Fast DDS 2.x drop the whole
-     profile) and the counters take the default 3 s heartbeat on Fast DDS 3.6, which the
-     1 Hz test tolerates. Keep the writer QoS in sync with the templates (#154, generation: #159). -->
-<dds xmlns="http://www.eprosima.com/XMLSchemas/fastRTPS_Profiles">
-  <profiles>
-    <transport_descriptors>
-      <transport_descriptor>
-        <transport_id>shm_large</transport_id>
-        <type>SHM</type>
-        <segment_size>16777216</segment_size>
-        <maxMessageSize>4194304</maxMessageSize>
-      </transport_descriptor>
-      <transport_descriptor>
-        <transport_id>udp_default</transport_id>
-        <type>UDPv4</type>
-      </transport_descriptor>
-    </transport_descriptors>
-    <participant profile_name="large_shm" is_default_profile="true">
-      <rtps>
-        <userTransports>
-          <transport_id>shm_large</transport_id>
-          <transport_id>udp_default</transport_id>
-        </userTransports>
-        <useBuiltinTransports>false</useBuiltinTransports>
-      </rtps>
-    </participant>
+    <!-- Assembled by CMake from config/statistics_writers.xml.in: edit that fragment (or the
+         template around it), never this file. -->
     <data_writer profile_name="RTPS_SENT_TOPIC">
       <topic>
         <historyQos><kind>KEEP_LAST</kind><depth>10</depth></historyQos>
@@ -43,7 +14,7 @@
         <durability><kind>TRANSIENT_LOCAL</kind></durability>
         <reliability><kind>RELIABLE</kind></reliability>
         <publishMode><kind>ASYNCHRONOUS</kind><flow_controller_name>FastDDSStatisticsFlowControllerDefault</flow_controller_name></publishMode>
-      </qos>
+      </qos>@FTV_STATS_WRITER_TIMES@
     </data_writer>
     <data_writer profile_name="HISTORY_LATENCY_TOPIC">
       <topic>
@@ -75,7 +46,7 @@
         <durability><kind>TRANSIENT_LOCAL</kind></durability>
         <reliability><kind>RELIABLE</kind></reliability>
         <publishMode><kind>ASYNCHRONOUS</kind><flow_controller_name>FastDDSStatisticsFlowControllerDefault</flow_controller_name></publishMode>
-      </qos>
+      </qos>@FTV_STATS_WRITER_TIMES@
     </data_writer>
     <data_writer profile_name="RTPS_LOST_TOPIC">
       <topic>
@@ -91,7 +62,7 @@
         <durability><kind>TRANSIENT_LOCAL</kind></durability>
         <reliability><kind>RELIABLE</kind></reliability>
         <publishMode><kind>ASYNCHRONOUS</kind><flow_controller_name>FastDDSStatisticsFlowControllerDefault</flow_controller_name></publishMode>
-      </qos>
+      </qos>@FTV_STATS_WRITER_TIMES@
     </data_writer>
     <data_writer profile_name="RESENT_DATAS_TOPIC">
       <topic>
@@ -107,7 +78,7 @@
         <durability><kind>TRANSIENT_LOCAL</kind></durability>
         <reliability><kind>RELIABLE</kind></reliability>
         <publishMode><kind>ASYNCHRONOUS</kind><flow_controller_name>FastDDSStatisticsFlowControllerDefault</flow_controller_name></publishMode>
-      </qos>
+      </qos>@FTV_STATS_WRITER_TIMES@
     </data_writer>
     <data_writer profile_name="HEARTBEAT_COUNT_TOPIC">
       <topic>
@@ -123,7 +94,7 @@
         <durability><kind>TRANSIENT_LOCAL</kind></durability>
         <reliability><kind>RELIABLE</kind></reliability>
         <publishMode><kind>ASYNCHRONOUS</kind><flow_controller_name>FastDDSStatisticsFlowControllerDefault</flow_controller_name></publishMode>
-      </qos>
+      </qos>@FTV_STATS_WRITER_TIMES@
     </data_writer>
     <data_writer profile_name="ACKNACK_COUNT_TOPIC">
       <topic>
@@ -139,7 +110,7 @@
         <durability><kind>TRANSIENT_LOCAL</kind></durability>
         <reliability><kind>RELIABLE</kind></reliability>
         <publishMode><kind>ASYNCHRONOUS</kind><flow_controller_name>FastDDSStatisticsFlowControllerDefault</flow_controller_name></publishMode>
-      </qos>
+      </qos>@FTV_STATS_WRITER_TIMES@
     </data_writer>
     <data_writer profile_name="NACKFRAG_COUNT_TOPIC">
       <topic>
@@ -155,7 +126,7 @@
         <durability><kind>TRANSIENT_LOCAL</kind></durability>
         <reliability><kind>RELIABLE</kind></reliability>
         <publishMode><kind>ASYNCHRONOUS</kind><flow_controller_name>FastDDSStatisticsFlowControllerDefault</flow_controller_name></publishMode>
-      </qos>
+      </qos>@FTV_STATS_WRITER_TIMES@
     </data_writer>
     <data_writer profile_name="GAP_COUNT_TOPIC">
       <topic>
@@ -171,7 +142,5 @@
         <durability><kind>TRANSIENT_LOCAL</kind></durability>
         <reliability><kind>RELIABLE</kind></reliability>
         <publishMode><kind>ASYNCHRONOUS</kind><flow_controller_name>FastDDSStatisticsFlowControllerDefault</flow_controller_name></publishMode>
-      </qos>
+      </qos>@FTV_STATS_WRITER_TIMES@
     </data_writer>
-  </profiles>
-</dds>

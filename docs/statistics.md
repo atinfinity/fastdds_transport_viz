@@ -201,7 +201,8 @@ The shipped profiles set `heartbeat_period` to 500 ms on the counter writers (ev
 but `HISTORY_LATENCY_TOPIC`) when the package is built with Fast DDS 3.x, which restores
 continuous delivery. Fast DDS 2.x spells the element `heartbeatPeriod` and drops a whole
 profile it cannot parse, so CMake generates the installed `statistics.xml` and
-`datasharing_auto_stats.xml` from `config/*.xml.in` for the Fast DDS of the build: use the
+`datasharing_auto_stats.xml` from `config/*.xml.in` for the Fast DDS of the build (the writer
+profiles themselves live once in `config/statistics_writers.xml.in`): use the
 installed files, on the machine of the observed nodes. 500 ms is the longest of 100 ms,
 250 ms, 500 ms and 1 s that kept the `--watch` coverage at 1.0 on the medium rung (1 s reads
 0.21). Use the profile on the observed nodes of every distro, with the two lines of
