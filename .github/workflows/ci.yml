@@ -84,6 +84,10 @@ jobs:
       - name: Install git for checkout
         run: |
           apt-get update
+          # The ros:<distro> image lags the apt repo: rosdep then installs freshly rebuilt
+          # packages (example_interfaces) next to stale preinstalled ones (service_msgs) and
+          # demo_nodes_cpp dies with an undefined typesupport symbol. Upgrade first.
+          apt-get upgrade -y --no-install-recommends
           apt-get install -y --no-install-recommends git iproute2   # iproute2: Easy Mode finds its server with `ss`
 
       - uses: actions/checkout@v4
