@@ -193,6 +193,27 @@ lost は 1 つも報告されず、`RTPS_SENT` のインスタンスが多いと
 medium の規模で `--watch` のカバレッジを 1.0 に保てた最長の値です (1 s では 0.21)。どのディストリでも、
 [前の節](#instance-limit)の 2 行で観測対象ノードにこのプロファイルを適用してください。
 
+## 同梱プロファイルが writer に対して変えているもの {#writer-qos}
+
+statistics のエイリアス名を持つプロファイルは writer の QoS を**丸ごと**置き換えます。Fast DDS は
+自前で組み立てる QoS (statistics モジュールの `DataWriterQos.cpp`、2.14 と 3.6 で同じ) とマージしません。
+Fast DDS が組み立てるのは reliable、transient-local、keep-last 10、
+`FastDDSStatisticsFlowControllerDefault` 上の asynchronous (専用の送信スレッドなので、非同期 writer の
+ユーザーデータの後ろに statistics が並ぶことはない)、そしてプロパティ `fastdds.push_mode=false`、
+つまり *pull mode* です。pull mode では reliable な remote reader は heartbeat に ACKNACK で応えるまで
+何も送られず、サンプルは heartbeat の周期で流れます。
+
+同梱プロファイルはこのプロパティ以外を保っています
+([#154](https://github.com/atinfinity/fastdds_transport_viz/issues/154))。writer は statistics 用の
+flow controller を名指しし、**push mode** で動いて、書かれたサンプルをその場で送ります。pull mode は
+medium の規模 (20 プロセス、500 トピック) で計測して不採用にしました。heartbeat が既定の 3 s のままの
+Jazzy (2.x には `heartbeat_period` を付けない、上の節を参照) では、ツールの `--watch` は 60 s の間に
+`HISTORY_LATENCY` の証拠を 1 つも見ず、1 回の実行あたり 2000〜3300 のカウンタサンプルが lost と
+報告されました。reader が要求する前に keep-last 10 がインスタンスのサンプルを上書きするためです。
+500 ms heartbeat の Lyrical では pull mode でも全ペアを計測でき、ツールの CPU は 3 分の 1 減りました
+(0.7 コアが 0.49 に) が、バージョンで分岐を増やすより両ディストリで同じ配信機構を取りました。
+数値は [development.md](development.md#verification-results) にあります。
+
 ## reader の QoS
 
 [#141](https://github.com/atinfinity/fastdds_transport_viz/issues/141) までは、ツールの 10 個の
