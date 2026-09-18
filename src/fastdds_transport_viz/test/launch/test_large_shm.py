@@ -4,6 +4,8 @@
 import os
 import sys
 
+from ament_index_python.packages import get_package_share_directory
+
 sys.path.insert(0, os.path.dirname(__file__))
 from _common import (  # noqa: E402
     Base, description, HAS_NATIVE_BUFFERS, node_action, pair_of, skip_without_statistics,
@@ -13,11 +15,12 @@ import launch_testing  # noqa: E402
 
 SIZE_KB = 2048
 # statistics.xml + a 16 MB SHM segment (issue #33: on slow runners the default 512 KB
-# segment left the writer's RTPS_SENT without an entry for the reader's SHM port)
+# segment left the writer's RTPS_SENT without an entry for the reader's SHM port),
+# generated from test/launch/large_shm_stats.xml.in by CMake (#159)
 ENV = {
     **STATS_ENV,
     'FASTRTPS_DEFAULT_PROFILES_FILE': os.path.join(
-        os.path.dirname(__file__), 'large_shm_stats.xml')}
+        get_package_share_directory('fastdds_transport_viz'), 'test', 'large_shm_stats.xml')}
 
 
 def generate_test_description():

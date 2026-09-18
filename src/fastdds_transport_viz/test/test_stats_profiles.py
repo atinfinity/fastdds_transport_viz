@@ -1,10 +1,11 @@
 # Copyright 2026 atinfinity
 # SPDX-License-Identifier: Apache-2.0
 """
-The installed statistics profiles: what CMake generated from config/*.xml.in (#152, #154).
+The installed statistics profiles: what CMake generated from the templates (#152, #154, #159).
 
 Fast DDS takes the whole DataWriter QoS from a profile named after a statistics alias, so
-what these files say is what the observed nodes' statistics writers do. The template is
+what these files say is what the observed nodes' statistics writers do. The writer
+profiles live once in config/statistics_writers.xml.in and are pasted into every template,
 generated per Fast DDS major (2.x drops a profile with an element it cannot parse), so
 the checks run on the installed files, not on the templates.
 """
@@ -21,10 +22,11 @@ ALIASES = ['RTPS_SENT_TOPIC', 'HISTORY_LATENCY_TOPIC', 'DATA_COUNT_TOPIC', 'RTPS
            'NACKFRAG_COUNT_TOPIC', 'GAP_COUNT_TOPIC']
 STATS_FLOW_CONTROLLER = 'FastDDSStatisticsFlowControllerDefault'
 
-CONFIG = pathlib.Path(get_package_share_directory('fastdds_transport_viz')) / 'config'
-GENERATED = [CONFIG / 'statistics.xml', CONFIG / 'datasharing_auto_stats.xml']
-# the hand-kept copy of the same profiles for test_large_shm.py (not generated: no <times>)
-FIXTURE = pathlib.Path(__file__).resolve().parent / 'launch' / 'large_shm_stats.xml'
+SHARE = pathlib.Path(get_package_share_directory('fastdds_transport_viz'))
+# the shipped profiles and the test_large_shm.py fixture, all generated from the same fragment
+GENERATED = [SHARE / 'config' / 'statistics.xml', SHARE / 'config' / 'datasharing_auto_stats.xml',
+             SHARE / 'test' / 'large_shm_stats.xml']
+FIXTURE = GENERATED[-1]
 
 
 def fastdds_major():
@@ -43,12 +45,12 @@ def text(elem, path):
     return None if found is None else found.text
 
 
-@pytest.mark.parametrize('path', GENERATED + [FIXTURE], ids=lambda p: p.name)
+@pytest.mark.parametrize('path', GENERATED, ids=lambda p: p.name)
 def test_every_alias_has_a_profile(path):
     assert sorted(writer_profiles(path)) == sorted(ALIASES)
 
 
-@pytest.mark.parametrize('path', GENERATED + [FIXTURE], ids=lambda p: p.name)
+@pytest.mark.parametrize('path', GENERATED, ids=lambda p: p.name)
 def test_writer_qos_matches_the_statistics_module(path):
     for alias, writer in writer_profiles(path).items():
         assert text(writer, 'p:qos/p:reliability/p:kind') == 'RELIABLE', alias
@@ -74,6 +76,15 @@ def test_heartbeat_period_only_on_fastdds_3(path):
         assert writer.find('p:times/p:heartbeatPeriod', NS) is None, alias
 
 
-def test_fixture_has_no_times():
-    for alias, writer in writer_profiles(FIXTURE).items():
-        assert writer.find('p:times', NS) is None, alias
+def test_fixture_keeps_the_large_shm_transport():
+    """The half of the fixture that is not generated: the 16 MB SHM segment of #33."""
+    root = ET.parse(FIXTURE).getroot()
+    participant = root.find('.//p:participant[@profile_name="large_shm"]', NS)
+    assert participant is not None and participant.get('is_default_profile') == 'true'
+    assert text(participant, 'p:rtps/p:useBuiltinTransports') == 'false'
+    assert [t.text for t in participant.iterfind('p:rtps/p:userTransports/p:transport_id', NS)] == \
+        ['shm_large', 'udp_default']
+    shm = root.find('.//p:transport_descriptor[p:transport_id="shm_large"]', NS)
+    assert text(shm, 'p:type') == 'SHM'
+    assert text(shm, 'p:segment_size') == '16777216'
+    assert text(shm, 'p:maxMessageSize') == '4194304'

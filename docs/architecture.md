@@ -299,11 +299,14 @@ src/fastdds_transport_viz/
                                    scale_load, rate_load)
   config/                          statistics.xml.in, datasharing_auto.xml, datasharing_auto_stats.xml.in,
                                    unicast_discovery.xml (the .in templates are installed without the
-                                   suffix, generated for the Fast DDS of the build)
+                                   suffix, generated for the Fast DDS of the build; the statistics
+                                   writer profiles live once in statistics_writers.xml.in, pasted
+                                   into every template as FTV_STATS_WRITER_PROFILES)
   third_party/fastdds_statistics_types/     vendored generated statistics types (Fast DDS 2.14)
   third_party/fastdds_statistics_types_v3/  same for Fast DDS 3.x
   test/                            gtest (decision, render, shm_info), pytest (json schema, web serve),
-                                   launch/ (launch tests, _common.py, large_shm_stats.xml)
+                                   launch/ (launch tests, _common.py, large_shm_stats.xml.in ->
+                                   share/<pkg>/test/large_shm_stats.xml when BUILD_TESTING)
 web/                               static viewer (index.html, app.js, model.js, style.css, vendor/d3),
                                    serve.py (transport_viz_web), sample/, test/ (Node unit tests)
 schema/                            JSON Schema for --json output
@@ -322,7 +325,7 @@ docs/, mkdocs.yml                  this site (English source, *.ja.md translatio
 - **A new statistics topic**: add a `Reader` to `StatsObserver` (`create_reader` reuses
   a topic Fast DDS already created when the observed node is in the same process),
   drain it in `drain()` into a new `StatsData` field, consume the field in
-  `apply_stats()`, extend `required_env_value()` and the `config/statistics.xml.in` profile
+  `apply_stats()`, extend `required_env_value()` and the `config/statistics_writers.xml.in` profile
   (one `data_writer` profile per topic alias lifts the 10-instance limit), and document
   the topic in [statistics.md](statistics.md).
 - **A new output format**: a function `std::string render_x(const Snapshot &, const RenderOptions &)`

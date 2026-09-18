@@ -127,6 +127,12 @@ if(FTV_FASTDDS_MAJOR GREATER_EQUAL 3)
 else()
   set(FTV_STATS_WRITER_TIMES "")
 endif()
+# The nine writer profiles live once, in config/statistics_writers.xml.in (#159); every
+# template that needs them takes the configured fragment as FTV_STATS_WRITER_PROFILES.
+file(READ config/statistics_writers.xml.in FTV_STATS_WRITER_PROFILES)
+string(CONFIGURE "${FTV_STATS_WRITER_PROFILES}" FTV_STATS_WRITER_PROFILES @ONLY)
+string(REGEX REPLACE "\n$" "" FTV_STATS_WRITER_PROFILES "${FTV_STATS_WRITER_PROFILES}")
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS config/statistics_writers.xml.in)
 foreach(profile statistics.xml datasharing_auto_stats.xml)
   configure_file(config/${profile}.in ${CMAKE_CURRENT_BINARY_DIR}/config/${profile} @ONLY)
   install(FILES ${CMAKE_CURRENT_BINARY_DIR}/config/${profile} DESTINATION share/${PROJECT_NAME}/config)
@@ -178,6 +184,12 @@ if(BUILD_TESTING)
   add_launch_test(test/launch/test_discovery_server.py TIMEOUT 120)
   add_launch_test(test/launch/test_easy_mode.py TIMEOUT 120)
   add_launch_test(test/launch/test_large_data_same_host.py TIMEOUT 90)
+  # test_large_shm.py's profiles file: the shared writer profiles plus a large SHM
+  # transport (#33), generated like the shipped statistics.xml (#159).
+  configure_file(test/launch/large_shm_stats.xml.in
+    ${CMAKE_CURRENT_BINARY_DIR}/test/large_shm_stats.xml @ONLY)
+  install(FILES ${CMAKE_CURRENT_BINARY_DIR}/test/large_shm_stats.xml
+    DESTINATION share/${PROJECT_NAME}/test)
   add_launch_test(test/launch/test_large_shm.py TIMEOUT 120)
   add_launch_test(test/launch/test_datasharing_stats.py TIMEOUT 120)
   add_launch_test(test/launch/test_shm.py TIMEOUT 90)
