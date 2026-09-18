@@ -207,6 +207,28 @@ installed files, on the machine of the observed nodes. 500 ms is the longest of 
 0.21). Use the profile on the observed nodes of every distro, with the two lines of
 [the previous section](#pitfall-the-10-instance-limit).
 
+## What the shipped profiles change on the writers
+
+A profile named after a statistics alias replaces the writer's QoS **entirely**: Fast DDS
+does not merge it with the QoS it builds itself (`DataWriterQos.cpp` of the statistics
+module, the same on 2.14 and 3.6). What Fast DDS builds is reliable, transient-local,
+keep-last 10, asynchronous on `FastDDSStatisticsFlowControllerDefault` - a sender thread of
+its own, so the statistics never queue behind user data on an asynchronous writer - and the
+property `fastdds.push_mode=false`, *pull mode*: a reliable remote reader is sent nothing
+until it answers a heartbeat with an ACKNACK, so the samples flow at the heartbeat period.
+
+The shipped profiles keep everything but the property
+([#154](https://github.com/atinfinity/fastdds_transport_viz/issues/154)): the writers name
+the statistics flow controller and run in **push mode**, sending each sample as it is
+written. Pull mode was measured on the medium rung (20 processes, 500 topics) and rejected:
+on Jazzy, whose heartbeat stays at the 3 s default (no `heartbeat_period` on 2.x, see above),
+the tool's `--watch` saw no `HISTORY_LATENCY` proof at all over 60 s and 2000-3300 counter
+samples were reported lost per run - keep-last 10 overwrites an instance's samples before
+the reader gets to ask for them; on Lyrical, with the 500 ms heartbeat, pull mode measured
+every pair and cost the tool a third less CPU (0.49 instead of 0.7 cores), but one delivery
+mechanism for both distros was preferred over a second version split. The numbers are in
+[development.md](development.md#verification-results).
+
 ## Reader QoS
 
 The tool's ten statistics readers took the Fast DDS default for these topics until
