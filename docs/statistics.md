@@ -7,31 +7,55 @@ topics and shows what *did* happen:
 | Topic | Used for |
 |---|---|
 | `_fastdds_statistics_rtps_sent` | RTPS packets/bytes sent by each participant to each destination locator. Matched against the locators the reader announced, this gives the locator kind that actually carried packets (`measured=SHM 47pkt`) and the locators themselves (`--locators`, JSON `measured.locators[]`). A disagreement with the prediction is flagged `!measured-transport-mismatch` for the kind, and `!measured-locator-mismatch` when the kind agrees but the locator the prediction selected carried nothing at all. |
-| `_fastdds_statistics_history2history_latency` | Write-to-notification latency of each writer → reader pair, shown as `LATENCY` (mean and max over the observation; JSON `measured.latency_s`, topic `latency_s` = slowest pair) and, by its mere presence, the proof that samples reached that reader (used to confirm zero-copy data-sharing, which leaves no RTPS trace). Across hosts it includes the clock offset. |
+| `_fastdds_statistics_history2history_latency` | Write-to-notification latency of each writer → reader pair, shown as `LATENCY` (mean and max over the observation; JSON `measured.latency_s`, topic `latency_s` = slowest pair), the delivered rate `HZ` (one sample per delivered sample, counted per pair; JSON `measured.delivered_per_s`, see [below](#the-hz-column-delivered-samples-per-second)) and, by its mere presence, the proof that samples reached that reader (used to confirm zero-copy data-sharing, which leaves no RTPS trace). Across hosts it includes the clock offset. |
 | `_fastdds_statistics_physical_data` | Host name, user and process id per participant, shown instead of `local` / `host:<id>`. |
 | `_fastdds_statistics_rtps_lost` | RTPS packets a participant missed (sequence-number gaps), per sending participant and per its own locator the sender addressed. Published by the receiving participant: the loss of a pair is what the reader's participant reports from the writer's participant on the reader's unicast locators. It gives the `lost` part of the `LOSS` column and the warning `rtps-packets-lost` (see [RTPS_LOST](#rtps_lost) for what it covers). |
 | `_fastdds_statistics_resent_datas`, `_fastdds_statistics_heartbeat_count`, `_fastdds_statistics_gap_count` | Per writer: DATA submessages resent, HEARTBEATs and GAPs sent. `resent` is the other part of the `LOSS` column; all three are in JSON `measured.reliability`. |
 | `_fastdds_statistics_acknack_count`, `_fastdds_statistics_nackfrag_count` | Per reader: ACKNACKs and NACKFRAGs sent (how often the reader asked for missing data or fragments); JSON `measured.reliability`. |
 | `_fastdds_statistics_data_count` | DATA/DATA_FRAG submessages each writer sent through a transport. Zero-copy delivery does not touch it, so a growing count settles whether data-sharing was really used (see [data-sharing.md](data-sharing.md#confidence)). |
 
-## No rate column, and what to do instead
+## The `HZ` column: delivered samples per second
 
-`_fastdds_statistics_publication_throughput` is deliberately missing from the list above: the
-tool does not subscribe to it and reports no publish rate ([#137](https://github.com/atinfinity/fastdds_transport_viz/issues/137)). The statistic
-looks like a rate and is not one - Fast DDS publishes one sample per `write()` whose value is
-*that sample's* payload divided by the interval since the same writer's previous `write()`. It
-says how fast the writer was during one inter-write interval, never how much a topic carries
-per second, and for a writer that bursts and then falls silent the two differ by orders of
-magnitude. Nothing downstream can repair it: the tool's statistics readers keep one
-sample per instance of a counter topic and are drained every 50 ms, so everything but the
-newest value is gone before the tool can see it.
+`HZ` is the rate at which samples of a writer reached a reader, counted by the tool from the
+`HISTORY_LATENCY` samples of the pair ([#143](https://github.com/atinfinity/fastdds_transport_viz/issues/143)): Fast DDS publishes one for every sample accepted
+into the reader's history, on every delivery path (RTPS over SHM or UDP, intraprocess inside
+one participant, zero-copy data-sharing), and the tool counts them per writer → reader pair.
+With `n` samples whose source timestamps span `t`, the rate is `(n − 1) / t`; below two samples
+there is none and the cell stays blank, as it does without `--stats`. The column is on the
+pair rows only: a topic has no single rate to show, and a writer's rate is the same number on
+each of its reader rows, never their sum. Values from 100 are printed whole, below with one
+decimal (`120`, `9.9`). JSON: `measured.delivered_per_s` (`null` without one),
+`delivered_per_s_lower_bound` and `delivered_per_s_window_s`.
 
-`measured.throughput_bytes_per_s`, `topics[].throughput_bytes_per_s` and `stats.throughput`
-stay in the JSON so that documents written earlier keep validating, fixed to `null`, `null`
-and `{}`.
+The window is the whole observation one-shot (`delivered_per_s_window_s` =
+`observation_seconds`) and the last 5 s of source timestamps under `--watch`, so a frame
+shows the current rate rather than the average since the start.
 
-What the JSON does carry is cumulative counters and the length of the observation, so a rate
-you compute yourself is well defined:
+This is a delivered rate, not a publish rate: a sample the reader's history refused, or one
+the writer never sent because nothing matched, is not in it. What it counts is bounded by what
+the tool's own `HISTORY_LATENCY` reader can hold between two drains (100 per instance every
+50 ms, see [Reader QoS](#reader-qos)): 1000 samples/s per pair are counted to within 0.1 %,
+verified for SHM between two processes, intraprocess and data-sharing pairs at 10, 100 and
+1000 Hz on Jazzy and Lyrical (`scripts/integration_test.sh rate_stats`, tolerance ±3 %, see
+[development.md](development.md#verification-log)). When samples of that topic were lost on
+the way to the tool, the rate is a lower bound and is printed as `≥120`
+(`delivered_per_s_lower_bound: true`). The statistics writer that publishes a pair's
+`HISTORY_LATENCY` belongs to the reader's participant and numbers the samples of all its pairs
+in one sequence, so a gap can be attributed to that participant, never to a pair: every pair
+whose reader lives there gets the `≥`. A sample overwritten inside the tool's reader before
+the drain leaves that same gap and nothing else - `stats.samples_lost_latency` does not count
+it, since Fast DDS reports no lost sample for an overwrite in a best-effort reader.
+
+`_fastdds_statistics_publication_throughput` is still not subscribed
+([#137](https://github.com/atinfinity/fastdds_transport_viz/issues/137)): it looks like a rate and is not one - Fast DDS publishes one sample
+per `write()` whose value is *that sample's* payload divided by the interval since the same
+writer's previous `write()`, which says how fast the writer was during one inter-write
+interval and never how much a topic carries per second. `measured.throughput_bytes_per_s`,
+`topics[].throughput_bytes_per_s` and `stats.throughput` stay in the JSON so that documents
+written earlier keep validating, fixed to `null`, `null` and `{}`.
+
+The JSON also carries cumulative counters and the length of the observation, so a rate on the
+wire is well defined too:
 
 | Rate | Take | Divide by |
 |---|---|---|
@@ -40,13 +64,10 @@ you compute yourself is well defined:
 
 `observation_seconds` is how long the tool observed (cumulative under `--watch`), and `first`
 is the first value the tool saw rather than zero, so the difference is what happened during
-the observation.
-
-This is a rate on the wire, not an application publish rate. `DATA_COUNT` does not move for
-intraprocess or data-sharing delivery (that is exactly why it confirms data-sharing, see
-[data-sharing.md](data-sharing.md#confidence)); it counts once per destination locator and
-again per fragment and per retransmission; and `RTPS_SENT` counts whole RTPS packets, headers
-included. [#143](https://github.com/atinfinity/fastdds_transport_viz/issues/143) tracks a rate the tool could show itself.
+the observation. `DATA_COUNT` does not move for intraprocess or data-sharing delivery (that is
+exactly why it confirms data-sharing, see [data-sharing.md](data-sharing.md#confidence)); it
+counts once per destination locator and again per fragment and per retransmission; and
+`RTPS_SENT` counts whole RTPS packets, headers included.
 
 ## Enabling statistics on the observed nodes
 
@@ -200,7 +221,7 @@ and differ per topic in what else they ask for:
 |---|---|---|---|---|
 | the eight counter topics (`rtps_sent`, `rtps_lost`, `data_count`, `resent_datas`, `heartbeat_count`, `acknack_count`, `nackfrag_count`, `gap_count`) | reliable | transient-local | 1 | the tool reports `last - first`, and `first` is the sample from before the observation began: losing it costs the measurement of a whole entity, not one sample |
 | `_fastdds_statistics_physical_data` | reliable | transient-local | 1 | one sample per participant, published once at discovery; a second one would say the same thing |
-| `_fastdds_statistics_history2history_latency` | best-effort | volatile | 10 | by far the loudest topic, nothing it carries is cumulative, and it is the only one that never reads `first` |
+| `_fastdds_statistics_history2history_latency` | best-effort | volatile | 100 | by far the loudest topic, nothing it carries is cumulative, and it is the only one that never reads `first`; its samples are counted per pair for `HZ`, and what fits between two drains bounds the rate the tool can count: 10 saturated near 200 samples/s per pair, 100 counts 1000/s ([#143](https://github.com/atinfinity/fastdds_transport_viz/issues/143)) |
 
 One sample per instance is enough for a cumulative counter: only its newest value says anything
 the tool needs, and the observer's own thread takes it within 50 ms of its arrival. Keeping ten
@@ -285,8 +306,10 @@ beside it, and nothing warns about it. `HISTORY_LATENCY` is received best-effort
 (see [Reader QoS](#reader-qos)), so its reader reports every sequence gap in the loudest topic
 there is: 1.7 to 1.9 million of them in a 60 s run at 40 processes. Those samples are
 independent observations that the tool reduces to a mean and a max, so losing them coarsens a
-number the pair still shows. The table names them apart (`..., 42 sample(s) lost, 1000 latency
-sample(s) lost`), the web viewer does too, and the `stats-samples-lost` warning leaves them out.
+number the pair still shows, and turns the `HZ` of every pair read by the participant that lost
+them into a lower bound (`≥`, see [above](#the-hz-column-delivered-samples-per-second)). The
+table names them apart (`..., 42 sample(s) lost, 1000 latency sample(s) lost`), the web viewer
+does too, and the `stats-samples-lost` warning leaves them out.
 
 When the warning is there, `no-traffic-observed` on a pair can also mean "not measured": the
 counters are shared by all ten statistics readers, so a loss cannot be attributed to one

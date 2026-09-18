@@ -391,9 +391,9 @@ TEST(RenderTable, LatencyColumn)
   opt.verbose = true;
   auto s = stats_snapshot();
   auto out = render_table(s, opt);
-  EXPECT_NE(out.find("LATENCY  LOSS  REASON"), std::string::npos);
+  EXPECT_NE(out.find("LATENCY  HZ  LOSS  REASON"), std::string::npos);
   EXPECT_EQ(out.find("RATE"), std::string::npos) << "#137: the RATE column is gone";
-  EXPECT_NE(out.find("  -  -  "), std::string::npos) << "no values: dashes";
+  EXPECT_NE(out.find("  -    -  "), std::string::npos) << "no values: dashes, blank HZ";
   only_pair(s).measured.latency_available = true;
   only_pair(s).measured.latency.add(0.0004);
   only_pair(s).measured.latency.add(0.0013);
@@ -414,13 +414,40 @@ TEST(RenderTable, LatencyColumn)
   EXPECT_NE(out.find("-15.0 ns (max -15.0 ns)"), std::string::npos) << out;
 }
 
+TEST(RenderTable, RateColumn)
+{
+  RenderOptions opt;
+  opt.verbose = true;
+  auto s = stats_snapshot();
+  auto out = render_table(s, opt);
+  EXPECT_NE(out.find("LATENCY  HZ  LOSS  REASON"), std::string::npos);
+  EXPECT_EQ(out.find("Hz"), std::string::npos) << out;
+  only_pair(s).measured.rate_available = true;
+  only_pair(s).measured.delivered_per_s = 9.96;
+  out = render_table(s, opt);
+  EXPECT_NE(out.find("  10.0  "), std::string::npos) << out;   // one decimal below 100
+  only_pair(s).measured.delivered_per_s = 120.4;
+  out = render_table(s, opt);
+  EXPECT_NE(out.find("  120  "), std::string::npos) << out;    // integer from 100
+  only_pair(s).measured.rate_lower_bound = true;
+  out = render_table(s, opt);
+  EXPECT_NE(out.find("  \u2265120  "), std::string::npos) << out;
+  // the topic row has none: the rate is per pair
+  const auto topic_row = out.substr(0, out.find('\n', out.find("/chatter")));
+  EXPECT_EQ(topic_row.find("120"), std::string::npos) << topic_row;
+  // without --stats the column stays blank
+  s.stats.enabled = false;
+  out = render_table(s, opt);
+  EXPECT_EQ(out.find("120"), std::string::npos) << out;
+}
+
 TEST(RenderTable, LossColumn)
 {
   RenderOptions opt;
   opt.verbose = true;
   auto s = stats_snapshot();
   auto out = render_table(s, opt);
-  EXPECT_NE(out.find("LATENCY  LOSS  REASON"), std::string::npos);
+  EXPECT_NE(out.find("LATENCY  HZ  LOSS  REASON"), std::string::npos);
   only_pair(s).measured.reliability.available = true;
   only_pair(s).measured.reliability.lost_available = true;
   s.topics[0].reliability_available = true;

@@ -4,6 +4,20 @@ Changelog for package fastdds_transport_viz
 
 Forthcoming
 -----------
+* A delivered rate per pair (#143): the ``HZ`` column of the table (right of ``LATENCY``),
+  ``measured.delivered_per_s`` in the document and ``Hz`` in the web viewer count the
+  ``HISTORY_LATENCY`` samples the reader-side participant reports, one per delivered sample
+  on every path (UDP, SHM, same-process, data-sharing), as (samples - 1) / (last - first
+  source timestamp): the whole observation in a one-shot run, the last 5 s in ``--watch``
+  (``delivered_per_s_window_s``). ``null`` and a blank cell under two samples. When the
+  tool's reader misses samples of the reporting participant (sequence gaps; the ceiling is
+  the depth of 100 every 50 ms, 2000 samples/s), every rate read from it is a lower bound:
+  ``≥`` in the table, ``delivered_per_s_lower_bound`` in the document. The
+  ``HISTORY_LATENCY`` reader depth goes from 10 to 100; the medium scale rung stays within
+  its budgets. ``throughput_bytes_per_s`` stays ``null``, the diff ignores the rate, the
+  properties are optional and the schema version is unchanged. ``rate_load`` and the
+  ``rate_stats`` integration scenario verify the rate at 10, 100 and 1000 Hz on SHM,
+  same-process and data-sharing pairs.
 * An unmeasured pair is no longer blamed on the tool when no lost sample explains it (#152).
   ``stats.pairs_delivered_absent`` counts the pairs with a delivery proof and no measured
   packet that the tool never saw an ``RTPS_SENT`` instance for, and every such pair of a run

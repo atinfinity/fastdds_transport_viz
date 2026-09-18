@@ -141,6 +141,17 @@ services:
 
   # Same two containers with FASTDDS_BUILTIN_TRANSPORTS=LARGE_DATA: user data must go
   # over TCPv4 between them (SHM is not shared, discovery stays UDPv4).
+  # One container for the delivered-rate verification (#143, integration_test.sh rate_stats):
+  # rate_load processes and transport_viz --stats in the same host id and /dev/shm, with
+  # statistics and data-sharing AUTO from the generated profile.
+  rate_load:
+    <<: *base
+    environment:
+      <<: *stats_env
+      FASTRTPS_DEFAULT_PROFILES_FILE: /ws/build/${ROS_DISTRO:-jazzy}/install/fastdds_transport_viz/share/fastdds_transport_viz/config/datasharing_auto_stats.xml
+      RMW_FASTRTPS_USE_QOS_FROM_XML: "1"
+    command: sleep infinity
+
   talker_large_data:
     <<: *base
     environment: *large_data_env

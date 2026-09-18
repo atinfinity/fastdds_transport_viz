@@ -53,7 +53,7 @@ partition)、data-sharing 履歴のサイズです。ノードをクリックす
 Fast DDS が置いているもの、stale なファイル、`shm-*` の警告。
 
 **Table** タブはペアごとに 1 行を表示します (見出しをクリックでソート)。statistics があれば
-観測中に運ばれたパケット数とバイト数、遅延、欠落も出ます。
+観測中に運ばれたパケット数とバイト数、遅延、1 秒あたりに届いたサンプル数 (`Hz`、ホバーで窓の長さ)、欠落も出ます。
 
 ![table view](images/web-viewer-table.jpg)
 

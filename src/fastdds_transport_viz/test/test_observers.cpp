@@ -278,7 +278,9 @@ TEST(StatsObserver, ReadersAnnounceNoShmLocator)
       // the loudest topic, and the only one that never reads the sample from before the run
       EXPECT_EQ(qos.reliability().kind, fdds::BEST_EFFORT_RELIABILITY_QOS) << name;
       EXPECT_EQ(qos.durability().kind, fdds::VOLATILE_DURABILITY_QOS) << name;
-      EXPECT_EQ(qos.history().depth, 10) << name;
+      // ... and the one whose samples are counted per pair: depth 100 keeps 1000/s (#143)
+      EXPECT_EQ(qos.history().depth, kStatsLatencyHistoryDepth) << name;
+      EXPECT_EQ(qos.history().depth, 100) << name;
     } else if (name == "_fastdds_statistics_physical_data") {
       // published once per participant: one slot is the whole topic
       EXPECT_EQ(qos.reliability().kind, fdds::RELIABLE_RELIABILITY_QOS) << name;
@@ -389,6 +391,20 @@ TEST(StatsObserver, SourcesArePublishersNotParticipantsNamedInASample)
   EXPECT_TRUE(sources.count(prefix_to_string(reporting->guid().guidPrefix)));
   EXPECT_FALSE(sources.count(prefix_to_string(plain->guid().guidPrefix)));
   EXPECT_FALSE(sources.count(prefix_to_string(obs.participant()->guid().guidPrefix)));
+
+  // #143: the delivery window counts the same samples with their timestamp span, and the
+  // reporting participant's statistics writer skipped none of them
+  for (int i = 0; i < 100 && data.delivered[pair] < 5; ++i) {
+    static_cast<void>(writer->write(&msg, fdds::HANDLE_NIL));
+    usleep(100 * 1000);
+    data = stats.snapshot();
+  }
+  ASSERT_GE(data.delivered[pair], 5u);
+  ASSERT_TRUE(data.delivery_window.count(pair));
+  EXPECT_EQ(data.delivery_window[pair].samples, data.delivered[pair]);
+  EXPECT_GT(data.delivery_window[pair].last_s, data.delivery_window[pair].first_s);
+  EXPECT_FALSE(data.latency_gaps.count(prefix_to_string(reporting->guid().guidPrefix)));
+  EXPECT_DOUBLE_EQ(data.rate_window_s, 0.0);
 
   ASSERT_TRUE(retcode_ok(plain->delete_contained_entities()));
   ASSERT_TRUE(retcode_ok(reporting->delete_contained_entities()));

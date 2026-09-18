@@ -194,6 +194,13 @@ Measurement measurement(const json & j, const std::string & where)
   }
   m.delivered = at(j, "delivered", where).get<bool>();
   m.delivered_samples = j.value("delivered_samples", 0ULL);
+  const json rate = j.value("delivered_per_s", json(nullptr));
+  if (rate.is_number()) {
+    m.rate_available = true;
+    m.delivered_per_s = rate.get<double>();
+  }
+  m.rate_lower_bound = j.value("delivered_per_s_lower_bound", false);
+  m.rate_window_s = j.value("delivered_per_s_window_s", 0.0);
   const json reliability = j.value("reliability", json(nullptr));
   if (reliability.is_object()) {
     m.reliability.available = true;

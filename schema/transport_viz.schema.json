@@ -359,6 +359,23 @@
           "minimum": 0,
           "description": "HISTORY_LATENCY samples seen for this pair during the observation"
         },
+        "delivered_per_s": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "description": "delivered samples per second (#143): HISTORY_LATENCY samples of this pair inside delivered_per_s_window_s, (n - 1) over the span of their source timestamps; null below two samples or without --stats"
+        },
+        "delivered_per_s_lower_bound": {
+          "type": "boolean",
+          "description": "the statistics writer of the reader's participant skipped sequence numbers inside the window: delivered_per_s is at least the value, and the tool cannot say which of that participant's pairs lost"
+        },
+        "delivered_per_s_window_s": {
+          "type": "number",
+          "minimum": 0,
+          "description": "seconds the rate was measured over: the whole observation (observation_seconds) one-shot, the last kStatsRateWindowSeconds (5) under --watch"
+        },
         "data_submessages": {
           "type": [
             "integer",

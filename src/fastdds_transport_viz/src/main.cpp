@@ -911,6 +911,7 @@ int main(int argc, char ** argv)
     std::unique_ptr<fastdds_transport_viz::StatsObserver> stats;
     if (o.stats) {
       stats = std::make_unique<fastdds_transport_viz::StatsObserver>(observer.participant());
+      stats->set_rate_window(o.watch);   // --watch: last kStatsRateWindowSeconds only
     }
     cli_noise.restore();
 

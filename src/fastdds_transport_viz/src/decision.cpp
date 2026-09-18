@@ -741,6 +741,34 @@ void apply_stats(std::vector<TopicSummary> & topics, const StatsData & stats)
         }
       }
       {
+        // Delivered rate (#143): the HISTORY_LATENCY samples of the pair (parent and
+        // companions together) inside the rate window, (n - 1) over their timestamp span.
+        DeliveryWindow w;
+        for (const auto & wg : writer_guids) {
+          for (const auto & rg : reader_guids) {
+            auto d = stats.delivery_window.find({wg, rg});
+            if (d == stats.delivery_window.end() || d->second.samples == 0) {continue;}
+            if (w.samples == 0) {
+              w = d->second;
+            } else {
+              w.samples += d->second.samples;
+              w.first_s = std::min(w.first_s, d->second.first_s);
+              w.last_s = std::max(w.last_s, d->second.last_s);
+            }
+          }
+        }
+        m.rate_window_s = stats.rate_window_s;
+        if (w.samples >= 2 && w.last_s > w.first_s) {
+          m.rate_available = true;
+          m.delivered_per_s =
+            static_cast<double>(w.samples - 1) / (w.last_s - w.first_s);
+          // the gap belongs to the statistics writer of the reader's participant, so it
+          // marks every pair read there, not the one that lost
+          m.rate_lower_bound =
+            stats.latency_gaps.count(p.reader->participant_guid_prefix) > 0;
+        }
+      }
+      {
         // Reliability: RTPS_LOST reported by the reader's participant for packets from the
         // writer's participant to the reader's locators, plus the per-entity counters of
         // writer and reader (window deltas).

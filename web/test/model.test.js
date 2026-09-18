@@ -273,6 +273,18 @@ test('normalizeDocument: the rmw unknown node name falls back to the participant
   assert.ok([...split.nodes.keys()].some(k => k.startsWith('participant ')));
 });
 
+test('rateText / rateTitle (#143)', () => {
+  assert.equal(M.rateText({ delivered_per_s: 9.96 }), '10.0');
+  assert.equal(M.rateText({ delivered_per_s: 120.4 }), '120');
+  assert.equal(M.rateText({ delivered_per_s: 120.4, delivered_per_s_lower_bound: true }), '\u2265120');
+  assert.equal(M.rateText({ delivered_per_s: null }), '');
+  assert.equal(M.rateText({}), '');
+  assert.equal(M.rateText(null), '');
+  assert.equal(M.rateTitle({ delivered_per_s: 10, delivered_per_s_window_s: 5 }), 'delivered samples/s over 5.0 s');
+  assert.match(M.rateTitle({ delivered_per_s: 10, delivered_per_s_lower_bound: true }), /^delivered samples\/s; at least/);
+  assert.equal(M.rateTitle({ delivered_per_s: null }), '');
+});
+
 test('humanSeconds / latencyText', () => {
   assert.equal(M.humanSeconds(0.00042), '420 µs');
   assert.equal(M.humanSeconds(0.0013), '1.30 ms');
