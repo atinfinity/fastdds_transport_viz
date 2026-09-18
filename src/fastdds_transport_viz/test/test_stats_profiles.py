@@ -82,8 +82,8 @@ def test_fixture_keeps_the_large_shm_transport():
     participant = root.find('.//p:participant[@profile_name="large_shm"]', NS)
     assert participant is not None and participant.get('is_default_profile') == 'true'
     assert text(participant, 'p:rtps/p:useBuiltinTransports') == 'false'
-    assert [t.text for t in participant.iterfind('p:rtps/p:userTransports/p:transport_id', NS)] == \
-        ['shm_large', 'udp_default']
+    transports = participant.iterfind('p:rtps/p:userTransports/p:transport_id', NS)
+    assert [t.text for t in transports] == ['shm_large', 'udp_default']
     shm = root.find('.//p:transport_descriptor[p:transport_id="shm_large"]', NS)
     assert text(shm, 'p:type') == 'SHM'
     assert text(shm, 'p:segment_size') == '16777216'

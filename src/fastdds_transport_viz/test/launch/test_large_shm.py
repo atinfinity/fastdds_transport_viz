@@ -4,12 +4,10 @@
 import os
 import sys
 
-from ament_index_python.packages import get_package_share_directory
-
 sys.path.insert(0, os.path.dirname(__file__))
 from _common import (  # noqa: E402
-    Base, description, HAS_NATIVE_BUFFERS, node_action, pair_of, skip_without_statistics,
-    STATS_ENV, topic, transport_viz_json)
+    Base, description, get_package_share_directory, HAS_NATIVE_BUFFERS, node_action, pair_of,
+    skip_without_statistics, STATS_ENV, topic, transport_viz_json)
 
 import launch_testing  # noqa: E402
 
