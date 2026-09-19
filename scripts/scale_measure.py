@@ -154,8 +154,10 @@ def last(run, name, key, default=None):
 
 
 def pair_sets(document):
-    """(all pairs, measured pairs, participants) of a --json document."""
-    pairs, measured, participants = set(), set(), set()
+    """(all pairs, measured pairs, delivered-but-unmeasured pairs, participants) of a --json
+    document. "Measured" means RTPS_SENT packets, as in the tool; a delivery proof alone
+    (HISTORY_LATENCY, `measured.delivered`) does not count (#153)."""
+    pairs, measured, unmeasured, participants = set(), set(), set(), set()
     for topic in document.get('topics', []):
         for side in ('writers', 'readers'):
             for e in topic.get(side, []):
@@ -164,9 +166,11 @@ def pair_sets(document):
             key = (topic['topic'], p['writer_guid'], p['reader_guid'])
             pairs.add(key)
             m = p.get('measured') or {}
-            if m.get('packets', 0) > 0 or m.get('delivered'):
+            if m.get('packets', 0) > 0:
                 measured.add(key)
-    return pairs, measured, participants
+            elif m.get('delivered'):
+                unmeasured.add(key)
+    return pairs, measured, unmeasured, participants
 
 
 def stats_run(timeout, keep):
@@ -175,15 +179,17 @@ def stats_run(timeout, keep):
         document = json.loads(run['stdout'])
     except ValueError:
         document = {}
-    pairs, measured, participants = pair_sets(document)
+    pairs, measured, unmeasured, participants = pair_sets(document)
     run['document'] = document
     run['pairs'], run['measured'], run['participants'] = pairs, measured, participants
+    run['delivered_unmeasured'] = unmeasured
     return run
 
 
 def summarize_run(run, extra=None):
     out = {k: v for k, v in run.items()
-           if k not in ('profile', 'stdout', 'document', 'pairs', 'measured', 'participants')}
+           if k not in ('profile', 'stdout', 'document', 'pairs', 'measured',
+                        'delivered_unmeasured', 'participants')}
     out.update(extra or {})
     return out
 
@@ -293,6 +299,10 @@ def main():
             s30['document'].get('stats', {}).get('participants_with_stats', [])),
         'measured_pairs_5s': len(s5['measured']),
         'measured_pairs_30s': len(s30['measured']),
+        # delivery proof without a measured packet; what the pre-#153 predicate counted as
+        # measured. Recorded only.
+        'delivered_unmeasured_5s': len(s5['delivered_unmeasured']),
+        'delivered_unmeasured_30s': len(s30['delivered_unmeasured']),
         'coverage_basis_pairs_30s': len(m30),
         'coverage': round(coverage, 4) if coverage is not None else None,
         'missing_at_5s_by_topic': missing_5s,
