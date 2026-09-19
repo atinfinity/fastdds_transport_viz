@@ -312,10 +312,47 @@ ShmInfo shm(const json & j)
   s.datasharing_notifications = j.value("datasharing_notifications", 0ULL);
   s.checked_ports = j.value("checked_ports", std::vector<uint32_t>{});
   s.missing_ports = j.value("missing_ports", std::vector<uint32_t>{});
+  s.unknown_ports = j.value("unknown_ports", std::vector<uint32_t>{});   // #125
   s.other_host_participants = j.value("other_host_participants", 0ULL);
   s.nodes_visible = j.value("nodes_visible", true);
   s.warnings = at(j, "warnings", where).get<std::vector<std::string>>();
   return s;
+}
+
+ShmVisibility shm_visibility(const std::string & s)
+{
+  return s == "visible" ? ShmVisibility::Visible :
+         s == "not-visible" ? ShmVisibility::NotVisible : ShmVisibility::Unprobed;
+}
+
+PortLock port_lock(const std::string & s)
+{
+  return s == "held" ? PortLock::Held :
+         s == "own" ? PortLock::Own :
+         s == "absent" ? PortLock::Absent :
+         s == "stale" ? PortLock::Stale :
+         s == "unknown" ? PortLock::Unknown : PortLock::Unprobed;
+}
+
+/// `participants` (#125): read back as written, so a `diff` document keeps it.
+Participant participant(const json & j, size_t index)
+{
+  const std::string where = "participants[" + std::to_string(index) + "]";
+  Participant p;
+  p.guid_prefix = at(j, "guid_prefix", where).get<std::string>();
+  p.host_id = host_id(at(j, "host_id", where).get<std::string>());
+  p.host_name = j.value("host_name", "");
+  p.own = j.value("own", false);
+  p.shm_visibility = shm_visibility(j.value("shm_visibility", "unprobed"));
+  for (const auto & sp : j.value("shm_ports", json::array())) {
+    Participant::ShmPort port;
+    port.port = at(sp, "port", where + ".shm_ports").get<uint32_t>();
+    port.lock = port_lock(sp.value("lock", "unprobed"));
+    port.announced_by = sp.value("announced_by", 1ULL);
+    port.proof = sp.value("proof", true);
+    p.shm_ports.push_back(port);
+  }
+  return p;
 }
 
 Snapshot snapshot(const json & doc)
@@ -450,6 +487,21 @@ Snapshot snapshot(const json & doc)
       snap.shm = shm(*shm_it);
     } catch (const std::exception & e) {
       throw ParseError(std::string("shm: ") + e.what());
+    }
+  }
+  // #125; absent in documents of earlier versions, never compared
+  auto participants_it = doc.find("participants");
+  if (participants_it != doc.end() && participants_it->is_array()) {
+    size_t index = 0;
+    for (const auto & p : *participants_it) {
+      try {
+        snap.participants.push_back(participant(p, index));
+      } catch (const ParseError &) {
+        throw;
+      } catch (const std::exception & e) {
+        throw ParseError("participants[" + std::to_string(index) + "]: " + e.what());
+      }
+      ++index;
     }
   }
   return snap;

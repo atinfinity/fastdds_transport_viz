@@ -174,6 +174,27 @@ test('bundle: by writer node, reader node, transport and confidence; warn flag',
   assert.equal(edges.find(e => e.target === '/c').transport, 'UDPv4');
 });
 
+test('participantShmText: the endpoint panel line from the `participants` entry (#125)', () => {
+  assert.equal(M.participantShmText(null, 'P1'), '');
+  assert.equal(M.participantShmText({ topics: [] }, 'P1'), '', 'a document written before #125');
+  const doc = { participants: [
+    { guid_prefix: 'P1', own: false, shm_visibility: 'visible',
+      shm_ports: [{ port: 7417, lock: 'held', announced_by: 1, proof: true }, { port: 7001, lock: 'held', announced_by: 2, proof: false }] },
+    { guid_prefix: 'P2', own: false, shm_visibility: 'not-visible', shm_ports: [{ port: 7419, lock: 'absent', announced_by: 1, proof: true }] },
+    { guid_prefix: 'P9', own: true, shm_visibility: 'unprobed', shm_ports: [] },
+  ] };
+  assert.equal(M.participantShmText(doc, 'P1'), 'visible · ports 7417 held, 7001 held (2 participants) (no proof)');
+  assert.equal(M.participantShmText(doc, 'P2'), 'not-visible · ports 7419 absent');
+  assert.equal(M.participantShmText(doc, 'P9'), "unprobed (the tool's own) · no SHM port");
+  assert.equal(M.participantShmText(doc, 'P3'), '', 'a participant the document does not list');
+  // the shipped split sample: the tool in a third IPC namespace, the nodes' ports absent
+  const split = load('shm_split.json');
+  const chatter = split.topics.find(t => t.topic === '/chatter');
+  const text = M.participantShmText(split, chatter.writers[0].participant_guid_prefix);
+  assert.match(text, /^not-visible · ports 7000 own \(3 participants\) \(no proof\), \d+ absent$/);
+  assert.ok(split.participants.some(p => p.own && M.participantShmText(split, p.guid_prefix).startsWith("unprobed (the tool's own)")));
+});
+
 test('shmText: summary line, stale count, visibility and warnings with descriptions', () => {
   assert.equal(M.shmText(null), '');
   assert.equal(M.shmText({ available: false }), '');
@@ -266,11 +287,11 @@ test('normalizeDocument: the rmw unknown node name falls back to the participant
   const m = M.buildModel(doc);
   assert.deepEqual([...m.nodes.keys()].sort(), ['participant P1', 'participant P2'], 'not merged into one node');
   assert.equal(M.normalizeDocument(null), null);
-  // the shipped split sample: the listener is one participant box, the talker keeps its name
+  // the shipped split sample (re-taken after #112): both nodes carry their real names
   const split = M.buildModel(M.normalizeDocument(load('shm_split.json')));
   assert.ok(![...split.nodes.keys()].includes(unknown));
   assert.ok(split.nodes.has('/talker'));
-  assert.ok([...split.nodes.keys()].some(k => k.startsWith('participant ')));
+  assert.ok(split.nodes.has('/listener'));
 });
 
 test('rateText / rateTitle (#143)', () => {

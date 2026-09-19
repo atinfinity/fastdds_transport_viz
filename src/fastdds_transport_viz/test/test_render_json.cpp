@@ -95,6 +95,25 @@ Snapshot snapshot()
   s.shm.checked_ports = {7411};
   s.shm.warnings = {"shm-stale-files"};
   s.shm.stale_segments = 1;
+  // #125: the writer's participant with its ports as the split verdicts saw them
+  Participant p1;
+  p1.guid_prefix = "P1";
+  p1.host_id = {1, 2, 3, 4};
+  p1.host_name = "robot:1";
+  p1.shm_visibility = ShmVisibility::Visible;
+  p1.shm_ports.push_back(Participant::ShmPort{7411, PortLock::Held, 1, true});
+  p1.shm_ports.push_back(Participant::ShmPort{7001, PortLock::Held, 2, false});
+  Participant p2;
+  p2.guid_prefix = "P2";
+  p2.host_id = {1, 2, 3, 4};
+  p2.shm_visibility = ShmVisibility::NotVisible;
+  p2.shm_ports.push_back(Participant::ShmPort{7413, PortLock::Absent, 1, true});
+  Participant own;
+  own.guid_prefix = "P9";
+  own.host_id = {1, 2, 3, 4};
+  own.own = true;
+  own.shm_ports.push_back(Participant::ShmPort{7002, PortLock::Own, 1, false});
+  s.participants = {p1, p2, own};
   s.discovery.complete = false;   // one announced endpoint never arrived (#133)
   s.discovery.stopped_on = "quiet";
   s.discovery.events = 12;
@@ -176,8 +195,31 @@ TEST(RenderJson, DocumentKeys)
   EXPECT_EQ(doc["shm"]["available"], true);
   EXPECT_EQ(doc["shm"]["used_bytes"], 40);
   EXPECT_EQ(doc["shm"]["checked_ports"], json::array({7411}));
+  EXPECT_EQ(doc["shm"]["unknown_ports"], json::array());
   EXPECT_EQ(doc["shm"]["warnings"], json::array({"shm-stale-files"}));
   EXPECT_TRUE(doc["reason_code_descriptions"].contains("shm-stale-files"));
+  // #125: the participants with what the split verdicts saw of their ports
+  ASSERT_EQ(doc["participants"].size(), 3u);
+  const auto & p1 = doc["participants"][0];
+  EXPECT_EQ(p1["guid_prefix"], "P1");
+  EXPECT_EQ(p1["host_id"], "01020304");
+  EXPECT_EQ(p1["host"], "robot");
+  EXPECT_EQ(p1["host_name"], "robot:1");
+  EXPECT_EQ(p1["own"], false);
+  EXPECT_EQ(p1["shm_visibility"], "visible");
+  ASSERT_EQ(p1["shm_ports"].size(), 2u);
+  const json first_port = {{"port", 7411}, {"lock", "held"}, {"announced_by", 1}, {"proof", true}};
+  EXPECT_EQ(p1["shm_ports"][0], first_port);
+  EXPECT_EQ(p1["shm_ports"][1]["announced_by"], 2);
+  EXPECT_EQ(p1["shm_ports"][1]["proof"], false);
+  const auto & p2 = doc["participants"][1];
+  EXPECT_EQ(p2["host"], "local");
+  EXPECT_EQ(p2["shm_visibility"], "not-visible");
+  EXPECT_EQ(p2["shm_ports"][0]["lock"], "absent");
+  const auto & own = doc["participants"][2];
+  EXPECT_EQ(own["own"], true);
+  EXPECT_EQ(own["shm_visibility"], "unprobed");
+  EXPECT_EQ(own["shm_ports"][0]["lock"], "own");
   EXPECT_TRUE(doc["reason_code_descriptions"].contains("measured-shm-traffic"));
   // remedies: same keys as the descriptions, null where there is nothing to change
   std::set<std::string> desc_keys, remedy_keys;
@@ -407,6 +449,19 @@ TEST(ParseJson, RoundTripsEverythingTheRenderersShow)
   EXPECT_EQ(parsed.stats.participants_with_stats, std::set<std::string>{"P1"});
   EXPECT_TRUE(parsed.shm.available);
   EXPECT_EQ(parsed.shm.warnings, std::vector<std::string>{"shm-stale-files"});
+  // #125: the participants come back as written (the `again` comparison below covers the rest)
+  ASSERT_EQ(parsed.participants.size(), 3u);
+  EXPECT_EQ(parsed.participants[0].shm_visibility, ShmVisibility::Visible);
+  EXPECT_EQ(parsed.participants[0].host_name, "robot:1");
+  ASSERT_EQ(parsed.participants[0].shm_ports.size(), 2u);
+  EXPECT_EQ(parsed.participants[0].shm_ports[1].port, 7001u);
+  EXPECT_EQ(parsed.participants[0].shm_ports[1].lock, PortLock::Held);
+  EXPECT_EQ(parsed.participants[0].shm_ports[1].announced_by, 2u);
+  EXPECT_FALSE(parsed.participants[0].shm_ports[1].proof);
+  EXPECT_EQ(parsed.participants[1].shm_visibility, ShmVisibility::NotVisible);
+  EXPECT_EQ(parsed.participants[1].shm_ports[0].lock, PortLock::Absent);
+  EXPECT_TRUE(parsed.participants[2].own);
+  EXPECT_EQ(parsed.participants[2].shm_ports[0].lock, PortLock::Own);
   // both renderers produce the same output from the parsed snapshot
   std::string where;
   const json again = json::parse(render_json(parsed, RenderOptions{}));
@@ -546,4 +601,32 @@ TEST(ParseJson, ADocumentWithoutTheDiscoveryObjectLeavesItUnset)
   const auto parsed = parse_json(doc.dump());
   EXPECT_FALSE(parsed.discovery.complete.has_value());
   EXPECT_EQ(parsed.discovery.stopped_on, "");
+}
+
+TEST(ParseJson, ADocumentWithoutParticipantsRendersNone)
+{
+  // written before #125: nothing is known about the participants' ports, and the
+  // re-rendered document (`diff`) does not invent an empty section
+  auto s = snapshot();
+  auto doc = json::parse(render_json(s, RenderOptions{}));
+  doc.erase("participants");
+  doc["shm"].erase("unknown_ports");
+  const auto parsed = parse_json(doc.dump());
+  EXPECT_TRUE(parsed.participants.empty());
+  EXPECT_TRUE(parsed.shm.unknown_ports.empty());
+  EXPECT_FALSE(json::parse(render_json(parsed, RenderOptions{})).contains("participants"));
+}
+
+TEST(ParseJson, ParticipantsWithUnknownValuesReadAsUnprobed)
+{
+  // a newer document with a lock state or visibility this version does not know
+  auto s = snapshot();
+  auto doc = json::parse(render_json(s, RenderOptions{}));
+  doc["participants"][0]["shm_visibility"] = "later";
+  doc["participants"][0]["shm_ports"][0]["lock"] = "later";
+  const auto parsed = parse_json(doc.dump());
+  EXPECT_EQ(parsed.participants[0].shm_visibility, ShmVisibility::Unprobed);
+  EXPECT_EQ(parsed.participants[0].shm_ports[0].lock, PortLock::Unprobed);
+  doc["participants"][0].erase("guid_prefix");
+  EXPECT_THROW(parse_json(doc.dump()), ParseError);
 }

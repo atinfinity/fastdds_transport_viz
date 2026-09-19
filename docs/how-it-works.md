@@ -335,7 +335,20 @@ shared memory: /dev/shm 396 MB used of 16.7 GB (16.3 GB free) | Fast DDS 63.4 MB
 - `shm-nearly-full` warns at 90 % usage or less than 16 MiB free.
 
 The line is omitted where there is no `/dev/shm` (macOS). In JSON the same data is the
-`shm` object; `--watch` refreshes it every frame.
+`shm` object (with `missing_ports`, the announced ports without a lock file here, and
+`unknown_ports`, those whose lock could not be probed); `--watch` refreshes it every frame.
+
+The per-participant evidence behind the visibility verdicts is the `participants` array
+of the document ([#125](https://github.com/atinfinity/fastdds_transport_viz/issues/125)):
+one entry per discovered participant with `guid_prefix`, `host_id`, `host`, `host_name`,
+`own` (a participant of the tool's process), `shm_visibility` (`visible`, `not-visible`,
+`unprobed`) and `shm_ports`, its announced SHM ports on the tool's host with the lock as
+probed from the tool's IPC namespace (`held`, `own`, `absent` - no lock file, `stale` - a
+free lock, `unknown` - unreadable, `unprobed` - no `/dev/shm` or another host),
+`announced_by` (how many participants announce that number) and `proof` (whether a held
+lock on it counts as evidence, see [Split IPC namespaces](#split-ipc-namespaces)). The
+array is present when at least one participant was discovered, on every platform; the web
+viewer shows the same in the endpoint panel's `shm` row.
 
 ### Split IPC namespaces
 

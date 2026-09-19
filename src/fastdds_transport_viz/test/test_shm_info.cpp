@@ -81,10 +81,13 @@ TEST(DataSharingName, MatchesFastDdsFormat)
 
 TEST(ScanShm, MissingDirectoryIsNotAvailable)
 {
-  auto info = scan_shm("/nonexistent/ftv_shm", ShmScanInput{});
+  ShmScanInput in;
+  in.node_ports = {7411};
+  auto info = scan_shm("/nonexistent/ftv_shm", in);
   EXPECT_FALSE(info.available);
   EXPECT_FALSE(info.listed);
   EXPECT_TRUE(info.warnings.empty());
+  EXPECT_TRUE(info.port_locks.empty());   // nothing probed: unprobed in the JSON (#125)
 }
 
 TEST_F(FakeShmDir, CountsSizesAndStaleFilesByLock)
@@ -175,11 +178,15 @@ TEST_F(FakeShmDir, NodesInAnotherIpcNamespace)
   EXPECT_EQ(info.missing_ports, (std::vector<uint32_t>{7413}));
   EXPECT_TRUE(has(info.warnings, "shm-not-visible"));
   EXPECT_TRUE(has(info.warnings, "shm-stale-files"));
+  // the same probe per port (#125): held here, released (its lock file is gone)
+  EXPECT_EQ(info.port_locks.at(7411), PortLock::Held);
+  EXPECT_EQ(info.port_locks.at(7413), PortLock::Absent);
 
   // the held port is the tool's own (same number in another network namespace)
   in.own_ports = {7411};
   info = scan_shm(dir, in);
   EXPECT_EQ(info.missing_ports.size(), 2u);
+  EXPECT_EQ(info.port_locks.at(7411), PortLock::Own);
 
   // participants with another host id are never visible (they announce no SHM locator)
   in = ShmScanInput{};
@@ -202,12 +209,15 @@ TEST_F(FakeShmDir, UnreadableLockIsUnknownNotMissing)
   auto info = scan_shm(dir, in);
   EXPECT_EQ(info.missing_ports, (std::vector<uint32_t>{7411, 7415}));
   EXPECT_EQ(info.unknown_ports, (std::vector<uint32_t>{7415}));
+  EXPECT_EQ(info.port_locks.at(7411), PortLock::Absent);   // no such port file
+  EXPECT_EQ(info.port_locks.at(7415), PortLock::Unknown);
 
   // the tool's own port is another namespace's whatever its lock says
   in.own_ports = {7415};
   info = scan_shm(dir, in);
   EXPECT_EQ(info.missing_ports, (std::vector<uint32_t>{7411, 7415}));
   EXPECT_TRUE(info.unknown_ports.empty());
+  EXPECT_EQ(info.port_locks.at(7415), PortLock::Own);
 }
 
 TEST_F(FakeShmDir, FreeLockIsUndecided)
@@ -221,6 +231,7 @@ TEST_F(FakeShmDir, FreeLockIsUndecided)
   auto info = scan_shm(dir, in);
   EXPECT_EQ(info.missing_ports, (std::vector<uint32_t>{7417}));
   EXPECT_EQ(info.unknown_ports, (std::vector<uint32_t>{7417}));
+  EXPECT_EQ(info.port_locks.at(7417), PortLock::Stale);
   EXPECT_FALSE(info.nodes_visible);
   EXPECT_EQ(participant_shm_visibility({7417}, {7417}, info, {}), ShmVisibility::Unprobed);
 }

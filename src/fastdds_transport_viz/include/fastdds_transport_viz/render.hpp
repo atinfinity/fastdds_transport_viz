@@ -96,6 +96,9 @@ size_t visible_width(const std::string & s);
 std::string truncate_visible(const std::string & s, size_t width);
 
 std::string host_label(const Snapshot & snap, const Endpoint & e, const RenderOptions & opt);
+std::string host_label(
+  const Snapshot & snap, const HostId & host_id, const std::string & host_name,
+  const RenderOptions & opt);
 
 std::string render_table(const Snapshot & snap, const RenderOptions & opt);
 std::string render_json(const Snapshot & snap, const RenderOptions & opt);

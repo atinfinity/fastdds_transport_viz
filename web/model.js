@@ -247,6 +247,20 @@
   }
 
   /**
+   * What the split verdicts saw of an endpoint's participant in shared memory (#125): its
+   * `participants` entry as one line, '' when the document has no such section or entry.
+   * Ports read "7417 held", with "(2 participants)" where the number is announced by more
+   * than one and "(no proof)" where only its ros_discovery_info reader has it.
+   */
+  function participantShmText(doc, prefix) {
+    const p = ((doc && doc.participants) || []).find(x => x.guid_prefix === prefix);
+    if (!p) return '';
+    const ports = (p.shm_ports || []).map(sp => `${sp.port} ${sp.lock}` +
+      (sp.announced_by > 1 ? ` (${sp.announced_by} participants)` : '') + (sp.proof ? '' : ' (no proof)'));
+    return `${p.shm_visibility}${p.own ? ' (the tool\'s own)' : ''}` + (ports.length ? ` · ports ${ports.join(', ')}` : ' · no SHM port');
+  }
+
+  /**
    * The `stats` object as the meta line shows it: what arrived, and what never did (#134).
    * The loss is cumulative over the run, and a pair can show no measurement because of it.
    */
@@ -452,6 +466,6 @@
     return { ...model, nodes, hosts };
   }
 
-  return { TRANSPORTS, INTERNAL_TOPICS, UNKNOWN_NODE_NAME, isFoldedBufferCompanion, isInternalTopic, normalizeDocument, buildModel, filterRegex, visiblePairs, visibleNodesModel, bundle, humanBytes, humanSeconds, measuredText, latencyText, rateText, rateTitle, lossText, escapeHtml, codeListHtml, shmText, statsText,
+  return { TRANSPORTS, INTERNAL_TOPICS, UNKNOWN_NODE_NAME, isFoldedBufferCompanion, isInternalTopic, normalizeDocument, buildModel, filterRegex, visiblePairs, visibleNodesModel, bundle, humanBytes, humanSeconds, measuredText, latencyText, rateText, rateTitle, lossText, escapeHtml, codeListHtml, shmText, participantShmText, statsText,
     pairKey, keyId, pairState, sameState, diffDocuments, changeText, changesSummary, decorations, holdChanges, heldDecorations, markedPairs, pruneNodes };
 });

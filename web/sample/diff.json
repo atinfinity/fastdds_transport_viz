@@ -107,6 +107,7 @@
     "stale_ports": 0,
     "stale_segments": 0,
     "total_bytes": 4159885312,
+    "unknown_ports": [],
     "used_bytes": 1048576,
     "warnings": []
   },

@@ -4,6 +4,13 @@ Changelog for package fastdds_transport_viz
 
 Forthcoming
 -----------
+* Per-participant SHM ports and visibility in ``--json`` (#125): a ``participants``
+  array with one entry per discovered participant (``guid_prefix``, ``host_id``, ``host``,
+  ``host_name``, ``own``, ``shm_visibility``) and its announced SHM ports on the tool's
+  host with the lock state probed from the tool's IPC namespace (``held``, ``own``,
+  ``absent``, ``stale``, ``unknown``, ``unprobed``), ``announced_by`` and ``proof``;
+  ``shm.unknown_ports`` next to ``missing_ports``. The web viewer shows it as an ``shm``
+  row of the endpoint panel. Additive, ``schema_version`` stays 1.
 * A delivered rate per pair (#143): the ``HZ`` column of the table (right of ``LATENCY``),
   ``measured.delivered_per_s`` in the document and ``Hz`` in the web viewer count the
   ``HISTORY_LATENCY`` samples the reader-side participant reports, one per delivered sample

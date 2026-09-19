@@ -134,6 +134,7 @@ ShmInfo scan_shm(const std::string & path, const ShmScanInput & in)
   // port files whose lock could not be probed, or is free: a node that just died may still
   // be discovered, so a free lock does not prove that its owner lives in another namespace
   std::set<std::string> ports_undecided;
+  std::map<std::string, LockState> port_states;   // every port file found, for port_locks
   while (struct dirent * ent = ::readdir(dir)) {
     const std::string name = ent->d_name;
     const char * segment_prefix = prefix_of(name, kSegmentPrefixes);
@@ -155,6 +156,7 @@ ShmInfo scan_shm(const std::string & path, const ShmScanInput & in)
       if (st == LockState::Free) {++info.stale_ports;}
       if (st == LockState::Held) {ports_held.insert(port);}
       if (st == LockState::Free || st == LockState::Unknown) {ports_undecided.insert(port);}
+      port_states[port] = st;
     } else if (segment_prefix != nullptr) {
       if (!is_hex(name.substr(std::string(segment_prefix).size()))) {continue;}
       ++info.segments;
@@ -189,6 +191,16 @@ ShmInfo scan_shm(const std::string & path, const ShmScanInput & in)
         info.unknown_ports.push_back(port);
       }
     }
+    // the same probe, kept per port for the JSON `participants` (#125)
+    PortLock lock = PortLock::Absent;
+    if (in.own_ports.count(port)) {
+      lock = PortLock::Own;
+    } else if (auto st = port_states.find(std::to_string(port)); st != port_states.end()) {
+      lock = st->second == LockState::Held ? PortLock::Held :
+        st->second == LockState::Free ? PortLock::Stale :
+        st->second == LockState::Missing ? PortLock::Absent : PortLock::Unknown;
+    }
+    info.port_locks[port] = lock;
   }
   info.other_host_participants = in.other_host_participants;
   info.nodes_visible = info.missing_ports.empty() && info.other_host_participants == 0;

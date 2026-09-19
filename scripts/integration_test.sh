@@ -280,8 +280,24 @@ elif scenario == 'hostnet_split_shm_shared_port':
     shm = doc['shm']
     assert {7000, 7001} <= set(shm['checked_ports']), shm
     assert 7001 not in shm['missing_ports'], shm   # held here by the talker
+    # what the report shows of that (#125): the writer's participant with 7001 held but
+    # announced twice and its own port as the proof, the reader's with a port absent here
+    by_prefix = {q['guid_prefix']: q for q in doc['participants']}
+    by_guid = {e['guid']: e for e in chatter['writers'] + chatter['readers']}
+    writer = by_prefix[by_guid[p['writer_guid']]['participant_guid_prefix']]
+    reader = by_prefix[by_guid[p['reader_guid']]['participant_guid_prefix']]
+    assert writer['shm_visibility'] == 'visible' and not writer['own'], writer
+    ports = {sp['port']: sp for sp in writer['shm_ports']}
+    assert ports[7001]['lock'] == 'held' and ports[7001]['announced_by'] == 2, writer
+    assert not ports[7001]['proof'], writer
+    assert any(sp['lock'] == 'held' and sp['proof'] and sp['announced_by'] == 1
+               for sp in writer['shm_ports']), writer
+    assert reader['shm_visibility'] == 'not-visible', reader
+    assert any(sp['lock'] == 'absent' for sp in reader['shm_ports']), reader
+    assert any(q['own'] for q in doc['participants']), 'the tool\'s own participants'
     print('PASS: split seen from the talker\'s IPC namespace with its 7000+ number announced '
-          'twice: /chatter NONE (shm-ipc-namespace-split, shm-reader-port-not-visible)')
+          'twice: /chatter NONE (shm-ipc-namespace-split, shm-reader-port-not-visible), '
+          'participants show 7001 held by 2 and the listener\'s port absent')
 elif scenario == 'hostnet_split_stats':
     # the tool (a third IPC namespace) gets the nodes' statistics over UDPv4: its statistics
     # readers announce no SHM locator (#106)

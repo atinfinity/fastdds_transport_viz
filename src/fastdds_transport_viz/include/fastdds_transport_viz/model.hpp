@@ -81,6 +81,38 @@ enum class ShmVisibility
   NotVisible,   // a port nobody holds here, or one that collides with the tool's own ports
 };
 
+/// What the lock file of one SHM port says in the tool's /dev/shm (`participants` in the
+/// JSON). The listener of a port holds `fastrtps_port<N>_el`; senders do not.
+enum class PortLock
+{
+  Unprobed,   // no scan (/dev/shm unavailable) or the port was never checked
+  Held,       // a living process of this IPC namespace listens on it
+  Own,        // the tool's own port: a node with the same number is in another namespace
+  Absent,     // no port file, or no lock file (released by its last user), here
+  Stale,      // the file exists but nobody holds the lock (its listener is gone)
+  Unknown,    // the lock could not be probed
+};
+
+/// A discovered participant with what the split verdicts know about its shared memory:
+/// the `participants` array of the JSON (#125). Endpoints name it by `participant_guid_prefix`.
+struct Participant
+{
+  std::string guid_prefix;
+  HostId host_id{};
+  std::string host_name;          // from statistics PHYSICAL_DATA, may be empty
+  bool own{false};                // one of the tool's own participants
+  // SHM unicast ports its endpoints announce, in the tool's view (empty on another host)
+  struct ShmPort
+  {
+    uint32_t port{0};
+    PortLock lock{PortLock::Unprobed};
+    size_t announced_by{1};       // discovered participants announcing this number
+    bool proof{true};             // false: only its ros_discovery_info reader has it (#118)
+  };
+  std::vector<ShmPort> shm_ports;
+  ShmVisibility shm_visibility{ShmVisibility::Unprobed};
+};
+
 struct Endpoint
 {
   bool is_writer{false};
@@ -394,6 +426,7 @@ struct ShmInfo
   std::vector<uint32_t> checked_ports;   // SHM ports of observed nodes with the tool's host id
   std::vector<uint32_t> missing_ports;   // ... not held here by a living node process
   std::vector<uint32_t> unknown_ports;   // ... of those, the lock is free or could not be probed
+  std::map<uint32_t, PortLock> port_locks;   // every checked port, for the JSON `participants`
   size_t other_host_participants{0};  // observed participants with another host id
   bool nodes_visible{true};          // missing_ports.empty() && other_host_participants == 0
   std::vector<std::string> warnings;  // shm-stale-files, shm-nearly-full, shm-not-visible
@@ -517,6 +550,7 @@ struct Snapshot
   double observation_seconds{0.0};
   HostId local_host_id{};
   std::vector<Endpoint> endpoints;
+  std::vector<Participant> participants;   // every discovered one, sorted by guid_prefix
   std::vector<TopicSummary> topics;
   StatsData stats;
   ShmInfo shm;                  // shared memory of the environment the tool runs in
@@ -532,6 +566,8 @@ std::string to_string(Transport transport);
 std::string to_string(Confidence confidence);
 std::string to_string(DataSharingKind kind);
 std::string to_string(KeyMode mode);
+std::string to_string(ShmVisibility visibility);   // "visible" / "not-visible" / "unprobed"
+std::string to_string(PortLock lock);              // "held", "own", ...
 std::string host_id_hex(const HostId & id);
 
 }  // namespace fastdds_transport_viz

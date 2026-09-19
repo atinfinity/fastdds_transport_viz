@@ -40,6 +40,13 @@
         "$ref": "#/$defs/topic"
       }
     },
+    "participants": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/participant"
+      },
+      "description": "every discovered participant with the inputs of the SHM split verdicts (#125): its SHM ports, what their lock files say in the tool's /dev/shm and how many participants announce each number; absent when nothing was discovered"
+    },
     "reason_code_descriptions": {
       "type": "object",
       "additionalProperties": {
@@ -1143,10 +1150,102 @@
           },
           "description": "probed ports not held by a living process here (or the tool's own port number)"
         },
+        "unknown_ports": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "description": "of the missing ports, those whose lock is free or could not be probed: they leave the participant unprobed instead of not visible"
+        },
         "other_host_participants": {
           "type": "integer",
           "minimum": 0,
           "description": "observed participants with another host id: never in this /dev/shm"
+        }
+      }
+    },
+    "participant": {
+      "type": "object",
+      "description": "a discovered participant; endpoints name it by participant_guid_prefix",
+      "required": [
+        "guid_prefix",
+        "host_id",
+        "host",
+        "host_name",
+        "own",
+        "shm_visibility",
+        "shm_ports"
+      ],
+      "properties": {
+        "guid_prefix": {
+          "type": "string"
+        },
+        "host_id": {
+          "type": "string",
+          "description": "first 4 bytes of the GUID prefix, hex"
+        },
+        "host": {
+          "type": "string",
+          "description": "host label as on the endpoints"
+        },
+        "host_name": {
+          "type": "string",
+          "description": "from statistics PHYSICAL_DATA, empty without --stats"
+        },
+        "own": {
+          "type": "boolean",
+          "description": "one of the tool's own participants"
+        },
+        "shm_visibility": {
+          "enum": [
+            "visible",
+            "not-visible",
+            "unprobed"
+          ],
+          "description": "whether the participant listens for SHM in the tool's IPC namespace: visible when every port is held here and one proof port is announced by no other participant; not-visible when a port is absent here or is the tool's own; otherwise unprobed (always unprobed for the tool's own participants)"
+        },
+        "shm_ports": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/shm_port"
+          },
+          "description": "SHM unicast ports its endpoints announce, ros_discovery_info included; empty for a participant on another host"
+        }
+      }
+    },
+    "shm_port": {
+      "type": "object",
+      "required": [
+        "port",
+        "lock",
+        "announced_by",
+        "proof"
+      ],
+      "properties": {
+        "port": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "lock": {
+          "enum": [
+            "held",
+            "own",
+            "absent",
+            "stale",
+            "unknown",
+            "unprobed"
+          ],
+          "description": "the port's lock file (fastrtps_port<N>_el) in the tool's /dev/shm: held by a living process of this IPC namespace, the tool's own, absent, stale (nobody holds it), unknown (could not be probed) or unprobed (no scan)"
+        },
+        "announced_by": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "discovered participants announcing this port number, this one included"
+        },
+        "proof": {
+          "type": "boolean",
+          "description": "false when only the participant's ros_discovery_info reader announces it: its 7000+ unique-flow number is the first free one of the IPC namespace in any domain, so a held lock does not prove whose it is"
         }
       }
     }

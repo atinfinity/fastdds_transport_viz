@@ -53,6 +53,27 @@ std::string to_string(KeyMode mode)
   return mode == KeyMode::Node ? "node" : "guid";
 }
 
+std::string to_string(ShmVisibility visibility)
+{
+  switch (visibility) {
+    case ShmVisibility::Visible: return "visible";
+    case ShmVisibility::NotVisible: return "not-visible";
+    default: return "unprobed";
+  }
+}
+
+std::string to_string(PortLock lock)
+{
+  switch (lock) {
+    case PortLock::Held: return "held";
+    case PortLock::Own: return "own";
+    case PortLock::Absent: return "absent";
+    case PortLock::Stale: return "stale";
+    case PortLock::Unknown: return "unknown";
+    default: return "unprobed";
+  }
+}
+
 std::string host_id_hex(const HostId & id)
 {
   char buf[16];
