@@ -589,11 +589,16 @@ scenario_easy_mode_shm() {
   if ! has_easy_mode; then echo "SKIP: easy_mode_shm needs ROS_DISTRO=kilted|lyrical|rolling"; return 0; fi
   echo "== starting talker / listener on the host network in Easy Mode"
   docker compose run --rm -d --name tv_easy_talker -e ROS2_EASY_MODE=127.0.0.1 hostnet \
-    ros2 run demo_nodes_cpp talker >/dev/null
+    ros2 run demo_nodes_cpp talker
   docker compose run --rm -d --name tv_easy_listener -e ROS2_EASY_MODE=127.0.0.1 hostnet \
-    ros2 run demo_nodes_cpp listener >/dev/null
+    ros2 run demo_nodes_cpp listener
   run_containers+=(tv_easy_talker tv_easy_listener)
   sleep 3
+  # #171 diagnosis: who started the Easy Mode daemon, and is the server up before the tool?
+  echo "-- talker log"; docker logs tv_easy_talker 2>&1 | head -20
+  echo "-- listener log"; docker logs tv_easy_listener 2>&1 | head -20
+  docker compose run --rm hostnet bash -c \
+    'ss -ltnp 2>/dev/null | grep -E ":7402 " || echo "no listener on 7402"; ss -lunp 2>/dev/null | grep -E ":7402 " || true; dpkg-query -W ros-lyrical-fastdds ros-lyrical-rmw-fastrtps-cpp ros-lyrical-fastcdr'
   VIZ_ENV=(-e ROS2_EASY_MODE=127.0.0.1)   # the tool must join Easy Mode to see the nodes
   run_viz hostnet "$out" --locators
   VIZ_ENV=()
