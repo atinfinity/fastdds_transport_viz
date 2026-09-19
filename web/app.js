@@ -9,11 +9,12 @@
 (() => {
   'use strict';
 
-  // pure model / formatting functions live in model.js (unit-tested under Node)
-  const { TRANSPORTS, isInternalTopic, normalizeDocument, buildModel, filterRegex, visiblePairs, visibleNodesModel, bundle,
+  // pure model / formatting functions live in model.js, the scene (filters, layout, edge
+  // geometry) in scene.js; both unit-tested under Node
+  const { TRANSPORTS, isInternalTopic, normalizeDocument, buildModel, filterRegex, bundle,
     humanBytes, measuredText, latencyText, rateText, rateTitle, lossText, groupPairsByTopic, compareCells, escapeHtml, codeListHtml, shmText, participantShmText, datasharingText, statsText,
-    pairKey, keyId, diffDocuments, changeText, changesSummary, decorations, holdChanges, heldDecorations,
-    markedPairs, pruneNodes } = globalThis.TransportVizModel;
+    pairKey, keyId, diffDocuments, changeText, changesSummary, decorations, holdChanges, heldDecorations } = globalThis.TransportVizModel;
+  const { L, markOf, visibleScene, sceneEdges, edgeLabel, layout, edgeCurve, edgePathD, edgeMidpoint } = globalThis.TransportVizScene;
   const COLORS = {
     UDPv4: 'var(--c-udpv4)', UDPv6: 'var(--c-udpv6)', TCPv4: 'var(--c-tcp)', TCPv6: 'var(--c-tcp)',
     SHM: 'var(--c-shm)', DATA_SHARING: 'var(--c-ds)', NONE: 'var(--c-none)',
@@ -21,6 +22,8 @@
 
   const state = {
     doc: null,
+    model: null,   // buildModel(doc), once per document (#136)
+    scene: null,   // what the last render drew; selection changes reuse it (#136)
     view: 'graph',
     filter: { topic: '', node: '', transports: new Set(TRANSPORTS), hideInternal: true },
     selection: null,   // {kind: 'node', id} | {kind: 'edge', id} | {kind: 'pair', id} | {kind: 'ghost', id}
@@ -38,94 +41,12 @@
     return decorations(state.changes, state.before);
   }
 
-  /** Mark of a visible pair, ' ' when none. */
-  function markOf(vp, marks) {
-    const m = marks.get(keyId(pairKey(vp.topic, vp.pair)));
-    return m ? m.mark : ' ';
-  }
-
   const MARK_CLASS = { '+': 'added', '~': 'changed', '-': 'removed', ' ': '' };
   const markHtml = m => (m === ' ' ? '' : `<span class="mark ${MARK_CLASS[m]}">${m}</span>`);
 
-  /** Ghosts that pass the topic / node / transport filters (a ghost's transport is known only with the before document). */
-  function visibleGhosts(ghosts) {
-    const f = state.filter;
-    const re = filterRegex(f.topic);
-    const nre = filterRegex(f.node);
-    return ghosts.filter(g => {
-      if (f.hideInternal && isInternalTopic(g.topic || { topic: g.key.topic })) return false;
-      if (re && !re.test(g.key.topic)) return false;
-      if (nre && !nre.test(g.key.writer_node) && !nre.test(g.key.reader_node)) return false;
-      if (g.pair && !f.transports.has(g.pair.transport)) return false;
-      return true;
-    });
-  }
-
-  /** The pairs, ghosts and node model to draw: filters, then `changes only`. */
-  function visibleScene(fullModel) {
-    const deco = currentDecorations();
-    let pairs = visiblePairs(fullModel, state.filter);
-    const ghosts = visibleGhosts(deco.ghosts);
-    if (state.changesOnly) pairs = markedPairs(pairs, deco.marks);
-    let { model, matched } = visibleNodesModel(fullModel, pairs, state.filter.node);
-    // a ghost edge needs both of its nodes: those the after document still has by name
-    const ghostNodes = ghosts.flatMap(g => [g.key.writer_node, g.key.reader_node]).filter(id => fullModel.nodes.has(id));
-    if (state.filter.node) {
-      const nre = filterRegex(state.filter.node);
-      const keep = new Set([...model.nodes.keys(), ...ghosts.filter(g => nre && (nre.test(g.key.writer_node) || nre.test(g.key.reader_node)))
-        .flatMap(g => [g.key.writer_node, g.key.reader_node])]);
-      model = pruneNodes(fullModel, [], [...keep].filter(id => fullModel.nodes.has(id)));
-    }
-    if (state.changesOnly) model = pruneNodes(model, pairs, ghostNodes);
-    return { pairs, ghosts, model, matched, marks: deco.marks };
-  }
-
-  // ---------------------------------------------------------------- layout
-
-  const L = { hostGap: 60, hostPad: 16, nodeW: 190, nodeH: 46, nodeGap: 34, maxRows: 8, top: 40, left: 30 };
-
-  function layout(model) {
-    let x = L.left;
-    const pos = new Map();
-    const hostBoxes = [];
-    for (const h of model.hosts) {
-      const cols = Math.ceil(h.nodes.length / L.maxRows);
-      const rows = Math.min(h.nodes.length, L.maxRows);
-      const w = L.hostPad * 2 + cols * L.nodeW + (cols - 1) * L.nodeGap;
-      const hgt = L.hostPad * 2 + 24 + rows * L.nodeH + (rows - 1) * L.nodeGap;
-      h.nodes.forEach((n, i) => {
-        const c = Math.floor(i / L.maxRows);
-        const r = i % L.maxRows;
-        pos.set(n.id, { x: x + L.hostPad + c * (L.nodeW + L.nodeGap), y: L.top + L.hostPad + 24 + r * (L.nodeH + L.nodeGap), w: L.nodeW, h: L.nodeH });
-      });
-      hostBoxes.push({ host: h, x, y: L.top, w, h: hgt });
-      x += w + L.hostGap;
-    }
-    return { pos, hostBoxes, width: x, height: L.top + Math.max(0, ...hostBoxes.map(b => b.h)) + 40 };
-  }
-
-  /** Path between two node boxes; `k` spreads parallel edges apart. */
-  function edgePath(a, b, k) {
-    const spread = k * 14;
-    if (a === b) {
-      const x = a.x + a.w, y = a.y + a.h / 2 + spread;
-      return `M${x},${y - 8} C${x + 50},${y - 30} ${x + 50},${y + 30} ${x},${y + 8}`;
-    }
-    const ac = { x: a.x + a.w / 2, y: a.y + a.h / 2 };
-    const bc = { x: b.x + b.w / 2, y: b.y + b.h / 2 };
-    const sameColumn = Math.abs(ac.x - bc.x) < 1;
-    if (sameColumn) {
-      const x = a.x + a.w, dir = 1;
-      const mid = (ac.y + bc.y) / 2;
-      const bulge = 40 + Math.abs(ac.y - bc.y) * 0.15 + spread;
-      return `M${x},${ac.y + spread * 0.3} C${x + bulge * dir},${ac.y} ${x + bulge * dir},${bc.y} ${x},${bc.y - spread * 0.3}`;
-    }
-    const leftToRight = ac.x < bc.x;
-    const sx = leftToRight ? a.x + a.w : a.x;
-    const tx = leftToRight ? b.x : b.x + b.w;
-    const sy = ac.y + spread, ty = bc.y + spread;
-    const dx = (tx - sx) * 0.5;
-    return `M${sx},${sy} C${sx + dx},${sy} ${tx - dx},${ty} ${tx},${ty}`;
+  /** The pairs, ghosts and node model to draw for the current filters. */
+  function currentScene() {
+    return visibleScene(state.model, state.filter, state.changesOnly, currentDecorations());
   }
 
   // ---------------------------------------------------------------- rendering: graph
@@ -137,36 +58,15 @@
        <path d="M0,0 L10,5 L0,10 z" fill="${COLORS[t]}"/></marker>`).join(''));
   svg.call(d3.zoom().scaleExtent([0.2, 3]).on('zoom', (ev) => root.attr('transform', ev.transform)));
 
-  const MARK_RANK = { '+': 3, '~': 2, ' ': 0 };
+  const edgeClass = d => `edge ${d.confidence === 'likely' ? 'likely' : ''} ${d.warn ? 'warn' : ''} ${MARK_CLASS[d.mark]} ${isSelected(d.ghost ? 'ghost' : 'edge', d.id) ? 'selected' : ''}`;
+  const nodeClass = d => `node ${d.matched ? 'matched' : ''} ${isSelected('node', d.n.id) ? 'selected' : ''}`;
+  const rowClass = d => (d.group ? `topic ${d.collapsed ? 'collapsed' : ''}` : `${MARK_CLASS[d.mark || ' ']} ${isSelected(d.ghost ? 'ghost' : 'pair', d.id) ? 'selected' : ''}`);
 
-  /** Bundled edges plus one dashed ghost edge per removed pair whose nodes are both still there. */
-  function sceneEdges(scene) {
-    const edges = bundle(scene.pairs);
-    for (const e of edges) {
-      e.mark = e.pairs.reduce((best, vp) => { const m = markOf(vp, scene.marks); return MARK_RANK[m] > MARK_RANK[best] ? m : best; }, ' ');
-    }
-    for (const g of scene.ghosts) {
-      if (!scene.model.nodes.has(g.key.writer_node) || !scene.model.nodes.has(g.key.reader_node)) continue;
-      edges.push({ id: g.id, source: g.key.writer_node, target: g.key.reader_node, transport: g.pair ? g.pair.transport : 'NONE',
-        confidence: g.pair ? g.pair.confidence : 'certain', pairs: [], warn: false, mark: '-', ghost: g });
-    }
-    return edges;
-  }
-
-  function renderGraph(fullModel) {
-    const scene = visibleScene(fullModel);
+  function renderGraph(scene) {
     const edges = sceneEdges(scene);
+    scene.edges = edges;   // the panel finds a selected edge here instead of bundling again
     const { model, matched } = scene;
     const { pos, hostBoxes } = layout(model);
-
-    // parallel-edge index per (source,target) so bundles do not overlap
-    const groups = new Map();
-    for (const e of edges) {
-      const g = [e.source, e.target].join('→');
-      if (!groups.has(g)) groups.set(g, []);
-      groups.get(g).push(e);
-    }
-    for (const list of groups.values()) list.forEach((e, i) => { e.k = i - (list.length - 1) / 2; });
 
     const hosts = root.selectAll('g.host').data(hostBoxes, d => d.host.label);
     const hostsEnter = hosts.enter().append('g').attr('class', 'host');
@@ -185,18 +85,14 @@
     edgeEnter.append('text');
     edgeSel.exit().remove();
     const edgesAll = edgeEnter.merge(edgeSel)
-      .attr('class', d => `edge ${d.confidence === 'likely' ? 'likely' : ''} ${d.warn ? 'warn' : ''} ${MARK_CLASS[d.mark]} ${isSelected(d.ghost ? 'ghost' : 'edge', d.id) ? 'selected' : ''}`)
+      .attr('class', edgeClass)
       .on('click', (ev, d) => { ev.stopPropagation(); select({ kind: d.ghost ? 'ghost' : 'edge', id: d.id }); });
-    edgesAll.selectAll('path').attr('d', d => edgePath(pos.get(d.source), pos.get(d.target), d.k));
+    // the label sits at the curve's half-length point computed from the control points:
+    // no getTotalLength / getPointAtLength, which forced one layout per arrow (#136)
+    for (const e of edges) { e.curve = edgeCurve(pos.get(e.source), pos.get(e.target), e.k); e.mid = edgeMidpoint(e.curve); }
+    edgesAll.selectAll('path').attr('d', d => edgePathD(d.curve));
     edgesAll.select('path.main').attr('stroke', d => COLORS[d.transport]).attr('marker-end', d => `url(#arrow-${d.ghost ? 'NONE' : d.transport})`);
-    edgesAll.select('text').each(function (d) {
-      const p = this.parentNode.querySelector('path.main');
-      const len = p.getTotalLength();
-      const pt = p.getPointAtLength(len * 0.5);
-      const label = d.ghost ? `${d.ghost.key.topic} · removed` :
-        d.pairs.length === 1 ? `${d.pairs[0].topic.topic} · ${d.transport}${d.confidence === 'likely' ? '?' : ''}` : `${d.pairs.length} topics · ${d.transport}${d.confidence === 'likely' ? '?' : ''}`;
-      d3.select(this).attr('x', pt.x).attr('y', pt.y - 6).attr('text-anchor', 'middle').text((d.mark === ' ' ? '' : d.mark + ' ') + label);
-    });
+    edgesAll.select('text').attr('x', d => d.mid.x).attr('y', d => d.mid.y - 6).attr('text-anchor', 'middle').text(edgeLabel);
 
     const hideInternal = state.filter.hideInternal;
     const unmatchedCount = n => n.unmatched.filter(u => !(hideInternal && isInternalTopic(u.topic))).length;
@@ -209,7 +105,7 @@
     nodeEnter.append('text').attr('class', 'unmatched');
     nodeSel.exit().remove();
     const nodesAll = nodeEnter.merge(nodeSel)
-      .attr('class', d => `node ${d.matched ? 'matched' : ''} ${isSelected('node', d.n.id) ? 'selected' : ''}`)
+      .attr('class', nodeClass)
       .attr('transform', d => `translate(${d.p.x},${d.p.y})`)
       .on('click', (ev, d) => { ev.stopPropagation(); select({ kind: 'node', id: d.n.id }); });
     nodesAll.select('rect').attr('width', L.nodeW).attr('height', L.nodeH);
@@ -279,8 +175,7 @@
    * collapsed topic keeps its header only. Header numbers are the document's `topics[]`
    * aggregates, so they never change with the filters.
    */
-  function renderTable(fullModel) {
-    const scene = visibleScene(fullModel);
+  function renderTable(scene) {
     const hasChanges = !!(state.changes || state.hold);
     const columns = COLUMNS.filter(c => !c.diff || hasChanges);
     const pairRows = scene.pairs.map(vp => ({ ...vp, mark: markOf(vp, scene.marks), from: (scene.marks.get(keyId(pairKey(vp.topic, vp.pair))) || {}).from }));
@@ -303,7 +198,7 @@
     const trEnter = tr.enter().append('tr');
     tr.exit().remove();
     const trAll = trEnter.merge(tr)
-      .attr('class', d => (d.group ? `topic ${d.collapsed ? 'collapsed' : ''}` : `${MARK_CLASS[d.mark || ' ']} ${isSelected(d.ghost ? 'ghost' : 'pair', d.id) ? 'selected' : ''}`))
+      .attr('class', rowClass)
       .on('click', (ev, d) => {
         if (!d.group) { select({ kind: d.ghost ? 'ghost' : 'pair', id: d.id }); return; }
         if (d.collapsed) state.collapsed.delete(d.group.key); else state.collapsed.add(d.group.key);
@@ -419,12 +314,12 @@
     </div>`;
   }
 
-  function renderPanel(model) {
+  function renderPanel(scene) {
     const sel = state.selection;
+    const model = state.model;
     if (!sel) { panel.html('<div class="panel-empty">Click a node or an edge for details.</div>'); return; }
-    const scene = visibleScene(model);
     if (sel.kind === 'edge') {
-      const e = bundle(scene.pairs).find(x => x.id === sel.id);
+      const e = (scene.edges || bundle(scene.pairs)).find(x => x.id === sel.id);
       if (!e) { select(null); return; }
       panel.html(`<h2>${escapeHtml(e.source)} → ${escapeHtml(e.target)}</h2><div>${e.pairs.length} pair(s), ${e.transport}${e.confidence === 'likely' ? ' (likely)' : ''}</div>` +
         e.pairs.map(vp => pairCard(vp, false, scene.marks)).join(''));
@@ -481,6 +376,10 @@
     d3.select('#shm').html(shmText(d.shm, d.reason_code_descriptions, d.reason_code_remedies));
   }
 
+  let renders = 0;
+  /** Counts renders and selection updates for the scale harness (scripts/scale_viewer.js waits on it). */
+  function rendered() { document.body.dataset.render = String(++renders); }
+
   function render() {
     renderMeta();
     renderToolbar();
@@ -488,14 +387,26 @@
     d3.select('#graph-view').attr('hidden', state.view === 'graph' ? null : true);
     d3.select('#table-view').attr('hidden', state.view === 'table' ? null : true);
     d3.select('#table-tools').attr('hidden', state.view === 'table' && state.doc ? null : true);
-    if (!state.doc) return;
-    const model = buildModel(state.doc);
-    if (state.view === 'graph') renderGraph(model); else renderTable(model);
-    renderPanel(model);
+    if (!state.doc) { rendered(); return; }
+    const scene = currentScene();
+    state.scene = scene;
+    if (state.view === 'graph') renderGraph(scene); else renderTable(scene);
+    renderPanel(scene);
+    rendered();
   }
 
   function isSelected(kind, id) { return state.selection && state.selection.kind === kind && state.selection.id === id; }
-  function select(sel) { state.selection = sel; render(); }
+
+  /** A selection change touches only the `selected` classes and the panel, not the graph (#136). */
+  function select(sel) {
+    state.selection = sel;
+    if (!state.scene) { render(); return; }
+    root.selectAll('g.edge').attr('class', edgeClass);
+    root.selectAll('g.node').attr('class', nodeClass);
+    d3.select('#pairs-body').selectAll('tr').attr('class', rowClass);
+    renderPanel(state.scene);
+    rendered();
+  }
 
   function isDocument(doc) { return doc && doc.schema_version === 1 && Array.isArray(doc.topics); }
 
@@ -528,6 +439,7 @@
     }
     if (!state.changes && !state.hold) state.changesOnly = false;
     state.doc = doc;
+    state.model = buildModel(doc);
     if (!keepSelection) state.selection = null;   // live updates keep the selection; render() drops it if gone
     render();
     document.title = `transport_viz viewer – ${sourceName}`;
@@ -615,13 +527,21 @@
   });
   d3.select('#load-sample').on('click', () => loadSample());
   d3.selectAll('.tab').on('click', function () { state.view = this.dataset.view; render(); });
+  // typing re-renders once per pause of FILTER_DEBOUNCE_MS, or at once on Enter / blur (#136)
+  const FILTER_DEBOUNCE_MS = 100;
+  let filterTimer = null;
+  const flushFilter = () => { if (filterTimer) { clearTimeout(filterTimer); filterTimer = null; render(); } };
   const onFilterInput = (key) => function () {
     state.filter[key] = this.value;
     this.classList.toggle('invalid', !!this.value && filterRegex(this.value) === null);
-    render();
+    clearTimeout(filterTimer);
+    filterTimer = setTimeout(() => { filterTimer = null; render(); }, FILTER_DEBOUNCE_MS);
   };
-  d3.select('#filter-topic').on('input', onFilterInput('topic'));
-  d3.select('#filter-node').on('input', onFilterInput('node'));
+  for (const key of ['topic', 'node']) {
+    d3.select(`#filter-${key}`).on('input', onFilterInput(key))
+      .on('blur', flushFilter)
+      .on('keydown', (ev) => { if (ev.key === 'Enter') flushFilter(); });
+  }
   d3.select('#filter-internal').on('change', function () { state.filter.hideInternal = this.checked; render(); });
   const overlay = document.getElementById('drop-overlay');
   let dragDepth = 0;

@@ -272,8 +272,9 @@ document: `buildModel()` in `web/model.js` turns it into nodes, hosts and bundle
 filters apply `--node`/`--topic` semantics client-side, and the panel shows the reason
 codes with the descriptions carried in the document. `diffDocuments()` in `model.js` is a
 port of `diff_snapshots()` (same `changes` object, tested against the binary's output on
-the shared fixtures) for comparing two documents in the browser. `model.js` holds every
-function without DOM or d3 dependencies and is unit-tested under Node (`web/test/`). `schema/transport_viz.schema.json` is the contract;
+the shared fixtures) for comparing two documents in the browser. `model.js` and `scene.js`
+(the scene of the current filters, the layout, the edge curves and label midpoints) hold every
+function without DOM or d3 dependencies and are unit-tested under Node (`web/test/`). `schema/transport_viz.schema.json` is the contract;
 `test_json_schema` validates the shipped samples and `test_json_schema_live.py` the live
 output against it. The tool may add
 keys freely; a breaking change bumps `schema_version`.
@@ -307,7 +308,7 @@ src/fastdds_transport_viz/
   test/                            gtest (decision, render, shm_info), pytest (json schema, web serve),
                                    launch/ (launch tests, _common.py, large_shm_stats.xml.in ->
                                    share/<pkg>/test/large_shm_stats.xml when BUILD_TESTING)
-web/                               static viewer (index.html, app.js, model.js, style.css, vendor/d3),
+web/                               static viewer (index.html, app.js, model.js, scene.js, style.css, vendor/d3),
                                    serve.py (transport_viz_web), sample/, test/ (Node unit tests)
 schema/                            JSON Schema for --json output
 scripts/                           integration_test.sh (Docker scenarios), render_examples.sh, ansi2svg.py

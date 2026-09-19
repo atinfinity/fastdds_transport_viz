@@ -6,12 +6,15 @@
 //
 // The viewer is loaded RUNS times in a same-origin iframe (1400x900): first render is the time
 // from creating the iframe until its graph holds edges (page, scripts, fetch, JSON parse, model
-// and SVG), filter response the time from an `input` event on a filter box until two animation
-// frames later (render and paint). Resolves to medians and the raw values.
+// and SVG); filter response the time from an `input` event on a filter box until the viewer has
+// rendered (its `document.body.dataset.render` counter moves, which includes the 100 ms typing
+// debounce, #136) and one animation frame has painted; select the same from a click on the
+// first arrow, and from the click on the background that clears it. Resolves to medians and
+// the raw values.
 (async (src, runs = 5) => {
   const nextFrame = (w) => new Promise((r) => w.requestAnimationFrame(() => r()));
   const median = (v) => [...v].sort((a, b) => a - b)[Math.floor(v.length / 2)];
-  const firstRender = [], filters = {topic: [], node: [], clear: []};
+  const firstRender = [], filters = {topic: [], node: [], clear: []}, selects = {select: [], deselect: []};
   let edges = 0, nodes = 0;
   for (let i = 0; i < runs; ++i) {
     const frame = document.createElement('iframe');
@@ -30,19 +33,30 @@
     edges = d.querySelectorAll('#graph g.edge').length;
     nodes = d.querySelectorAll('#graph g.node').length;
     await nextFrame(w);
-    const filter = async (id, value) => {
-      const input = d.getElementById(id);
+    // time from `act()` until the viewer's render counter moves, plus one frame to paint
+    const timed = async (act) => {
+      const before = d.body.dataset.render;
       const t = performance.now();
-      input.value = value;
-      input.dispatchEvent(new w.Event('input', {bubbles: true}));
-      await nextFrame(w);
+      act();
+      for (;;) {
+        await nextFrame(w);
+        if (d.body.dataset.render !== before) break;
+        if (performance.now() - t > 30000) throw new Error('no render after 30 s');
+      }
       await nextFrame(w);
       return performance.now() - t;
     };
+    const filter = (id, value) => timed(() => {
+      const input = d.getElementById(id);
+      input.value = value;
+      input.dispatchEvent(new w.Event('input', {bubbles: true}));
+    });
     filters.topic.push(await filter('filter-topic', 't00'));
     filters.clear.push(await filter('filter-topic', ''));
     filters.node.push(await filter('filter-node', 'p00'));
     filters.clear.push(await filter('filter-node', ''));
+    selects.select.push(await timed(() => d.querySelector('#graph g.edge').dispatchEvent(new w.MouseEvent('click', {bubbles: true}))));
+    selects.deselect.push(await timed(() => d.getElementById('graph').dispatchEvent(new w.MouseEvent('click', {bubbles: true}))));
     frame.remove();
   }
   const r = (v) => Math.round(v);
@@ -53,7 +67,9 @@
     filter_node_ms: r(median(filters.node)),
     filter_clear_ms: r(median(filters.clear)),
     filter_worst_ms: r(Math.max(...filters.topic, ...filters.node, ...filters.clear)),
+    select_ms: r(median(selects.select)),
+    deselect_ms: r(median(selects.deselect)),
     raw: {first_render: firstRender.map(r), topic: filters.topic.map(r), node: filters.node.map(r),
-      clear: filters.clear.map(r)},
+      clear: filters.clear.map(r), select: selects.select.map(r), deselect: selects.deselect.map(r)},
   };
 })(typeof SRC !== 'undefined' ? SRC : '/build/jazzy/scale/small.viz.json');

@@ -231,7 +231,8 @@ The web viewer's pure functions (`web/model.js`: document → nodes/hosts/pairs,
 with the `--node` semantics, edge bundling, number formatting, the shared-memory line, and
 the comparison of two documents: `diffDocuments()` must reproduce `web/sample/diff.json`,
 what the binary printed for `diff --all --json` on the fixture pair, which `test_cli_args`
-asserts from the C++ side) are unit-tested under Node without a browser:
+asserts from the C++ side; `web/scene.js`: the scene of the current filters, the column
+layout, the edge curves and the label midpoints) are unit-tested under Node without a browser:
 
 ```
 node --test "web/test/*.test.js"
@@ -301,7 +302,7 @@ Budgets (the `limit` steps only record):
 |---|---|---|
 | one-shot table | < 2 s | `collect` + `render` after the discovery wait, median of three |
 | `--watch` frame | < 250 ms | p95 of the `frame` times of the three 60 s runs: `--stats`, `--stats -v` and, since [#135](https://github.com/atinfinity/fastdds_transport_viz/issues/135), without `--stats`. Judged up to `medium`: at `large` the load alone takes 6.7 to 7.5 of the 8 cores, so the frame time there is recorded and says more about the host than about the tool |
-| web viewer | first render < 3 s, filter < 100 ms | the 30 s `--stats` document, by hand (below) |
+| web viewer | first render < 3 s, every action (filter, select) < 100 ms at `large` | the 30 s `--stats` document, by hand (below) |
 | tool CPU | < 1 core | CPU time / wall time of the `--watch` runs and the 30 s `--stats` run, the highest |
 | tool memory | < 300 MB | peak RSS (`wait4`) over every run |
 | `--watch` statistics coverage | ≥ 95 % | pairs with measured packets / pairs whose deliveries `HISTORY_LATENCY` proves, at the last frame of a 60 s `--watch` run (`pairs_delivered_unmeasured` and `pairs_delivered` of the `apply_stats` phase, `stats.*` in the document), the lower of the two `--stats` runs; not judged when neither run saw a delivered pair. It replaces the "dropped statistics samples = 0" budget ([#147](https://github.com/atinfinity/fastdds_transport_viz/issues/147)): the counters are cumulative and the tool prints `last - first`, so a lost sample costs nothing until it leaves a pair without a measurement, and a run could lose 925130 of 1040228 samples while measuring every pair. The dropped samples are still recorded - growth of `sample_lost` - `sample_lost_latency` + `sample_rejected` after the first `--watch` frame, the higher of the two `--stats` runs, with the late-join losses of the one-shot runs (`sample_lost_at_start`, [#134](https://github.com/atinfinity/fastdds_transport_viz/issues/134)) "at start" - and judged by nothing |
@@ -346,8 +347,11 @@ root (`python3 -m http.server 8000` on the Docker host), open
 `SRC` set to `/build/<distro>/scale/<label>.viz.json`. It loads the viewer five times in a
 1400×900 iframe and reports medians:
 - first render: from creating the iframe until the graph's SVG holds its edges (page, fetch, parse, layout);
-- filter response: from setting a filter input and dispatching `input` until two `requestAnimationFrame` callbacks later;
-- the filters are a topic filter `t00` (100 topics), a node filter `p00` (10 processes), and clearing each.
+- filter response: from setting a filter input and dispatching `input` until the viewer has rendered (its `document.body.dataset.render` counter moves) and one `requestAnimationFrame` later; since [#136](https://github.com/atinfinity/fastdds_transport_viz/issues/136) this includes the viewer's 100 ms typing debounce, so a filter cell reads about 100 ms above the work it timed;
+- the filters are a topic filter `t00` (100 topics), a node filter `p00` (10 processes), and clearing each;
+- select: the same from a click on the first arrow, and from the click on the background that clears the selection (#136).
+
+Two animation frames at 60 Hz are the floor of every response cell: about 33 ms.
 
 The tab must be in front: a hidden tab pauses `requestAnimationFrame`, and the snippet never
 finishes. A tab driven by Claude in Chrome in a background window is hidden; the numbers below
@@ -394,19 +398,21 @@ the per-topic reader QoS); the earlier rows are before it.
 | 2026-09-19 | medium | jazzy (2.14.6) | aarch64, 8 CPU, 7.7 GB | 20 / 502 / 2400 | 2.1 s / 78 ms (pairs 2400) | 167.4 / 216.1 ms (`-v` 187.8 / 227.7 ms, no `--stats` 52.7 / 85.7 ms) | 0.69 / 182 MB | 0 (141900 at start) / 0.0 / watch 1.0 | 2905 | 1102 MB, 6451 MB free | over: `stats_coverage` (5 s coverage counts packets only, [#153](https://github.com/atinfinity/fastdds_transport_viz/issues/153); see [#168](https://github.com/atinfinity/fastdds_transport_viz/issues/168)) |
 | 2026-09-19 | medium | lyrical (3.6.2) | aarch64, 8 CPU, 7.7 GB | 20 / 502 / 2000 | 3.0 s / 84 ms (pairs 1806) | 171.4 / 198.4 ms (`-v` 213.1 / 242.4 ms, no `--stats` 57.6 / 89.6 ms) | 0.73 / 221 MB | 0 (234990 at start) / 0.0 / watch 1.0 | 2325 | 1758 MB, 5818 MB free | over: `stats_coverage` (5 s coverage counts packets only, [#153](https://github.com/atinfinity/fastdds_transport_viz/issues/153); see [#168](https://github.com/atinfinity/fastdds_transport_viz/issues/168)) |
 
-Web viewer on the 30 s `--stats` documents, measured on 2026-09-16 on the Docker host (Apple M3, 8 CPU, 24 GB, macOS 26.6) in headless Chrome 153. The times are medians of five loads, and the budget is 100 ms for every filter:
+Web viewer on the 30 s `--stats` documents, measured on the Docker host (Apple M3, 8 CPU, 24 GB, macOS 26.6) in headless Chrome 153. The times are medians of five loads, and the budget is 100 ms for every action at `large`. The rows dated 2026-09-20 were taken after [#136](https://github.com/atinfinity/fastdds_transport_viz/issues/136): their filter cells include the viewer's 100 ms typing debounce (the work is the cell minus 100 ms), and the harness waits for the viewer's render counter rather than two frames; the select column did not exist before:
 
-| Scenario | Document | Arrows / nodes | First render | Topic filter / node filter / clear | Result |
-|---|---|---|---|---|---|
-| small | 1.8 MB | 90 / 10 | 19 ms | 31 / 33 / 33 ms | pass |
-| medium | 8.5 MB | 378 / 20 | 44 ms | 34 / 34 / 33 ms | pass |
-| nav2 | 2.4 MB | 244 / 24 | 25 ms | 25 / 33 / 33 ms | pass |
-| large | 14.7 MB | 1467 / 40 | 156 ms | 43 / 51 / 136 ms | over: clearing a filter |
-| large_multi | 14.5 MB | 1467 / 40 | 145 ms | 42 / 67 / 133 ms | over: clearing a filter |
-| limit_p60 | 23.7 MB | 2927 / 60 | 424 ms | 47 / 83 / 399 ms | records only |
-| limit_p90 | 30.7 MB | 4217 / 90 | 718 ms | 46 / 83 / 689 ms | records only |
+| Date | Scenario | Document | Arrows / nodes | First render | Topic filter / node filter / clear | Select / deselect | Result |
+|---|---|---|---|---|---|---|---|
+| 2026-09-16 | small | 1.8 MB | 90 / 10 | 19 ms | 31 / 33 / 33 ms | — | pass |
+| 2026-09-16 | medium | 8.5 MB | 378 / 20 | 44 ms | 34 / 34 / 33 ms | — | pass |
+| 2026-09-16 | nav2 | 2.4 MB | 244 / 24 | 25 ms | 25 / 33 / 33 ms | — | pass |
+| 2026-09-16 | large | 14.7 MB | 1467 / 40 | 156 ms | 43 / 51 / 136 ms | — | over: clearing a filter |
+| 2026-09-16 | large_multi | 14.5 MB | 1467 / 40 | 145 ms | 42 / 67 / 133 ms | — | over: clearing a filter |
+| 2026-09-16 | limit_p60 | 23.7 MB | 2927 / 60 | 424 ms | 47 / 83 / 399 ms | — | records only |
+| 2026-09-16 | limit_p90 | 30.7 MB | 4217 / 90 | 718 ms | 46 / 83 / 689 ms | — | records only |
+| 2026-09-20 | medium | 9.1 MB | 378 / 20 | 33 ms | 133 / 133 / 133 ms (debounce included) | 33 / 34 ms | pass |
+| 2026-09-20 | large | 16.8 MB | 1467 / 40 | 53 ms | 120 / 123 / 146 ms (debounce included) | 35 / 33 ms | pass |
 
-The `limit_p135` document has no pair to draw. First render stays far below 3 s. Each input event (every keystroke, and also a click on an arrow or node) rebuilds the model and renders every visible arrow again, with one `getTotalLength` per label. A filter that hides most arrows is therefore fast. Clearing it renders them all, about 0.16 ms per arrow ([#136](https://github.com/atinfinity/fastdds_transport_viz/issues/136)). Filter times near 33 ms are the two-frame floor of the measurement at 60 Hz.
+The `limit_p135` document has no pair to draw. First render stays far below 3 s. Until [#136](https://github.com/atinfinity/fastdds_transport_viz/issues/136), each input event (every keystroke, and also a click on an arrow or node) rebuilt the model and rendered every visible arrow again, with one `getTotalLength` per label: a filter that hid most arrows was fast, clearing it rendered them all at about 0.16 ms per arrow, which is the 136 ms of the 2026-09-16 `large` row. Since #136 the model is built once per document, a click only toggles the `selected` classes and re-renders the panel, the label sits at a midpoint computed from the curve's control points, and typing is debounced by 100 ms; on 2026-09-20 clearing a filter on `large` takes 46 ms above the debounce, and a selection 35 ms, of which 33 ms are the two-frame floor of the measurement at 60 Hz. The medium and large documents were regenerated that day, hence their sizes.
 
 The one-shot pair counts below the total are the `--quiet 1` stops described above
 ([#133](https://github.com/atinfinity/fastdds_transport_viz/issues/133)). What falls over first:
@@ -487,6 +493,7 @@ The one-shot pair counts below the total are the `--quiet 1` stops described abo
 | 2026-09-19 | statistics writer QoS of the shipped profiles ([#154](https://github.com/atinfinity/fastdds_transport_viz/issues/154)): the `scale_load` medium rung on Jazzy and Lyrical with three profile variants - as shipped (push mode, default flow controller), push mode on `FastDDSStatisticsFlowControllerDefault`, and Fast DDS's own writer QoS (pull mode, `fastdds.push_mode=false`, on that controller) - three runs each, six for the adopted one on Jazzy | arm64 | 2.14.6 (`ros:jazzy`), 3.6.2 (`ros:lyrical`) | **pull mode, Jazzy** (heartbeat 3 s): `--watch` proves no pair delivered in 60 s (`pairs_delivered` 0 in all three runs, coverage undefined) and 1974 / 3281 / 2037 counter samples lost (`-v` 306 / 36293 / 6841) - keep-last 10 overwrites the instances before the reader's ACKNACK; the 5 s one-shot still measured 2000 pairs. **pull mode, Lyrical** (heartbeat 500 ms): coverage 1.0 / 1.0 / 1.0, 0 lost, frame p95 155 / 170 / 168 ms, tool CPU 0.50 / 0.48 / 0.49 cores (as shipped: 0.69 / 0.72 / 0.73). **push mode + statistics flow controller**: Jazzy coverage 1.0 in six runs, frame p95 219 / 233 / 278 / 190 / 209 / 197 ms, CPU 0.67-0.95 cores, dropped 0 in ten of twelve `--stats` runs and 19226 / 36246 in the other two (as shipped: 0 / 0 / 23, `-v` 0 / 4 / 6; the same host spread as the 5823 of #141); Lyrical coverage 1.0, 0 dropped, p95 214 / 200 / 238 ms (as shipped 157 / 310 / 216 ms). Adopted: push mode on the statistics flow controller on both distros; pull mode fails the Jazzy budget and would need a per-version split for Lyrical alone. `colcon test`: Jazzy 513 tests, 0 failures, 60 skipped; Lyrical 508, 0, 58; Humble 513, 0, 74 | `scripts/scale_test.sh medium`, `src/fastdds_transport_viz/test/test_stats_profiles.py` |
 | 2026-09-19 | per-participant SHM ports in `--json` ([#125](https://github.com/atinfinity/fastdds_transport_viz/issues/125)): the split-namespace scenarios with the tool in the talker's IPC namespace (shared 7000+ number) and in a third one, on Jazzy and Lyrical; unit suites on the three distributions; the web viewer tests | arm64 | 2.6 (`ros:humble`), 2.14.6 (`ros:jazzy`), 3.6.2 (`ros:lyrical`) | shared number, from the talker's namespace: the talker's participant `visible` with 7001 `held` announced by 2 and not a proof, its own port `held` announced by 1 and a proof; the listener's `not-visible` with a port `absent`; the tool's participants `own`, `unprobed`. Third namespace (`hostnet_split_shm`): both nodes `not-visible`, 7000 announced by 3 (the tool's `own` number) and each node's other port `absent`, `shm.unknown_ports` empty; verdicts and warnings unchanged in both. `web/sample/shm_split.json` re-taken from that run (both node names real since #112), `web/sample/diff.json` regenerated (`shm.unknown_ports` only). `colcon test`: Jazzy 517 tests, Humble 517, Lyrical 513, 0 failures, after two brace initializers Humble's uncrustify formats differently were rewritten; `node --test` 28 tests | `scripts/integration_test.sh hostnet_split_shm_shared_port`, `hostnet_split_shm`, `web/sample/shm_split.json`, `test/fixtures/participants.json` |
 | 2026-09-19 | per-endpoint data-sharing segment visibility in `--json` ([#163](https://github.com/atinfinity/fastdds_transport_viz/issues/163)): the split data-sharing scenarios with the tool in a third IPC namespace and, UDPv4 only, in the publisher's, on Jazzy and Lyrical; unit and launch suites on the three distributions; the web viewer tests | arm64 | 2.6 (`ros:humble`), 2.14.6 (`ros:jazzy`), 3.6.2 (`ros:lyrical`) | third namespace: both `/bounded` endpoints `not-visible`; publisher's namespace (UDPv4): writer `visible` with its 4016-byte history, reader `not-visible`, matching `datasharing-reader-segment-not-visible`. The demo talker (data-sharing OFF) reads `unprobed`, the launch data-sharing pair `visible` on both sides. Verdicts and warnings unchanged. `web/sample/diff.json` regenerated (the new key, `unprobed`, only). `colcon test`: Jazzy 520 tests, Humble 520, Lyrical 516, 0 failures; `node --test` 29 tests | `scripts/integration_test.sh hostnet_split_datasharing`, `hostnet_split_datasharing_udp`, `test/fixtures/datasharing.json` |
+| 2026-09-20 | web viewer rendering ([#136](https://github.com/atinfinity/fastdds_transport_viz/issues/136)): the `scale_load` medium and large rungs regenerated on Jazzy, `scripts/scale_viewer.js` in headless Chrome 153 on the host, five loads each; the web viewer tests | arm64 | 2.14.6 (`ros:jazzy`) | large (1467 arrows): first render 53 ms (before 156), topic / node / clear filters 120 / 123 / 146 ms with the 100 ms typing debounce inside (clear was 136 ms of pure redraw before), select / deselect 35 / 33 ms; medium 33 ms, 133 / 133 / 133 ms, 33 / 34 ms - every action under the 100 ms budget, 33 ms being the two-frame floor of the harness. `node --test` 43 tests (`web/test/scene.test.js` added) | `scripts/scale_viewer.js`, `web/scene.js` |
 
 ## Documentation site
 
