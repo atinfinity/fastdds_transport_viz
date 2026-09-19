@@ -249,6 +249,51 @@ TEST(RenderTable, StatisticsHintWhenNoParticipantPublishes)
   EXPECT_NE(out.find("start the observed nodes with FASTDDS_STATISTICS"), std::string::npos);
 }
 
+// #86: the Discovery Server line, verbose only
+TEST(RenderTable, DiscoveryFooterNamesTheServersAndTheirClients)
+{
+  auto s = snapshot();
+  Participant server;
+  server.guid_prefix = "44.53.00.5f";
+  server.discovery_protocol = "SERVER";
+  server.name = "DiscoveryServerAuto";
+  server.metatraffic_locators = {Locator{LocatorKind::UDPv4, "127.0.0.1", 11811}};
+  Participant client;
+  client.guid_prefix = "01.0f.aa";
+  client.discovery_protocol = "SUPER_CLIENT";
+  client.discovery_server = "44.53.00.5f";
+  Participant unattributed;
+  unattributed.guid_prefix = "01.0f.bb";
+  unattributed.discovery_protocol = "SUPER_CLIENT";
+  s.participants = {server, client, unattributed};
+  s.discovery.observer_protocol = "SUPER_CLIENT";
+  s.discovery.easy_mode = "127.0.0.1";
+  EXPECT_EQ(render_table(s, RenderOptions{}).find("discovery:"), std::string::npos);
+  RenderOptions opt;
+  opt.verbose = true;
+  const auto out = render_table(s, opt);
+  EXPECT_NE(
+    out.find(
+      "discovery: SUPER_CLIENT (Easy Mode, ROS2_EASY_MODE=127.0.0.1); servers: "
+      "DiscoveryServerAuto (44.53.00.5f, UDPv4 127.0.0.1:11811) serving 1 participant(s)"),
+    std::string::npos) << out;
+  // a client of ROS_DISCOVERY_SERVER names the servers it was given, and a nameless server
+  s.discovery.easy_mode.clear();
+  s.discovery.discovery_servers = {Locator{LocatorKind::UDPv4, "10.0.0.1", 11811}};
+  s.participants[0].name.clear();
+  const auto ds = render_table(s, opt);
+  EXPECT_NE(
+    ds.find("discovery: SUPER_CLIENT of UDPv4 10.0.0.1:11811; servers: Discovery Server ("),
+    std::string::npos) << ds;
+  // a plain observation of a server-less system says nothing, an old document neither
+  s.participants.clear();
+  s.discovery.observer_protocol = "SIMPLE";
+  s.discovery.discovery_servers.clear();
+  EXPECT_EQ(render_table(s, opt).find("discovery:"), std::string::npos);
+  s.discovery.observer_protocol = "CLIENT";
+  EXPECT_NE(render_table(s, opt).find("discovery: CLIENT; no server discovered"), std::string::npos);
+}
+
 TEST(RenderTable, SharedMemoryFooterAndWarnings)
 {
   auto s = snapshot();

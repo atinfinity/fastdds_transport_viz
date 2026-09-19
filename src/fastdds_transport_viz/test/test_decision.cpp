@@ -2325,6 +2325,113 @@ TEST(DiscoveryCompleteness, OnlyTheLivePartOfTheTableCounts)
   EXPECT_TRUE(*d.complete);   // the departed participant's endpoints are not missing
 }
 
+// ROS_DISCOVERY_SERVER parsed with Fast DDS's rules (#86)
+TEST(DiscoveryServerEnv, DefaultsThePortAndReadsADomainIdBelow420)
+{
+  const auto servers = parse_discovery_server_env("127.0.0.1;10.0.0.2:11812;10.0.0.3:1");
+  ASSERT_EQ(servers.size(), 3u);
+  EXPECT_EQ(servers[0].kind, LocatorKind::UDPv4);
+  EXPECT_EQ(servers[0].address, "127.0.0.1");
+  EXPECT_EQ(servers[0].port, 11811u);
+  EXPECT_EQ(servers[1].port, 11812u);
+  EXPECT_EQ(servers[2].port, 7400u + 250u + 2u);   // domain 1 on Fast DDS 3.x
+}
+
+TEST(DiscoveryServerEnv, PlaceholdersHostNamesAndPrefixedForms)
+{
+  const auto servers =
+    parse_discovery_server_env(";server.local:11811;UDPv4:[10.0.0.4]:11813;TCPv4:[10.0.0.5]:42100");
+  ASSERT_EQ(servers.size(), 3u);   // the leading empty entry keeps the ids and names nothing
+  EXPECT_EQ(servers[0].address, "server.local");   // resolved by the caller
+  EXPECT_EQ(servers[0].kind, LocatorKind::UDPv4);
+  EXPECT_EQ(servers[1].address, "10.0.0.4");
+  EXPECT_EQ(servers[1].port, 11813u);
+  EXPECT_EQ(servers[2].kind, LocatorKind::TCPv4);
+  EXPECT_EQ(servers[2].address, "10.0.0.5");
+  EXPECT_EQ(servers[2].port, 42100u);
+}
+
+TEST(DiscoveryServerEnv, IPv6AndRejectedEntries)
+{
+  const auto servers = parse_discovery_server_env("[::1]:11811;::1;bad entry;10.0.0.1:99999");
+  ASSERT_EQ(servers.size(), 2u);
+  EXPECT_EQ(servers[0].kind, LocatorKind::UDPv6);
+  EXPECT_EQ(servers[0].address, "::1");
+  EXPECT_EQ(servers[1].address, "::1");
+  EXPECT_EQ(servers[1].port, 11811u);
+  EXPECT_TRUE(parse_discovery_server_env("").empty());
+}
+
+namespace
+{
+Participant participant_of(
+  const std::string & prefix, const std::string & protocol, uint8_t host = 1,
+  const std::string & name = "")
+{
+  Participant p;
+  p.guid_prefix = prefix;
+  p.discovery_protocol = protocol;
+  p.host_id = HostId{host, 0, 0, 0};
+  p.name = name;
+  return p;
+}
+}  // namespace
+
+// which server serves whom (#86): the client's list is not on the wire, so only what the
+// discovered servers make certain is said
+TEST(DiscoveryServerAttribution, ASingleServerServesEveryClient)
+{
+  std::vector<Participant> ps{
+    participant_of("44.53.00.5f", "SERVER"), participant_of("01.0f.aa", "CLIENT"),
+    participant_of("01.0f.bb", "SUPER_CLIENT"), participant_of("01.0f.cc", "SIMPLE"),
+    participant_of("01.0f.dd", "")};
+  ps.push_back(participant_of("01.0f.ee", "SUPER_CLIENT"));
+  ps.back().own = true;   // the tool's own participant is not reported as a client
+  attribute_discovery_servers(ps, false);
+  EXPECT_FALSE(ps[0].discovery_server.has_value());
+  ASSERT_TRUE(ps[1].discovery_server.has_value());
+  EXPECT_EQ(*ps[1].discovery_server, "44.53.00.5f");
+  EXPECT_EQ(ps[2].discovery_server, "44.53.00.5f");
+  EXPECT_FALSE(ps[3].discovery_server.has_value());
+  EXPECT_FALSE(ps[4].discovery_server.has_value());
+  EXPECT_FALSE(ps[5].discovery_server.has_value());
+}
+
+TEST(DiscoveryServerAttribution, TwoServersOutsideEasyModeSayNothing)
+{
+  std::vector<Participant> ps{
+    participant_of("44.53.00.5f", "SERVER"), participant_of("44.53.01.5f", "SERVER"),
+    participant_of("01.0f.aa", "CLIENT")};
+  attribute_discovery_servers(ps, false);
+  EXPECT_FALSE(ps[2].discovery_server.has_value());
+  std::vector<Participant> none{participant_of("01.0f.aa", "CLIENT")};
+  attribute_discovery_servers(none, false);
+  EXPECT_FALSE(none[0].discovery_server.has_value());
+}
+
+TEST(DiscoveryServerAttribution, EasyModeAttributesByHost)
+{
+  std::vector<Participant> ps{
+    participant_of("01.0f.01", "SERVER", 1, "DiscoveryServerAuto"),
+    participant_of("01.0f.02", "SERVER", 2, "DiscoveryServerAuto"),
+    participant_of("01.0f.aa", "SUPER_CLIENT", 1), participant_of("01.0f.bb", "SUPER_CLIENT", 2),
+    participant_of("01.0f.cc", "SUPER_CLIENT", 3),
+    participant_of("44.53.00.5f", "SERVER", 1)};   // a legacy server on host 1 is not it
+  attribute_discovery_servers(ps, true);
+  EXPECT_EQ(ps[2].discovery_server, "01.0f.01");
+  EXPECT_EQ(ps[3].discovery_server, "01.0f.02");
+  EXPECT_FALSE(ps[4].discovery_server.has_value());   // no auto server seen on host 3
+  EXPECT_FALSE(ps[5].discovery_server.has_value());
+}
+
+TEST(DiscoveryServerAttribution, ARerunClearsAStaleAnswer)
+{
+  std::vector<Participant> ps{participant_of("01.0f.aa", "CLIENT")};
+  ps[0].discovery_server = "gone";
+  attribute_discovery_servers(ps, false);
+  EXPECT_FALSE(ps[0].discovery_server.has_value());
+}
+
 TEST(DiscoveryCompleteness, NoAnnouncementAtAllLeavesItUnset)
 {
   // no ros_discovery_info sample (or the reader could not be created): the endpoints

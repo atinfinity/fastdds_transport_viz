@@ -170,6 +170,24 @@ see [development.md](development.md#verification-results)):
   `SUPER_CLIENT` when the variable is set (a message on stderr says so). An explicit
   `ROS_SUPER_CLIENT` is respected. The server is `fastdds discovery -i 0 -l <ip> -p <port>`
   on Jazzy and `fastdds discovery -l <ip> -p <port>` on Lyrical / Rolling.
+  The server itself is a participant without endpoints, so it has no row in the table, but
+  it is in the `participants` section of `--json` and in the web viewer
+  ([#86](https://github.com/atinfinity/fastdds_transport_viz/issues/86)): every participant
+  reports the `PARTICIPANT_TYPE` it announced, verbatim (`SIMPLE`, `CLIENT`,
+  `SUPER_CLIENT`, `SERVER`, `BACKUP`; `""` when it announced none), its name, vendor and
+  metatraffic unicast locators, and `discovery{}` says how the tool itself took part
+  (`observer_protocol`, the parsed `discovery_servers`, `discovery_server_env`,
+  `easy_mode`). `-v` adds one footer line naming the servers seen and how many
+  participants each serves. Which server a client uses is *not* on the wire (Fast DDS
+  puts a client's server list into its participant data only with the opt-in
+  `fastdds.serialize_optional_qos` property of 3.2+, never for ROS 2 nodes), so
+  `discovery_server` is inferred and only where it is certain: with exactly one `SERVER`
+  discovered every client is its client; under Easy Mode a client's server is the
+  `DiscoveryServerAuto` of its own host; otherwise it is `null`. A server nobody reaches
+  cannot be reported: its clients are never relayed. Fast DDS 3.6 (Lyrical, Rolling)
+  announces a plain `CLIENT` as `SUPER_CLIENT`. A legacy `fastdds discovery -i N` server
+  carries the fixed prefix `44.53.<N>.5f.45.50.52.4f.53.49.4d.41`, so its `host_id` is
+  not a real host and the viewer shows it in a host column of its own.
 - `ROS2_EASY_MODE=<ip>` (Fast DDS 3.2+: Kilted, Lyrical, Rolling) makes Fast DDS spawn one
   Discovery Server per host and domain (port 7400 + 250 × domain + 2, `fastdds discovery
   list` shows it; the CLI finds a running server with `ss`, so `iproute2` must be
@@ -182,9 +200,12 @@ see [development.md](development.md#verification-results)):
   host is a good choice: Fast DDS 3 hands an endpoint to the tool only once its type is
   resolved, and a host without a node of that type never gets it resolved through the
   server mesh, so from such a host the tool, like `ros2 topic list`, sees the nodes but
-  none of their topics. The auto-started server is a participant without endpoints, so it
-  never appears in the table, `--all` included; with `--stats` it shows up among the
-  statistics participants when the node that spawned it had `FASTDDS_STATISTICS` set. The
+  none of their topics. The auto-started server (`DiscoveryServerAuto`) is a participant
+  without endpoints, so it has no row in the table, `--all` included, but it is in the
+  `participants` section, in the `-v` footer and in the web viewer, with every node of
+  its host attributed to it ([#86](https://github.com/atinfinity/fastdds_transport_viz/issues/86));
+  with `--stats` it also shows up among the statistics participants when the node that
+  spawned it had `FASTDDS_STATISTICS` set. The
   `fastdds discovery` CLI that Fast DDS runs for every participant prints on stdout; the
   tool sends that to stderr so that `--json` stays parseable.
 - `ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST` works unchanged (nodes announce loopback

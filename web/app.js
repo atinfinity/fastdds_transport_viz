@@ -12,7 +12,7 @@
   // pure model / formatting functions live in model.js, the scene (filters, layout, edge
   // geometry) in scene.js; both unit-tested under Node
   const { TRANSPORTS, isInternalTopic, normalizeDocument, buildModel, filterRegex, bundle,
-    humanBytes, measuredText, latencyText, rateText, rateTitle, lossText, groupPairsByTopic, compareCells, escapeHtml, codeListHtml, shmText, participantShmText, datasharingText, statsText,
+    humanBytes, measuredText, latencyText, rateText, rateTitle, lossText, groupPairsByTopic, compareCells, escapeHtml, codeListHtml, shmText, participantShmText, datasharingText, statsText, clientParticipants, discoveryText,
     pairKey, keyId, diffDocuments, changeText, changesSummary, decorations, holdChanges, heldDecorations } = globalThis.TransportVizModel;
   const { L, markOf, visibleScene, sceneEdges, edgeLabel, layout, edgeCurve, edgePathD, edgeMidpoint } = globalThis.TransportVizScene;
   const COLORS = {
@@ -58,8 +58,12 @@
        <path d="M0,0 L10,5 L0,10 z" fill="${COLORS[t]}"/></marker>`).join(''));
   svg.call(d3.zoom().scaleExtent([0.2, 3]).on('zoom', (ev) => root.attr('transform', ev.transform)));
 
-  const edgeClass = d => `edge ${d.confidence === 'likely' ? 'likely' : ''} ${d.warn ? 'warn' : ''} ${MARK_CLASS[d.mark]} ${isSelected(d.ghost ? 'ghost' : 'edge', d.id) ? 'selected' : ''}`;
-  const nodeClass = d => `node ${d.matched ? 'matched' : ''} ${isSelected('node', d.n.id) ? 'selected' : ''}`;
+  const edgeClass = d => `edge ${d.confidence === 'likely' ? 'likely' : ''} ${d.warn ? 'warn' : ''} ${d.client ? 'client' : ''} ${MARK_CLASS[d.mark]} ${isSelected(d.ghost ? 'ghost' : 'edge', d.id) ? 'selected' : ''}`;
+  const nodeClass = d => `node ${d.n.server ? 'server' : ''} ${d.matched ? 'matched' : ''} ${isSelected('node', d.n.id) ? 'selected' : ''}`;
+  // the tag in a node's corner (#86): `client` for a node whose participant announced
+  // itself CLIENT / SUPER_CLIENT; a Discovery Server is told by its shape, its name is long
+  const nodeTag = n => !n.server && clientParticipants(n).length ? 'client' : '';
+  const locatorText = l => `${l.kind} ${l.address}:${l.port}`;
   const rowClass = d => (d.group ? `topic ${d.collapsed ? 'collapsed' : ''}` : `${MARK_CLASS[d.mark || ' ']} ${isSelected(d.ghost ? 'ghost' : 'pair', d.id) ? 'selected' : ''}`);
 
   function renderGraph(scene) {
@@ -91,7 +95,7 @@
     // no getTotalLength / getPointAtLength, which forced one layout per arrow (#136)
     for (const e of edges) { e.curve = edgeCurve(pos.get(e.source), pos.get(e.target), e.k); e.mid = edgeMidpoint(e.curve); }
     edgesAll.selectAll('path').attr('d', d => edgePathD(d.curve));
-    edgesAll.select('path.main').attr('stroke', d => COLORS[d.transport]).attr('marker-end', d => `url(#arrow-${d.ghost ? 'NONE' : d.transport})`);
+    edgesAll.select('path.main').attr('stroke', d => d.client ? '#8b949e' : COLORS[d.transport]).attr('marker-end', d => `url(#arrow-${d.ghost || d.client ? 'NONE' : d.transport})`);
     edgesAll.select('text').attr('x', d => d.mid.x).attr('y', d => d.mid.y - 6).attr('text-anchor', 'middle').text(edgeLabel);
 
     const hideInternal = state.filter.hideInternal;
@@ -103,14 +107,18 @@
     nodeEnter.append('text').attr('class', 'name');
     nodeEnter.append('text').attr('class', 'proc');
     nodeEnter.append('text').attr('class', 'unmatched');
+    nodeEnter.append('text').attr('class', 'tag');
     nodeSel.exit().remove();
     const nodesAll = nodeEnter.merge(nodeSel)
       .attr('class', nodeClass)
       .attr('transform', d => `translate(${d.p.x},${d.p.y})`)
       .on('click', (ev, d) => { ev.stopPropagation(); select({ kind: 'node', id: d.n.id }); });
-    nodesAll.select('rect').attr('width', L.nodeW).attr('height', L.nodeH);
-    nodesAll.select('text.name').attr('x', 10).attr('y', 19).text(d => d.n.name);
-    nodesAll.select('text.proc').attr('x', 10).attr('y', 36).text(d => d.n.process ? `pid ${d.n.process}` : '');
+    // a Discovery Server is a pill, its second line its first locator instead of a pid
+    nodesAll.select('rect').attr('width', L.nodeW).attr('height', L.nodeH).attr('rx', d => d.n.server ? L.nodeH / 2 : 6);
+    nodesAll.select('text.name').attr('x', d => d.n.server ? 18 : 10).attr('y', 19).text(d => d.n.name);
+    nodesAll.select('text.proc').attr('x', d => d.n.server ? 18 : 10).attr('y', 36)
+      .text(d => d.n.server ? (d.n.server.metatraffic_locators || []).slice(0, 1).map(locatorText).join('') : d.n.process ? `pid ${d.n.process}` : '');
+    nodesAll.select('text.tag').attr('x', L.nodeW - 8).attr('y', 19).attr('text-anchor', 'end').text(d => nodeTag(d.n));
     nodesAll.select('text.unmatched').attr('x', L.nodeW - 8).attr('y', 36).attr('text-anchor', 'end')
       .text(d => d.unmatched ? `+${d.unmatched} unmatched` : '');
   }
@@ -321,6 +329,11 @@
     if (sel.kind === 'edge') {
       const e = (scene.edges || bundle(scene.pairs)).find(x => x.id === sel.id);
       if (!e) { select(null); return; }
+      if (e.client) {
+        const server = model.nodes.get(e.target);
+        panel.html(`<h2>${escapeHtml(e.source)} → ${escapeHtml(server ? server.name : e.target)}</h2><div>client of this Discovery Server</div>${discoveryCard(model.nodes.get(e.source))}`);
+        return;
+      }
       panel.html(`<h2>${escapeHtml(e.source)} → ${escapeHtml(e.target)}</h2><div>${e.pairs.length} pair(s), ${e.transport}${e.confidence === 'likely' ? ' (likely)' : ''}</div>` +
         e.pairs.map(vp => pairCard(vp, false, scene.marks)).join(''));
     } else if (sel.kind === 'ghost') {
@@ -335,11 +348,32 @@
       const n = model.nodes.get(sel.id);
       if (!n) { select(null); return; }
       const list = (items) => items.length ? `<dl>${items.map(({ topic, ep }) => `<dt>${escapeHtml(topic.topic)}</dt><dd>${escapeHtml(topic.type)}${typeof ep.datasharing_history_bytes === 'number' ? ` · data-sharing history ${humanBytes(ep.datasharing_history_bytes, 'B')}` : ''}</dd>`).join('')}</dl>` : '<div class="muted">none</div>';
-      panel.html(`<h2>${escapeHtml(n.name)}</h2><dl><dt>host</dt><dd>${escapeHtml(n.host)}</dd>${n.process ? `<dt>pid</dt><dd>${escapeHtml(n.process)}</dd>` : ''}</dl>
+      if (n.server) {
+        const clients = [...model.nodes.values()].filter(x => clientParticipants(x).some(p => `server ${p.discovery_server}` === n.id));
+        panel.html(`<h2>${escapeHtml(n.name)}</h2><dl><dt>host</dt><dd>${escapeHtml(n.host)}</dd>${discoveryRows(n.server)}</dl>
+          <h3>Clients (${clients.length})</h3>${clients.length ? `<ul>${clients.map(c => `<li>${escapeHtml(c.name)}</li>`).join('')}</ul>` : '<div class="muted">none attributed</div>'}`);
+        return;
+      }
+      panel.html(`<h2>${escapeHtml(n.name)}</h2><dl><dt>host</dt><dd>${escapeHtml(n.host)}</dd>${n.process ? `<dt>pid</dt><dd>${escapeHtml(n.process)}</dd>` : ''}</dl>${discoveryCard(n)}
         <h3>Publishers (${n.pubs.length})</h3>${list(n.pubs)}
         <h3>Subscriptions (${n.subs.length})</h3>${list(n.subs)}
         ${n.unmatched.length ? `<h3>Unmatched topics (${n.unmatched.length})</h3>` + n.unmatched.map(u => `<div><b>${escapeHtml(u.topic.topic)}</b>${codeList(u.reasons, false)}</div>`).join('') : ''}`);
     }
+  }
+
+  /** The discovery rows of one `participants[]` entry (#86): what it announced, verbatim. */
+  function discoveryRows(p) {
+    const server = p.discovery_server ? state.model.nodes.get(`server ${p.discovery_server}`) : null;
+    return `<dt>discovery</dt><dd>${escapeHtml(p.discovery_protocol || '(not announced)')}${p.vendor ? ` · ${escapeHtml(p.vendor)}` : ''}</dd>
+      <dt>participant</dt><dd>${escapeHtml(p.guid_prefix)}${p.name ? ` · ${escapeHtml(p.name)}` : ''}</dd>
+      ${(p.metatraffic_locators || []).length ? `<dt>metatraffic</dt><dd>${escapeHtml(p.metatraffic_locators.map(locatorText).join(', '))}</dd>` : ''}
+      ${p.discovery_server ? `<dt>server</dt><dd>${escapeHtml(server ? server.name : p.discovery_server)}</dd>` : ''}`;
+  }
+
+  /** The Discovery Server section of a node card: one entry per client participant of the node, nothing for SIMPLE ones. */
+  function discoveryCard(n) {
+    const clients = n ? clientParticipants(n) : [];
+    return clients.length ? `<h3>Discovery Server client</h3><dl>${clients.map(discoveryRows).join('')}</dl>` : '';
   }
 
   // ---------------------------------------------------------------- toolbar, legend, loading
@@ -373,7 +407,8 @@
     d3.select('#meta').html(
       escapeHtml(`domain ${d.domain} · ${d.observed_at} · ${d.topics.length} topics, ${n} pairs · `) +
       statsText(d.stats, d.reason_code_descriptions, d.reason_code_remedies) + escapeHtml(vs));
-    d3.select('#shm').html(shmText(d.shm, d.reason_code_descriptions, d.reason_code_remedies));
+    const discovery = discoveryText(d);
+    d3.select('#shm').html(shmText(d.shm, d.reason_code_descriptions, d.reason_code_remedies) + (discovery ? `${d.shm && d.shm.available ? ' · ' : ''}${escapeHtml(discovery)}` : ''));
   }
 
   let renders = 0;

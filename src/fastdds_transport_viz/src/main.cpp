@@ -4,6 +4,7 @@
 // transport_viz: show which Fast DDS transport each ROS 2 topic uses and why.
 
 #include <arpa/inet.h>
+#include <netdb.h>
 #include <ifaddrs.h>
 #include <poll.h>
 #include <sys/ioctl.h>
@@ -420,6 +421,45 @@ std::set<std::string> local_ip_addresses()
   return out;
 }
 
+// Fast DDS reads ROS_SUPER_CLIENT as "TRUE" / "true" / "1" (any case)
+bool env_is_true(const char * value)
+{
+  std::string v(value);
+  std::transform(v.begin(), v.end(), v.begin(), ::tolower);
+  return v == "true" || v == "1";
+}
+
+// The servers of ROS_DISCOVERY_SERVER with their host names resolved the way Fast DDS does
+// (getaddrinfo, first address of the locator's family); a name that does not resolve is
+// kept as text (#86)
+std::vector<fastdds_transport_viz::Locator> resolve_discovery_servers(
+  std::vector<fastdds_transport_viz::Locator> servers)
+{
+  using fastdds_transport_viz::LocatorKind;
+  for (auto & l : servers) {
+    const bool v6 = l.kind == LocatorKind::UDPv6 || l.kind == LocatorKind::TCPv6;
+    char probe[sizeof(struct in6_addr)];
+    if (::inet_pton(v6 ? AF_INET6 : AF_INET, l.address.c_str(), probe) == 1) {continue;}
+    struct addrinfo hints = {};
+    hints.ai_family = v6 ? AF_INET6 : AF_INET;
+    hints.ai_socktype = SOCK_DGRAM;
+    struct addrinfo * res = nullptr;
+    if (::getaddrinfo(l.address.c_str(), nullptr, &hints, &res) != 0 || res == nullptr) {
+      continue;
+    }
+    char buf[INET6_ADDRSTRLEN] = {};
+    if (res->ai_family == AF_INET) {
+      auto * sin = reinterpret_cast<struct sockaddr_in *>(res->ai_addr);
+      if (::inet_ntop(AF_INET, &sin->sin_addr, buf, sizeof(buf))) {l.address = buf;}
+    } else if (res->ai_family == AF_INET6) {
+      auto * sin6 = reinterpret_cast<struct sockaddr_in6 *>(res->ai_addr);
+      if (::inet_ntop(AF_INET6, &sin6->sin6_addr, buf, sizeof(buf))) {l.address = buf;}
+    }
+    ::freeaddrinfo(res);
+  }
+  return servers;
+}
+
 Snapshot collect(
   fastdds_transport_viz::DiscoveryObserver & observer,
   fastdds_transport_viz::RosGraphResolver & resolver,
@@ -464,6 +504,20 @@ Snapshot collect(
     observer.live_participants(), endpoints);
   discovery.stopped_on = stopped_on;
   discovery.events = observer.event_count();
+  // how our own participants take part in discovery, from the environment Fast DDS reads
+  // (rmw_fastrtps sets neither option itself) (#86)
+  if (const char * ds = std::getenv("ROS_DISCOVERY_SERVER"); ds != nullptr && *ds != '\0') {
+    discovery.discovery_server_env = ds;
+    discovery.discovery_servers = resolve_discovery_servers(
+      fastdds_transport_viz::parse_discovery_server_env(ds));
+    const char * sc = std::getenv("ROS_SUPER_CLIENT");
+    discovery.observer_protocol =
+      sc != nullptr && env_is_true(sc) ? "SUPER_CLIENT" : "CLIENT";
+  }
+  if (const char * em = std::getenv("ROS2_EASY_MODE"); em != nullptr && *em != '\0') {
+    discovery.easy_mode = em;
+    discovery.observer_protocol = "SUPER_CLIENT";
+  }
   // before any filter, so that a parent keeps its companions whatever --topic / --all drop
   fastdds_transport_viz::link_buffer_companions(endpoints);
   std::vector<Endpoint> kept;
@@ -499,6 +553,20 @@ Snapshot collect(
   // one of them in another IPC namespace is not taken for visible.
   if (const auto held = fastdds_transport_viz::held_port_locks()) {
     shm_in.own_ports = *held;
+  }
+  // Every live participant first, so the ones without endpoints (Discovery Servers) are in
+  // the report too (#86); the endpoints below add what only they carry.
+  for (const auto & kv : observer.participant_data()) {
+    auto & participant = participants[kv.first];
+    participant.guid_prefix = kv.first;
+    participant.host_id = kv.second.host_id;
+    participant.own = own_prefixes.count(kv.first) > 0;
+    participant.discovery_protocol = kv.second.discovery_protocol;
+    participant.name = kv.second.name;
+    participant.vendor = kv.second.vendor;
+    participant.metatraffic_locators = kv.second.metatraffic_locators;
+    // not counted among the other-host participants of the SHM verdict: that count is
+    // about endpoints whose traffic SHM cannot carry, and a server has none
   }
   for (auto & e : endpoints) {
     e.node_name = fastdds_transport_viz::merge_node_name(
@@ -635,9 +703,23 @@ Snapshot collect(
           ports->second, proof, snap.shm, participants_per_port);
       }
     }
-    for (auto & kv : participants) {
-      snap.participants.push_back(std::move(kv.second));
+    // A participant without endpoints (a Discovery Server) has no PHYSICAL_DATA of its
+    // own; it takes the host name the other participants of its host id report, so it
+    // lands in their column.
+    std::map<fastdds_transport_viz::HostId, std::string> host_names;
+    for (const auto & kv : participants) {
+      if (!kv.second.host_name.empty()) {host_names.emplace(kv.second.host_id, kv.second.host_name);}
     }
+    for (auto & kv : participants) {
+      auto & p = kv.second;
+      if (p.host_name.empty()) {
+        auto it = host_names.find(p.host_id);
+        if (it != host_names.end()) {p.host_name = it->second;}
+      }
+      snap.participants.push_back(std::move(p));
+    }
+    fastdds_transport_viz::attribute_discovery_servers(
+      snap.participants, !snap.discovery.easy_mode.empty());
   }
   auto t = prof.now();
   snap.topics = fastdds_transport_viz::summarize(snap.endpoints);

@@ -61,6 +61,10 @@ main { display: grid; grid-template-columns: 1fr 380px; height: calc(100% - 84px
 .node text { pointer-events: none; }
 .node text.proc { fill: var(--muted); font-size: 11px; }
 .node .unmatched { fill: var(--warn); font-size: 11px; }
+.node text.tag { fill: var(--muted); font-size: 10px; letter-spacing: .04em; text-transform: uppercase; }
+.node.server rect { fill: #fff8e6; stroke: #b08a3e; stroke-dasharray: 3 3; }
+.edge.client path.main { stroke-dasharray: 2 4; stroke-width: 1.5; opacity: .8; }
+.edge.client.selected path.main { stroke-width: 3; }
 .edge path { fill: none; stroke-width: 2.5; cursor: pointer; }
 .edge.likely path { stroke-dasharray: 6 4; }
 .edge.warn path.halo { stroke: var(--warn); stroke-width: 7; opacity: .35; }

@@ -13,7 +13,7 @@
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this, (M) => {
   'use strict';
-  const { isInternalTopic, filterRegex, visiblePairs, visibleNodesModel, bundle, pairKey, keyId, markedPairs, pruneNodes } = M;
+  const { isInternalTopic, filterRegex, visiblePairs, visibleNodesModel, bundle, pairKey, keyId, markedPairs, pruneNodes, serversOf } = M;
 
   /** Mark of a visible pair, ' ' when none. */
   function markOf(vp, marks) {
@@ -71,6 +71,14 @@
       edges.push({ id: g.id, source: g.key.writer_node, target: g.key.reader_node, transport: g.pair ? g.pair.transport : 'NONE',
         confidence: g.pair ? g.pair.confidence : 'certain', pairs: [], warn: false, mark: '-', ghost: g });
     }
+    // one client -> server edge per attributed client node whose server is in view (#86);
+    // no transport, no label, never bundled with the topic edges
+    for (const n of scene.model.nodes.values()) {
+      for (const s of serversOf(n)) {
+        if (!scene.model.nodes.has(s)) continue;
+        edges.push({ id: `client|${n.id}|${s}`, source: n.id, target: s, transport: 'NONE', confidence: 'certain', pairs: [], warn: false, mark: ' ', client: true });
+      }
+    }
     // parallel-edge index per (source,target) so bundles do not overlap
     const groups = new Map();
     for (const e of edges) {
@@ -84,6 +92,7 @@
 
   /** Text of an edge label: topic (or count) and transport, with the change mark in front. */
   function edgeLabel(d) {
+    if (d.client) return '';
     const label = d.ghost ? `${d.ghost.key.topic} · removed` :
       d.pairs.length === 1 ? `${d.pairs[0].topic.topic} · ${d.transport}${d.confidence === 'likely' ? '?' : ''}` : `${d.pairs.length} topics · ${d.transport}${d.confidence === 'likely' ? '?' : ''}`;
     return (d.mark === ' ' ? '' : d.mark + ' ') + label;

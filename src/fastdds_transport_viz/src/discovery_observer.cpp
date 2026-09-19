@@ -181,6 +181,37 @@ ParticipantPrefix to_participant_prefix(const rtps::GuidPrefix_t & prefix)
   return out;
 }
 
+/// The participant's own announcement: PARTICIPANT_TYPE property, name, vendor and the
+/// unicast locators of its discovery traffic (#86). 2.x ParticipantProxyData, 3.x
+/// ParticipantBuiltinTopicData; the members differ in name only.
+template<typename ProxyData>
+ParticipantData make_participant_data(const ProxyData & data)
+{
+  ParticipantData d;
+  const auto & prefix = disc_participant_prefix(data);
+  for (int i = 0; i < 4; ++i) {
+    d.host_id[i] = prefix.value[i];
+  }
+  for (const auto & prop : disc_participant_properties(data)) {
+    if (prop.first() == "PARTICIPANT_TYPE") {
+      d.discovery_protocol = prop.second();
+    }
+  }
+  d.name = disc_participant_name(data);
+  const auto & vendor = disc_participant_vendor(data);
+  if (vendor[0] == 0x01 && vendor[1] == 0x0F) {
+    d.vendor = "eProsima";
+  } else {
+    char buf[8];
+    std::snprintf(buf, sizeof(buf), "%02x.%02x", vendor[0], vendor[1]);
+    d.vendor = buf;
+  }
+  for (const auto & l : disc_participant_metatraffic(data).unicast) {
+    d.metatraffic_locators.push_back(convert_locator(l));
+  }
+  return d;
+}
+
 template<typename ProxyData>
 Endpoint make_endpoint(const ProxyData & data, bool is_writer)
 {
@@ -271,7 +302,25 @@ size_t DiscoveryObserver::event_count() const
 std::set<ParticipantPrefix> DiscoveryObserver::live_participants() const
 {
   std::lock_guard<std::mutex> lock(mutex_);
-  return participants_;
+  std::set<ParticipantPrefix> out;
+  for (const auto & kv : participants_) {
+    out.insert(kv.first);
+  }
+  return out;
+}
+
+std::map<std::string, ParticipantData> DiscoveryObserver::participant_data() const
+{
+  std::lock_guard<std::mutex> lock(mutex_);
+  std::map<std::string, ParticipantData> out;
+  for (const auto & kv : participants_) {
+    rtps::GuidPrefix_t prefix;
+    for (size_t i = 0; i < kv.first.size(); ++i) {
+      prefix.value[i] = kv.first[i];
+    }
+    out[prefix_to_string(prefix)] = kv.second;
+  }
+  return out;
 }
 
 HostId DiscoveryObserver::local_host_id() const
@@ -310,7 +359,7 @@ void DiscoveryObserver::on_participant_discovery(
   switch (reason) {
     case rtps::ParticipantDiscoveryStatus::DISCOVERED_PARTICIPANT:
     case rtps::ParticipantDiscoveryStatus::CHANGED_QOS_PARTICIPANT:
-      participants_.insert(prefix);
+      participants_[prefix] = make_participant_data(info);
       break;
     case rtps::ParticipantDiscoveryStatus::REMOVED_PARTICIPANT:
     case rtps::ParticipantDiscoveryStatus::DROPPED_PARTICIPANT:
@@ -367,7 +416,7 @@ void DiscoveryObserver::on_participant_discovery(
   switch (info.status) {
     case rtps::ParticipantDiscoveryInfo::DISCOVERED_PARTICIPANT:
     case rtps::ParticipantDiscoveryInfo::CHANGED_QOS_PARTICIPANT:
-      participants_.insert(prefix);
+      participants_[prefix] = make_participant_data(info.info);
       break;
     case rtps::ParticipantDiscoveryInfo::REMOVED_PARTICIPANT:
     case rtps::ParticipantDiscoveryInfo::DROPPED_PARTICIPANT:

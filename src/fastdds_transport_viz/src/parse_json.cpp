@@ -347,6 +347,16 @@ Participant participant(const json & j, size_t index)
   p.host_name = j.value("host_name", "");
   p.own = j.value("own", false);
   p.shm_visibility = shm_visibility(j.value("shm_visibility", "unprobed"));
+  // #86: absent in documents older than the fields, null server when not attributed
+  p.discovery_protocol = j.value("discovery_protocol", "");
+  p.name = j.value("name", "");
+  p.vendor = j.value("vendor", "");
+  if (auto it = j.find("metatraffic_locators"); it != j.end() && it->is_array()) {
+    p.metatraffic_locators = locators(*it, where + ".metatraffic_locators");
+  }
+  if (auto it = j.find("discovery_server"); it != j.end() && it->is_string()) {
+    p.discovery_server = it->get<std::string>();
+  }
   for (const auto & sp : j.value("shm_ports", json::array())) {
     Participant::ShmPort port;
     port.port = at(sp, "port", where + ".shm_ports").get<uint32_t>();
@@ -483,6 +493,12 @@ Snapshot snapshot(const json & doc)
     snap.discovery.events = d.value("events", 0ULL);
     snap.discovery.endpoints = d.value("endpoints", 0ULL);
     snap.discovery.announced_not_discovered = d.value("announced_not_discovered", 0ULL);
+    snap.discovery.observer_protocol = d.value("observer_protocol", "SIMPLE");
+    if (auto it = d.find("discovery_servers"); it != d.end() && it->is_array()) {
+      snap.discovery.discovery_servers = locators(*it, "discovery.discovery_servers");
+    }
+    snap.discovery.discovery_server_env = d.value("discovery_server_env", "");
+    snap.discovery.easy_mode = d.value("easy_mode", "");
   }
   auto shm_it = doc.find("shm");
   if (shm_it != doc.end() && shm_it->is_object()) {

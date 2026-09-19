@@ -155,6 +155,23 @@ transport ごとの注意点 (いずれも launch テストかマルチコンテ
   自分を `SUPER_CLIENT` にします (stderr にその旨を出します)。`ROS_SUPER_CLIENT` を明示していれば
   それを尊重します。サーバーは Jazzy では `fastdds discovery -i 0 -l <ip> -p <port>`、
   Lyrical / Rolling では `fastdds discovery -l <ip> -p <port>` です。
+  サーバー自身はエンドポイントを持たない participant なので表には行がありませんが、`--json` の
+  `participants` と web viewer には現れます
+  ([#86](https://github.com/atinfinity/fastdds_transport_viz/issues/86))。各 participant は
+  アナウンスした `PARTICIPANT_TYPE` をそのまま (`SIMPLE`、`CLIENT`、`SUPER_CLIENT`、`SERVER`、
+  `BACKUP`、アナウンスがなければ `""`)、名前、ベンダー、metatraffic unicast locator を報告し、
+  `discovery{}` にはツール自身の参加の仕方 (`observer_protocol`、パース済みの
+  `discovery_servers`、`discovery_server_env`、`easy_mode`) が入ります。`-v` はフッタに
+  1 行、見つけたサーバーとそれぞれが受け持つ participant 数を出します。クライアントが
+  どのサーバーを使うかは通信上に *出ません* (Fast DDS がクライアントのサーバー一覧を
+  participant データに載せるのは 3.2 以降のオプトイン `fastdds.serialize_optional_qos`
+  だけで、ROS 2 ノードでは決して載りません) ので、`discovery_server` は確実な場合にだけ
+  推定します。見つけた `SERVER` がちょうど 1 つならすべてのクライアントはそのクライアント、
+  Easy Mode ではクライアントのサーバーは自ホストの `DiscoveryServerAuto`、それ以外は
+  `null` です。誰も到達できないサーバーは報告できません (そのクライアントは中継されません)。
+  Fast DDS 3.6 (Lyrical、Rolling) は通常の `CLIENT` を `SUPER_CLIENT` としてアナウンスします。
+  旧来の `fastdds discovery -i N` サーバーは固定 prefix `44.53.<N>.5f.45.50.52.4f.53.49.4d.41`
+  を持つため、その `host_id` は実在のホストではなく、viewer では独自のホスト列に出ます。
 - `ROS2_EASY_MODE=<ip>` (Fast DDS 3.2 以降: Kilted、Lyrical、Rolling) を設定すると、Fast DDS は
   ホストとドメインごとに Discovery Server を 1 つ自動起動し (ポートは 7400 + 250 × ドメイン + 2、
   `fastdds discovery list` で確認できます。CLI は起動済みのサーバーを `ss` で探すので `iproute2` が
@@ -167,9 +184,11 @@ transport ごとの注意点 (いずれも launch テストかマルチコンテ
   ホストが適しています。Fast DDS 3 はエンドポイントの型を解決してからでないとツールに渡さず、
   その型を使うノードのないホストではサーバー同士の中継を通じても解決されないため、そのような
   ホストからはツールも `ros2 topic list` もノードは見えてもトピックが 1 つも見えません。自動起動した
-  サーバーはエンドポイントを持たない participant なので、`--all` を付けても表には現れません。
+  サーバー (`DiscoveryServerAuto`) はエンドポイントを持たない participant なので、`--all` を
+  付けても表には行がありませんが、`participants`、`-v` のフッタ、web viewer には現れ、その
+  ホストの全ノードがそれに紐づきます ([#86](https://github.com/atinfinity/fastdds_transport_viz/issues/86))。
   `--stats` では、それを起動したノードに `FASTDDS_STATISTICS` が設定されていれば statistics の
-  participant として現れます。Fast DDS が participant ごとに実行する `fastdds discovery` CLI は
+  participant としても現れます。Fast DDS が participant ごとに実行する `fastdds discovery` CLI は
   stdout に出力しますが、ツールはそれを stderr に回して `--json` を壊さないようにしています。
 - `ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST` はそのまま動きます (ノードはループバックの locator だけ
   を広告します)。`OFF` はすべての participant を自分自身に閉じ込めるので何も観測できません。

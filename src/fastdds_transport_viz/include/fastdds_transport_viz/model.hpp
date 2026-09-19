@@ -111,6 +111,29 @@ struct Participant
   };
   std::vector<ShmPort> shm_ports;
   ShmVisibility shm_visibility{ShmVisibility::Unprobed};
+  // From its participant announcement (#86): the Discovery Server role it declares in the
+  // PARTICIPANT_TYPE property (SIMPLE / CLIENT / SUPER_CLIENT / SERVER / BACKUP; Fast DDS
+  // 3.6 announces a CLIENT as SUPER_CLIENT), empty when the property is absent (another
+  // vendor); its name (rmw sets the enclave, the Easy Mode daemon "DiscoveryServerAuto");
+  // its vendor; the unicast locators of its discovery traffic (a server's address).
+  std::string discovery_protocol;
+  std::string name;
+  std::string vendor;
+  std::vector<Locator> metatraffic_locators;
+  // The server this participant is served by, when that can be told: the only SERVER
+  // discovered, or under Easy Mode the DiscoveryServerAuto on its own host. Unset otherwise
+  // (a client's server list is not on the wire).
+  std::optional<std::string> discovery_server;
+};
+
+/// What a participant announced about itself, kept by the discovery observer per prefix.
+struct ParticipantData
+{
+  HostId host_id{};
+  std::string discovery_protocol;
+  std::string name;
+  std::string vendor;
+  std::vector<Locator> metatraffic_locators;
 };
 
 struct Endpoint
@@ -542,6 +565,13 @@ struct DiscoveryStatus
   // (for the message; not in the JSON)
   size_t participants_incomplete{0};
   size_t announced_by_incomplete{0};
+  // How the observer itself discovers (#86): its Discovery Server role (SIMPLE, CLIENT,
+  // SUPER_CLIENT), the servers it is configured for, as parsed from ROS_DISCOVERY_SERVER
+  // (the raw value kept next to it) or implied by ROS2_EASY_MODE (the IP, empty otherwise).
+  std::string observer_protocol{"SIMPLE"};
+  std::vector<Locator> discovery_servers;
+  std::string discovery_server_env;
+  std::string easy_mode;
 };
 
 struct Snapshot

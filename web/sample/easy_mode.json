@@ -1,0 +1,951 @@
+{
+  "discovery": {
+    "announced_not_discovered": 0,
+    "complete": true,
+    "discovery_server_env": "",
+    "discovery_servers": [],
+    "easy_mode": "172.28.0.10",
+    "endpoints": 91,
+    "events": 103,
+    "observer_protocol": "SUPER_CLIENT",
+    "stopped_on": "timeout"
+  },
+  "domain": 0,
+  "local_host_id": "010ff914",
+  "observation_seconds": 6.011295836,
+  "observed_at": "2026-09-19T23:13:30Z",
+  "participants": [
+    {
+      "discovery_protocol": "SUPER_CLIENT",
+      "discovery_server": "01.0f.a7.85.2e.00.76.2b.00.00.00.00",
+      "guid_prefix": "01.0f.a7.85.1a.00.e1.95.00.00.00.00",
+      "host": "4cf78910653d",
+      "host_id": "010fa785",
+      "host_name": "4cf78910653d:12150714476213043200",
+      "metatraffic_locators": [
+        {
+          "address": "127.0.0.1",
+          "kind": "UDPv4",
+          "port": 7410
+        }
+      ],
+      "name": "/",
+      "own": false,
+      "shm_ports": [],
+      "shm_visibility": "unprobed",
+      "vendor": "eProsima"
+    },
+    {
+      "discovery_protocol": "SERVER",
+      "discovery_server": null,
+      "guid_prefix": "01.0f.a7.85.2e.00.76.2b.00.00.00.00",
+      "host": "4cf78910653d",
+      "host_id": "010fa785",
+      "host_name": "4cf78910653d:12150714476213043200",
+      "metatraffic_locators": [
+        {
+          "address": "172.28.0.11",
+          "kind": "UDPv4",
+          "port": 7402
+        }
+      ],
+      "name": "DiscoveryServerAuto",
+      "own": false,
+      "shm_ports": [],
+      "shm_visibility": "unprobed",
+      "vendor": "eProsima"
+    },
+    {
+      "discovery_protocol": "SUPER_CLIENT",
+      "discovery_server": "01.0f.f9.14.2e.00.ef.3e.00.00.00.00",
+      "guid_prefix": "01.0f.f9.14.1a.00.32.1d.00.00.00.00",
+      "host": "09bea98e19da",
+      "host_id": "010ff914",
+      "host_name": "09bea98e19da:17384423655573291008",
+      "metatraffic_locators": [
+        {
+          "address": "127.0.0.1",
+          "kind": "UDPv4",
+          "port": 7410
+        }
+      ],
+      "name": "/",
+      "own": false,
+      "shm_ports": [
+        {
+          "announced_by": 1,
+          "lock": "held",
+          "port": 7000,
+          "proof": false
+        },
+        {
+          "announced_by": 1,
+          "lock": "held",
+          "port": 7411,
+          "proof": true
+        }
+      ],
+      "shm_visibility": "visible",
+      "vendor": "eProsima"
+    },
+    {
+      "discovery_protocol": "SERVER",
+      "discovery_server": null,
+      "guid_prefix": "01.0f.f9.14.2e.00.ef.3e.00.00.00.00",
+      "host": "09bea98e19da",
+      "host_id": "010ff914",
+      "host_name": "09bea98e19da:17384423655573291008",
+      "metatraffic_locators": [
+        {
+          "address": "127.0.0.1",
+          "kind": "UDPv4",
+          "port": 7402
+        }
+      ],
+      "name": "DiscoveryServerAuto",
+      "own": false,
+      "shm_ports": [],
+      "shm_visibility": "unprobed",
+      "vendor": "eProsima"
+    },
+    {
+      "discovery_protocol": "SUPER_CLIENT",
+      "discovery_server": null,
+      "guid_prefix": "01.0f.f9.14.55.00.54.3b.00.00.00.00",
+      "host": "09bea98e19da",
+      "host_id": "010ff914",
+      "host_name": "09bea98e19da:17384423655573291008",
+      "metatraffic_locators": [
+        {
+          "address": "127.0.0.1",
+          "kind": "UDPv4",
+          "port": 7412
+        }
+      ],
+      "name": "/",
+      "own": true,
+      "shm_ports": [
+        {
+          "announced_by": 1,
+          "lock": "own",
+          "port": 7001,
+          "proof": false
+        },
+        {
+          "announced_by": 1,
+          "lock": "own",
+          "port": 7413,
+          "proof": false
+        }
+      ],
+      "shm_visibility": "unprobed",
+      "vendor": "eProsima"
+    },
+    {
+      "discovery_protocol": "",
+      "discovery_server": null,
+      "guid_prefix": "01.0f.f9.14.55.00.54.3b.01.00.00.00",
+      "host": "09bea98e19da",
+      "host_id": "010ff914",
+      "host_name": "09bea98e19da:17384423655573291008",
+      "metatraffic_locators": [],
+      "name": "",
+      "own": true,
+      "shm_ports": [],
+      "shm_visibility": "unprobed",
+      "vendor": ""
+    }
+  ],
+  "reason_code_descriptions": {
+    "common-tcpv4-locator": "The reader announces a TCPv4 locator and the writer speaks TCPv4.",
+    "different-host": "GUID prefixes differ in the first 4 bytes, so Fast DDS treats the endpoints as being on different hosts; shared memory is not an option.",
+    "measured-tcpv4-traffic": "Statistics show RTPS packets from the writer's participant to the reader's TCPv4 locator.",
+    "no-matching-reader": "No subscription was discovered for this topic.",
+    "shm-not-visible": "Observed nodes announce SHM locators that are not open in this process's shared-memory directory (nobody holds the port's lock, the port number collides with the tool's own, or the node has another host id): they run in another IPC namespace or on another host, so the shared-memory figures describe this environment, not theirs, and SHM cannot be used between them and here. Nodes with the same host id in different IPC namespaces still pick SHM between themselves and lose every message; their pairs get shm-ipc-namespace-split when the nodes announce the same SHM port number or the tool shares the IPC namespace of one of them, and cannot be checked from here otherwise."
+  },
+  "reason_code_remedies": {
+    "common-tcpv4-locator": null,
+    "different-host": "For SHM between containers on one machine, run them in the host's network and IPC namespaces (--network host --ipc host); between machines only network transports apply.",
+    "measured-tcpv4-traffic": null,
+    "no-matching-reader": "Start a subscription on this topic, or check the topic name, namespace and remappings of the node expected to subscribe to it.",
+    "shm-not-visible": "Run the tool where the nodes run (same host and IPC namespace: the same container, or --ipc=host on both) if the shared-memory line should describe their /dev/shm."
+  },
+  "schema_version": 1,
+  "shm": {
+    "available": true,
+    "checked_ports": [
+      7000,
+      7411
+    ],
+    "datasharing_histories": 0,
+    "datasharing_notifications": 0,
+    "datasharing_unmatched": 0,
+    "fastdds_bytes": 28398672,
+    "free_bytes": 38674432,
+    "missing_ports": [],
+    "nodes_visible": false,
+    "other_host_participants": 2,
+    "path": "/dev/shm",
+    "ports": 5,
+    "segments": 3,
+    "stale_ports": 0,
+    "stale_segments": 0,
+    "total_bytes": 67108864,
+    "unknown_ports": [],
+    "used_bytes": 28434432,
+    "warnings": [
+      "shm-not-visible"
+    ]
+  },
+  "stats": {
+    "data_count": {
+      "01.0f.a7.85.1a.00.e1.95.00.00.00.00|00.00.01.03": {
+        "first": 3,
+        "last": 3,
+        "samples": 1
+      },
+      "01.0f.f9.14.1a.00.32.1d.00.00.00.00|00.00.01.03": {
+        "first": 3,
+        "last": 3,
+        "samples": 1
+      },
+      "01.0f.f9.14.1a.00.32.1d.00.00.00.00|00.00.13.03": {
+        "first": 3,
+        "last": 8,
+        "samples": 6
+      }
+    },
+    "enabled": true,
+    "lost": [],
+    "pairs_delivered": 1,
+    "pairs_delivered_absent": 0,
+    "pairs_delivered_unmeasured": 0,
+    "participants_with_stats": [
+      "01.0f.a7.85.1a.00.e1.95.00.00.00.00",
+      "01.0f.f9.14.1a.00.32.1d.00.00.00.00"
+    ],
+    "physical": {
+      "01.0f.a7.85.1a.00.e1.95.00.00.00.00": {
+        "host": "4cf78910653d:12150714476213043200",
+        "process": "26",
+        "user": "root"
+      },
+      "01.0f.f9.14.1a.00.32.1d.00.00.00.00": {
+        "host": "09bea98e19da:17384423655573291008",
+        "process": "26",
+        "user": "root"
+      }
+    },
+    "samples": 292,
+    "samples_lost": 0,
+    "samples_lost_at_start": 1,
+    "samples_lost_latency": 0,
+    "samples_rejected": 0,
+    "statistics_writers": [
+      {
+        "participant_guid_prefix": "01.0f.a7.85.1a.00.e1.95.00.00.00.00",
+        "topic": "_fastdds_statistics_acknack_count"
+      },
+      {
+        "participant_guid_prefix": "01.0f.a7.85.1a.00.e1.95.00.00.00.00",
+        "topic": "_fastdds_statistics_data_count"
+      },
+      {
+        "participant_guid_prefix": "01.0f.a7.85.1a.00.e1.95.00.00.00.00",
+        "topic": "_fastdds_statistics_gap_count"
+      },
+      {
+        "participant_guid_prefix": "01.0f.a7.85.1a.00.e1.95.00.00.00.00",
+        "topic": "_fastdds_statistics_heartbeat_count"
+      },
+      {
+        "participant_guid_prefix": "01.0f.a7.85.1a.00.e1.95.00.00.00.00",
+        "topic": "_fastdds_statistics_history2history_latency"
+      },
+      {
+        "participant_guid_prefix": "01.0f.a7.85.1a.00.e1.95.00.00.00.00",
+        "topic": "_fastdds_statistics_nackfrag_count"
+      },
+      {
+        "participant_guid_prefix": "01.0f.a7.85.1a.00.e1.95.00.00.00.00",
+        "topic": "_fastdds_statistics_physical_data"
+      },
+      {
+        "participant_guid_prefix": "01.0f.a7.85.1a.00.e1.95.00.00.00.00",
+        "topic": "_fastdds_statistics_resent_datas"
+      },
+      {
+        "participant_guid_prefix": "01.0f.a7.85.1a.00.e1.95.00.00.00.00",
+        "topic": "_fastdds_statistics_rtps_lost"
+      },
+      {
+        "participant_guid_prefix": "01.0f.a7.85.1a.00.e1.95.00.00.00.00",
+        "topic": "_fastdds_statistics_rtps_sent"
+      },
+      {
+        "participant_guid_prefix": "01.0f.a7.85.2e.00.76.2b.00.00.00.00",
+        "topic": "_fastdds_statistics_acknack_count"
+      },
+      {
+        "participant_guid_prefix": "01.0f.a7.85.2e.00.76.2b.00.00.00.00",
+        "topic": "_fastdds_statistics_data_count"
+      },
+      {
+        "participant_guid_prefix": "01.0f.a7.85.2e.00.76.2b.00.00.00.00",
+        "topic": "_fastdds_statistics_gap_count"
+      },
+      {
+        "participant_guid_prefix": "01.0f.a7.85.2e.00.76.2b.00.00.00.00",
+        "topic": "_fastdds_statistics_heartbeat_count"
+      },
+      {
+        "participant_guid_prefix": "01.0f.a7.85.2e.00.76.2b.00.00.00.00",
+        "topic": "_fastdds_statistics_history2history_latency"
+      },
+      {
+        "participant_guid_prefix": "01.0f.a7.85.2e.00.76.2b.00.00.00.00",
+        "topic": "_fastdds_statistics_nackfrag_count"
+      },
+      {
+        "participant_guid_prefix": "01.0f.a7.85.2e.00.76.2b.00.00.00.00",
+        "topic": "_fastdds_statistics_physical_data"
+      },
+      {
+        "participant_guid_prefix": "01.0f.a7.85.2e.00.76.2b.00.00.00.00",
+        "topic": "_fastdds_statistics_resent_datas"
+      },
+      {
+        "participant_guid_prefix": "01.0f.a7.85.2e.00.76.2b.00.00.00.00",
+        "topic": "_fastdds_statistics_rtps_lost"
+      },
+      {
+        "participant_guid_prefix": "01.0f.a7.85.2e.00.76.2b.00.00.00.00",
+        "topic": "_fastdds_statistics_rtps_sent"
+      },
+      {
+        "participant_guid_prefix": "01.0f.f9.14.1a.00.32.1d.00.00.00.00",
+        "topic": "_fastdds_statistics_acknack_count"
+      },
+      {
+        "participant_guid_prefix": "01.0f.f9.14.1a.00.32.1d.00.00.00.00",
+        "topic": "_fastdds_statistics_data_count"
+      },
+      {
+        "participant_guid_prefix": "01.0f.f9.14.1a.00.32.1d.00.00.00.00",
+        "topic": "_fastdds_statistics_gap_count"
+      },
+      {
+        "participant_guid_prefix": "01.0f.f9.14.1a.00.32.1d.00.00.00.00",
+        "topic": "_fastdds_statistics_heartbeat_count"
+      },
+      {
+        "participant_guid_prefix": "01.0f.f9.14.1a.00.32.1d.00.00.00.00",
+        "topic": "_fastdds_statistics_history2history_latency"
+      },
+      {
+        "participant_guid_prefix": "01.0f.f9.14.1a.00.32.1d.00.00.00.00",
+        "topic": "_fastdds_statistics_nackfrag_count"
+      },
+      {
+        "participant_guid_prefix": "01.0f.f9.14.1a.00.32.1d.00.00.00.00",
+        "topic": "_fastdds_statistics_physical_data"
+      },
+      {
+        "participant_guid_prefix": "01.0f.f9.14.1a.00.32.1d.00.00.00.00",
+        "topic": "_fastdds_statistics_resent_datas"
+      },
+      {
+        "participant_guid_prefix": "01.0f.f9.14.1a.00.32.1d.00.00.00.00",
+        "topic": "_fastdds_statistics_rtps_lost"
+      },
+      {
+        "participant_guid_prefix": "01.0f.f9.14.1a.00.32.1d.00.00.00.00",
+        "topic": "_fastdds_statistics_rtps_sent"
+      },
+      {
+        "participant_guid_prefix": "01.0f.f9.14.2e.00.ef.3e.00.00.00.00",
+        "topic": "_fastdds_statistics_acknack_count"
+      },
+      {
+        "participant_guid_prefix": "01.0f.f9.14.2e.00.ef.3e.00.00.00.00",
+        "topic": "_fastdds_statistics_data_count"
+      },
+      {
+        "participant_guid_prefix": "01.0f.f9.14.2e.00.ef.3e.00.00.00.00",
+        "topic": "_fastdds_statistics_gap_count"
+      },
+      {
+        "participant_guid_prefix": "01.0f.f9.14.2e.00.ef.3e.00.00.00.00",
+        "topic": "_fastdds_statistics_heartbeat_count"
+      },
+      {
+        "participant_guid_prefix": "01.0f.f9.14.2e.00.ef.3e.00.00.00.00",
+        "topic": "_fastdds_statistics_history2history_latency"
+      },
+      {
+        "participant_guid_prefix": "01.0f.f9.14.2e.00.ef.3e.00.00.00.00",
+        "topic": "_fastdds_statistics_nackfrag_count"
+      },
+      {
+        "participant_guid_prefix": "01.0f.f9.14.2e.00.ef.3e.00.00.00.00",
+        "topic": "_fastdds_statistics_physical_data"
+      },
+      {
+        "participant_guid_prefix": "01.0f.f9.14.2e.00.ef.3e.00.00.00.00",
+        "topic": "_fastdds_statistics_resent_datas"
+      },
+      {
+        "participant_guid_prefix": "01.0f.f9.14.2e.00.ef.3e.00.00.00.00",
+        "topic": "_fastdds_statistics_rtps_lost"
+      },
+      {
+        "participant_guid_prefix": "01.0f.f9.14.2e.00.ef.3e.00.00.00.00",
+        "topic": "_fastdds_statistics_rtps_sent"
+      }
+    ],
+    "throughput": {},
+    "traffic": [
+      {
+        "bytes": 48952.0,
+        "bytes_first": 43924.0,
+        "dst_locator": {
+          "address": "127.0.0.1",
+          "kind": "UDPv4",
+          "port": 7402
+        },
+        "packets": 127,
+        "packets_first": 88,
+        "src_participant_guid_prefix": "01.0f.a7.85.1a.00.e1.95.00.00.00.00"
+      },
+      {
+        "bytes": 5336.0,
+        "bytes_first": 3620.0,
+        "dst_locator": {
+          "address": "127.0.0.1",
+          "kind": "UDPv4",
+          "port": 7410
+        },
+        "packets": 45,
+        "packets_first": 30,
+        "src_participant_guid_prefix": "01.0f.a7.85.1a.00.e1.95.00.00.00.00"
+      },
+      {
+        "bytes": 4440.0,
+        "bytes_first": 2352.0,
+        "dst_locator": {
+          "address": "127.0.0.1",
+          "kind": "UDPv4",
+          "port": 7412
+        },
+        "packets": 37,
+        "packets_first": 19,
+        "src_participant_guid_prefix": "01.0f.a7.85.1a.00.e1.95.00.00.00.00"
+      },
+      {
+        "bytes": 4216.0,
+        "bytes_first": 1756.0,
+        "dst_locator": {
+          "address": "127.0.0.1",
+          "kind": "UDPv4",
+          "port": 7414
+        },
+        "packets": 35,
+        "packets_first": 14,
+        "src_participant_guid_prefix": "01.0f.a7.85.1a.00.e1.95.00.00.00.00"
+      },
+      {
+        "bytes": 26028.0,
+        "bytes_first": 22116.0,
+        "dst_locator": {
+          "address": "172.28.0.10",
+          "kind": "UDPv4",
+          "port": 7402
+        },
+        "packets": 91,
+        "packets_first": 61,
+        "src_participant_guid_prefix": "01.0f.a7.85.1a.00.e1.95.00.00.00.00"
+      },
+      {
+        "bytes": 1368.0,
+        "bytes_first": 1120.0,
+        "dst_locator": {
+          "address": "172.28.0.10",
+          "kind": "TCPv4",
+          "port": 40315
+        },
+        "packets": 11,
+        "packets_first": 9,
+        "src_participant_guid_prefix": "01.0f.a7.85.1a.00.e1.95.00.00.00.00"
+      },
+      {
+        "bytes": 812.0,
+        "bytes_first": 812.0,
+        "dst_locator": {
+          "address": "172.28.0.10",
+          "kind": "TCPv4",
+          "port": 42337
+        },
+        "packets": 4,
+        "packets_first": 4,
+        "src_participant_guid_prefix": "01.0f.a7.85.1a.00.e1.95.00.00.00.00"
+      },
+      {
+        "bytes": 812.0,
+        "bytes_first": 500.0,
+        "dst_locator": {
+          "address": "172.28.0.10",
+          "kind": "TCPv4",
+          "port": 43931
+        },
+        "packets": 4,
+        "packets_first": 4,
+        "src_participant_guid_prefix": "01.0f.a7.85.1a.00.e1.95.00.00.00.00"
+      },
+      {
+        "bytes": 50724.0,
+        "bytes_first": 44116.0,
+        "dst_locator": {
+          "address": "127.0.0.1",
+          "kind": "UDPv4",
+          "port": 7402
+        },
+        "packets": 143,
+        "packets_first": 90,
+        "src_participant_guid_prefix": "01.0f.f9.14.1a.00.32.1d.00.00.00.00"
+      },
+      {
+        "bytes": 5224.0,
+        "bytes_first": 3284.0,
+        "dst_locator": {
+          "address": "127.0.0.1",
+          "kind": "UDPv4",
+          "port": 7410
+        },
+        "packets": 44,
+        "packets_first": 27,
+        "src_participant_guid_prefix": "01.0f.f9.14.1a.00.32.1d.00.00.00.00"
+      },
+      {
+        "bytes": 4812.0,
+        "bytes_first": 1508.0,
+        "dst_locator": {
+          "address": "127.0.0.1",
+          "kind": "UDPv4",
+          "port": 7412
+        },
+        "packets": 40,
+        "packets_first": 12,
+        "src_participant_guid_prefix": "01.0f.f9.14.1a.00.32.1d.00.00.00.00"
+      },
+      {
+        "bytes": 4700.0,
+        "bytes_first": 1396.0,
+        "dst_locator": {
+          "address": "127.0.0.1",
+          "kind": "UDPv4",
+          "port": 7414
+        },
+        "packets": 39,
+        "packets_first": 11,
+        "src_participant_guid_prefix": "01.0f.f9.14.1a.00.32.1d.00.00.00.00"
+      },
+      {
+        "bytes": 30716.0,
+        "bytes_first": 25100.0,
+        "dst_locator": {
+          "address": "172.28.0.11",
+          "kind": "UDPv4",
+          "port": 7402
+        },
+        "packets": 122,
+        "packets_first": 77,
+        "src_participant_guid_prefix": "01.0f.f9.14.1a.00.32.1d.00.00.00.00"
+      },
+      {
+        "bytes": 824.0,
+        "bytes_first": 824.0,
+        "dst_locator": {
+          "address": "127.0.0.1",
+          "kind": "TCPv4",
+          "port": 42337
+        },
+        "packets": 4,
+        "packets_first": 4,
+        "src_participant_guid_prefix": "01.0f.f9.14.1a.00.32.1d.00.00.00.00"
+      },
+      {
+        "bytes": 2256.0,
+        "bytes_first": 920.0,
+        "dst_locator": {
+          "address": "172.28.0.11",
+          "kind": "TCPv4",
+          "port": 39337
+        },
+        "packets": 16,
+        "packets_first": 5,
+        "src_participant_guid_prefix": "01.0f.f9.14.1a.00.32.1d.00.00.00.00"
+      },
+      {
+        "bytes": 936.0,
+        "bytes_first": 936.0,
+        "dst_locator": {
+          "address": "",
+          "kind": "SHM",
+          "port": 7001
+        },
+        "packets": 5,
+        "packets_first": 5,
+        "src_participant_guid_prefix": "01.0f.f9.14.1a.00.32.1d.00.00.00.00"
+      },
+      {
+        "bytes": 376.0,
+        "bytes_first": 252.0,
+        "dst_locator": {
+          "address": "",
+          "kind": "SHM",
+          "port": 7413
+        },
+        "packets": 3,
+        "packets_first": 2,
+        "src_participant_guid_prefix": "01.0f.f9.14.1a.00.32.1d.00.00.00.00"
+      }
+    ],
+    "warnings": [],
+    "writers_incompatible_qos": 0
+  },
+  "topics": [
+    {
+      "dds_topic": "rt/chatter",
+      "is_ros_topic": true,
+      "latency_s": 0.00041528299999999996,
+      "lost_packets": 0,
+      "pairs": [
+        {
+          "confidence": "certain",
+          "locator": {
+            "address": "172.28.0.11",
+            "kind": "TCPv4",
+            "multicast": false,
+            "port": 39337
+          },
+          "measured": {
+            "available": true,
+            "bytes": 1336.0,
+            "bytes_total": 2256.0,
+            "data_submessages": 5,
+            "delivered": true,
+            "delivered_per_s": 1.0000559718941218,
+            "delivered_per_s_lower_bound": false,
+            "delivered_per_s_window_s": 6.011295836,
+            "delivered_samples": 5,
+            "latency_s": {
+              "last": 0.00032958300000000005,
+              "max": 0.0004988340000000001,
+              "mean": 0.00041528299999999996,
+              "min": 0.00032958300000000005,
+              "samples": 5
+            },
+            "locators": [
+              {
+                "address": "172.28.0.11",
+                "bytes": 1336.0,
+                "kind": "TCPv4",
+                "packets": 11,
+                "port": 39337
+              }
+            ],
+            "packets": 11,
+            "packets_total": 16,
+            "reliability": {
+              "acknacks": 2,
+              "gaps": 0,
+              "heartbeats": 2,
+              "lost_packets": 0,
+              "nackfrags": 0,
+              "resent_datas": 0
+            },
+            "throughput_bytes_per_s": null,
+            "transports": [
+              "TCPv4"
+            ]
+          },
+          "reader_guid": "01.0f.a7.85.1a.00.e1.95.00.00.00.00|00.00.13.04",
+          "reader_host": "4cf78910653d",
+          "reader_node": "/listener",
+          "reasons": [
+            "different-host",
+            "common-tcpv4-locator",
+            "measured-tcpv4-traffic"
+          ],
+          "transport": "TCPv4",
+          "warnings": [],
+          "writer_guid": "01.0f.f9.14.1a.00.32.1d.00.00.00.00|00.00.13.03",
+          "writer_host": "09bea98e19da",
+          "writer_node": "/talker"
+        }
+      ],
+      "readers": [
+        {
+          "datasharing_history_bytes": null,
+          "datasharing_segment_visibility": "unprobed",
+          "dds_topic": "rt/chatter",
+          "dds_type": "example_interfaces::msg::dds_::String_",
+          "guid": "01.0f.a7.85.1a.00.e1.95.00.00.00.00|00.00.13.04",
+          "host": "4cf78910653d",
+          "host_id": "010fa785",
+          "host_name": "4cf78910653d:12150714476213043200",
+          "multicast_locators": [],
+          "node": "/listener",
+          "participant_guid_prefix": "01.0f.a7.85.1a.00.e1.95.00.00.00.00",
+          "process": "26",
+          "qos": {
+            "data_sharing": "OFF",
+            "data_sharing_domain_ids": [],
+            "deadline_s": null,
+            "durability": "VOLATILE",
+            "liveliness": "AUTOMATIC",
+            "liveliness_lease_s": null,
+            "ownership": "SHARED",
+            "partitions": [],
+            "reliability": "RELIABLE"
+          },
+          "ros_topic": "/chatter",
+          "ros_type": "example_interfaces/msg/String",
+          "unicast_locators": [
+            {
+              "address": "172.28.0.11",
+              "kind": "TCPv4",
+              "port": 39337
+            }
+          ]
+        }
+      ],
+      "resent_datas": 0,
+      "throughput_bytes_per_s": null,
+      "topic": "/chatter",
+      "type": "example_interfaces/msg/String",
+      "unmatched_reasons": [],
+      "writers": [
+        {
+          "datasharing_history_bytes": null,
+          "datasharing_segment_visibility": "unprobed",
+          "dds_topic": "rt/chatter",
+          "dds_type": "example_interfaces::msg::dds_::String_",
+          "guid": "01.0f.f9.14.1a.00.32.1d.00.00.00.00|00.00.13.03",
+          "host": "09bea98e19da",
+          "host_id": "010ff914",
+          "host_name": "09bea98e19da:17384423655573291008",
+          "multicast_locators": [],
+          "node": "/talker",
+          "participant_guid_prefix": "01.0f.f9.14.1a.00.32.1d.00.00.00.00",
+          "process": "26",
+          "qos": {
+            "data_sharing": "OFF",
+            "data_sharing_domain_ids": [],
+            "deadline_s": null,
+            "durability": "VOLATILE",
+            "liveliness": "AUTOMATIC",
+            "liveliness_lease_s": null,
+            "ownership": "SHARED",
+            "partitions": [],
+            "reliability": "RELIABLE"
+          },
+          "ros_topic": "/chatter",
+          "ros_type": "example_interfaces/msg/String",
+          "unicast_locators": [
+            {
+              "address": "",
+              "kind": "SHM",
+              "port": 7411
+            },
+            {
+              "address": "127.0.0.1",
+              "kind": "TCPv4",
+              "port": 40315
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "dds_topic": "rt/parameter_events",
+      "is_ros_topic": true,
+      "latency_s": null,
+      "lost_packets": null,
+      "pairs": [],
+      "readers": [],
+      "resent_datas": null,
+      "throughput_bytes_per_s": null,
+      "topic": "/parameter_events",
+      "type": "rcl_interfaces/msg/ParameterEvent",
+      "unmatched_reasons": [
+        "no-matching-reader"
+      ],
+      "writers": [
+        {
+          "datasharing_history_bytes": null,
+          "datasharing_segment_visibility": "unprobed",
+          "dds_topic": "rt/parameter_events",
+          "dds_type": "rcl_interfaces::msg::dds_::ParameterEvent_",
+          "guid": "01.0f.a7.85.1a.00.e1.95.00.00.00.00|00.00.10.03",
+          "host": "4cf78910653d",
+          "host_id": "010fa785",
+          "host_name": "4cf78910653d:12150714476213043200",
+          "multicast_locators": [],
+          "node": "/listener",
+          "participant_guid_prefix": "01.0f.a7.85.1a.00.e1.95.00.00.00.00",
+          "process": "26",
+          "qos": {
+            "data_sharing": "OFF",
+            "data_sharing_domain_ids": [],
+            "deadline_s": null,
+            "durability": "VOLATILE",
+            "liveliness": "AUTOMATIC",
+            "liveliness_lease_s": null,
+            "ownership": "SHARED",
+            "partitions": [],
+            "reliability": "RELIABLE"
+          },
+          "ros_topic": "/parameter_events",
+          "ros_type": "rcl_interfaces/msg/ParameterEvent",
+          "unicast_locators": [
+            {
+              "address": "172.28.0.11",
+              "kind": "TCPv4",
+              "port": 39337
+            }
+          ]
+        },
+        {
+          "datasharing_history_bytes": null,
+          "datasharing_segment_visibility": "unprobed",
+          "dds_topic": "rt/parameter_events",
+          "dds_type": "rcl_interfaces::msg::dds_::ParameterEvent_",
+          "guid": "01.0f.f9.14.1a.00.32.1d.00.00.00.00|00.00.10.03",
+          "host": "09bea98e19da",
+          "host_id": "010ff914",
+          "host_name": "09bea98e19da:17384423655573291008",
+          "multicast_locators": [],
+          "node": "/talker",
+          "participant_guid_prefix": "01.0f.f9.14.1a.00.32.1d.00.00.00.00",
+          "process": "26",
+          "qos": {
+            "data_sharing": "OFF",
+            "data_sharing_domain_ids": [],
+            "deadline_s": null,
+            "durability": "VOLATILE",
+            "liveliness": "AUTOMATIC",
+            "liveliness_lease_s": null,
+            "ownership": "SHARED",
+            "partitions": [],
+            "reliability": "RELIABLE"
+          },
+          "ros_topic": "/parameter_events",
+          "ros_type": "rcl_interfaces/msg/ParameterEvent",
+          "unicast_locators": [
+            {
+              "address": "",
+              "kind": "SHM",
+              "port": 7411
+            },
+            {
+              "address": "127.0.0.1",
+              "kind": "TCPv4",
+              "port": 40315
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "dds_topic": "rt/rosout",
+      "is_ros_topic": true,
+      "latency_s": null,
+      "lost_packets": null,
+      "pairs": [],
+      "readers": [],
+      "resent_datas": null,
+      "throughput_bytes_per_s": null,
+      "topic": "/rosout",
+      "type": "rcl_interfaces/msg/Log",
+      "unmatched_reasons": [
+        "no-matching-reader"
+      ],
+      "writers": [
+        {
+          "datasharing_history_bytes": null,
+          "datasharing_segment_visibility": "unprobed",
+          "dds_topic": "rt/rosout",
+          "dds_type": "rcl_interfaces::msg::dds_::Log_",
+          "guid": "01.0f.a7.85.1a.00.e1.95.00.00.00.00|00.00.03.03",
+          "host": "4cf78910653d",
+          "host_id": "010fa785",
+          "host_name": "4cf78910653d:12150714476213043200",
+          "multicast_locators": [],
+          "node": "/listener",
+          "participant_guid_prefix": "01.0f.a7.85.1a.00.e1.95.00.00.00.00",
+          "process": "26",
+          "qos": {
+            "data_sharing": "OFF",
+            "data_sharing_domain_ids": [],
+            "deadline_s": null,
+            "durability": "TRANSIENT_LOCAL",
+            "liveliness": "AUTOMATIC",
+            "liveliness_lease_s": null,
+            "ownership": "SHARED",
+            "partitions": [],
+            "reliability": "RELIABLE"
+          },
+          "ros_topic": "/rosout",
+          "ros_type": "rcl_interfaces/msg/Log",
+          "unicast_locators": [
+            {
+              "address": "172.28.0.11",
+              "kind": "TCPv4",
+              "port": 39337
+            }
+          ]
+        },
+        {
+          "datasharing_history_bytes": null,
+          "datasharing_segment_visibility": "unprobed",
+          "dds_topic": "rt/rosout",
+          "dds_type": "rcl_interfaces::msg::dds_::Log_",
+          "guid": "01.0f.f9.14.1a.00.32.1d.00.00.00.00|00.00.03.03",
+          "host": "09bea98e19da",
+          "host_id": "010ff914",
+          "host_name": "09bea98e19da:17384423655573291008",
+          "multicast_locators": [],
+          "node": "/talker",
+          "participant_guid_prefix": "01.0f.f9.14.1a.00.32.1d.00.00.00.00",
+          "process": "26",
+          "qos": {
+            "data_sharing": "OFF",
+            "data_sharing_domain_ids": [],
+            "deadline_s": null,
+            "durability": "TRANSIENT_LOCAL",
+            "liveliness": "AUTOMATIC",
+            "liveliness_lease_s": null,
+            "ownership": "SHARED",
+            "partitions": [],
+            "reliability": "RELIABLE"
+          },
+          "ros_topic": "/rosout",
+          "ros_type": "rcl_interfaces/msg/Log",
+          "unicast_locators": [
+            {
+              "address": "",
+              "kind": "SHM",
+              "port": 7411
+            },
+            {
+              "address": "127.0.0.1",
+              "kind": "TCPv4",
+              "port": 40315
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

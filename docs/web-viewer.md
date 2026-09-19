@@ -32,6 +32,8 @@ plus the bounded verification nodes with statistics enabled.
 | Column | a host (`local`, `host:<id>`, or the host name from statistics) |
 | Box | a ROS node (`process id` below the name when statistics are available); a red `+N unmatched` marks topics without a peer |
 | Arrow | writer → reader pairs between two nodes with the same transport and confidence, bundled; the label is the number of pairs |
+| Pill | a Discovery Server (`SERVER` / `BACKUP` participant; the announced name, `Discovery Server` when it has none, its first locator below), in its host's column ([#86](https://github.com/atinfinity/fastdds_transport_viz/issues/86)) |
+| `CLIENT` tag | a node whose participant announced itself `CLIENT` / `SUPER_CLIENT`; a dotted grey line without a label leads to its server when the document could tell which one (see [how-it-works.md](how-it-works.md#environment)); it is outside the transport legend and never bundled |
 | Color | UDPv4 blue · UDPv6 cyan · TCP purple · SHM green · DATA_SHARING orange · NONE grey (legend in the toolbar) |
 | Dashed | confidence `likely` |
 | Red halo | at least one warning, e.g. `measured-transport-mismatch` |
@@ -44,7 +46,11 @@ writer's history and whether the endpoint's data-sharing segment is in the tool'
 ([#163](https://github.com/atinfinity/fastdds_transport_viz/issues/163)) and, when the document carries a `participants` section, an `shm` row per
 endpoint: its participant's SHM visibility from the tool's IPC namespace and the announced
 SHM ports with their lock state ([#125](https://github.com/atinfinity/fastdds_transport_viz/issues/125)).
-Click a node for its publishers, subscriptions and unmatched topics.
+Click a node for its publishers, subscriptions and unmatched topics, and, for a client, the
+discovery protocol it announced, its participant prefix and metatraffic locators, and its
+server; a server's card lists the clients attributed to it. The second header line ends
+with how the tool itself took part when that was not plain discovery (`observed as
+SUPER_CLIENT of UDPv4 …`, or the Easy Mode address).
 
 The first header line names the domain, the observation time and the counts, and ends with
 the statistics summary: how many samples the document holds and, when the tool lost some of

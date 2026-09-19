@@ -47,6 +47,19 @@
     return INTERNAL_TOPICS.has(topic.topic) || isFoldedBufferCompanion(topic);
   }
 
+  /** A `participants[]` entry that is a Discovery Server (#86). */
+  function isDiscoveryServer(p) { return p.discovery_protocol === 'SERVER' || p.discovery_protocol === 'BACKUP'; }
+  /** A `participants[]` entry that announced itself a client of a Discovery Server. */
+  function isDiscoveryClient(p) { return p.discovery_protocol === 'CLIENT' || p.discovery_protocol === 'SUPER_CLIENT'; }
+  /** Node id of a server participant: never a ROS node name. */
+  function serverNodeId(p) { return `server ${p.guid_prefix}`; }
+  /** The client participants of a node, those whose server is known first. */
+  function clientParticipants(n) { return (n.participants || []).filter(isDiscoveryClient); }
+  /** Server node ids a node is attributed to (#86): the `discovery_server` of its client participants. */
+  function serversOf(n) {
+    return [...new Set(clientParticipants(n).filter(p => p.discovery_server).map(p => `server ${p.discovery_server}`))];
+  }
+
   /** Flatten the document into nodes, hosts and pairs with resolved endpoints. */
   function buildModel(doc) {
     const nodes = new Map();      // key -> {id, name, host, process, pubs:[], subs:[], unmatched:[]}
@@ -64,15 +77,27 @@
     }
     const nodeKey = (ep) => ep.node || nodeByParticipant.get(ep.participant_guid_prefix) || `participant ${ep.participant_guid_prefix}`;
 
-    const touchNode = (ep) => {
-      const id = nodeKey(ep);
-      if (!nodes.has(id)) {
-        nodes.set(id, { id, name: id, host: ep.host, process: ep.process || '', pubs: [], subs: [], unmatched: [] });
-        if (!hosts.has(ep.host)) hosts.set(ep.host, { label: ep.host, nodes: [] });
-        hosts.get(ep.host).nodes.push(nodes.get(id));
-      }
+    // what each participant announced about discovery (#86), by prefix
+    const participants = new Map((doc.participants || []).map(p => [p.guid_prefix, p]));
+    const addNode = (id, host, extra) => {
+      nodes.set(id, { id, name: id, host, process: '', pubs: [], subs: [], unmatched: [], participants: [], server: null, ...extra });
+      if (!hosts.has(host)) hosts.set(host, { label: host, nodes: [] });
+      hosts.get(host).nodes.push(nodes.get(id));
       return nodes.get(id);
     };
+    const touchNode = (ep) => {
+      const id = nodeKey(ep);
+      const n = nodes.get(id) || addNode(id, ep.host, { process: ep.process || '' });
+      const p = participants.get(ep.participant_guid_prefix);
+      if (p && !n.participants.includes(p)) n.participants.push(p);
+      return n;
+    };
+    // Discovery Servers have no endpoint: one node per SERVER / BACKUP participant, named as
+    // it announced itself (#86)
+    for (const p of participants.values()) {
+      if (!isDiscoveryServer(p) || p.own) continue;
+      addNode(serverNodeId(p), p.host, { name: p.name || 'Discovery Server', server: p, participants: [p] });
+    }
 
     for (const t of doc.topics) {
       for (const w of t.writers) { endpointsByGuid.set(w.guid, w); touchNode(w).pubs.push({ topic: t, ep: w }); }
@@ -128,6 +153,7 @@
     const keep = new Set();
     for (const n of model.nodes.values()) if (nre.test(n.id)) keep.add(n.id);
     for (const vp of pairs) { keep.add(vp.writerNode); keep.add(vp.readerNode); }
+    keepServers(model, keep);
     const nodes = new Map([...model.nodes].filter(([id]) => keep.has(id)));
     const hosts = model.hosts.map(h => ({ ...h, nodes: h.nodes.filter(n => keep.has(n.id)) })).filter(h => h.nodes.length);
     return { model: { ...model, nodes, hosts }, matched: id => nre.test(id) };
@@ -542,11 +568,31 @@
   function pruneNodes(model, pairs, ghostNodes) {
     const keep = new Set(ghostNodes);
     for (const vp of pairs) { keep.add(vp.writerNode); keep.add(vp.readerNode); }
+    keepServers(model, keep);
     const nodes = new Map([...model.nodes].filter(([id]) => keep.has(id)));
     const hosts = model.hosts.map(h => ({ ...h, nodes: h.nodes.filter(n => keep.has(n.id)) })).filter(h => h.nodes.length);
     return { ...model, nodes, hosts };
   }
 
-  return { TRANSPORTS, INTERNAL_TOPICS, UNKNOWN_NODE_NAME, isFoldedBufferCompanion, isInternalTopic, normalizeDocument, buildModel, filterRegex, visiblePairs, visibleNodesModel, bundle, humanBytes, humanSeconds, measuredText, latencyText, rateText, rateTitle, lossText, topicLatencyText, topicLossText, groupPairsByTopic, compareCells, escapeHtml, codeListHtml, shmText, participantShmText, datasharingText, statsText,
+  /** A kept client keeps its Discovery Server in view (#86). */
+  function keepServers(model, keep) {
+    for (const id of [...keep]) {
+      const n = model.nodes.get(id);
+      if (n) for (const s of serversOf(n)) if (model.nodes.has(s)) keep.add(s);
+    }
+  }
+
+  /** The `discovery{}` of a document as one line for the footer (#86), '' for SIMPLE discovery. */
+  function discoveryText(doc) {
+    const d = doc && doc.discovery;
+    if (!d || !d.observer_protocol || d.observer_protocol === 'SIMPLE') return '';
+    const locator = l => `${l.kind} ${l.address}:${l.port}`;
+    let s = `observed as ${d.observer_protocol}`;
+    if (d.easy_mode) s += ` (Easy Mode, ROS2_EASY_MODE=${d.easy_mode})`;
+    else if (d.discovery_servers && d.discovery_servers.length) s += ` of ${d.discovery_servers.map(locator).join(', ')}`;
+    return s;
+  }
+
+  return { TRANSPORTS, INTERNAL_TOPICS, UNKNOWN_NODE_NAME, isFoldedBufferCompanion, isInternalTopic, normalizeDocument, buildModel, isDiscoveryServer, isDiscoveryClient, serverNodeId, clientParticipants, serversOf, discoveryText, filterRegex, visiblePairs, visibleNodesModel, bundle, humanBytes, humanSeconds, measuredText, latencyText, rateText, rateTitle, lossText, topicLatencyText, topicLossText, groupPairsByTopic, compareCells, escapeHtml, codeListHtml, shmText, participantShmText, datasharingText, statsText,
     pairKey, keyId, pairState, sameState, diffDocuments, changeText, changesSummary, decorations, holdChanges, heldDecorations, markedPairs, pruneNodes };
 });

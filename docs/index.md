@@ -139,7 +139,9 @@ way and highlights the result. Details in
 
 - **Fast DDS RMWs only.** `rmw_fastrtps_cpp` and `rmw_fastrtps_dynamic_cpp` are supported
   (the launch test suite passes on both, see CI); nodes on CycloneDDS or Connext are not
-  covered, and Fast DDS participants that are not ROS nodes appear only with `--all`.
+  covered, and Fast DDS participants that are not ROS nodes appear only with `--all`
+  (Discovery Servers, which have no endpoints, only in the `participants` section of
+  `--json`, the `-v` footer and the web viewer).
   The tool refuses to start on another RMW (exit 1, naming it).
 - **Linux only.** macOS has no `/dev/shm`, and Docker Desktop cannot observe nodes on the
   host.

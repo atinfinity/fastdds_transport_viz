@@ -11,6 +11,7 @@
 #include <functional>
 #include <map>
 #include <optional>
+#include <regex>
 #include <set>
 #include <sstream>
 #include <string>
@@ -985,6 +986,95 @@ void apply_stats(std::vector<TopicSummary> & topics, const StatsData & stats)
       {
         v.warnings.push_back("measured-locator-mismatch");
       }
+    }
+  }
+}
+
+std::vector<Locator> parse_discovery_server_env(const std::string & value)
+{
+  std::vector<Locator> out;
+  // the port of a discovery server: below 420 Fast DDS 3.x reads a domain id
+  const auto to_port = [](const std::string & text, uint32_t & port) {
+      if (text.empty()) {return true;}
+      unsigned long n = 0;   // NOLINT(runtime/int)
+      try {
+        n = std::stoul(text);
+      } catch (const std::exception &) {
+        return false;
+      }
+      if (n > 65535) {return false;}
+      port = n < 420 ? 7400 + 250 * static_cast<uint32_t>(n) + 2 : static_cast<uint32_t>(n);
+      return true;
+    };
+  static const std::regex ipv4(R"(^((?:[0-9]{1,3}\.){3}[0-9]{1,3})?:?(\d+)?$)");
+  static const std::regex ipv6(R"(^\[?((?:[0-9a-fA-F]{0,4}\:){1,7}[0-9a-fA-F]{0,4})\]?:?(\d+)?$)");
+  static const std::regex named(R"(^((?:UDPv[46]?|TCPv[46]?):\[[\w\.:-]{0,63}\]|[\w\.-]{1,63}):?(\d+)?$)");
+  size_t start = 0;
+  while (start <= value.size()) {
+    size_t end = value.find(';', start);
+    if (end == std::string::npos) {end = value.size();}
+    const std::string entry = value.substr(start, end - start);
+    start = end + 1;
+    if (entry.empty()) {continue;}   // a placeholder keeps the server ids in order
+    Locator l;
+    l.kind = LocatorKind::UDPv4;
+    l.port = 11811;
+    std::smatch m;
+    if (std::regex_match(entry, m, ipv4)) {
+      if (!m[1].matched || !to_port(m[2].str(), l.port)) {continue;}
+      l.address = m[1].str();
+    } else if (std::regex_match(entry, m, ipv6)) {
+      if (!to_port(m[2].str(), l.port)) {continue;}
+      l.kind = LocatorKind::UDPv6;
+      l.address = m[1].str();
+    } else if (std::regex_match(entry, m, named)) {
+      if (!to_port(m[2].str(), l.port)) {continue;}
+      std::string host = m[1].str();
+      const auto bracket = host.find(":[");
+      if (bracket != std::string::npos) {
+        const std::string proto = host.substr(0, bracket);
+        host = host.substr(bracket + 2, host.size() - bracket - 3);
+        l.kind = proto == "TCPv4" ? LocatorKind::TCPv4 : proto == "TCPv6" ? LocatorKind::TCPv6 :
+          proto == "UDPv6" ? LocatorKind::UDPv6 : LocatorKind::UDPv4;
+      }
+      l.address = host;
+    } else {
+      continue;
+    }
+    out.push_back(l);
+  }
+  return out;
+}
+
+void attribute_discovery_servers(std::vector<Participant> & participants, bool easy_mode)
+{
+  const auto is_server = [](const Participant & p) {
+      return p.discovery_protocol == "SERVER" || p.discovery_protocol == "BACKUP";
+    };
+  const auto is_client = [](const Participant & p) {
+      return !p.own &&
+             (p.discovery_protocol == "CLIENT" || p.discovery_protocol == "SUPER_CLIENT");
+    };
+  std::vector<const Participant *> servers;
+  for (const auto & p : participants) {
+    if (is_server(p)) {servers.push_back(&p);}
+  }
+  for (auto & p : participants) {
+    p.discovery_server.reset();
+    if (!is_client(p)) {continue;}
+    if (easy_mode) {
+      // one auto-started server per host and domain: the one on the client's host
+      const Participant * mine = nullptr;
+      size_t candidates = 0;
+      for (const auto * s : servers) {
+        if (s->host_id == p.host_id && s->name == "DiscoveryServerAuto") {
+          mine = s;
+          ++candidates;
+        }
+      }
+      if (candidates == 1) {p.discovery_server = mine->guid_prefix;}
+    } else if (servers.size() == 1) {
+      p.discovery_server = servers[0]->guid_prefix;
     }
   }
 }
