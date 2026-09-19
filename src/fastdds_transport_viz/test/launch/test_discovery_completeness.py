@@ -68,4 +68,5 @@ class TestDiscoveryCompleteness(Base):
         doc, _ = run(['--timeout', '10', '--quiet', '1'])
         self.assertEqual(
             set(doc['discovery']),
-            {'complete', 'stopped_on', 'events', 'endpoints', 'announced_not_discovered'})
+            {'complete', 'stopped_on', 'events', 'endpoints', 'announced_not_discovered',
+             'observer_protocol', 'discovery_servers', 'discovery_server_env', 'easy_mode'})
