@@ -100,9 +100,15 @@ template<typename D> const auto & disc_partition(const D & d) {return d.partitio
 // ... and of a remote participant (3.x ParticipantBuiltinTopicData)
 template<typename D> const auto & disc_participant_prefix(const D & d) {return d.guid.guidPrefix;}
 template<typename D> const auto & disc_participant_properties(const D & d) {return d.properties;}
-template<typename D> std::string disc_participant_name(const D & d) {return d.participant_name.to_string();}
+template<typename D> std::string disc_participant_name(const D & d)
+{
+  return d.participant_name.to_string();
+}
 template<typename D> const auto & disc_participant_vendor(const D & d) {return d.vendor_id;}
-template<typename D> const auto & disc_participant_metatraffic(const D & d) {return d.metatraffic_locators;}
+template<typename D> const auto & disc_participant_metatraffic(const D & d)
+{
+  return d.metatraffic_locators;
+}
 #else
 template<typename D> const ftv_rtps::GUID_t & disc_guid(const D & d) {return d.guid();}
 template<typename D> std::string disc_topic(const D & d) {return d.topicName().to_string();}
@@ -118,9 +124,15 @@ template<typename D> const auto & disc_partition(const D & d) {return d.m_qos.m_
 // ... and of a remote participant (2.x ParticipantProxyData)
 template<typename D> const auto & disc_participant_prefix(const D & d) {return d.m_guid.guidPrefix;}
 template<typename D> const auto & disc_participant_properties(const D & d) {return d.m_properties;}
-template<typename D> std::string disc_participant_name(const D & d) {return d.m_participantName.to_string();}
+template<typename D> std::string disc_participant_name(const D & d)
+{
+  return d.m_participantName.to_string();
+}
 template<typename D> const auto & disc_participant_vendor(const D & d) {return d.m_VendorId;}
-template<typename D> const auto & disc_participant_metatraffic(const D & d) {return d.metatraffic_locators;}
+template<typename D> const auto & disc_participant_metatraffic(const D & d)
+{
+  return d.metatraffic_locators;
+}
 #endif
 
 }  // namespace fastdds_transport_viz

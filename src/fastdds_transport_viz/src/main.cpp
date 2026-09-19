@@ -708,7 +708,9 @@ Snapshot collect(
     // lands in their column.
     std::map<fastdds_transport_viz::HostId, std::string> host_names;
     for (const auto & kv : participants) {
-      if (!kv.second.host_name.empty()) {host_names.emplace(kv.second.host_id, kv.second.host_name);}
+      if (!kv.second.host_name.empty()) {
+        host_names.emplace(kv.second.host_id, kv.second.host_name);
+      }
     }
     for (auto & kv : participants) {
       auto & p = kv.second;

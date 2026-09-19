@@ -291,7 +291,9 @@ TEST(RenderTable, DiscoveryFooterNamesTheServersAndTheirClients)
   s.discovery.discovery_servers.clear();
   EXPECT_EQ(render_table(s, opt).find("discovery:"), std::string::npos);
   s.discovery.observer_protocol = "CLIENT";
-  EXPECT_NE(render_table(s, opt).find("discovery: CLIENT; no server discovered"), std::string::npos);
+  EXPECT_NE(
+    render_table(s, opt).find("discovery: CLIENT; no server discovered"),
+    std::string::npos);
 }
 
 TEST(RenderTable, SharedMemoryFooterAndWarnings)

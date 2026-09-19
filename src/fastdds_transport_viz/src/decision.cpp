@@ -1008,7 +1008,8 @@ std::vector<Locator> parse_discovery_server_env(const std::string & value)
     };
   static const std::regex ipv4(R"(^((?:[0-9]{1,3}\.){3}[0-9]{1,3})?:?(\d+)?$)");
   static const std::regex ipv6(R"(^\[?((?:[0-9a-fA-F]{0,4}\:){1,7}[0-9a-fA-F]{0,4})\]?:?(\d+)?$)");
-  static const std::regex named(R"(^((?:UDPv[46]?|TCPv[46]?):\[[\w\.:-]{0,63}\]|[\w\.-]{1,63}):?(\d+)?$)");
+  static const std::regex named(
+    R"(^((?:UDPv[46]?|TCPv[46]?):\[[\w\.:-]{0,63}\]|[\w\.-]{1,63}):?(\d+)?$)");
   size_t start = 0;
   while (start <= value.size()) {
     size_t end = value.find(';', start);
