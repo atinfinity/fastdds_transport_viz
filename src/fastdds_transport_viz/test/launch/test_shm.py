@@ -46,6 +46,8 @@ class TestShm(Base):
         # String is unbounded: no data-sharing history for the talker
         writer = chatter['writers'][0]
         self.assertIsNone(writer['datasharing_history_bytes'], writer)
+        # ... and nothing to probe for: the segment visibility stays unprobed (#163)
+        self.assertEqual(writer['datasharing_segment_visibility'], 'unprobed', writer)
 
     def test_table_footer(self):
         import subprocess

@@ -362,6 +362,9 @@ data-sharing のエンドポイント (規則 2) も同じように失敗しま�
   history (`fast_datasharing_<writer guid>`) がツールの `/dev/shm` にあり、reader の通知セグメント
   (`fast_datasharing_<reader guid>`) が無い、またはその逆。ツールがどちらかの側と同じ IPC 名前空間に
   いる必要があります ([#110](https://github.com/atinfinity/fastdds_transport_viz/issues/110))。
+  ツールが見たものは各エンドポイントの JSON の `datasharing_segment_visibility` (`visible`、
+  `not-visible`、別ホスト・QoS に data-sharing が無い・`/dev/shm` が無い場合は `unprobed`) と
+  web viewer のエンドポイントパネルに出ます ([#163](https://github.com/atinfinity/fastdds_transport_viz/issues/163))。
 
 このように報告されたペアには `--advise` が対処を示します: 両方のノードを 1 つの IPC 名前空間に
 入れる (`ipc: host`) か、片側の SHM を無効にして UDPv4 が選ばれるようにし、data-sharing のペアでは

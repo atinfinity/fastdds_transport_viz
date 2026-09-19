@@ -391,6 +391,10 @@ announce SHM, or on the data-sharing segments, which exist without the SHM trans
   writer's history (`fast_datasharing_<writer guid>`) is in the tool's `/dev/shm` and the
   reader's notification segment (`fast_datasharing_<reader guid>`) is not, or the reverse.
   It needs the tool in the IPC namespace of one side ([#110](https://github.com/atinfinity/fastdds_transport_viz/issues/110)).
+  What the tool saw is on each endpoint as `datasharing_segment_visibility` in JSON
+  (`visible`, `not-visible`, or `unprobed` for an endpoint on another host, without
+  data-sharing in its QoS, or where there is no `/dev/shm`), and in the web viewer's
+  endpoint panel ([#163](https://github.com/atinfinity/fastdds_transport_viz/issues/163)).
 
 For a pair reported this way, `--advise` gives the remedy: put both nodes in one IPC
 namespace (`ipc: host`), or disable SHM on one side so that UDPv4 is selected, and

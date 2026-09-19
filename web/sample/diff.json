@@ -222,6 +222,7 @@
       "readers": [
         {
           "datasharing_history_bytes": null,
+          "datasharing_segment_visibility": "unprobed",
           "dds_topic": "rt/chatter",
           "dds_type": "std_msgs::msg::dds_::String_",
           "guid": "0a.0b.0c.0d.0c.00.00.00.00.00.00.00|00.00.02.04",
@@ -255,6 +256,7 @@
         },
         {
           "datasharing_history_bytes": null,
+          "datasharing_segment_visibility": "unprobed",
           "dds_topic": "rt/chatter",
           "dds_type": "std_msgs::msg::dds_::String_",
           "guid": "0a.0b.0c.0d.0d.00.00.00.00.00.00.00|00.00.02.04",
@@ -300,6 +302,7 @@
       "writers": [
         {
           "datasharing_history_bytes": null,
+          "datasharing_segment_visibility": "unprobed",
           "dds_topic": "rt/chatter",
           "dds_type": "std_msgs::msg::dds_::String_",
           "guid": "0a.0b.0c.0d.0b.00.00.00.00.00.00.00|00.00.01.03",
@@ -428,6 +431,7 @@
       "readers": [
         {
           "datasharing_history_bytes": null,
+          "datasharing_segment_visibility": "unprobed",
           "dds_topic": "rt/cmd_vel",
           "dds_type": "geometry_msgs::msg::dds_::Twist_",
           "guid": "0a.0b.0c.0d.0f.00.00.00.00.00.00.00|00.00.02.04",
@@ -473,6 +477,7 @@
       "writers": [
         {
           "datasharing_history_bytes": null,
+          "datasharing_segment_visibility": "unprobed",
           "dds_topic": "rt/cmd_vel",
           "dds_type": "geometry_msgs::msg::dds_::Twist_",
           "guid": "0a.0b.0c.0d.0e.00.00.00.00.00.00.00|00.00.01.03",
@@ -511,6 +516,7 @@
         },
         {
           "datasharing_history_bytes": null,
+          "datasharing_segment_visibility": "unprobed",
           "dds_topic": "rt/cmd_vel",
           "dds_type": "geometry_msgs::msg::dds_::Twist_",
           "guid": "0a.0b.0c.0d.0e.00.00.00.00.00.00.00|00.00.03.03",
@@ -599,6 +605,7 @@
       "readers": [
         {
           "datasharing_history_bytes": null,
+          "datasharing_segment_visibility": "unprobed",
           "dds_topic": "rt/new_topic",
           "dds_type": "std_msgs::msg::dds_::String_",
           "guid": "0a.0b.0c.0d.11.00.00.00.00.00.00.00|00.00.02.04",
@@ -644,6 +651,7 @@
       "writers": [
         {
           "datasharing_history_bytes": null,
+          "datasharing_segment_visibility": "unprobed",
           "dds_topic": "rt/new_topic",
           "dds_type": "std_msgs::msg::dds_::String_",
           "guid": "0a.0b.0c.0d.10.00.00.00.00.00.00.00|00.00.01.03",
@@ -732,6 +740,7 @@
       "readers": [
         {
           "datasharing_history_bytes": null,
+          "datasharing_segment_visibility": "unprobed",
           "dds_topic": "raw_topic",
           "dds_type": "RawType",
           "guid": "0a.0b.0c.0d.0a.00.00.00.00.00.00.00|00.00.02.04",
@@ -777,6 +786,7 @@
       "writers": [
         {
           "datasharing_history_bytes": null,
+          "datasharing_segment_visibility": "unprobed",
           "dds_topic": "raw_topic",
           "dds_type": "RawType",
           "guid": "0a.0b.0c.0d.09.00.00.00.00.00.00.00|00.00.01.03",

@@ -141,8 +141,9 @@ struct Endpoint
   std::set<uint32_t> participant_shm_ports;
   ShmVisibility participant_shm_visibility{ShmVisibility::Unprobed};
   // this endpoint's data-sharing segment (a writer's history, a reader's notification) as
-  // seen in the tool's /dev/shm: Visible / NotVisible only for the tool's host id and a
-  // listed directory. Internal, not in the JSON.
+  // seen in the tool's /dev/shm: Visible / NotVisible only for the tool's host id, a
+  // listed directory and a QoS that announces data-sharing (#163). In the JSON as
+  // `datasharing_segment_visibility`.
   ShmVisibility datasharing_segment_visibility{ShmVisibility::Unprobed};
   // rmw_fastrtps_cpp native buffers (Lyrical and later): the companion endpoint on
   // <topic>/_buf_cpu names the writer / reader of the parent topic it carries the data of,

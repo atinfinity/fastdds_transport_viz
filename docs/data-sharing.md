@@ -67,7 +67,9 @@ traffic and no delivery proof gives `datasharing-no-delivery-observed`. The JSON
 A data-sharing writer keeps its history in a file `fast_datasharing_<writer guid>` under
 `/dev/shm`. When that file is visible from the tool (same IPC namespace), its size is
 reported on the writer as `datasharing_history_bytes` in JSON and in the web viewer's
-endpoint details; the environment's shared-memory line counts every such history (see
+endpoint details, and whether the segment of a data-sharing endpoint (the writer's history,
+the reader's notification file) is there at all is `datasharing_segment_visibility`
+([#163](https://github.com/atinfinity/fastdds_transport_viz/issues/163)); the environment's shared-memory line counts every such history (see
 [how-it-works.md](how-it-works.md#shared-memory-of-the-environment)). Fast DDS does not
 remove the file when the writer is killed, so histories of finished writers show up as
 *unmatched* until `fastdds shm clean` runs. A data-sharing reader creates a notification

@@ -57,6 +57,8 @@ Snapshot snapshot()
   s.endpoints[0].process = "42";
   s.endpoints[0].datasharing_history_available = true;
   s.endpoints[0].datasharing_history_bytes = 3928;
+  s.endpoints[0].datasharing_segment_visibility = ShmVisibility::Visible;
+  s.endpoints[1].datasharing_segment_visibility = ShmVisibility::NotVisible;
   s.topics = summarize(s.endpoints);
   s.stats.enabled = true;
   s.stats.samples = 5;
@@ -142,6 +144,8 @@ TEST(RenderJson, DocumentKeys)
   EXPECT_TRUE(t["throughput_bytes_per_s"].is_null());
   EXPECT_EQ(t["writers"][0]["datasharing_history_bytes"], 3928);
   EXPECT_TRUE(t["readers"][0]["datasharing_history_bytes"].is_null());
+  EXPECT_EQ(t["writers"][0]["datasharing_segment_visibility"], "visible");
+  EXPECT_EQ(t["readers"][0]["datasharing_segment_visibility"], "not-visible");
   EXPECT_EQ(t["writers"][0]["host"], "robot");
   EXPECT_EQ(t["writers"][0]["qos"]["data_sharing"], "OFF");
   ASSERT_EQ(t["pairs"].size(), 1u);
@@ -416,6 +420,8 @@ TEST(ParseJson, RoundTripsEverythingTheRenderersShow)
   EXPECT_EQ(p.writer->process, "42");
   EXPECT_TRUE(p.writer->datasharing_history_available);
   EXPECT_EQ(p.writer->datasharing_history_bytes, 3928u);
+  EXPECT_EQ(p.writer->datasharing_segment_visibility, ShmVisibility::Visible);
+  EXPECT_EQ(p.reader->datasharing_segment_visibility, ShmVisibility::NotVisible);
   EXPECT_EQ(p.reader->guid, "R1");
   EXPECT_FALSE(p.reader->is_writer);
   EXPECT_TRUE(p.measured.rate_available);   // #143
@@ -615,6 +621,22 @@ TEST(ParseJson, ADocumentWithoutParticipantsRendersNone)
   EXPECT_TRUE(parsed.participants.empty());
   EXPECT_TRUE(parsed.shm.unknown_ports.empty());
   EXPECT_FALSE(json::parse(render_json(parsed, RenderOptions{})).contains("participants"));
+}
+
+TEST(ParseJson, EndpointsWithoutSegmentVisibilityReadAsUnprobed)
+{
+  // written before #163, or a value this version does not know
+  auto s = snapshot();
+  auto doc = json::parse(render_json(s, RenderOptions{}));
+  doc["topics"][0]["writers"][0].erase("datasharing_segment_visibility");
+  doc["topics"][0]["readers"][0]["datasharing_segment_visibility"] = "later";
+  const auto parsed = parse_json(doc.dump());
+  for (const auto & e : parsed.endpoints) {
+    EXPECT_EQ(e.datasharing_segment_visibility, ShmVisibility::Unprobed) << e.guid;
+  }
+  EXPECT_TRUE(parsed.endpoints[0].datasharing_history_available);
+  const auto again = json::parse(render_json(parsed, RenderOptions{}));
+  EXPECT_EQ(again["topics"][0]["writers"][0]["datasharing_segment_visibility"], "unprobed");
 }
 
 TEST(ParseJson, ParticipantsWithUnknownValuesReadAsUnprobed)

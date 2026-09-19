@@ -195,6 +195,17 @@ test('participantShmText: the endpoint panel line from the `participants` entry 
   assert.ok(split.participants.some(p => p.own && M.participantShmText(split, p.guid_prefix).startsWith("unprobed (the tool's own)")));
 });
 
+test('datasharingText: the endpoint panel row from the segment visibility (#163)', () => {
+  assert.equal(M.datasharingText(null, true), '');
+  assert.equal(M.datasharingText({ datasharing_history_bytes: null }, true), '', 'a document before #163');
+  assert.equal(M.datasharingText({ datasharing_history_bytes: 4016 }, true), 'history 4.02 kB in /dev/shm', 'before #163: the size only');
+  assert.equal(M.datasharingText({ datasharing_history_bytes: null, datasharing_segment_visibility: 'unprobed' }, true), '', 'no data-sharing on this endpoint');
+  assert.equal(M.datasharingText({ datasharing_history_bytes: 4016, datasharing_segment_visibility: 'visible' }, true), 'history 4.02 kB in /dev/shm · segment visible');
+  assert.equal(M.datasharingText({ datasharing_history_bytes: null, datasharing_segment_visibility: 'not-visible' }, true), 'history segment not-visible');
+  assert.equal(M.datasharingText({ datasharing_history_bytes: null, datasharing_segment_visibility: 'visible' }, false), 'notification segment visible');
+  assert.equal(M.datasharingText({ datasharing_history_bytes: null, datasharing_segment_visibility: 'not-visible' }, false), 'notification segment not-visible');
+});
+
 test('shmText: summary line, stale count, visibility and warnings with descriptions', () => {
   assert.equal(M.shmText(null), '');
   assert.equal(M.shmText({ available: false }), '');

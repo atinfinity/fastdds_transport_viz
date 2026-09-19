@@ -319,6 +319,14 @@
           ],
           "minimum": 0,
           "description": "size of the writer's data-sharing history file in the tool's /dev/shm; null when there is none"
+        },
+        "datasharing_segment_visibility": {
+          "enum": [
+            "visible",
+            "not-visible",
+            "unprobed"
+          ],
+          "description": "whether this endpoint's data-sharing segment (a writer's history, a reader's notification file) is in the tool's /dev/shm; probed only for an endpoint on the tool's host whose QoS announces data-sharing (ON or AUTO), unprobed otherwise and in documents before #163"
         }
       }
     },

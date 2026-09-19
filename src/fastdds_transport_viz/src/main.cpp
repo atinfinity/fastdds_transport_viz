@@ -585,9 +585,12 @@ Snapshot collect(
         e.datasharing_history_available = true;
         e.datasharing_history_bytes = it->second;
       }
-      if (snap.shm.listed && e.host_id == local_host) {
-        // Fast DDS creates the segment with the endpoint whenever data-sharing is enabled;
-        // decide() only looks at endpoints that announce it.
+      if (snap.shm.listed && e.host_id == local_host &&
+        e.qos.data_sharing != fastdds_transport_viz::DataSharingKind::Off)
+      {
+        // Fast DDS creates the segment with the endpoint whenever data-sharing is enabled
+        // (ON or AUTO); decide() only looks at endpoints that announce it, and the JSON
+        // reports `unprobed` for the rest so that `not-visible` means a missing segment (#163).
         const bool here = e.is_writer ? e.datasharing_history_available :
           snap.shm.datasharing_notification_readers.count(e.guid) > 0;
         e.datasharing_segment_visibility = here ?

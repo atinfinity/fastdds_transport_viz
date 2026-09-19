@@ -4,6 +4,11 @@ Changelog for package fastdds_transport_viz
 
 Forthcoming
 -----------
+* Per-endpoint data-sharing segment visibility in ``--json`` (#163):
+  ``datasharing_segment_visibility`` (``visible``, ``not-visible``, ``unprobed``) on every
+  writer and reader, the evidence behind ``datasharing-*-segment-not-visible``; probed only
+  for an endpoint on the tool's host whose QoS announces data-sharing. Round-tripped by
+  ``diff``; a ``data-sharing`` row in the web viewer's endpoint panel. Additive.
 * Per-participant SHM ports and visibility in ``--json`` (#125): a ``participants``
   array with one entry per discovered participant (``guid_prefix``, ``host_id``, ``host``,
   ``host_name``, ``own``, ``shm_visibility``) and its announced SHM ports on the tool's

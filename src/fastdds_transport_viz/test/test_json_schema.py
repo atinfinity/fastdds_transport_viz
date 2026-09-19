@@ -74,3 +74,19 @@ def test_participants_fixture_uses_every_lock_and_visibility_value():
     assert visibilities == set(
         schema['$defs']['participant']['properties']['shm_visibility']['enum'])
     assert doc['shm']['unknown_ports'] == []
+
+
+def test_datasharing_fixture_uses_every_segment_visibility_value():
+    """fixtures/datasharing.json (#163): every enum value of the schema at least once."""
+    schema = load(SCHEMA)
+    doc = load(REPO / 'src' / 'fastdds_transport_viz' / 'test' / 'fixtures' / 'datasharing.json')
+    endpoints = [e for t in doc['topics'] for e in t['writers'] + t['readers']]
+    seen = {e['datasharing_segment_visibility'] for e in endpoints}
+    assert seen == set(
+        schema['$defs']['endpoint']['properties']['datasharing_segment_visibility']['enum'])
+    # a writer with a history here is visible; unprobed only where data-sharing is OFF
+    for e in endpoints:
+        if isinstance(e['datasharing_history_bytes'], int):
+            assert e['datasharing_segment_visibility'] == 'visible', e['guid']
+        if e['datasharing_segment_visibility'] == 'unprobed':
+            assert e['qos']['data_sharing'] == 'OFF', e['guid']
