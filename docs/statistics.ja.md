@@ -205,7 +205,12 @@ Fast DDS が組み立てるのは reliable、transient-local、keep-last 10、
 
 同梱プロファイルはこのプロパティ以外を保っています
 ([#154](https://github.com/atinfinity/fastdds_transport_viz/issues/154))。writer は statistics 用の
-flow controller を名指しし、**push mode** で動いて、書かれたサンプルをその場で送ります。pull mode は
+flow controller を名指しし、**push mode** で動いて、書かれたサンプルをその場で送ります。`HISTORY_LATENCY`
+だけは keep-last 10 ではなく **100** です
+([#170](https://github.com/atinfinity/fastdds_transport_viz/issues/170))。届いたメッセージごとに
+1 サンプル出すので、10 だと 1000 Hz で送信スレッドが 10 ms 遅れただけで未送信のサンプルが上書きされ、
+ツールはレートを下限として報告することになります。100 はツール自身の reader の深さで、周期的な
+カウンタは 10 のままです。pull mode は
 medium の規模 (20 プロセス、500 トピック) で計測して不採用にしました。heartbeat が既定の 3 s のままの
 Jazzy (2.x には `heartbeat_period` を付けない、上の節を参照) では、ツールの `--watch` は 60 s の間に
 `HISTORY_LATENCY` の証拠を 1 つも見ず、1 回の実行あたり 2000〜3300 のカウンタサンプルが lost と

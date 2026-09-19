@@ -58,7 +58,10 @@ def test_writer_qos_matches_the_statistics_module(path):
         assert text(writer, 'p:qos/p:publishMode/p:kind') == 'ASYNCHRONOUS', alias
         assert text(writer, 'p:qos/p:publishMode/p:flow_controller_name') == \
             STATS_FLOW_CONTROLLER, alias
-        assert text(writer, 'p:topic/p:historyQos/p:depth') == '10', alias
+        # HISTORY_LATENCY emits one sample per delivered message: keep-last 10 is overwritten
+        # when the sender thread lags 10 ms at 1000 Hz (#170). The counters are periodic.
+        depth = '100' if alias == 'HISTORY_LATENCY_TOPIC' else '10'
+        assert text(writer, 'p:topic/p:historyQos/p:depth') == depth, alias
         assert text(writer, 'p:topic/p:resourceLimitsQos/p:max_instances') == '0', alias
         # push mode is deliberate (#154): a pull-mode writer sends RELIABLE remote readers
         # data only after a heartbeat / ACKNACK round trip
