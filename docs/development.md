@@ -6,7 +6,11 @@ The repository ships a `compose.yaml` and `docker/Dockerfile` based on `ros:jazz
 (multi-arch: x86_64 and arm64). `ROS_DISTRO=lyrical docker compose build` (or `rolling`)
 builds the same environment on Fast DDS 3.x, `ROS_DISTRO=humble` on Fast DDS 2.6; the image is tagged
 `fastdds_transport_viz:<distro>` and every `docker compose` command below then needs
-the same `ROS_DISTRO` in the environment.
+the same `ROS_DISTRO` in the environment. The image upgrades the base's ROS packages before
+installing its own: `ros:<distro>` lags the apt repo, and a freshly published `demo_nodes_cpp`
+next to the preinstalled typesupport dies with an undefined symbol
+([#162](https://github.com/atinfinity/fastdds_transport_viz/issues/162),
+[#171](https://github.com/atinfinity/fastdds_transport_viz/issues/171)).
 
 ```
 docker compose build
