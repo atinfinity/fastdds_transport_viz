@@ -221,7 +221,11 @@ until it answers a heartbeat with an ACKNACK, so the samples flow at the heartbe
 The shipped profiles keep everything but the property
 ([#154](https://github.com/atinfinity/fastdds_transport_viz/issues/154)): the writers name
 the statistics flow controller and run in **push mode**, sending each sample as it is
-written. Pull mode was measured on the medium rung (20 processes, 500 topics) and rejected:
+written. `HISTORY_LATENCY` alone is keep-last **100** instead of 10
+([#170](https://github.com/atinfinity/fastdds_transport_viz/issues/170)): it emits one sample
+per delivered message, and with 10 a sender thread that falls 10 ms behind at 1000 Hz
+overwrites unsent samples, which the tool then reports as a lower bound on the rate; 100 is
+the depth of the tool's own reader, and the periodic counters keep 10. Pull mode was measured on the medium rung (20 processes, 500 topics) and rejected:
 on Jazzy, whose heartbeat stays at the 3 s default (no `heartbeat_period` on 2.x, see above),
 the tool's `--watch` saw no `HISTORY_LATENCY` proof at all over 60 s and 2000-3300 counter
 samples were reported lost per run - keep-last 10 overwrites an instance's samples before
