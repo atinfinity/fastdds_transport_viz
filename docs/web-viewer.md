@@ -58,9 +58,17 @@ The second header line summarizes the shared memory of the environment `transpor
 ran in (the document's `shm` object, see [how-it-works.md](how-it-works.md#shared-memory-of-the-environment)):
 capacity of `/dev/shm`, what Fast DDS keeps there, stale files and the `shm-*` warnings.
 
-The **Table** tab shows one row per pair (sortable by clicking a header); with statistics
-it includes the packets and bytes carried during the observation, the latency, the delivered
-samples per second (`Hz`, hover for the window) and the loss.
+The **Table** tab has the CLI's `--verbose` shape: a header row per topic with the pair rows
+beneath it. The header carries the document's topic aggregates (`topics[]`): the writer and
+reader counts, the transports its pairs use, the latency of the slowest pair, the loss
+(RTPS_LOST counted once per topic, resends summed) and the unmatched reasons; it never
+sums the pair rows, so a filter that hides pairs leaves the header's numbers alone, and
+the `Hz` cell stays empty because the rate exists only per pair. Click a header to fold or
+unfold its pairs, or **Collapse all** / **Expand all** in the toolbar. Clicking a column
+header sorts topics by their aggregate and pairs within a topic by their own value
+(numbers numerically, missing values last). With statistics the pair rows include the
+packets and bytes carried during the observation, the latency, the delivered samples per
+second (`Hz`, hover for the window) and the loss.
 
 ![table view](images/web-viewer-table.jpg)
 

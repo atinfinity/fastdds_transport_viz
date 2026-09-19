@@ -11,7 +11,7 @@
 
   // pure model / formatting functions live in model.js (unit-tested under Node)
   const { TRANSPORTS, isInternalTopic, normalizeDocument, buildModel, filterRegex, visiblePairs, visibleNodesModel, bundle,
-    humanBytes, measuredText, latencyText, rateText, rateTitle, lossText, escapeHtml, codeListHtml, shmText, participantShmText, datasharingText, statsText,
+    humanBytes, measuredText, latencyText, rateText, rateTitle, lossText, groupPairsByTopic, compareCells, escapeHtml, codeListHtml, shmText, participantShmText, datasharingText, statsText,
     pairKey, keyId, diffDocuments, changeText, changesSummary, decorations, holdChanges, heldDecorations,
     markedPairs, pruneNodes } = globalThis.TransportVizModel;
   const COLORS = {
@@ -25,6 +25,7 @@
     filter: { topic: '', node: '', transports: new Set(TRANSPORTS), hideInternal: true },
     selection: null,   // {kind: 'node', id} | {kind: 'edge', id} | {kind: 'pair', id} | {kind: 'ghost', id}
     sort: { key: 'topic', asc: true },
+    collapsed: new Set(),   // DDS topic names whose pair rows are folded under their header (#144)
     // comparison (transport_viz diff): `changes` from the document itself (a diff file or a
     // live frame) or computed here against `before`; `hold` ages live marks over 3 frames
     before: null, changes: null, hold: null, previousLive: null, key: 'node', changesOnly: false,
@@ -222,20 +223,30 @@
 
   // ---------------------------------------------------------------- rendering: table
 
+  // `get` is a pair row's cell text, `sort` its sort value when that is not the text
+  // (numbers sort numerically, missing values last); `group` / `groupSort` the same for a
+  // topic header row (#144), whose numbers come from the document's `topics[]` entry only.
+  const meas = v => v.pair.measured;
   const COLUMNS = [
-    { key: 'mark', label: '', get: v => (v.mark || ' '), diff: true },
-    { key: 'topic', label: 'Topic', get: v => v.topic.topic },
-    { key: 'type', label: 'Type', get: v => v.topic.type },
-    { key: 'writer', label: 'Writer', get: v => `${v.pair.writer_node || v.writerNode}@${v.pair.writer_host}` },
-    { key: 'reader', label: 'Reader', get: v => `${v.pair.reader_node || v.readerNode}@${v.pair.reader_host}` },
-    { key: 'transport', label: 'Transport', get: v => v.pair.transport },
-    { key: 'confidence', label: 'Confidence', get: v => v.pair.confidence },
-    { key: 'latency', label: 'Latency', get: v => latencyText(v.pair.measured) },
-    { key: 'rate', label: 'Hz', get: v => rateText(v.pair.measured), title: v => rateTitle(v.pair.measured) },
-    { key: 'loss', label: 'Loss', get: v => lossText(v.pair.measured) },
-    { key: 'measured', label: 'Measured', get: v => measuredText(v.pair.measured) },
-    { key: 'reasons', label: 'Reasons', get: v => [...v.pair.reasons, ...v.pair.warnings.map(w => '!' + w)].join(', ') },
+    { key: 'mark', label: '', get: v => (v.mark || ' '), diff: true, group: () => '' },
+    { key: 'topic', label: 'Topic', get: v => v.topic.topic, group: g => g.name },
+    { key: 'type', label: 'Type', get: v => v.topic.type, group: g => g.topic.type },
+    { key: 'writer', label: 'Writer', get: v => `${v.pair.writer_node || v.writerNode}@${v.pair.writer_host}`,
+      group: g => (g.pubs === null ? '' : `${g.pubs} pub${g.pubs === 1 ? '' : 's'}`), groupSort: g => g.pubs },
+    { key: 'reader', label: 'Reader', get: v => `${v.pair.reader_node || v.readerNode}@${v.pair.reader_host}`,
+      group: g => (g.subs === null ? '' : `${g.subs} sub${g.subs === 1 ? '' : 's'}`), groupSort: g => g.subs },
+    { key: 'transport', label: 'Transport', get: v => v.pair.transport, group: g => g.transports.join(' ') },
+    { key: 'confidence', label: 'Confidence', get: v => v.pair.confidence, group: () => '' },
+    { key: 'latency', label: 'Latency', get: v => latencyText(meas(v)), sort: v => (meas(v) && meas(v).latency_s ? meas(v).latency_s.mean : null),
+      group: g => g.latency, groupSort: g => g.latencyValue, groupTitle: g => (g.latency ? 'slowest pair, mean' : '') },
+    { key: 'rate', label: 'Hz', get: v => rateText(meas(v)), sort: v => (meas(v) ? meas(v).delivered_per_s : null), title: v => rateTitle(meas(v)), group: () => '' },
+    { key: 'loss', label: 'Loss', get: v => lossText(meas(v)), sort: v => (meas(v) && meas(v).reliability ? meas(v).reliability.lost_packets : null),
+      group: g => g.loss, groupSort: g => g.lostValue },
+    { key: 'measured', label: 'Measured', get: v => measuredText(meas(v)), group: () => '' },
+    { key: 'reasons', label: 'Reasons', get: v => [...v.pair.reasons, ...v.pair.warnings.map(w => '!' + w)].join(', '), group: g => g.reasons },
   ];
+  const sortValue = (c, v) => (c.sort ? c.sort(v) : c.get(v));
+  const groupSortValue = (c, g) => (c.groupSort ? c.groupSort(g) : c.group(g));
 
   /** A removed pair as a table row: what the before document knew about it, else the key alone. */
   function ghostRow(g) {
@@ -246,14 +257,43 @@
       writerNode: g.key.writer_node, readerNode: g.key.reader_node };
   }
 
+  /** Sorted pair rows and ghost rows of a topic group: pairs by the sort column, ghosts after them. */
+  function groupRows(g, col) {
+    const pairs = [...g.pairs].sort((a, b) => compareCells(sortValue(col, a), sortValue(col, b), state.sort.asc));
+    return [...pairs, ...g.ghosts];
+  }
+
+  /** The Collapse all / Expand all button: collapse when any visible topic is expanded. */
+  function renderCollapseButton(groups) {
+    const anyExpanded = groups.some(g => !state.collapsed.has(g.key));
+    d3.select('#collapse-all').text(anyExpanded ? 'Collapse all' : 'Expand all').on('click', () => {
+      if (anyExpanded) for (const g of groups) state.collapsed.add(g.key);
+      else for (const g of groups) state.collapsed.delete(g.key);
+      render();
+    });
+  }
+
+  /**
+   * One header row per topic (#144) above its pair rows, the CLI's `--verbose` shape.
+   * Topics sort by the column's aggregate, pairs within a topic by their own value; a
+   * collapsed topic keeps its header only. Header numbers are the document's `topics[]`
+   * aggregates, so they never change with the filters.
+   */
   function renderTable(fullModel) {
     const scene = visibleScene(fullModel);
     const hasChanges = !!(state.changes || state.hold);
     const columns = COLUMNS.filter(c => !c.diff || hasChanges);
-    const rows = scene.pairs.map(vp => ({ ...vp, mark: markOf(vp, scene.marks), from: (scene.marks.get(keyId(pairKey(vp.topic, vp.pair))) || {}).from }));
+    const pairRows = scene.pairs.map(vp => ({ ...vp, mark: markOf(vp, scene.marks), from: (scene.marks.get(keyId(pairKey(vp.topic, vp.pair))) || {}).from }));
     const col = COLUMNS.find(c => c.key === state.sort.key) || COLUMNS[1];
-    rows.sort((a, b) => col.get(a).localeCompare(col.get(b)) * (state.sort.asc ? 1 : -1));
-    for (const g of scene.ghosts) rows.push(ghostRow(g));   // removed pairs last, dimmed
+    const groups = groupPairsByTopic(pairRows, scene.ghosts.map(ghostRow), state.doc.topics)
+      .sort((a, b) => compareCells(groupSortValue(col, a), groupSortValue(col, b), state.sort.asc) || a.name.localeCompare(b.name));
+    renderCollapseButton(groups);
+    const rows = [];
+    for (const g of groups) {
+      const collapsed = state.collapsed.has(g.key);
+      rows.push({ id: g.id, group: g, collapsed, count: g.pairs.length + g.ghosts.length });
+      if (!collapsed) rows.push(...groupRows(g, col));
+    }
     const head = d3.select('#pairs-head').selectAll('th').data(columns, d => d.key);
     head.exit().remove();
     head.enter().append('th').merge(head)
@@ -263,20 +303,39 @@
     const trEnter = tr.enter().append('tr');
     tr.exit().remove();
     const trAll = trEnter.merge(tr)
-      .attr('class', d => `${MARK_CLASS[d.mark || ' ']} ${isSelected(d.ghost ? 'ghost' : 'pair', d.id) ? 'selected' : ''}`)
-      .on('click', (ev, d) => select({ kind: d.ghost ? 'ghost' : 'pair', id: d.id }));
+      .attr('class', d => (d.group ? `topic ${d.collapsed ? 'collapsed' : ''}` : `${MARK_CLASS[d.mark || ' ']} ${isSelected(d.ghost ? 'ghost' : 'pair', d.id) ? 'selected' : ''}`))
+      .on('click', (ev, d) => {
+        if (!d.group) { select({ kind: d.ghost ? 'ghost' : 'pair', id: d.id }); return; }
+        if (d.collapsed) state.collapsed.delete(d.group.key); else state.collapsed.add(d.group.key);
+        render();
+      });
     trAll.order();
     const td = trAll.selectAll('td').data(d => columns.map(c => ({ c, v: d })));
     td.exit().remove();
-    td.enter().append('td').merge(td).attr('title', ({ c, v }) => (c.title ? c.title(v) || null : null)).html(({ c, v }) => {
-      if (c.key === 'mark') return markHtml(v.mark || ' ');
-      if (c.key === 'transport') {
-        if (v.ghost) return v.pair.transport ? badge(v.pair) + ' <span class="muted">(removed)</span>' : '<span class="muted">(removed)</span>';
-        return v.from && v.from.transport !== v.pair.transport ? `${badge(v.from)}<span class="arrow">→</span>${badge(v.pair)}` : badge(v.pair);
-      }
-      if (v.ghost && !v.pair.transport && ['confidence', 'latency', 'rate', 'loss', 'measured', 'reasons'].includes(c.key)) return '';
-      return escapeHtml(c.get(v));
-    });
+    td.enter().append('td').merge(td)
+      .attr('class', ({ c, v }) => (c.key === 'topic' ? (v.group ? 'topic-name' : 'indent') : null))
+      .attr('title', ({ c, v }) => ((v.group ? c.groupTitle && c.groupTitle(v.group) : c.title && c.title(v)) || null))
+      .html(({ c, v }) => {
+        if (v.group) return topicCell(c, v);
+        if (c.key === 'mark') return markHtml(v.mark || ' ');
+        if (c.key === 'transport') {
+          if (v.ghost) return v.pair.transport ? badge(v.pair) + ' <span class="muted">(removed)</span>' : '<span class="muted">(removed)</span>';
+          return v.from && v.from.transport !== v.pair.transport ? `${badge(v.from)}<span class="arrow">→</span>${badge(v.pair)}` : badge(v.pair);
+        }
+        if (v.ghost && !v.pair.transport && ['confidence', 'latency', 'rate', 'loss', 'measured', 'reasons'].includes(c.key)) return '';
+        return escapeHtml(c.get(v));
+      });
+  }
+
+  /** A topic header row's cell: the chevron and name, a badge per transport, or the aggregate text. */
+  function topicCell(c, row) {
+    const g = row.group;
+    if (c.key === 'topic') {
+      return `<span class="chevron">${row.collapsed ? '▸' : '▾'}</span><b>${escapeHtml(g.name)}</b>` +
+        (row.collapsed ? ` <span class="muted">(${row.count} pair${row.count === 1 ? '' : 's'})</span>` : '');
+    }
+    if (c.key === 'transport') return g.transports.map(t => `<span class="badge" style="background:${COLORS[t]}">${t}</span>`).join(' ');
+    return escapeHtml(c.group(g));
   }
 
   // ---------------------------------------------------------------- rendering: panel
@@ -428,6 +487,7 @@
     d3.selectAll('.tab').classed('active', function () { return this.dataset.view === state.view; });
     d3.select('#graph-view').attr('hidden', state.view === 'graph' ? null : true);
     d3.select('#table-view').attr('hidden', state.view === 'table' ? null : true);
+    d3.select('#table-tools').attr('hidden', state.view === 'table' && state.doc ? null : true);
     if (!state.doc) return;
     const model = buildModel(state.doc);
     if (state.view === 'graph') renderGraph(model); else renderTable(model);

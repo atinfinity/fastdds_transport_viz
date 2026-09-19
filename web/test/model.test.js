@@ -459,3 +459,75 @@ test('pruneNodes: only nodes touched by the visible pairs or ghosts', () => {
   assert.ok(pruned.hosts.every(h => h.nodes.length));
   assert.equal(M.pruneNodes(m, [], []).nodes.size, 0);
 });
+
+test('topicLatencyText / topicLossText: the CLI topic row cells from topics[] (#144)', () => {
+  assert.equal(M.topicLatencyText({ latency_s: 0.00042 }), '420 µs');
+  assert.equal(M.topicLatencyText({ latency_s: null }), '');
+  assert.equal(M.topicLossText({ lost_packets: 0, resent_datas: 0 }), '0');
+  assert.equal(M.topicLossText({ lost_packets: 3, resent_datas: 2 }), '3 lost, 2 resent');
+  assert.equal(M.topicLossText({ lost_packets: null, resent_datas: 0 }), '- lost');
+  assert.equal(M.topicLossText({ lost_packets: null, resent_datas: null }), '');
+});
+
+test('groupPairsByTopic: aggregates come from topics[], never from the visible rows (#144)', () => {
+  const model = M.buildModel(sample);
+  const chatter = sample.topics.find(t => t.topic === '/chatter');
+  // only the SHM pair of /chatter is visible, the header still counts every endpoint and transport
+  const rows = M.visiblePairs(model, { ...allFilter(), topic: '^/chatter$', transports: new Set(['SHM']) });
+  assert.equal(rows.length, 1);
+  const groups = M.groupPairsByTopic(rows, [], sample.topics);
+  assert.equal(groups.length, 1);
+  const g = groups[0];
+  assert.equal(g.key, chatter.dds_topic);
+  assert.equal(g.name, '/chatter');
+  assert.equal(g.aggregates, true);
+  assert.deepEqual([g.pubs, g.subs], [1, 2]);
+  assert.deepEqual([...g.transports].sort(), ['SHM', 'UDPv4']);
+  assert.equal(g.latency, M.topicLatencyText(chatter));
+  assert.equal(g.latencyValue, chatter.latency_s);
+  assert.deepEqual([g.loss, g.lostValue], ['0', 0]);
+  assert.equal(g.reasons, '');
+  assert.deepEqual(g.pairs, rows);
+  // a topic with no visible pair has no group
+  assert.equal(M.groupPairsByTopic([], [], sample.topics).length, 0);
+});
+
+test('groupPairsByTopic: request and reply topics of a service keep separate headers (#144)', () => {
+  const all = load('sample_all.json');
+  const model = M.buildModel(all);
+  const rows = model.pairs.filter(vp => vp.topic.topic === '/talker/get_parameters');
+  // no pairs on the sample's services: build rows for both dds topics by hand
+  const topics = all.topics.filter(t => t.topic === '/talker/get_parameters');
+  assert.equal(topics.length, 2);
+  const fake = topics.map((t, i) => ({ id: `x${i}`, topic: t }));
+  const groups = M.groupPairsByTopic([...rows, ...fake], [], all.topics);
+  assert.equal(groups.length, 2);
+  assert.deepEqual(groups.map(g => g.key).sort(), topics.map(t => t.dds_topic).sort());
+  assert.deepEqual(groups.map(g => g.reasons).sort(), ['no-matching-reader', 'no-matching-writer']);
+});
+
+test('groupPairsByTopic: ghosts nest under their topic, orphans get a header without aggregates (#144)', () => {
+  const model = M.buildModel(sample);
+  const rows = M.visiblePairs(model, allFilter());
+  const chatter = sample.topics.find(t => t.topic === '/chatter');
+  const ghostKnown = { id: 'ghost|a', ghost: true, topic: chatter };
+  const ghostByName = { id: 'ghost|b', ghost: true, topic: { topic: '/chatter', type: '' } };
+  const orphan = { id: 'ghost|c', ghost: true, topic: { topic: '/gone', type: '' } };
+  const groups = M.groupPairsByTopic(rows, [ghostKnown, ghostByName, orphan], sample.topics);
+  const g = groups.find(x => x.name === '/chatter');
+  assert.deepEqual(g.ghosts.map(x => x.id), ['ghost|a', 'ghost|b']);
+  assert.equal(g.pairs.length, chatter.pairs.length);
+  const o = groups.find(x => x.name === '/gone');
+  assert.equal(o.aggregates, false);
+  assert.deepEqual([o.pubs, o.subs, o.transports, o.latency, o.loss, o.reasons], [null, null, [], '', '', '']);
+  assert.deepEqual(o.ghosts.map(x => x.id), ['ghost|c']);
+  assert.equal(o.pairs.length, 0);
+});
+
+test('compareCells: numbers numerically, missing values last both ways (#144)', () => {
+  assert.deepEqual([9, 10, 2].sort((a, b) => M.compareCells(a, b)), [2, 9, 10]);
+  assert.deepEqual(['9 ms', '10 ms'].sort((a, b) => M.compareCells(a, b)), ['10 ms', '9 ms']);   // strings stay lexicographic
+  assert.deepEqual([null, 3, '', 1, undefined].sort((a, b) => M.compareCells(a, b)), [1, 3, null, '', undefined]);
+  assert.deepEqual([null, 3, 1].sort((a, b) => M.compareCells(a, b, false)), [3, 1, null]);
+  assert.deepEqual(['b', 'a'].sort((a, b) => M.compareCells(a, b)), ['a', 'b']);
+});

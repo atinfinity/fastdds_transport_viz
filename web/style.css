@@ -23,7 +23,7 @@ header .live.ended .dot, header .live.reconnecting .dot { background: var(--warn
 .toolbar .group { display: flex; align-items: center; gap: 8px; }
 .toolbar input[type=text] { width: 200px; padding: 3px 6px; border: 1px solid var(--line); border-radius: 4px; font: inherit; }
 .toolbar input[type=text].invalid { border-color: var(--warn); }
-.tab { padding: 4px 10px; border: 1px solid var(--line); border-radius: 6px; background: #f6f8fa; cursor: pointer; font: inherit; }
+.tab, .btn { padding: 4px 10px; border: 1px solid var(--line); border-radius: 6px; background: #f6f8fa; cursor: pointer; font: inherit; }
 .tab.active { background: var(--accent); color: #fff; border-color: var(--accent); }
 .legend { margin-left: auto; color: var(--muted); }
 .legend .sw { display: inline-block; width: 22px; height: 0; border-top: 3px solid; vertical-align: middle; margin-right: 4px; }
@@ -73,6 +73,12 @@ main { display: grid; grid-template-columns: 1fr 380px; height: calc(100% - 84px
 #pairs-table th { position: sticky; top: 0; background: #f6f8fa; cursor: pointer; white-space: nowrap; }
 #pairs-table tr:hover td { background: #f6f8fa; }
 #pairs-table tr.selected td { background: #ddf4ff; }
+/* topic header rows (#144): the document's topics[] aggregates above the topic's pairs */
+#pairs-table tr.topic td { background: #f6f8fa; cursor: pointer; border-top: 2px solid var(--line); }
+#pairs-table tr.topic:hover td { background: #eef1f5; }
+#pairs-table tr.topic td.topic-name { white-space: nowrap; }
+#pairs-table tr.topic .chevron { display: inline-block; width: 1.1em; color: var(--muted); }
+#pairs-table td.indent { padding-left: 1.8em; }
 /* changes (transport_viz diff / --watch): + added, ~ changed, - removed */
 .toolbar .changes .summary { color: var(--muted); }
 .mark { display: inline-block; width: 1em; font-weight: 700; font-family: ui-monospace, Menlo, monospace; }
