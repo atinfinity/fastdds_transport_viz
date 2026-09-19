@@ -75,7 +75,23 @@ run_containers=()
 
 cleanup() {
   if ((${#run_containers[@]})); then docker rm -f "${run_containers[@]}" >/dev/null 2>&1 || true; fi
+  run_containers=()
   docker compose down --remove-orphans >/dev/null 2>&1 || true
+}
+
+# Every detached node started so far must still be alive when the tool runs; a node that
+# died (#171: demo_nodes_cpp on stale base packages) would otherwise only show as an empty
+# document. The nodes are started without --rm so that their output survives for this.
+require_running() {
+  local name ok=0
+  for name in ${run_containers[@]+"${run_containers[@]}"}; do
+    if [[ "$(docker inspect -f '{{.State.Running}}' "$name" 2>/dev/null)" != true ]]; then
+      echo "ERROR: container $name is not running; its output:" >&2
+      docker logs "$name" 2>&1 | tail -20 >&2 || true
+      ok=1
+    fi
+  done
+  return $ok
 }
 trap cleanup EXIT
 
@@ -95,16 +111,18 @@ build() {
 VIZ_ENV=()
 run_viz() {
   local service="$1" out="$2"; shift 2
+  require_running
   echo "== running transport_viz ($service) $*"
   docker compose run --rm -T ${VIZ_ENV[@]+"${VIZ_ENV[@]}"} "$service" \
     ros2 run fastdds_transport_viz transport_viz --json --timeout 6 --quiet 0 "$@" > "$out"
   jq '.topics[] | select(.topic=="/chatter" or .topic=="/bounded") | .pairs[] | {transport, measured: .measured.transports, reasons, warnings, writer_host, reader_host}' "$out"
 }
 
-# start_hostnet <name> <ros2 run args...>: detached one-off container on host net/IPC
+# start_hostnet <name> <ros2 run args...>: detached one-off container on host net/IPC,
+# removed by cleanup (not --rm, see require_running)
 start_hostnet() {
   local name="$1"; shift
-  docker compose run --rm -d --name "$name" hostnet ros2 run "$@" >/dev/null
+  docker compose run -d --name "$name" hostnet ros2 run "$@" >/dev/null
   run_containers+=("$name")
 }
 
@@ -113,11 +131,19 @@ assert() {  # assert <scenario> <json file>
 import json, sys
 scenario, path = sys.argv[1], sys.argv[2]
 doc = json.load(open(path))
+
+
+def topic_doc(name):
+    found = [t for t in doc['topics'] if t['topic'] == name]
+    assert found, f"no {name} topic in the document; topics: {[t['topic'] for t in doc['topics']]}"
+    return found[0]
+
+
 topic = '/bounded' if scenario.startswith('hostnet_split_datasharing') else '/chatter'
 if scenario.startswith('rate_stats_'):
     chatter, p = None, None   # its own topics, checked below
 else:
-    chatter = next(t for t in doc['topics'] if t['topic'] == topic)
+    chatter = topic_doc(topic)
     assert len(chatter['pairs']) == 1, chatter
     p = chatter['pairs'][0]
 if scenario == 'hostnet_noipc_shm' or scenario.startswith('hostnet_split_'):
@@ -157,7 +183,7 @@ elif scenario.startswith('rate_stats_'):
     expect = {'/rate_shm': ('SHM', ['SHM']), '/rate_intra': ('SHM', []),
               '/rate_ds': ('DATA_SHARING', None)}
     for name, (transport, measured) in expect.items():
-        t = next(t for t in doc['topics'] if t['topic'] == name)
+        t = topic_doc(name)
         assert len(t['pairs']) == 1, t
         q = t['pairs'][0]
         assert q['transport'] == transport, q
@@ -588,9 +614,9 @@ scenario_easy_mode_shm() {
   local out="$out_dir/transport_viz_easy_mode_shm.json"
   if ! has_easy_mode; then echo "SKIP: easy_mode_shm needs ROS_DISTRO=kilted|lyrical|rolling"; return 0; fi
   echo "== starting talker / listener on the host network in Easy Mode"
-  docker compose run --rm -d --name tv_easy_talker -e ROS2_EASY_MODE=127.0.0.1 hostnet \
+  docker compose run -d --name tv_easy_talker -e ROS2_EASY_MODE=127.0.0.1 hostnet \
     ros2 run demo_nodes_cpp talker >/dev/null
-  docker compose run --rm -d --name tv_easy_listener -e ROS2_EASY_MODE=127.0.0.1 hostnet \
+  docker compose run -d --name tv_easy_listener -e ROS2_EASY_MODE=127.0.0.1 hostnet \
     ros2 run demo_nodes_cpp listener >/dev/null
   run_containers+=(tv_easy_talker tv_easy_listener)
   sleep 3

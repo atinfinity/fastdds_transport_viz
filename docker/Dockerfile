@@ -11,7 +11,11 @@ FROM ros:${ROS_DISTRO} AS base
 ARG ROS_DISTRO
 
 ENV DEBIAN_FRONTEND=noninteractive
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# Upgrade before installing: the ros:<distro> image lags the apt repo, and freshly published
+# packages (demo_nodes_cpp, example_interfaces) next to the stale preinstalled typesupport
+# (service_msgs) make the talker die with an undefined symbol (#162, #171).
+RUN apt-get update && apt-get upgrade -y --no-install-recommends \
+    && apt-get install -y --no-install-recommends \
         build-essential \
         cmake \
         git \
