@@ -335,6 +335,9 @@ elif scenario == 'hostnet_split_datasharing_udp':
                 'shm-writer-port-not-visible'} & set(p['reasons']), p
     assert p['warnings'] == ['shm-ipc-namespace-split'], p
     assert chatter['writers'][0]['datasharing_history_bytes'] > 0, chatter['writers'][0]
+    # the evidence behind the reason, per endpoint (#163)
+    assert chatter['writers'][0]['datasharing_segment_visibility'] == 'visible', chatter['writers'][0]
+    assert chatter['readers'][0]['datasharing_segment_visibility'] == 'not-visible', chatter['readers'][0]
     print('PASS: UDPv4-only data-sharing split seen from the writer\'s IPC namespace: /bounded '
           'NONE (shm-ipc-namespace-split, datasharing-reader-segment-not-visible)')
 else:

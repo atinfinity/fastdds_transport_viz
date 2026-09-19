@@ -39,7 +39,8 @@ open web/index.html            # macOS。あるいはファイルをダブルク
 矢印をクリックすると側面パネルにそのペアの一覧が出ます。transport、確信度、実測トラフィック、
 理由コードとその説明・対処 (文書の `reason_code_descriptions` / `reason_code_remedies` から)、両エンドポイントの locator、QoS
 (reliability、durability、data-sharing、設定されていれば deadline、liveliness、ownership、
-partition)、data-sharing 履歴のサイズ、そして文書に `participants` があればエンドポイントごとの
+partition)、`data-sharing` 行 (writer の履歴のサイズと、エンドポイントの data-sharing セグメントが
+ツールの `/dev/shm` にあるか、[#163](https://github.com/atinfinity/fastdds_transport_viz/issues/163))、そして文書に `participants` があればエンドポイントごとの
 `shm` 行 (その participant のツールの IPC 名前空間からの SHM 可視性と、アナウンスされた SHM
 ポートのロック状態、[#125](https://github.com/atinfinity/fastdds_transport_viz/issues/125)) です。ノードをクリックすると publisher、subscription、相手のいない
 トピックが出ます。

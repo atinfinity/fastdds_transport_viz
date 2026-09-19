@@ -126,6 +126,12 @@ std::vector<Locator> locators(const json & j, const std::string & where)
   return out;
 }
 
+ShmVisibility shm_visibility(const std::string & s)
+{
+  return s == "visible" ? ShmVisibility::Visible :
+         s == "not-visible" ? ShmVisibility::NotVisible : ShmVisibility::Unprobed;
+}
+
 Endpoint endpoint(const json & j, bool is_writer, const std::string & where)
 {
   Endpoint e;
@@ -150,6 +156,9 @@ Endpoint endpoint(const json & j, bool is_writer, const std::string & where)
     e.datasharing_history_available = true;
     e.datasharing_history_bytes = ds->get<uint64_t>();
   }
+  // absent before #163: unprobed, as the binary reports when it could not look
+  e.datasharing_segment_visibility =
+    shm_visibility(j.value("datasharing_segment_visibility", "unprobed"));
   const auto & qos = at(j, "qos", where);
   e.qos.reliability = at(qos, "reliability", where).get<std::string>();
   e.qos.durability = at(qos, "durability", where).get<std::string>();
@@ -317,12 +326,6 @@ ShmInfo shm(const json & j)
   s.nodes_visible = j.value("nodes_visible", true);
   s.warnings = at(j, "warnings", where).get<std::vector<std::string>>();
   return s;
-}
-
-ShmVisibility shm_visibility(const std::string & s)
-{
-  return s == "visible" ? ShmVisibility::Visible :
-         s == "not-visible" ? ShmVisibility::NotVisible : ShmVisibility::Unprobed;
 }
 
 PortLock port_lock(const std::string & s)

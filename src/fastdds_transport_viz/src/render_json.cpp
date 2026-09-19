@@ -73,6 +73,7 @@ json endpoint_json(const Snapshot & snap, const Endpoint & e, const RenderOption
     {"multicast_locators", locators_json(e.multicast)},
     {"datasharing_history_bytes", e.datasharing_history_available ?
       json(e.datasharing_history_bytes) : json(nullptr)},
+    {"datasharing_segment_visibility", to_string(e.datasharing_segment_visibility)},
     {"qos", {
         {"reliability", e.qos.reliability},
         {"durability", e.qos.durability},

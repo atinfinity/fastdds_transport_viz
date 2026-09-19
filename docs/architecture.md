@@ -170,7 +170,7 @@ classDiagram
         node_name, host_name, process
         unicast, multicast locators
         EndpointQos qos
-        datasharing_history_bytes
+        datasharing_history_bytes, datasharing_segment_visibility
         buffer_parent_guid, buffer_companion_guids
     }
     class TopicSummary {

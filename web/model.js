@@ -261,6 +261,22 @@
   }
 
   /**
+   * The endpoint panel's data-sharing row (#163): the writer's history size in the tool's
+   * /dev/shm, a reader's notification segment, and whether the segment the split verdicts
+   * look for is there. '' when the document says nothing (no size, no visibility or
+   * `unprobed`: a document before #163 or an endpoint without data-sharing).
+   * `isWriter` names the segment when there is no size to show.
+   */
+  function datasharingText(ep, isWriter) {
+    if (!ep) return '';
+    const bytes = typeof ep.datasharing_history_bytes === 'number' ? `history ${humanBytes(ep.datasharing_history_bytes, 'B')} in /dev/shm` : '';
+    const v = ep.datasharing_segment_visibility;
+    if (!v || v === 'unprobed') return bytes;
+    const segment = isWriter ? 'history segment' : 'notification segment';
+    return bytes ? `${bytes} · segment ${v}` : `${segment} ${v}`;
+  }
+
+  /**
    * The `stats` object as the meta line shows it: what arrived, and what never did (#134).
    * The loss is cumulative over the run, and a pair can show no measurement because of it.
    */
@@ -466,6 +482,6 @@
     return { ...model, nodes, hosts };
   }
 
-  return { TRANSPORTS, INTERNAL_TOPICS, UNKNOWN_NODE_NAME, isFoldedBufferCompanion, isInternalTopic, normalizeDocument, buildModel, filterRegex, visiblePairs, visibleNodesModel, bundle, humanBytes, humanSeconds, measuredText, latencyText, rateText, rateTitle, lossText, escapeHtml, codeListHtml, shmText, participantShmText, statsText,
+  return { TRANSPORTS, INTERNAL_TOPICS, UNKNOWN_NODE_NAME, isFoldedBufferCompanion, isInternalTopic, normalizeDocument, buildModel, filterRegex, visiblePairs, visibleNodesModel, bundle, humanBytes, humanSeconds, measuredText, latencyText, rateText, rateTitle, lossText, escapeHtml, codeListHtml, shmText, participantShmText, datasharingText, statsText,
     pairKey, keyId, pairState, sameState, diffDocuments, changeText, changesSummary, decorations, holdChanges, heldDecorations, markedPairs, pruneNodes };
 });
