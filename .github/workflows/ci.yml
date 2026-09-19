@@ -175,7 +175,7 @@ jobs:
           if-no-files-found: ignore
 
   web-unit-tests:
-    # web/model.js (the viewer's pure model/formatting functions) under Node's test runner.
+    # web/model.js and web/scene.js (the viewer's pure model/formatting/layout functions) under Node's test runner.
     name: web viewer unit tests (node)
     needs: changes
     if: >-
