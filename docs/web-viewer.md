@@ -39,8 +39,10 @@ plus the bounded verification nodes with statistics enabled.
 Click an arrow to list its pairs in the side panel: transport, confidence, measured
 traffic, reason codes with their descriptions and remedies (taken from
 `reason_code_descriptions` / `reason_code_remedies` in the document), locators, QoS (reliability, durability, data-sharing, and the deadline,
-liveliness, ownership and partitions when set) and the size of the data-sharing history of
-both endpoints.
+liveliness, ownership and partitions when set), the size of the data-sharing history of
+both endpoints and, when the document carries a `participants` section, an `shm` row per
+endpoint: its participant's SHM visibility from the tool's IPC namespace and the announced
+SHM ports with their lock state ([#125](https://github.com/atinfinity/fastdds_transport_viz/issues/125)).
 Click a node for its publishers, subscriptions and unmatched topics.
 
 The first header line names the domain, the observation time and the counts, and ends with

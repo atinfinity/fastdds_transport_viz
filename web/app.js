@@ -11,7 +11,7 @@
 
   // pure model / formatting functions live in model.js (unit-tested under Node)
   const { TRANSPORTS, isInternalTopic, normalizeDocument, buildModel, filterRegex, visiblePairs, visibleNodesModel, bundle,
-    humanBytes, measuredText, latencyText, rateText, rateTitle, lossText, escapeHtml, codeListHtml, shmText, statsText,
+    humanBytes, measuredText, latencyText, rateText, rateTitle, lossText, escapeHtml, codeListHtml, shmText, participantShmText, statsText,
     pairKey, keyId, diffDocuments, changeText, changesSummary, decorations, holdChanges, heldDecorations,
     markedPairs, pruneNodes } = globalThis.TransportVizModel;
   const COLORS = {
@@ -342,6 +342,7 @@
       <dt>guid</dt><dd><code>${escapeHtml(ep.guid)}</code></dd>
       <dt>locators</dt><dd>${locators(ep, selected)}</dd>
       ${typeof ep.datasharing_history_bytes === 'number' ? `<dt>data-sharing history</dt><dd>${humanBytes(ep.datasharing_history_bytes, 'B')} in /dev/shm</dd>` : ''}
+      ${participantShmText(state.doc, ep.participant_guid_prefix) ? `<dt>shm</dt><dd>${escapeHtml(participantShmText(state.doc, ep.participant_guid_prefix))}</dd>` : ''}
       <dt>qos</dt><dd>${escapeHtml(ep.qos.reliability)}, ${escapeHtml(ep.qos.durability)}, data-sharing ${escapeHtml(ep.qos.data_sharing)}${ep.qos.data_sharing_domain_ids && ep.qos.data_sharing_domain_ids.length ? ` [${ep.qos.data_sharing_domain_ids.join(', ')}]` : ''}${qosExtras(ep.qos)}</dd>
     </dl>`;
   }

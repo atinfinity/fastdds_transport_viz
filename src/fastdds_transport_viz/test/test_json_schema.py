@@ -62,3 +62,15 @@ def test_split_sample_has_the_lost_shm_pair():
     assert pair['warnings'] == ['shm-ipc-namespace-split']
     assert 'shm-port-collision' in pair['reasons']
     assert 'ipc: host' in doc['reason_code_remedies']['shm-ipc-namespace-split']
+
+
+def test_participants_fixture_uses_every_lock_and_visibility_value():
+    """fixtures/participants.json (#125): every enum value of the schema at least once."""
+    schema = load(SCHEMA)
+    doc = load(REPO / 'src' / 'fastdds_transport_viz' / 'test' / 'fixtures' / 'participants.json')
+    locks = {p['lock'] for d in doc['participants'] for p in d['shm_ports']}
+    assert locks == set(schema['$defs']['shm_port']['properties']['lock']['enum'])
+    visibilities = {d['shm_visibility'] for d in doc['participants']}
+    assert visibilities == set(
+        schema['$defs']['participant']['properties']['shm_visibility']['enum'])
+    assert doc['shm']['unknown_ports'] == []

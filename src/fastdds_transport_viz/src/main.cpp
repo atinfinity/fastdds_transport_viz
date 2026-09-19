@@ -486,6 +486,9 @@ Snapshot collect(
   // does not prove whose it is (#118)
   std::map<std::string, std::set<uint32_t>> shm_ports_by_participant;
   std::map<std::string, std::set<uint32_t>> shm_proof_ports_by_participant;
+  // every discovered participant, before any view filter: the `participants` of the JSON
+  std::map<std::string, fastdds_transport_viz::Participant> participants;
+  std::map<std::string, std::set<uint32_t>> participant_ports;   // ... the tool's own included
   for (const auto * p : eprosima::fastdds::dds::DomainParticipantFactory::get_instance()->
     lookup_participants(static_cast<eprosima::fastdds::dds::DomainId_t>(domain)))
   {
@@ -512,8 +515,16 @@ Snapshot collect(
       stats_data.statistics_writers.insert({e.participant_guid_prefix, e.dds_topic});
     }
     const bool ours = own_prefixes.count(e.participant_guid_prefix) > 0;
+    auto & participant = participants[e.participant_guid_prefix];
+    participant.guid_prefix = e.participant_guid_prefix;
+    participant.host_id = e.host_id;
+    participant.host_name = e.host_name;
+    participant.own = ours;
     for (const auto & l : e.unicast) {
       if (l.kind != fastdds_transport_viz::LocatorKind::SHM) {continue;}
+      if (e.host_id == local_host) {
+        participant_ports[e.participant_guid_prefix].insert(l.port);
+      }
       if (ours) {
         shm_in.own_ports.insert(l.port);
       } else if (e.host_id == local_host) {
@@ -590,6 +601,39 @@ Snapshot collect(
           ports->second, shm_proof_ports_by_participant[e.participant_guid_prefix], snap.shm,
           participants_per_port);
       }
+    }
+    // The same inputs per participant, for the report (#125). `announced_by` counts every
+    // discovered participant, the tool's own included; the verdict above counts nodes only,
+    // which never differs where it matters (a node port that is the tool's own is missing).
+    std::map<uint32_t, size_t> announcing;
+    for (const auto & kv : participant_ports) {
+      for (uint32_t port : kv.second) {
+        ++announcing[port];
+      }
+    }
+    for (auto & kv : participants) {
+      auto & p = kv.second;
+      auto ports = participant_ports.find(p.guid_prefix);
+      if (ports == participant_ports.end()) {continue;}
+      const auto & proof = shm_proof_ports_by_participant[p.guid_prefix];
+      for (uint32_t port : ports->second) {
+        fastdds_transport_viz::Participant::ShmPort sp;
+        sp.port = port;
+        auto lock = snap.shm.port_locks.find(port);
+        sp.lock = lock != snap.shm.port_locks.end() ? lock->second :
+          p.own && snap.shm.listed ? fastdds_transport_viz::PortLock::Own :
+          fastdds_transport_viz::PortLock::Unprobed;
+        sp.announced_by = announcing[port];
+        sp.proof = !p.own && proof.count(port) > 0;
+        p.shm_ports.push_back(sp);
+      }
+      if (!p.own) {
+        p.shm_visibility = fastdds_transport_viz::participant_shm_visibility(
+          ports->second, proof, snap.shm, participants_per_port);
+      }
+    }
+    for (auto & kv : participants) {
+      snap.participants.push_back(std::move(kv.second));
     }
   }
   auto t = prof.now();

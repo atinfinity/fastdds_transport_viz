@@ -4,15 +4,13 @@ Jazzy after the `RATE` column was removed ([#137](https://github.com/atinfinity/
 so their `throughput_bytes_per_s` are null and their `stats.throughput` is empty, and since
 #113 the binary fills `participants_with_stats` itself: nothing in them is edited by hand.
 
-`shm_split.json` is an older capture, left as it is rather than re-taken: its
-`participants_with_stats` was trimmed by hand to the participants that published statistics
-(#113), and it still carries the real `throughput_bytes_per_s` values and the populated
-`stats.throughput` of the time before #137 (the viewer ignores both and the schema allows
-them). It was taken on Jazzy with a talker and a listener on the host network, each in an
-IPC namespace of its own, and the tool in the talker's: `/chatter` is `NONE` with
-`shm-ipc-namespace-split` (the capture predates #112: the listener's `ros_discovery_info`
-samples were lost the same way, so its node name is `""` and the viewer shows its
-participant instead). Open `index.html?src=sample/shm_split.json` to see it in the viewer.
+`shm_split.json` is `scripts/integration_test.sh hostnet_split_shm` on Jazzy (no `--stats`),
+re-taken for [#125](https://github.com/atinfinity/fastdds_transport_viz/issues/125): a
+talker and a listener on the host network, each in an IPC namespace of its own, and the
+tool in a third. `/chatter` is `NONE` with `shm-ipc-namespace-split` on
+`shm-port-collision` (both nodes and the tool announce 7000), and the `participants` section
+shows each node's other port `absent` from the tool's namespace. Open
+`index.html?src=sample/shm_split.json` to see it in the viewer.
 
 `diff_before.json` / `diff_after.json` are a hand-made pair for `transport_viz diff` (a
 profile change with every node restarted in between, one raw DDS pair untouched) and

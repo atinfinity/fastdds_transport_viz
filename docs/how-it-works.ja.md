@@ -308,7 +308,19 @@ shared memory: /dev/shm 396 MB used of 16.7 GB (16.3 GB free) | Fast DDS 63.4 MB
 - `shm-nearly-full` は使用率 90 % 以上、または空きが 16 MiB 未満で警告します。
 
 `/dev/shm` が無い環境 (macOS) では行自体を省きます。JSON では同じデータが `shm` オブジェクト
-になり、`--watch` ではフレームごとに更新されます。
+になり (`missing_ports` はここにロックファイルの無いアナウンス済みポート、`unknown_ports` は
+ロックを調べられなかったポート)、`--watch` ではフレームごとに更新されます。
+
+可視性の判定の根拠は participant ごとに文書の `participants` 配列に出ます
+([#125](https://github.com/atinfinity/fastdds_transport_viz/issues/125))。発見した participant
+1 つにつき 1 要素で、`guid_prefix`、`host_id`、`host`、`host_name`、`own` (ツール自身のプロセスの
+participant)、`shm_visibility` (`visible`、`not-visible`、`unprobed`)、そして `shm_ports` に
+ツールのホスト上でアナウンスされた SHM ポートと、ツールの IPC 名前空間から調べたロックの状態
+(`held`、`own`、`absent` = ロックファイルが無い、`stale` = 誰も持っていないロック、`unknown` =
+読めない、`unprobed` = `/dev/shm` が無いか別ホスト)、`announced_by` (その番号をアナウンスする
+participant の数)、`proof` (そのポートの held なロックが根拠になるか。
+[IPC 名前空間の分断](#ipc-名前空間の分断) 参照) を持ちます。participant を 1 つでも発見すれば
+どのプラットフォームでも出ます。web viewer はエンドポイントパネルの `shm` 行に同じ内容を出します。
 
 ### IPC 名前空間の分断
 

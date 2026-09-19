@@ -16,21 +16,28 @@
 namespace fastdds_transport_viz
 {
 
-std::string host_label(const Snapshot & snap, const Endpoint & e, const RenderOptions & opt)
+std::string host_label(
+  const Snapshot & snap, const HostId & host_id, const std::string & host_name,
+  const RenderOptions & opt)
 {
-  if (!e.host_name.empty()) {
+  if (!host_name.empty()) {
     // PHYSICAL_DATA reports "<hostname>:<numeric host id>"; show the hostname.
-    auto colon = e.host_name.find(':');
-    return colon == std::string::npos ? e.host_name : e.host_name.substr(0, colon);
+    auto colon = host_name.find(':');
+    return colon == std::string::npos ? host_name : host_name.substr(0, colon);
   }
-  auto it = opt.host_labels.find(host_id_hex(e.host_id));
+  auto it = opt.host_labels.find(host_id_hex(host_id));
   if (it != opt.host_labels.end()) {
     return it->second;
   }
-  if (e.host_id == snap.local_host_id) {
+  if (host_id == snap.local_host_id) {
     return "local";
   }
-  return "host:" + host_id_hex(e.host_id);
+  return "host:" + host_id_hex(host_id);
+}
+
+std::string host_label(const Snapshot & snap, const Endpoint & e, const RenderOptions & opt)
+{
+  return host_label(snap, e.host_id, e.host_name, opt);
 }
 
 size_t visible_width(const std::string & s)

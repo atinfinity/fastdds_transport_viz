@@ -201,6 +201,34 @@ std::string render_json(const Snapshot & snap, const RenderOptions & opt)
   }
   root["topics"] = topics;
 
+  // Every discovered participant with the inputs of the SHM split verdicts (#125): the
+  // ports it announces, what their locks say here and how many participants announce
+  // each number. Absent when nothing was discovered (a `diff` of old documents).
+  if (!snap.participants.empty()) {
+    json participants = json::array();
+    for (const auto & p : snap.participants) {
+      json ports = json::array();
+      for (const auto & sp : p.shm_ports) {
+        json port;
+        port["port"] = sp.port;
+        port["lock"] = to_string(sp.lock);
+        port["announced_by"] = sp.announced_by;
+        port["proof"] = sp.proof;
+        ports.push_back(port);
+      }
+      json entry;
+      entry["guid_prefix"] = p.guid_prefix;
+      entry["host_id"] = host_id_hex(p.host_id);
+      entry["host"] = host_label(snap, p.host_id, p.host_name, opt);
+      entry["host_name"] = p.host_name;
+      entry["own"] = p.own;
+      entry["shm_visibility"] = to_string(p.shm_visibility);
+      entry["shm_ports"] = ports;
+      participants.push_back(entry);
+    }
+    root["participants"] = participants;
+  }
+
   // Descriptions for every reason / warning code that appears in this document,
   // so that front-ends never have to duplicate the texts.
   std::set<std::string> codes;
@@ -365,6 +393,7 @@ std::string render_json(const Snapshot & snap, const RenderOptions & opt)
     shm["datasharing_notifications"] = snap.shm.datasharing_notifications;
     shm["checked_ports"] = snap.shm.checked_ports;
     shm["missing_ports"] = snap.shm.missing_ports;
+    shm["unknown_ports"] = snap.shm.unknown_ports;
     shm["other_host_participants"] = snap.shm.other_host_participants;
     shm["nodes_visible"] = snap.shm.nodes_visible;
   }
