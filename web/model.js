@@ -217,6 +217,71 @@
     return `delivered samples/s${w}${m.delivered_per_s_lower_bound ? '; at least: the reader participant\'s statistics writer skipped samples' : ''}`;
   }
 
+  /** "0.42 ms" from a topic's `latency_s` (the slowest pair's mean), '' when null. */
+  function topicLatencyText(t) {
+    return t && typeof t.latency_s === 'number' ? humanSeconds(t.latency_s) : '';
+  }
+
+  /**
+   * The CLI's topic LOSS cell from `lost_packets` / `resent_datas`: "3 lost, 2 resent", "0",
+   * "- lost" when RTPS_LOST is unknown, '' when the topic has no counters (`resent_datas` null).
+   */
+  function topicLossText(t) {
+    if (!t || typeof t.resent_datas !== 'number') return '';
+    return lossText({ reliability: { lost_packets: t.lost_packets, resent_datas: t.resent_datas } });
+  }
+
+  /**
+   * Table rows grouped under a header per topic (#144), the CLI's `--verbose` shape.
+   * `rows` are visible pair rows, `ghosts` removed-pair rows; both carry `.topic.topic`.
+   * `topics` is the document's `topics[]`: a header reads its aggregates from there and
+   * never from the rows, so a filter that hides pairs leaves the topic's numbers alone.
+   * A topic only ghosts still name (an orphan) gets a header without aggregates.
+   * Groups are keyed by the DDS topic name (a service's request and reply topics share a
+   * display name) and follow the first appearance of each topic in `rows` then `ghosts`.
+   */
+  function groupPairsByTopic(rows, ghosts, topics) {
+    const byDds = new Map((topics || []).map(t => [t.dds_topic, t]));
+    const byName = new Map();
+    for (const t of topics || []) if (!byName.has(t.topic)) byName.set(t.topic, t);
+    const groups = new Map();
+    const groupOf = (row) => {
+      // a ghost without its before document knows the display name only
+      const named = row.topic.dds_topic ? null : byName.get(row.topic.topic);
+      const key = row.topic.dds_topic || (named ? named.dds_topic : row.topic.topic);
+      if (!groups.has(key)) {
+        const t = byDds.get(key) || null;
+        const name = row.topic.topic;
+        groups.set(key, {
+          id: `topic|${key}`, key, name, topic: t || { topic: name, type: row.topic.type || '' }, aggregates: !!t,
+          pubs: t ? t.writers.length : null, subs: t ? t.readers.length : null,
+          transports: t ? [...new Set(t.pairs.map(p => p.transport))] : [],
+          latency: t ? topicLatencyText(t) : '', latencyValue: t && typeof t.latency_s === 'number' ? t.latency_s : null,
+          loss: t ? topicLossText(t) : '', lostValue: t && typeof t.lost_packets === 'number' ? t.lost_packets : null,
+          reasons: t ? t.unmatched_reasons.join(', ') : '',
+          pairs: [], ghosts: [],
+        });
+      }
+      return groups.get(key);
+    };
+    for (const r of rows) groupOf(r).pairs.push(r);
+    for (const g of ghosts) groupOf(g).ghosts.push(g);
+    return [...groups.values()];
+  }
+
+  /**
+   * Table sort order for two cell values: numbers numerically, strings by locale, and a
+   * missing value (null, undefined or '') last whichever the direction.
+   */
+  function compareCells(a, b, asc = true) {
+    const missing = v => v === null || v === undefined || v === '';
+    if (missing(a) && missing(b)) return 0;
+    if (missing(a)) return 1;
+    if (missing(b)) return -1;
+    const r = typeof a === 'number' && typeof b === 'number' ? a - b : String(a).localeCompare(String(b));
+    return r * (asc ? 1 : -1);
+  }
+
   function escapeHtml(s) { return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 
   /**
@@ -482,6 +547,6 @@
     return { ...model, nodes, hosts };
   }
 
-  return { TRANSPORTS, INTERNAL_TOPICS, UNKNOWN_NODE_NAME, isFoldedBufferCompanion, isInternalTopic, normalizeDocument, buildModel, filterRegex, visiblePairs, visibleNodesModel, bundle, humanBytes, humanSeconds, measuredText, latencyText, rateText, rateTitle, lossText, escapeHtml, codeListHtml, shmText, participantShmText, datasharingText, statsText,
+  return { TRANSPORTS, INTERNAL_TOPICS, UNKNOWN_NODE_NAME, isFoldedBufferCompanion, isInternalTopic, normalizeDocument, buildModel, filterRegex, visiblePairs, visibleNodesModel, bundle, humanBytes, humanSeconds, measuredText, latencyText, rateText, rateTitle, lossText, topicLatencyText, topicLossText, groupPairsByTopic, compareCells, escapeHtml, codeListHtml, shmText, participantShmText, datasharingText, statsText,
     pairKey, keyId, pairState, sameState, diffDocuments, changeText, changesSummary, decorations, holdChanges, heldDecorations, markedPairs, pruneNodes };
 });

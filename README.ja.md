@@ -132,7 +132,7 @@ ros2 transport codes
 - [仕組み](docs/how-it-works.ja.md) — 判定ルール、理由コード、ホストとアドレス、実行場所、watch モード
 - [実測 transport (`--stats`)](docs/statistics.ja.md) — statistics トピック、有効化、10 インスタンスの落とし穴
 - [Data-sharing (zero-copy)](docs/data-sharing.ja.md) — ROS 2 トピックが既定で `SHM` になる理由と data-sharing の有効化
-- [Web viewer](docs/web-viewer.ja.md) — `--json` 出力のグラフ/表表示、ライブモード (`transport_viz_web`)、JSON スキーマ
+- [Web viewer](docs/web-viewer.ja.md) — `--json` 出力のグラフ表示とトピックごとにまとめた表、ライブモード (`transport_viz_web`)、JSON スキーマ
 - [Architecture](docs/architecture.md) (英語) — コンポーネント、1 回の実行の流れ、データモデル、Fast DDS 2.14/3.x の互換層、拡張ポイント
 - [開発・検証・テスト](docs/development.md) (英語) — Docker 環境、パッケージ構成、検証ノード、マルチコンテナのシナリオ、テスト、検証結果、ロードマップ
 
