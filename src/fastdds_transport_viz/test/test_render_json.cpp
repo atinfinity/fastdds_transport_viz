@@ -115,12 +115,28 @@ Snapshot snapshot()
   own.host_id = {1, 2, 3, 4};
   own.own = true;
   own.shm_ports.push_back(Participant::ShmPort{7002, PortLock::Own, 1, false});
-  s.participants = {p1, p2, own};
+  // #86: p1 is a client of a Discovery Server that has no endpoint of its own
+  p1.discovery_protocol = "CLIENT";
+  p1.name = "/";
+  p1.vendor = "eProsima";
+  p1.metatraffic_locators = {Locator{LocatorKind::UDPv4, "127.0.0.1", 7410}};
+  p1.discovery_server = "DS";
+  Participant server;
+  server.guid_prefix = "DS";
+  server.host_id = {1, 2, 3, 4};
+  server.discovery_protocol = "SERVER";
+  server.name = "DiscoveryServerAuto";
+  server.vendor = "eProsima";
+  server.metatraffic_locators = {Locator{LocatorKind::UDPv4, "127.0.0.1", 11811}};
+  s.participants = {p1, p2, own, server};
   s.discovery.complete = false;   // one announced endpoint never arrived (#133)
   s.discovery.stopped_on = "quiet";
   s.discovery.events = 12;
   s.discovery.endpoints = 2;
   s.discovery.announced_not_discovered = 1;
+  s.discovery.observer_protocol = "SUPER_CLIENT";
+  s.discovery.discovery_servers = {Locator{LocatorKind::UDPv4, "127.0.0.1", 11811}};
+  s.discovery.discovery_server_env = "127.0.0.1";
   return s;
 }
 }  // namespace
@@ -137,6 +153,12 @@ TEST(RenderJson, DocumentKeys)
   EXPECT_EQ(doc["discovery"]["events"], 12);
   EXPECT_EQ(doc["discovery"]["endpoints"], 2);
   EXPECT_EQ(doc["discovery"]["announced_not_discovered"], 1);
+  // #86: how the tool took part in discovery
+  EXPECT_EQ(doc["discovery"]["observer_protocol"], "SUPER_CLIENT");
+  EXPECT_EQ(doc["discovery"]["discovery_server_env"], "127.0.0.1");
+  EXPECT_EQ(doc["discovery"]["easy_mode"], "");
+  ASSERT_EQ(doc["discovery"]["discovery_servers"].size(), 1u);
+  EXPECT_EQ(doc["discovery"]["discovery_servers"][0]["port"], 11811);
   ASSERT_EQ(doc["topics"].size(), 1u);
   const auto & t = doc["topics"][0];
   EXPECT_EQ(t["topic"], "/chatter");
@@ -203,8 +225,21 @@ TEST(RenderJson, DocumentKeys)
   EXPECT_EQ(doc["shm"]["warnings"], json::array({"shm-stale-files"}));
   EXPECT_TRUE(doc["reason_code_descriptions"].contains("shm-stale-files"));
   // #125: the participants with what the split verdicts saw of their ports
-  ASSERT_EQ(doc["participants"].size(), 3u);
+  ASSERT_EQ(doc["participants"].size(), 4u);
   const auto & p1 = doc["participants"][0];
+  // #86: what the participant announced about discovery, and its server when certain
+  EXPECT_EQ(p1["discovery_protocol"], "CLIENT");
+  EXPECT_EQ(p1["name"], "/");
+  EXPECT_EQ(p1["vendor"], "eProsima");
+  ASSERT_EQ(p1["metatraffic_locators"].size(), 1u);
+  EXPECT_EQ(p1["metatraffic_locators"][0]["kind"], "UDPv4");
+  EXPECT_EQ(p1["metatraffic_locators"][0]["port"], 7410);
+  EXPECT_EQ(p1["discovery_server"], "DS");
+  const auto & server = doc["participants"][3];
+  EXPECT_EQ(server["discovery_protocol"], "SERVER");
+  EXPECT_EQ(server["name"], "DiscoveryServerAuto");
+  EXPECT_TRUE(server["discovery_server"].is_null());
+  EXPECT_EQ(server["shm_ports"], json::array());
   EXPECT_EQ(p1["guid_prefix"], "P1");
   EXPECT_EQ(p1["host_id"], "01020304");
   EXPECT_EQ(p1["host"], "robot");
@@ -411,6 +446,19 @@ TEST(ParseJson, RoundTripsEverythingTheRenderersShow)
   EXPECT_EQ(parsed.discovery.events, 12u);
   EXPECT_EQ(parsed.discovery.endpoints, 2u);
   EXPECT_EQ(parsed.discovery.announced_not_discovered, 1u);
+  EXPECT_EQ(parsed.discovery.observer_protocol, "SUPER_CLIENT");   // #86
+  EXPECT_EQ(parsed.discovery.discovery_server_env, "127.0.0.1");
+  ASSERT_EQ(parsed.discovery.discovery_servers.size(), 1u);
+  EXPECT_EQ(parsed.discovery.discovery_servers[0].port, 11811u);
+  ASSERT_EQ(parsed.participants.size(), 4u);
+  EXPECT_EQ(parsed.participants[0].discovery_protocol, "CLIENT");
+  EXPECT_EQ(parsed.participants[0].name, "/");
+  EXPECT_EQ(parsed.participants[0].vendor, "eProsima");
+  ASSERT_EQ(parsed.participants[0].metatraffic_locators.size(), 1u);
+  EXPECT_EQ(parsed.participants[0].metatraffic_locators[0].address, "127.0.0.1");
+  EXPECT_EQ(parsed.participants[0].discovery_server, "DS");
+  EXPECT_FALSE(parsed.participants[3].discovery_server.has_value());
+  EXPECT_EQ(parsed.participants[3].name, "DiscoveryServerAuto");
   ASSERT_EQ(parsed.topics.size(), 1u);
   ASSERT_EQ(parsed.topics[0].pairs.size(), 1u);
   const auto & p = parsed.topics[0].pairs[0];
@@ -456,7 +504,7 @@ TEST(ParseJson, RoundTripsEverythingTheRenderersShow)
   EXPECT_TRUE(parsed.shm.available);
   EXPECT_EQ(parsed.shm.warnings, std::vector<std::string>{"shm-stale-files"});
   // #125: the participants come back as written (the `again` comparison below covers the rest)
-  ASSERT_EQ(parsed.participants.size(), 3u);
+  ASSERT_EQ(parsed.participants.size(), 4u);
   EXPECT_EQ(parsed.participants[0].shm_visibility, ShmVisibility::Visible);
   EXPECT_EQ(parsed.participants[0].host_name, "robot:1");
   ASSERT_EQ(parsed.participants[0].shm_ports.size(), 2u);

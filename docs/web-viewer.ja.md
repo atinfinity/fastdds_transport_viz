@@ -32,6 +32,8 @@ open web/index.html            # macOS。あるいはファイルをダブルク
 | 列 | ホスト (`local`、`host:<id>`、または statistics から得たホスト名) |
 | 箱 | ROS ノード (statistics があれば名前の下に `process id`)。赤い `+N unmatched` は相手のいないトピック |
 | 矢印 | 2 ノード間の同じ transport・同じ確信度の writer → reader ペアを束ねたもの。ラベルはペア数 |
+| 丸い箱 | Discovery Server (`SERVER` / `BACKUP` の participant。アナウンスされた名前、なければ `Discovery Server`、下に最初の locator)。そのホストの列に出ます ([#86](https://github.com/atinfinity/fastdds_transport_viz/issues/86)) |
+| `CLIENT` タグ | participant が `CLIENT` / `SUPER_CLIENT` とアナウンスしたノード。文書がどのサーバーか判定できた場合はラベルのない灰色の点線がサーバーへ伸びます ([how-it-works.ja.md](how-it-works.ja.md) 参照)。transport の凡例の外で、束ねられません |
 | 色 | UDPv4 青 · UDPv6 水色 · TCP 紫 · SHM 緑 · DATA_SHARING 橙 · NONE 灰 (凡例はツールバー) |
 | 破線 | 確信度 `likely` |
 | 赤い縁 | 警告が 1 つ以上ある (例: `measured-transport-mismatch`) |
@@ -43,7 +45,10 @@ partition)、`data-sharing` 行 (writer の履歴のサイズと、エンドポ�
 ツールの `/dev/shm` にあるか、[#163](https://github.com/atinfinity/fastdds_transport_viz/issues/163))、そして文書に `participants` があればエンドポイントごとの
 `shm` 行 (その participant のツールの IPC 名前空間からの SHM 可視性と、アナウンスされた SHM
 ポートのロック状態、[#125](https://github.com/atinfinity/fastdds_transport_viz/issues/125)) です。ノードをクリックすると publisher、subscription、相手のいない
-トピックが出ます。
+トピックが出ます。クライアントならさらにアナウンスした discovery プロトコル、participant の
+prefix と metatraffic locator、そのサーバーが、サーバーならそれに紐づくクライアントの一覧が
+出ます。ヘッダの 2 行目の末尾には、通常の discovery でなかった場合のツール自身の参加の仕方
+(`observed as SUPER_CLIENT of UDPv4 …` や Easy Mode のアドレス) が付きます。
 
 ヘッダの 1 行目にはドメイン、観測時刻、件数が出て、最後に statistics の要約が付きます。文書が
 持っているサンプル数と、ツールが取り逃したぶんがあれば `N lost` です。その損失で実測まで失われた

@@ -238,7 +238,13 @@ elif scenario == 'easy_mode_shm':
     for e in chatter['writers'] + chatter['readers']:   # P2P: SHM + TCPv4, no multicast
         assert e['multicast_locators'] == [], e
         assert {l['kind'] for l in e['unicast_locators']} == {'SHM', 'TCPv4'}, e
-    print('PASS: Easy Mode on one host uses SHM (same-host-guid); P2P announces no multicast')
+    servers = [x for x in doc['participants'] if x['discovery_protocol'] == 'SERVER']   # #86
+    assert len(servers) == 1 and servers[0]['name'] == 'DiscoveryServerAuto', servers
+    for e in chatter['writers'] + chatter['readers']:
+        x = next(x for x in doc['participants'] if x['guid_prefix'] == e['participant_guid_prefix'])
+        assert x['discovery_server'] == servers[0]['guid_prefix'], x
+    print('PASS: Easy Mode on one host uses SHM (same-host-guid); P2P announces no multicast; '
+          'one DiscoveryServerAuto serving both nodes')
 elif scenario == 'easy_mode_tcp':
     assert doc['stats']['enabled'] and doc['stats']['samples'] > 0, doc['stats']
     assert p['transport'] == 'TCPv4', p
@@ -250,8 +256,21 @@ elif scenario == 'easy_mode_tcp':
         # P2P: TCPv4 (+ SHM on the tool's own host), no multicast
         kinds = {l['kind'] for l in e['unicast_locators']}
         assert e['multicast_locators'] == [] and 'TCPv4' in kinds <= {'SHM', 'TCPv4'}, e
+    # #86: one DiscoveryServerAuto per host, every node a client of its own host's server
+    servers = [x for x in doc['participants'] if x['discovery_protocol'] == 'SERVER']
+    assert len(servers) == 2 and {x['name'] for x in servers} == {'DiscoveryServerAuto'}, servers
+    assert len({x['host_id'] for x in servers}) == 2, servers
+    for x in servers:
+        assert [l['port'] for l in x['metatraffic_locators']] == [7402], x
+    by_prefix = {x['guid_prefix']: x for x in doc['participants']}
+    for e in chatter['writers'] + chatter['readers']:
+        x = by_prefix[e['participant_guid_prefix']]
+        assert x['discovery_protocol'] == 'SUPER_CLIENT', x
+        assert x['discovery_server'] and by_prefix[x['discovery_server']]['host_id'] == x['host_id'], x
+    assert doc['discovery']['observer_protocol'] == 'SUPER_CLIENT' and doc['discovery']['easy_mode'], doc['discovery']
     print(f"PASS: Easy Mode across bridged containers uses TCPv4, measured TCPv4 "
-          f"({p['measured']['packets']} packets); P2P announces no multicast")
+          f"({p['measured']['packets']} packets); P2P announces no multicast; "
+          f"two DiscoveryServerAuto, each node a client of its host's")
 elif scenario == 'hostnet_shm':
     assert p['transport'] == 'SHM', p
     assert 'same-host-guid' in p['reasons'] and 'both-shm-locators' in p['reasons'], p

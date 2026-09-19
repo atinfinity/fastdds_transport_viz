@@ -136,7 +136,8 @@ ros2 transport codes
 
 - **Fast DDS の RMW 専用。** `rmw_fastrtps_cpp` と `rmw_fastrtps_dynamic_cpp` に対応しています
   (launch テスト一式が両方で通ります。CI 参照)。CycloneDDS、Connext のノードは対象外で、
-  ROS ノードでない Fast DDS participant は `--all` でのみ表示されます。
+  ROS ノードでない Fast DDS participant は `--all` でのみ表示されます (エンドポイントを持たない
+  Discovery Server は `--json` の `participants`、`-v` のフッタ、web viewer にだけ出ます)。
   別の RMW ではツールは起動しません (その RMW 名を示して exit 1)。
 - **Linux 専用。** macOS には `/dev/shm` が無く、Docker Desktop からホスト上のノードは観測できません。
 - **ノードと同じ場所で実行する必要があります。** 同じドメイン、同じ環境変数と XML プロファイル、

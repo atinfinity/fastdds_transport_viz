@@ -12,6 +12,15 @@ tool in a third. `/chatter` is `NONE` with `shm-ipc-namespace-split` on
 shows each node's other port `absent` from the tool's namespace. Open
 `index.html?src=sample/shm_split.json` to see it in the viewer.
 
+`easy_mode.json` is `scripts/integration_test.sh easy_mode_tcp` on Lyrical (no `--stats`),
+taken for [#86](https://github.com/atinfinity/fastdds_transport_viz/issues/86): a talker
+and a listener in two bridged containers under `ROS2_EASY_MODE`, the tool a third client
+of the same network. Each host runs a `DiscoveryServerAuto` participant (a `SERVER` with
+no endpoints), every node is a `SUPER_CLIENT` attributed to the server of its host, and
+`discovery.easy_mode` / `observer_protocol` record how the tool itself joined. Open
+`index.html?src=sample/easy_mode.json` to see the server pills and the dotted
+client edges in the viewer.
+
 `diff_before.json` / `diff_after.json` are a hand-made pair for `transport_viz diff` (a
 profile change with every node restarted in between, one raw DDS pair untouched) and
 `diff.json` is what the binary prints for `transport_viz diff --all --json` on them;

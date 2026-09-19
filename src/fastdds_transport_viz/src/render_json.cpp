@@ -114,6 +114,12 @@ std::string render_json(const Snapshot & snap, const RenderOptions & opt)
       {"events", snap.discovery.events},
       {"endpoints", snap.discovery.endpoints},
       {"announced_not_discovered", snap.discovery.announced_not_discovered},
+      // how the tool itself took part in discovery (#86): SIMPLE, CLIENT or SUPER_CLIENT,
+      // and the servers ROS_DISCOVERY_SERVER / ROS2_EASY_MODE named
+      {"observer_protocol", snap.discovery.observer_protocol},
+      {"discovery_servers", locators_json(snap.discovery.discovery_servers)},
+      {"discovery_server_env", snap.discovery.discovery_server_env},
+      {"easy_mode", snap.discovery.easy_mode},
     };
   }
 
@@ -223,6 +229,17 @@ std::string render_json(const Snapshot & snap, const RenderOptions & opt)
       entry["host"] = host_label(snap, p.host_id, p.host_name, opt);
       entry["host_name"] = p.host_name;
       entry["own"] = p.own;
+      // what the participant announced about discovery (#86): PARTICIPANT_TYPE verbatim
+      // ("" when absent; Fast DDS 3.6 announces a CLIENT as SUPER_CLIENT), its name and
+      // vendor, its metatraffic unicast locators, and the server it is a client of when
+      // that can be told (a single SERVER, or the Easy Mode server of its host) - null
+      // otherwise, the client's own list is not on the wire
+      entry["discovery_protocol"] = p.discovery_protocol;
+      entry["name"] = p.name;
+      entry["vendor"] = p.vendor;
+      entry["metatraffic_locators"] = locators_json(p.metatraffic_locators);
+      entry["discovery_server"] =
+        p.discovery_server.has_value() ? json(*p.discovery_server) : json(nullptr);
       entry["shm_visibility"] = to_string(p.shm_visibility);
       entry["shm_ports"] = ports;
       participants.push_back(entry);

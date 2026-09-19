@@ -1068,6 +1068,29 @@
           "type": "integer",
           "minimum": 0,
           "description": "endpoints announced by a live participant that discovery never delivered; 0 when complete is true"
+        },
+        "observer_protocol": {
+          "enum": [
+            "SIMPLE",
+            "CLIENT",
+            "SUPER_CLIENT"
+          ],
+          "description": "how the tool's own participants took part in discovery (#86): CLIENT or SUPER_CLIENT under ROS_DISCOVERY_SERVER (SUPER_CLIENT unless ROS_SUPER_CLIENT says otherwise), SUPER_CLIENT under ROS2_EASY_MODE, SIMPLE otherwise; absent in documents written before this field existed"
+        },
+        "discovery_servers": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/locator"
+          },
+          "description": "the servers ROS_DISCOVERY_SERVER names, parsed as Fast DDS does (default port 11811, a number below 420 read as a domain id, host names resolved); empty without the variable"
+        },
+        "discovery_server_env": {
+          "type": "string",
+          "description": "ROS_DISCOVERY_SERVER as set, empty without it"
+        },
+        "easy_mode": {
+          "type": "string",
+          "description": "ROS2_EASY_MODE as set (the address of this host's auto-started Discovery Server), empty without it"
         }
       }
     },
@@ -1204,6 +1227,32 @@
         "own": {
           "type": "boolean",
           "description": "one of the tool's own participants"
+        },
+        "discovery_protocol": {
+          "type": "string",
+          "description": "the PARTICIPANT_TYPE the participant announced, verbatim (#86): SIMPLE, CLIENT, SUPER_CLIENT, SERVER or BACKUP; empty when it announced none (a non-Fast DDS vendor, the tool's own participants). Fast DDS 3.6 announces a CLIENT as SUPER_CLIENT"
+        },
+        "name": {
+          "type": "string",
+          "description": "the participant name it announced (a ROS 2 node's is its enclave, \"/\"; the Easy Mode server is DiscoveryServerAuto)"
+        },
+        "vendor": {
+          "type": "string",
+          "description": "\"eProsima\" or the vendor id as two hex bytes \"xx.xx\""
+        },
+        "metatraffic_locators": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/locator"
+          },
+          "description": "its metatraffic unicast locators: where a Discovery Server listens, where a client is reached by discovery"
+        },
+        "discovery_server": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "guid_prefix of the Discovery Server this participant is a client of, when that is certain: exactly one SERVER was discovered, or under Easy Mode the DiscoveryServerAuto of the participant's host; null otherwise (a client's own server list is not on the wire), and for servers, SIMPLE participants and the tool's own"
         },
         "shm_visibility": {
           "enum": [

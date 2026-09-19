@@ -134,3 +134,77 @@ test('edgeMidpoint: the half-length point, within a pixel of a fine arc-length w
   const m = S.edgeMidpoint(S.edgeCurve(box(30, 100), box(400, 300), 0));
   assert.ok(Math.abs(m.x - 310) < 1e-6 && Math.abs(m.y - 223) < 1e-6);
 });
+
+// ---------------------------------------------------------------- Discovery Servers (#86)
+
+/** The sample with a `participants[]` of the given entries, every node's participant a client of `server`. */
+function withServers(participants, server) {
+  const doc = JSON.parse(JSON.stringify(sample));
+  const prefixes = new Set(doc.topics.flatMap(t => [...t.writers, ...t.readers]).map(ep => ep.participant_guid_prefix));
+  const host = doc.topics[0].writers[0].host;
+  doc.participants = [...prefixes].map(guid_prefix => ({ guid_prefix, host_id: '010f40ec', host, host_name: '', own: false,
+    discovery_protocol: 'CLIENT', name: '/', vendor: 'eProsima', metatraffic_locators: [{ kind: 'UDPv4', address: '127.0.0.1', port: 7410 }],
+    discovery_server: server, shm_visibility: 'unprobed', shm_ports: [] })).concat(participants);
+  M.normalizeDocument(doc);
+  return doc;
+}
+const serverEntry = (guid_prefix, name, host = sample.topics[0].writers[0].host) => ({ guid_prefix, host_id: guid_prefix.slice(0, 11).replace(/\./g, ''), host, host_name: '', own: false,
+  discovery_protocol: 'SERVER', name, vendor: 'eProsima', metatraffic_locators: [{ kind: 'UDPv4', address: '127.0.0.1', port: 11811 }],
+  discovery_server: null, shm_visibility: 'unprobed', shm_ports: [] });
+
+test('buildModel: a Discovery Server is a node of its host without endpoints, named as announced', () => {
+  const doc = withServers([serverEntry('44.53.00.5f.45.50.52.4f.53.49.4d.41', '')], '44.53.00.5f.45.50.52.4f.53.49.4d.41');
+  const m = M.buildModel(doc);
+  const s = m.nodes.get('server 44.53.00.5f.45.50.52.4f.53.49.4d.41');
+  assert.ok(s);
+  assert.equal(s.name, 'Discovery Server');   // the legacy server announces no name
+  assert.ok(s.server);
+  assert.equal(s.pubs.length + s.subs.length, 0);
+  assert.ok(m.hosts.find(h => h.label === s.host).nodes.includes(s));
+  assert.deepEqual(M.serversOf(m.nodes.get('/talker')), [s.id]);
+  assert.equal(M.clientParticipants(m.nodes.get('/talker')).length, 1);
+  assert.equal(M.clientParticipants(s).length, 0);
+});
+
+test('sceneEdges: one unlabelled client edge per attributed node, never bundled with topics', () => {
+  const doc = withServers([serverEntry('01.0f.aa.aa.01.00.00.00.00.00.00.00', 'DiscoveryServerAuto')], '01.0f.aa.aa.01.00.00.00.00.00.00.00');
+  const m = M.buildModel(doc);
+  const scene = S.visibleScene(m, allFilter(), false, noDeco());
+  const edges = S.sceneEdges(scene);
+  const client = edges.filter(e => e.client);
+  assert.equal(client.length, m.nodes.size - 1);
+  assert.ok(client.every(e => e.target === 'server 01.0f.aa.aa.01.00.00.00.00.00.00.00' && e.pairs.length === 0 && S.edgeLabel(e) === ''));
+  assert.equal(edges.filter(e => !e.client).length, S.sceneEdges(S.visibleScene(model, allFilter(), false, noDeco())).length);
+});
+
+test('visibleScene: a node filter and changes-only keep the server of a kept client', () => {
+  const doc = withServers([serverEntry('01.0f.aa.aa.01.00.00.00.00.00.00.00', 'DiscoveryServerAuto')], '01.0f.aa.aa.01.00.00.00.00.00.00.00');
+  const m = M.buildModel(doc);
+  const f = allFilter();
+  f.node = '^/listener$';
+  const scene = S.visibleScene(m, f, false, noDeco());
+  assert.ok(scene.model.nodes.has('server 01.0f.aa.aa.01.00.00.00.00.00.00.00'));
+  assert.ok(!scene.model.nodes.has('/bounded_pub'));
+  const full = S.visibleScene(m, allFilter(), false, noDeco());
+  const vp = full.pairs[0];
+  const marks = new Map([[M.keyId(M.pairKey(vp.topic, vp.pair)), { mark: '+' }]]);
+  const changes = S.visibleScene(m, allFilter(), true, { marks, ghosts: [] });
+  assert.ok(changes.model.nodes.has('server 01.0f.aa.aa.01.00.00.00.00.00.00.00'));
+  assert.equal(S.sceneEdges(changes).filter(e => e.client).length, new Set([vp.writerNode, vp.readerNode]).size);
+});
+
+test('sceneEdges: two servers and no attribution draw the servers alone (the null rule)', () => {
+  const doc = withServers([serverEntry('44.53.00.5f.45.50.52.4f.53.49.4d.41', ''), serverEntry('44.53.01.5f.45.50.52.4f.53.49.4d.41', '')], null);
+  const m = M.buildModel(doc);
+  const edges = S.sceneEdges(S.visibleScene(m, allFilter(), false, noDeco()));
+  assert.equal(edges.filter(e => e.client).length, 0);
+  assert.equal([...m.nodes.values()].filter(n => n.server).length, 2);
+  assert.ok(M.clientParticipants(m.nodes.get('/talker')).length === 1);   // still tagged a client
+});
+
+test('discoveryText: the observer line, silent under SIMPLE discovery and for old documents', () => {
+  assert.equal(M.discoveryText(sample), '');
+  assert.equal(M.discoveryText({ discovery: { observer_protocol: 'SIMPLE' } }), '');
+  assert.equal(M.discoveryText({ discovery: { observer_protocol: 'SUPER_CLIENT', easy_mode: '127.0.0.1', discovery_servers: [] } }), 'observed as SUPER_CLIENT (Easy Mode, ROS2_EASY_MODE=127.0.0.1)');
+  assert.equal(M.discoveryText({ discovery: { observer_protocol: 'CLIENT', easy_mode: '', discovery_servers: [{ kind: 'UDPv4', address: '10.0.0.1', port: 11811 }] } }), 'observed as CLIENT of UDPv4 10.0.0.1:11811');
+});

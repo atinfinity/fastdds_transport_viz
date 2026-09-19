@@ -711,6 +711,46 @@ std::string render_table(const Snapshot & snap, const RenderOptions & opt)
     }
   }
 
+  // Discovery Servers (#86), verbose only: how the tool took part and every SERVER seen with
+  // the participants attributed to it. A document from before the fields has no server and
+  // observes as SIMPLE, so the line is silent for it.
+  if (opt.verbose) {
+    std::vector<const Participant *> servers;
+    std::map<std::string, size_t> served;
+    for (const auto & p : snap.participants) {
+      if (p.discovery_protocol == "SERVER" || p.discovery_protocol == "BACKUP") {
+        servers.push_back(&p);
+      }
+      if (p.discovery_server) {++served[*p.discovery_server];}
+    }
+    if (!servers.empty() || snap.discovery.observer_protocol != "SIMPLE") {
+      os << "\n" << paint("discovery: ", BOLD, color) << snap.discovery.observer_protocol;
+      if (!snap.discovery.easy_mode.empty()) {
+        os << " (Easy Mode, ROS2_EASY_MODE=" << snap.discovery.easy_mode << ")";
+      } else if (!snap.discovery.discovery_servers.empty()) {
+        os << " of ";
+        for (size_t i = 0; i < snap.discovery.discovery_servers.size(); ++i) {
+          os << (i ? ", " : "") << locator_text(snap.discovery.discovery_servers[i]);
+        }
+      }
+      if (servers.empty()) {
+        os << "; no server discovered";
+      } else {
+        os << "; servers: ";
+        for (size_t i = 0; i < servers.size(); ++i) {
+          const auto & p = *servers[i];
+          os << (i ? ", " : "") << (p.name.empty() ? "Discovery Server" : p.name)
+             << " (" << p.guid_prefix;
+          for (const auto & l : p.metatraffic_locators) {
+            os << ", " << locator_text(l);
+          }
+          os << ") serving " << served[p.guid_prefix] << " participant(s)";
+        }
+      }
+      os << "\n";
+    }
+  }
+
   if (snap.shm.available) {
     const auto & shm = snap.shm;
     os << "\n" << paint("shared memory: ", BOLD, color) << shm.path << " "

@@ -50,6 +50,33 @@ class TestEasyMode(Base):
             self.assertEqual(e['multicast_locators'], [], e)
             self.assertEqual({loc['kind'] for loc in e['unicast_locators']}, {'SHM', 'TCPv4'}, e)
 
+    def test_the_auto_server_and_its_clients_are_reported(self):
+        # #86: DiscoveryServerAuto is a participant without endpoints on this host, the
+        # nodes SUPER_CLIENTs attributed to it by host
+        doc = None
+        for _ in range(4):
+            doc = transport_viz_json(env=ENV)
+            if any(p['discovery_protocol'] == 'SERVER' for p in doc['participants']):
+                break
+        discovery = doc['discovery']
+        self.assertEqual(discovery['observer_protocol'], 'SUPER_CLIENT', discovery)
+        self.assertEqual(discovery['easy_mode'], '127.0.0.1', discovery)
+        self.assertEqual(discovery['discovery_servers'], [], discovery)
+        servers = [p for p in doc['participants'] if p['discovery_protocol'] == 'SERVER']
+        self.assertEqual(len(servers), 1, doc['participants'])
+        server = servers[0]
+        self.assertEqual(server['name'], 'DiscoveryServerAuto', server)
+        self.assertEqual(server['host_id'], doc['local_host_id'], server)
+        self.assertEqual(server['metatraffic_locators'],
+                         [{'kind': 'UDPv4', 'address': '127.0.0.1',
+                           'port': 7400 + 250 * int(DOMAIN) + 2}], server)
+        chatter, _ = pair_of(doc, '/chatter')
+        by_prefix = {p['guid_prefix']: p for p in doc['participants']}
+        for e in (*chatter['writers'], *chatter['readers']):
+            p = by_prefix[e['participant_guid_prefix']]
+            self.assertEqual(p['discovery_protocol'], 'SUPER_CLIENT', p)
+            self.assertEqual(p['discovery_server'], server['guid_prefix'], p)
+
     def test_server_was_spawned_for_the_domain(self):
         out = subprocess.run(['fastdds', 'discovery', 'list'], check=True,
                              capture_output=True, text=True, timeout=30).stdout

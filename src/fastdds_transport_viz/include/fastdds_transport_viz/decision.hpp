@@ -85,6 +85,21 @@ DiscoveryStatus discovery_completeness(
   const std::set<ParticipantPrefix> & live_participants,
   const std::vector<Endpoint> & discovered);
 
+/// The servers a ROS_DISCOVERY_SERVER value names (#86), with Fast DDS's rules: entries
+/// separated by `;` (an empty one is a placeholder), `ip`, `ip:port`, `[ipv6]:port`,
+/// `UDPv4:[host]:port`, `TCPv4:[host]:port`, `host:port`; the port defaults to 11811 and a
+/// number below 420 is a domain id (port 7400 + 250 * domain + 2, Fast DDS 3.x). A host
+/// name stays as the address text; the caller resolves it. Entries Fast DDS would reject
+/// are skipped. Pure function.
+std::vector<Locator> parse_discovery_server_env(const std::string & value);
+
+/// Which server serves each participant, when that can be told (#86): with exactly one
+/// SERVER discovered every CLIENT / SUPER_CLIENT is its client; under Easy Mode
+/// (`easy_mode` non-empty) a client's server is the DiscoveryServerAuto on its own host.
+/// Anything else leaves `discovery_server` unset. Servers, simple participants and the
+/// tool's own never get one. Pure function.
+void attribute_discovery_servers(std::vector<Participant> & participants, bool easy_mode);
+
 /// The one stderr line an incomplete observation earns (#133), or "" when the view was
 /// complete or could not be judged. `quiet`, `timeout` and `stats` are the settings this run
 /// used: the advice is always longer than they are, and never below what a large system

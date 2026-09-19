@@ -48,9 +48,42 @@ class TestDiscoveryServer(Base):
             chatter = next((t for t in doc['topics'] if t['topic'] == '/chatter'), None)
             if chatter and len(chatter['pairs']) == 1:
                 break
-        _, pair = pair_of(doc, '/chatter')
+        chatter, pair = pair_of(doc, '/chatter')
         self.assertEqual(pair['transport'], 'SHM', pair)
         self.assertEqual({pair['writer_node'], pair['reader_node']}, {'/talker', '/listener'})
+        # #86: the server is a participant without endpoints, the nodes its clients
+        discovery = doc['discovery']
+        self.assertEqual(discovery['observer_protocol'], 'SUPER_CLIENT', discovery)
+        self.assertEqual(discovery['discovery_server_env'], SERVER, discovery)
+        self.assertEqual(discovery['discovery_servers'],
+                         [{'kind': 'UDPv4', 'address': '127.0.0.1', 'port': 11811}], discovery)
+        self.assertEqual(discovery['easy_mode'], '', discovery)
+        servers = [p for p in doc['participants'] if p['discovery_protocol'] == 'SERVER']
+        self.assertEqual(len(servers), 1, doc['participants'])
+        server = servers[0]
+        if os.environ.get('ROS_DISTRO') in ('humble', 'jazzy'):
+            # `fastdds discovery -i 0` (fast-discovery-server on Humble): the fixed server
+            # prefix of server id 0; the 3.x CLI without -i starts a "Guidless Server"
+            self.assertEqual(server['guid_prefix'], '44.53.00.5f.45.50.52.4f.53.49.4d.41', server)
+        else:
+            self.assertEqual(server['name'], 'eProsima Guidless Server', server)
+        self.assertEqual(server['vendor'], 'eProsima', server)
+        self.assertEqual(server['metatraffic_locators'],
+                         [{'kind': 'UDPv4', 'address': '127.0.0.1', 'port': 11811}], server)
+        self.assertIsNone(server['discovery_server'], server)
+        self.assertFalse(server['own'], server)
+        by_prefix = {p['guid_prefix']: p for p in doc['participants']}
+        for e in (*chatter['writers'], *chatter['readers']):
+            p = by_prefix[e['participant_guid_prefix']]
+            # Fast DDS 3.6 (Lyrical, Rolling) announces a CLIENT as SUPER_CLIENT
+            self.assertIn(p['discovery_protocol'], ('CLIENT', 'SUPER_CLIENT'), p)
+            self.assertEqual(p['discovery_server'], server['guid_prefix'], p)
+            self.assertEqual(p['vendor'], 'eProsima', p)
+            self.assertTrue(p['metatraffic_locators'], p)
+        # the tool's own participants are never clients of anything in the report
+        for p in doc['participants']:
+            if p['own']:
+                self.assertIsNone(p['discovery_server'], p)
 
     @unittest.skipUnless(
         os.environ.get('ROS_DISTRO') in ('jazzy',),
