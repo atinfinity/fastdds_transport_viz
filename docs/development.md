@@ -577,6 +577,7 @@ The one-shot pair counts below the total are the `--quiet 1` stops described abo
 | 2026-09-20 | `rate_stats` on GitHub-hosted runners ([#186](https://github.com/atinfinity/fastdds_transport_viz/issues/186)): the CI `integration` jobs of that day (x86_64 and arm64 Jazzy, arm64 Rolling) and the scenario on the dev host after the change | x86_64 + arm64 (runners), arm64 (host) | 2.14.6 (`ros:jazzy`), 3.x head (`ros:rolling`) | the 1000 Hz rung failed three CI jobs with every pair a lower bound at 975.7 / 983.7 / 982.0 /s (10 and 100 Hz at 100.0 /s every time, the same code passing on the runs around them and on re-run); the assertion now accepts a lower bound within `[0.9, 1.03]` × rate, the strict ±3 % stays for a rate without one. Dev host: 10 / 100 / 1000 Hz pass, no lower bound | `scripts/integration_test.sh rate_stats` |
 
 | 2026-09-20 | the web viewer in a browser ([#81](https://github.com/atinfinity/fastdds_transport_viz/issues/81)): `web/test/browser.test.js` and `web/test/live.test.js` against headless Chrome on the host, plus the existing Node unit tests | arm64 (host) | - (viewer only) | `node --test "web/test/*.test.js"` 67 tests, 0 failures in 12 s with Node 22.17.0 and Chrome 153.0.8010.48 (48 before: 14 browser tests and one live-mode test with 4 subtests added). Without a browser those 15 tests skip with a reason and the 48 unit tests still run; `FTV_REQUIRE_BROWSER=1` fails instead, and a `$CHROME` that is not an executable fails rather than skipping. A removed pair turned out to have no ghost arrow when its nodes are gone from the after document (`sceneEdges()` keeps ghosts only between known nodes), so that case is asserted in the table, where the ghost row is | `web/test/cdp.js`, `web/test/fake_transport_viz.js`, `web/serve.py` |
+| 2026-09-20 | type mismatches on the same topic ([#85](https://github.com/atinfinity/fastdds_transport_viz/issues/85)): the type-name case as a launch test (`ros2 topic pub` Int32 and `ros2 topic echo` String on one topic) on the three distributions; a type-hash probe with two builds of the same message package (`int32 data` against `string data`, so the same DDS type name with two REP-2011 hashes) published and subscribed the same way, with and without `--stats`; unit suites and `node --test` | arm64 | 2.14.6 (`ros:jazzy`), 3.6.2 (`ros:lyrical`), 2.6 (`ros:humble`) | name mismatch: one `NONE` / `certain` pair with `type-name-mismatch` and an empty `unmatched_reasons` on all three (before: no pair at all and a topic-level reason). Hash mismatch: both sides announce a hash on Jazzy and Lyrical (`RIHS01_a299ad13…` against `RIHS01_369ac5ac…`, the same values on both), the pair stays `SHM x1` / `certain` and gains `!type-hash-mismatch`, and `ros2 topic echo` printed nothing on either. With `--stats` the two behaviours the explanation names: Jazzy measured 35 delivered samples, 38 SHM packets and 0.41 ms latency (Fast DDS 2.x matches the pair and the rmw drops the samples), Lyrical 0 DATA submessages and `delivered` false (3.x never matches). Humble announces no hash at all (`type_hash` `""` on both endpoints), so no warning although the subscription receives nothing - the documented limitation. `colcon test`: Jazzy 557 tests, Lyrical 553, Humble 557, 0 failures; `node --test "web/test/*.test.js"` 68 tests | `test/launch/test_type_mismatch.py`, `test_decision.cpp`, `web/test/model.test.js` |
 
 ## Documentation site
 
@@ -680,6 +681,9 @@ Done:
 - Scale verification on Nav2 + TurtleBot3 and a synthetic `scale_load` ladder
   (`scripts/scale_test.sh`, `FTV_PROFILE`, "Scale results") —
   [#74](https://github.com/atinfinity/fastdds_transport_viz/issues/74)
+- Type mismatches on the same topic: `type-name-mismatch` as a `NONE` pair and the
+  `type-hash-mismatch` warning from the REP-2011 type hash —
+  [#85](https://github.com/atinfinity/fastdds_transport_viz/issues/85)
 
 Open, by priority (labels `priority/1-high` … `priority/3-low` on the issues):
 
@@ -700,6 +704,5 @@ Open, by priority (labels `priority/1-high` … `priority/3-low` on the issues):
 - Record and replay `--watch` frames with a timeline in the web viewer — [#82](https://github.com/atinfinity/fastdds_transport_viz/issues/82)
 - Metrics export: Prometheus endpoint in `transport_viz_web`, CSV output — [#83](https://github.com/atinfinity/fastdds_transport_viz/issues/83)
 - Group service and action endpoints under `--all` — [#84](https://github.com/atinfinity/fastdds_transport_viz/issues/84)
-- Type mismatches on the same topic (type name / type hash) — [#85](https://github.com/atinfinity/fastdds_transport_viz/issues/85)
 - `QUALITY_DECLARATION.md` (REP 2004) for both packages — [#87](https://github.com/atinfinity/fastdds_transport_viz/issues/87)
 - Verify whether multicast sends are stamped once per socket and inflate `RTPS_LOST` — [#130](https://github.com/atinfinity/fastdds_transport_viz/issues/130)

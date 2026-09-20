@@ -12,7 +12,17 @@ to select a transport for each writer → reader pair.
 
 ## Decision rules
 
-0. **Do the QoS match at all?** Fast DDS only matches a writer and a reader whose
+0. **Do the two announce the same type?** Fast DDS matches a writer and a reader by the
+   type name of the topic, so endpoints of different types never see each other: the pair
+   is `NONE` with the reason `type-name-mismatch`. Both endpoints are still shown, and so
+   is the pair, because what is wrong is between them. The same type name with a different
+   **ROS 2 type hash** (REP-2011) means the two message definitions differ: the pair keeps
+   the transport of the rules below and carries the warning `type-hash-mismatch`, because
+   what happens next depends on the Fast DDS version - 2.x matches the pair and delivers
+   the samples over that transport, and the rmw drops them before the subscription
+   callback; 3.x does not match the pair at all. Either way the subscription receives
+   nothing.
+1. **Do the QoS match at all?** Fast DDS only matches a writer and a reader whose
    request/offer policies agree: reliability (a BEST_EFFORT writer cannot serve a
    RELIABLE reader), durability (the writer must offer at least what the reader
    requests: VOLATILE < TRANSIENT_LOCAL < TRANSIENT < PERSISTENT), deadline (the
@@ -21,20 +31,20 @@ to select a transport for each writer → reader pair.
    allowed). Otherwise the pair is `NONE` with `qos-incompatible-<policy>` reasons and the
    warning `qos-incompatible`: no data flows, whatever the transports. ROS 2 reports the
    same situation as an incompatible QoS event on the publisher / subscription.
-1. **Same host?** Fast DDS considers two participants to be on the same host when the
+2. **Same host?** Fast DDS considers two participants to be on the same host when the
    first 4 bytes of their GUID prefixes are equal.
-2. Same host and both endpoints announce data-sharing (zero-copy), and their domain ids
+3. Same host and both endpoints announce data-sharing (zero-copy), and their domain ids
    intersect or at least one side announces none → `DATA_SHARING` (confidence `likely`,
    see [data-sharing.md](data-sharing.md)). Announced but disjoint domain ids fall through.
    When the two are seen to use different `/dev/shm`, the pair is `NONE` instead (see
    [Split IPC namespaces](#split-ipc-namespaces)).
-3. Same host and both announce a SHM locator → `SHM`. Fast DDS then uses shared memory
+4. Same host and both announce a SHM locator → `SHM`. Fast DDS then uses shared memory
    exclusively for user data between those participants; discovery still goes over UDP.
    When the two participants are seen to listen in different IPC namespaces, the pair is
    `NONE` instead (see [Split IPC namespaces](#split-ipc-namespaces)).
-4. Otherwise the first network locator kind the reader announces that the writer also
+5. Otherwise the first network locator kind the reader announces that the writer also
    speaks → `UDPv4` / `UDPv6` / `TCPv4` / `TCPv6`.
-5. Nothing in common → `NONE`.
+6. Nothing in common → `NONE`.
 
 Topics with only publishers or only subscriptions are listed with `-` and the reason
 `no-matching-reader` / `no-matching-writer`.
@@ -44,6 +54,17 @@ which the writer or the reader belongs to a node whose full name (`/ns/name`) ma
 together with that node's unpaired endpoints; the other side of a kept pair stays
 visible even if it does not match. Both filters combine with AND. An invalid regex is
 rejected at start-up (exit code 2).
+
+### The ROS 2 type hash
+
+The rmw announces the hash of the message definition (REP-2011) in the endpoint's
+USER_DATA, as `typehash=RIHS01_<64 hex>;`. `transport_viz` reads it from the discovery
+data, compares the two sides of every pair, and shows it as `type_hash` in the JSON and in
+the web viewer's endpoint panel. Only the rmw of ROS 2 Jazzy and later announces one: an
+endpoint of ROS 2 Humble, or of a participant that is not a ROS 2 node, announces none and
+is compared on the type name alone. Two nodes built against different versions of the same
+message package therefore look healthy on Humble - the table shows the transport the wire
+uses, and the subscription still receives nothing.
 
 ## The LATENCY, HZ and LOSS columns
 
@@ -403,7 +424,7 @@ with the warning `shm-ipc-namespace-split`, when one of these holds:
   other namespace takes the same number as one side, and the two sides do not collide with
   each other, neither signal fires and the pair stays `SHM`.
 
-Data-sharing endpoints (rule 2) fail the same way. Fast DDS pairs them on QoS alone; the
+Data-sharing endpoints (rule 3) fail the same way. Fast DDS pairs them on QoS alone; the
 reader cannot open the writer's history in its own `/dev/shm` and rejects the writer, and
 the writer sends it nothing through a transport, so no sample arrives. Such a pair is
 `NONE`, `certain`, with `shm-ipc-namespace-split` on the evidence above when both sides

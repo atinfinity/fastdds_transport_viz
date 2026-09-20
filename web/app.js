@@ -12,7 +12,7 @@
   // pure model / formatting functions live in model.js, the scene (filters, layout, edge
   // geometry) in scene.js; both unit-tested under Node
   const { TRANSPORTS, isInternalTopic, normalizeDocument, buildModel, filterRegex, bundle,
-    humanBytes, measuredText, latencyText, rateText, rateTitle, lossText, groupPairsByTopic, compareCells, escapeHtml, codeListHtml, shmText, participantShmText, datasharingText, statsText, clientParticipants, discoveryText,
+    humanBytes, measuredText, latencyText, rateText, rateTitle, lossText, groupPairsByTopic, compareCells, escapeHtml, codeListHtml, shmText, participantShmText, datasharingText, typeHashText, statsText, clientParticipants, discoveryText,
     pairKey, keyId, diffDocuments, changeText, changesSummary, decorations, holdChanges, heldDecorations } = globalThis.TransportVizModel;
   const { L, markOf, visibleScene, sceneEdges, edgeLabel, layout, edgeCurve, edgePathD, edgeMidpoint } = globalThis.TransportVizScene;
   const COLORS = {
@@ -305,6 +305,7 @@
       <dt>locators</dt><dd>${locators(ep, selected)}</dd>
       ${datasharingText(ep, label === 'Writer') ? `<dt>data-sharing</dt><dd>${escapeHtml(datasharingText(ep, label === 'Writer'))}</dd>` : ''}
       ${participantShmText(state.doc, ep.participant_guid_prefix) ? `<dt>shm</dt><dd>${escapeHtml(participantShmText(state.doc, ep.participant_guid_prefix))}</dd>` : ''}
+      ${typeHashText(ep) ? `<dt>type hash</dt><dd title="${escapeHtml(typeHashText(ep).full)}"><code>${escapeHtml(typeHashText(ep).short)}…</code></dd>` : ''}
       <dt>qos</dt><dd>${escapeHtml(ep.qos.reliability)}, ${escapeHtml(ep.qos.durability)}, data-sharing ${escapeHtml(ep.qos.data_sharing)}${ep.qos.data_sharing_domain_ids && ep.qos.data_sharing_domain_ids.length ? ` [${ep.qos.data_sharing_domain_ids.join(', ')}]` : ''}${qosExtras(ep.qos)}</dd>
     </dl>`;
   }

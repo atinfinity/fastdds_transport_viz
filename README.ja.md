@@ -2,7 +2,7 @@
 
 [English](README.md) | 日本語
 
-> 英語版が正です。この文書は 2026-09-17 時点の英語版に対応しています。
+> 英語版が正です。この文書は 2026-09-20 時点の英語版に対応しています。
 
 [![CI](https://github.com/atinfinity/fastdds_transport_viz/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/atinfinity/fastdds_transport_viz/actions/workflows/ci.yml)
 [![Coverage](https://coveralls.io/repos/github/atinfinity/fastdds_transport_viz/badge.svg?branch=main)](https://coveralls.io/github/atinfinity/fastdds_transport_viz?branch=main)
@@ -147,6 +147,10 @@ ros2 transport codes
 - **Linux 専用。** macOS には `/dev/shm` が無く、Docker Desktop からホスト上のノードは観測できません。
 - **ノードと同じ場所で実行する必要があります。** 同じドメイン、同じ環境変数と XML プロファイル、
   同じネットワーク/IPC 名前空間。`ROS_AUTOMATIC_DISCOVERY_RANGE=OFF` では何も見えません。
+- **type hash には ROS 2 Jazzy 以降が必要です。** 型 *名* が違う writer と reader は、どの
+  ディストリビューションでも `NONE` と `type-name-mismatch` で表示されます。同じメッセージ定義の
+  別バージョンを見分けるのは ROS 2 の type hash (REP-2011) ですが、これを広告するのは Jazzy 以降の
+  rmw だけです。Humble ではそうしたペアは健全に見え、それでも subscription には何も届きません。
 - **予測はモデルです。** 判定は Fast DDS の選択規則を写したもので、`--stats` で確認するまで
   `likely` (`?` 付き) のままの状況があります。実測には観測対象ノードの *起動前* に
   `FASTDDS_STATISTICS` を設定する必要があり、10 を超える locator と通信するノードには同梱の

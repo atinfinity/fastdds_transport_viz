@@ -1,6 +1,6 @@
 # 仕組み
 
-> 英語版が正です。この文書は 2026-09-17 時点の英語版に対応しています。
+> 英語版が正です。この文書は 2026-09-20 時点の英語版に対応しています。
 
 このツールは Fast DDS 2.14 (ROS 2 Jazzy) と 3.x (Lyrical、Rolling) の両方に対してビルドできます。
 API の差分は `include/fastdds_transport_viz/fastdds_compat.hpp` に閉じ込めてあり、以下の判定ルールは
@@ -14,7 +14,15 @@ writer → reader の各ペアで transport を選ぶときと同じルールを
 
 ## 判定ルール
 
-0. **そもそも QoS が合うか?** Fast DDS は request/offer のポリシーが合う writer と reader しか
+0. **そもそも同じ型を広告しているか?** Fast DDS は writer と reader をトピックの型名で
+   マッチさせるので、型名が違うエンドポイント同士は互いに見えません。ペアは `NONE` になり、
+   理由 `type-name-mismatch` が付きます。問題は 2 つの「あいだ」にあるので、エンドポイントも
+   ペアも表示されます。型名は同じで **ROS 2 の type hash** (REP-2011) が違う場合は、メッセージ
+   定義そのものが違います。このときペアは以下のルールどおりの transport を保ったまま、警告
+   `type-hash-mismatch` が付きます。その先の挙動は Fast DDS のバージョン次第で、2.x はペアを
+   マッチさせてその transport でサンプルを配送し、rmw が subscription のコールバック手前で
+   捨てます。3.x はそもそもマッチさせません。いずれにせよ subscription には何も届きません。
+1. **そもそも QoS が合うか?** Fast DDS は request/offer のポリシーが合う writer と reader しか
    マッチさせません: reliability (BEST_EFFORT の writer は RELIABLE の reader に提供できない)、
    durability (writer は reader の要求以上を提供する必要がある: VOLATILE < TRANSIENT_LOCAL <
    TRANSIENT < PERSISTENT)、deadline (writer の周期が reader の周期を超えてはならない)、
@@ -22,20 +30,20 @@ writer → reader の各ペアで transport を選ぶときと同じルールを
    (共通の名前。パターン可)。合わなければペアは `NONE` になり、理由 `qos-incompatible-<policy>` と
    警告 `qos-incompatible` が付きます。transport に関係なくデータは流れません。ROS 2 側では
    publisher / subscription の incompatible QoS イベントとして報告される状況です。
-1. **同じホストか?** Fast DDS は、2 つの participant の GUID プレフィックス先頭 4 バイトが等しい
+2. **同じホストか?** Fast DDS は、2 つの participant の GUID プレフィックス先頭 4 バイトが等しい
    とき同じホスト上にあるとみなします。
-2. 同じホストで、両エンドポイントが data-sharing (zero-copy) を広告し、domain id に共通部分がある
+3. 同じホストで、両エンドポイントが data-sharing (zero-copy) を広告し、domain id に共通部分がある
    か少なくとも片方が domain id を広告していない → `DATA_SHARING` (確信度 `likely`。
    [data-sharing.ja.md](data-sharing.ja.md) を参照)。広告された domain id が交わらない場合は次へ。
    2 つが別々の `/dev/shm` を使っていると分かる場合は、代わりに `NONE` になります
    ([IPC 名前空間の分断](#ipc-名前空間の分断) を参照)。
-3. 同じホストで、両方が SHM locator を広告している → `SHM`。このとき Fast DDS はその participant
+4. 同じホストで、両方が SHM locator を広告している → `SHM`。このとき Fast DDS はその participant
    間のユーザーデータに共有メモリだけを使います。discovery は引き続き UDP で行われます。
    2 つの participant が別々の IPC 名前空間で待ち受けていると分かる場合は、代わりに `NONE` に
    なります ([IPC 名前空間の分断](#ipc-名前空間の分断) を参照)。
-4. それ以外は、reader が広告するネットワーク locator のうち writer も話せる最初の種類
+5. それ以外は、reader が広告するネットワーク locator のうち writer も話せる最初の種類
    → `UDPv4` / `UDPv6` / `TCPv4` / `TCPv6`。
-5. 共通の locator が無い → `NONE`。
+6. 共通の locator が無い → `NONE`。
 
 publisher だけ、または subscription だけのトピックは `-` と理由 `no-matching-reader` /
 `no-matching-writer` で表示されます。
@@ -44,6 +52,16 @@ publisher だけ、または subscription だけのトピックは `-` と理由
 完全修飾ノード名 (`/ns/name`) の一致するノードに属するペアを、そのノードの未接続エンドポイントと
 ともに残します。残ったペアの相手側は一致しなくても表示されます。2 つのフィルタは AND です。
 不正な正規表現は起動時に拒否されます (終了コード 2)。
+
+### ROS 2 の type hash
+
+rmw はメッセージ定義のハッシュ (REP-2011) を、エンドポイントの USER_DATA に
+`typehash=RIHS01_<64 桁の 16 進>;` という形で広告します。`transport_viz` はこれを discovery
+データから読み取ってペアの両側を比較し、JSON の `type_hash` と web ビューアのエンドポイント
+パネルに表示します。広告するのは ROS 2 Jazzy 以降の rmw だけで、ROS 2 Humble のエンドポイントや
+ROS 2 ノードでない participant は広告しないため、型名だけで比較されます。したがって Humble では、
+同じメッセージパッケージの違うバージョンでビルドされた 2 つのノードは健全に見えます。表に出るのは
+ワイヤ上の transport で、それでも subscription には何も届きません。
 
 ## LATENCY 列、HZ 列、LOSS 列
 
@@ -372,7 +390,7 @@ Fast DDS はホスト id が同じなら共有メモリで相手の participant 
   片側と同じ番号を取り、両側どうしの番号は衝突しない場合、どちらの判定も働かずペアは `SHM` の
   ままです。
 
-data-sharing のエンドポイント (規則 2) も同じように失敗します。Fast DDS は QoS だけでそれらを
+data-sharing のエンドポイント (規則 3) も同じように失敗します。Fast DDS は QoS だけでそれらを
 組み合わせますが、reader は自分の `/dev/shm` で writer の history を開けずに writer を拒否し、writer は
 その reader に transport 経由で何も送らないため、サンプルは届きません。このペアは、両側が SHM を
 広告していれば上記の証拠で、SHM transport が無くても存在する data-sharing のセグメントでも、

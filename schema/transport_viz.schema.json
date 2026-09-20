@@ -235,6 +235,10 @@
         "ros_type": {
           "type": "string"
         },
+        "type_hash": {
+          "type": "string",
+          "description": "the ROS 2 type hash of REP-2011 (\"RIHS01_<64 hex>\") the endpoint announces in its USER_DATA; empty for an endpoint that announces none (ROS 2 Humble, a non-ROS participant) and absent in documents before #85"
+        },
         "buffer_parent_guid": {
           "type": "string",
           "description": "rmw_fastrtps_cpp native-buffer companion (<topic>/_buf_cpu): the guid of the writer or reader of the parent topic whose samples it carries; absent for other endpoints"

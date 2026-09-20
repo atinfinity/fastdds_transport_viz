@@ -147,6 +147,9 @@ struct Endpoint
   std::string dds_type;
   std::string ros_topic;          // demangled; empty when not a ROS topic
   std::string ros_type;           // demangled; empty when not a ROS type
+  // REP-2011 type hash ("RIHS01_<64 hex>") out of the endpoint's USER_DATA, "" when the
+  // endpoint announces none: Humble's rmw does not, nor does a non-ROS participant (#85)
+  std::string type_hash;
   std::string node_name;          // fully-qualified ROS node name, may be empty
   std::string host_name;          // from statistics PHYSICAL_DATA, may be empty
   std::string process;            // from statistics PHYSICAL_DATA, may be empty

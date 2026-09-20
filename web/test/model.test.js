@@ -210,6 +210,17 @@ test('datasharingText: the endpoint panel row from the segment visibility (#163)
   assert.equal(M.datasharingText({ datasharing_history_bytes: null, datasharing_segment_visibility: 'not-visible' }, false), 'notification segment not-visible');
 });
 
+test('typeHashText: the endpoint panel row from the REP-2011 type hash (#85)', () => {
+  const hash = 'RIHS01_' + '0123456789abcdef'.repeat(4);
+  assert.equal(M.typeHashText(null), null);
+  assert.equal(M.typeHashText({}), null, 'a document before #85, or an endpoint on Humble');
+  assert.equal(M.typeHashText({ type_hash: '' }), null);
+  assert.deepEqual(M.typeHashText({ type_hash: hash }), { short: '01234567', full: hash });
+  assert.deepEqual(
+    M.typeHashText({ type_hash: 'RIHS02_ff' }), { short: 'RIHS02_f', full: 'RIHS02_ff' },
+    'a version this viewer does not know is shown as it is');
+});
+
 test('shmText: summary line, stale count, visibility and warnings with descriptions', () => {
   assert.equal(M.shmText(null), '');
   assert.equal(M.shmText({ available: false }), '');
