@@ -34,7 +34,12 @@ import time
 BUDGETS = {
     # name: (limit, comparison, description)
     'oneshot_table_ms': (2000.0, '<', 'one-shot table after discovery (collect + render, median)'),
-    'watch_frame_p95_ms': (250.0, '<', '--watch frame, p95 of every run (--stats, --stats -v, no --stats)'),
+    # Median and p95 (#177): a 60 s watch draws about 30 frames, whose p95 is the worst one
+    # or two, and the host is not still (the load's statistics writers work while the tool is
+    # matched). The median is the frame a user sees; the p95 keeps a stall from hiding.
+    'watch_frame_median_ms': (250.0, '<', '--watch frame, median, the worst of every run '
+                              '(--stats, --stats -v, no --stats)'),
+    'watch_frame_p95_ms': (500.0, '<', '--watch frame, p95, the worst of every run'),
     'tool_cpu_cores': (1.0, '<', 'tool CPU, average over the --watch and 30 s --stats runs'),
     'tool_rss_mb': (300.0, '<', 'tool peak RSS over every run'),
     # Not stats_dropped_samples (#147): the counters are cumulative and the tool prints
@@ -392,6 +397,8 @@ def main():
 
     measured = {
         'oneshot_table_ms': result['oneshot']['table_ms_median'],
+        'watch_frame_median_ms': max((w['frame_ms_median'] or float('inf'))
+                                     for w in watch.values()),
         'watch_frame_p95_ms': max((w['frame_ms_p95'] or float('inf')) for w in watch.values()),
         'tool_cpu_cores': max([w['cpu_cores'] for w in watch.values()]
                               + [s30['cpu_cores']]),
@@ -442,7 +449,35 @@ def judge(result):
               for k, b in result['budgets'].items() if b['pass'] is False]
     if not result['load_healthy']:
         failed.append('load processes died')
+    if failed:
+        share = host_share(result)
+        if share:
+            failed[-1] += f' ({share})'
     return not failed, failed
+
+
+def slowest_watch(result):
+    """The --watch run with the highest frame median: the one a frame budget fails on."""
+    runs = [w for w in (result.get('watch') or {}).values()
+            if w.get('frame_ms_median') is not None]
+    return max(runs, key=lambda w: w['frame_ms_median']) if runs else None
+
+
+def host_share(result):
+    """`host: load X cores before the tool, Y during the watch run, tool Z cores` (#177), or
+    '' for a result recorded before load_before existed. The host is not still within a run:
+    the load's statistics writers work while the tool is matched, so every run heats the host
+    for the next one, and a FAIL has to say whether the build or the host got slower."""
+    before = (result.get('load_before') or {}).get('vm_cores_load_only')
+    if before is None:
+        return ''
+    parts = [f'load {before:.2f} cores before the tool']
+    slowest = slowest_watch(result)
+    if slowest and slowest.get('vm_cores') is not None:
+        parts.append(f"{slowest['vm_cores']:.2f} during the watch run")
+    if slowest and slowest.get('cpu_cores') is not None:
+        parts.append(f"tool {slowest['cpu_cores']:.2f} cores")
+    return 'host: ' + ', '.join(parts)
 
 
 def markdown_row(r):
@@ -455,9 +490,12 @@ def markdown_row(r):
     if not r['load_healthy']:
         failed.append('load processes died')
     verdict = 'pass' if not failed else 'over: ' + ', '.join(failed)
+    before = (r.get('load_before') or {}).get('vm_cores_load_only')
+    load = f', load {before:.1f} cores' if before is not None else ''
     return (
         f"| {r['date']} | {r['label']} | {r['ros_distro']} ({r['fastdds'].split('-')[0]}) "
-        f"| {r['host']['arch']}, {r['host']['cpus']} CPU, {r['host']['mem_total_mb'] / 1024:.1f} GB "
+        f"| {r['host']['arch']}, {r['host']['cpus']} CPU, "
+        f"{r['host']['mem_total_mb'] / 1024:.1f} GB{load} "
         f"| {s['participants_30s']} / {s['topics_30s']} / {s['pairs_30s']} "
         f"| {o['discovery_ms_median'] / 1000:.1f} s / {o['table_ms_median']:.0f} ms "
         f"(pairs {min(p or 0 for p in o['pairs'])}) "

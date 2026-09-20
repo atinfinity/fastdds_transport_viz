@@ -2529,6 +2529,19 @@ TEST(StatsSettled, WaitsForQuietTheMinimumEveryMatchedWriterAndStillMeasuredInst
   EXPECT_FALSE(stats_settled(true, 8.0, 20, 20, 0, 3.0, 3.0));
 }
 
+TEST(WatchReady, QuietAloneWithoutStatsQuietAndTheMinimumWithStats)
+{
+  // without --stats the first frame follows discovery, however early
+  EXPECT_TRUE(watch_ready(true, 1.0, false));
+  EXPECT_FALSE(watch_ready(false, 12.0, false));
+  // with --stats the first frame needs a counter window, but not the settle rule: at medium
+  // that rule takes 16-23 s, which are frames the run does not draw (#177)
+  EXPECT_TRUE(watch_ready(true, kStatsSettleMinSeconds, true));
+  EXPECT_TRUE(watch_ready(true, 12.0, true));
+  EXPECT_FALSE(watch_ready(true, kStatsSettleMinSeconds - 0.1, true));
+  EXPECT_FALSE(watch_ready(false, 12.0, true));
+}
+
 TEST(StatisticsLossWarning, NothingLostSaysNothing)
 {
   StatsData s;

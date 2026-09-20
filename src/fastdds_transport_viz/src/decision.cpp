@@ -1150,6 +1150,11 @@ bool stats_settled(
          measured_quiet_seconds >= quiet_window_seconds;
 }
 
+bool watch_ready(bool discovery_quiet, double elapsed_seconds, bool stats)
+{
+  return discovery_quiet && (!stats || elapsed_seconds >= kStatsSettleMinSeconds);
+}
+
 bool statistics_late_join_window_open(
   bool any_writer_matched, double seconds_since_last_writer_match)
 {
