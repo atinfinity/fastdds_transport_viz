@@ -942,6 +942,33 @@ TEST(ApplyStats, DeliveredWithoutMeasuredTrafficIsItsOwnWarning)
   EXPECT_EQ(p.verdict.confidence, Confidence::Certain);  // nothing measured, prediction stands
 }
 
+TEST(ApplyStats, DeliveredWithIdleLocatorsIsTheSameWarning)
+{
+  // #149: the reader's locator has RTPS_SENT samples from before the observation, none
+  // during it, while HISTORY_LATENCY proves delivery: not idle, unmeasured.
+  std::vector<Endpoint> eps;
+  eps.push_back(make(true, HOST_A, {shm(7415)}));
+  eps.push_back(make(false, HOST_A, {shm(7413)}));
+  eps[0].participant_guid_prefix = "P1";
+  auto topics = summarize(eps);
+  TrafficSample t{"P1", shm(7413), 100, 10000.0};
+  t.packets_first = 100;
+  t.bytes_first = 10000.0;
+  t.samples = 1;
+  auto stats = stats_with(eps[0], {t}, true, &eps[1]);
+  apply_stats(topics, stats);
+  const auto & p = topics[0].pairs[0];
+  EXPECT_TRUE(p.measured.delivered);
+  EXPECT_EQ(p.measured.transports, (std::vector<Transport>{Transport::SHM}));
+  EXPECT_EQ(p.measured.packets, 0u);
+  EXPECT_TRUE(has(p.verdict.warnings, "delivered-without-measured-traffic"));
+  EXPECT_EQ(p.verdict.confidence, Confidence::Certain);
+  // without the proof the locator is simply idle
+  auto quiet = summarize(eps);
+  apply_stats(quiet, stats_with(eps[0], {t}));
+  EXPECT_FALSE(has(quiet[0].pairs[0].verdict.warnings, "delivered-without-measured-traffic"));
+}
+
 TEST(ApplyStats, WindowDeltas)
 {
   std::vector<Endpoint> eps;

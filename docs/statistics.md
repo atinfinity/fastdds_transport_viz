@@ -100,9 +100,13 @@ between the first and the last sample as `packets` / `bytes` (`measured=SHM 148p
 7.63 MB`); the cumulative values are kept as `packets_total` / `bytes_total` in JSON.
 The transport kinds in `measured` are taken from every packet ever reported, so a pair
 that was active before but silent during the observation shows `measured=SHM (idle)`
-rather than losing its measured transport. Other values of the cell: `n/a` (the writer's
-participant publishes no statistics), `none` (statistics, but no packet to any locator of
-the reader) and `none(delivered)` (the same, while `HISTORY_LATENCY` proved delivery).
+rather than losing its measured transport. When `HISTORY_LATENCY` proved delivery during
+that observation the pair is not idle, its `RTPS_SENT` samples did not arrive: it shows
+`measured=SHM (unmeasured, delivered)` with `!delivered-without-measured-traffic` instead
+([#149](https://github.com/atinfinity/fastdds_transport_viz/issues/149)). Other values of
+the cell: `n/a` (the writer's participant publishes no statistics), `none` (statistics, but
+no packet to any locator of the reader) and `none(delivered)` (the same, while
+`HISTORY_LATENCY` proved delivery).
 A participant has statistics when the tool received a statistics sample it published:
 that set is `stats.participants_with_stats` in the JSON and the N of the footer's
 "statistics from N participant(s)". A participant only named in another one's sample, such
@@ -136,8 +140,10 @@ first frame comes once discovery is quiet and 5 s have passed (`--timeout` still
 wait), and the later frames carry what the handoff brings
 ([#177](https://github.com/atinfinity/fastdds_transport_viz/issues/177)). Idle topics show
 `!no-traffic-observed`. When `HISTORY_LATENCY` proves delivery but `RTPS_SENT` has no entry
-for any of the reader's locators, the warning is `!delivered-without-measured-traffic`
-instead: the samples arrived, the statistics just did not attribute the packets (seen on
+for any of the reader's locators, or only entries from before the observation
+(`measured=SHM (unmeasured, delivered)`), the warning is
+`!delivered-without-measured-traffic` instead: the samples arrived, the statistics just did
+not attribute the packets (seen on
 slow machines with 2 MB samples over SHM and the default 512 KB segment; a larger
 `segment_size` in the SHM transport descriptor helps).
 

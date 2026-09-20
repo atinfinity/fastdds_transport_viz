@@ -157,9 +157,14 @@ TEST(RenderTable, MeasuredCellValues)
   EXPECT_NE(render_table(s, opt).find("measured=none "), std::string::npos);
   only_pair(s).measured.delivered = true;
   EXPECT_NE(render_table(s, opt).find("measured=none(delivered)"), std::string::npos);
-  // idle: transports known, no packets in the window
+  // transports known, no packets in the window: unmeasured with a delivery proof (#149),
+  // idle without one
   only_pair(s).measured.transports = {Transport::SHM};
+  EXPECT_NE(
+    render_table(s, opt).find("measured=SHM (unmeasured, delivered)"), std::string::npos);
+  only_pair(s).measured.delivered = false;
   EXPECT_NE(render_table(s, opt).find("measured=SHM (idle)"), std::string::npos);
+  only_pair(s).measured.delivered = true;
   // packets and bytes with SI formatting
   only_pair(s).measured.packets = 148;
   only_pair(s).measured.bytes = 7.63e6;

@@ -385,7 +385,9 @@ std::string measured_label(const Pair & p)
   }
   std::string s = join(parts, "+");
   if (p.measured.packets == 0) {
-    return s + " (idle)";   // packets before the observation, none during it
+    // Packets before the observation, none during it. With a delivery proof the link is
+    // not idle: the RTPS_SENT samples did not arrive (#149).
+    return s + (p.measured.delivered ? " (unmeasured, delivered)" : " (idle)");
   }
   s += " " + std::to_string(p.measured.packets) + "pkt " + human_bytes(p.measured.bytes, "B");
   return s;

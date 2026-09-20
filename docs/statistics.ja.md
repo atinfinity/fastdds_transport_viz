@@ -94,7 +94,10 @@ participant が SHM transport しか持たない writer はこれらの reader �
 reader を読み続け、最初と最後のサンプルの *差分* を `packets` / `bytes` として表示します
 (`measured=SHM 148pkt 7.63 MB`)。累積値は JSON の `packets_total` / `bytes_total` に残ります。
 `measured` の transport の種類は報告されたすべてのパケットから決めるので、以前は流れていたが観測中は
-静かだったペアは、実測 transport を失わずに `measured=SHM (idle)` と表示されます。このセルの他の値:
+静かだったペアは、実測 transport を失わずに `measured=SHM (idle)` と表示されます。その観測中に
+`HISTORY_LATENCY` が配送を証明していれば、ペアは idle ではなく `RTPS_SENT` のサンプルが届かなかった
+のであり、代わりに `measured=SHM (unmeasured, delivered)` と `!delivered-without-measured-traffic`
+が付きます ([#149](https://github.com/atinfinity/fastdds_transport_viz/issues/149))。このセルの他の値:
 `n/a` (writer の participant が statistics を出していない)、`none` (statistics はあるが reader のどの
 locator にもパケットが無い)、`none(delivered)` (同じ状況で `HISTORY_LATENCY` が配送を証明している)。
 statistics が有効な participant とは、その participant 自身が publish した statistics のサンプルをツールが
@@ -129,7 +132,8 @@ metatraffic 宛てやツール自身のポート宛てのエントリはどの p
 届く分は後のフレームに載ります
 ([#177](https://github.com/atinfinity/fastdds_transport_viz/issues/177))。トラフィックの無いトピックには
 `!no-traffic-observed` が付きます。`HISTORY_LATENCY`
-が配送を証明しているのに `RTPS_SENT` に reader のどの locator の項目も無い場合は、代わりに
+が配送を証明しているのに `RTPS_SENT` に reader のどの locator の項目も無い、または観測前の項目しか
+無い (`measured=SHM (unmeasured, delivered)`) 場合は、代わりに
 `!delivered-without-measured-traffic` が付きます。サンプルは届いたが statistics がパケットを
 帰属させなかったということです (遅いマシンで 2 MB のサンプルを既定の 512 KB セグメントの SHM で
 流したときに見られました。SHM transport descriptor の `segment_size` を大きくすると改善します)。

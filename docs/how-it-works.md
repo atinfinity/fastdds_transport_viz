@@ -72,7 +72,8 @@ reader's participant does not publish it), `resent` the DATA submessages the wri
 nackfrags are in the JSON `measured.reliability` object and the web viewer's pair card.
 Without statistics the three columns show `-`. The `measured=` cell of a pair row gives what
 the transport actually carried during the observation (`SHM 148pkt 7.63 MB`, or `(idle)`
-when packets flowed only before the observation).
+when packets flowed only before the observation; `(unmeasured, delivered)` when deliveries
+were proven meanwhile, so the statistics samples rather than the packets are missing).
 
 ## Reason codes
 

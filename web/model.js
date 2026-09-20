@@ -192,7 +192,9 @@
     const label = locators.length
       ? locators.map(l => `${l.kind}${l.address ? ' ' + l.address : ''}:${l.port}`).join(' + ')
       : m.transports.join('+');
-    if (!m.packets) return `${label} (idle)`;
+    // No packet in the window: with a delivery proof the link is not idle, its RTPS_SENT
+    // samples did not arrive (#149).
+    if (!m.packets) return `${label} ${m.delivered ? '(unmeasured, delivered)' : '(idle)'}`;
     const bytes = typeof m.bytes === 'number' ? ` ${humanBytes(m.bytes, 'B')}` : '';
     return `${label} ${m.packets} pkt${bytes}`;
   }
