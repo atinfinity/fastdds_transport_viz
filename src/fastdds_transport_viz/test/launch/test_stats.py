@@ -1,8 +1,11 @@
 # Copyright 2026 atinfinity
 # SPDX-License-Identifier: Apache-2.0
 """--stats: nodes started with FASTDDS_STATISTICS => measured SHM traffic and host names."""
+import json
 import os
+import subprocess
 import sys
+import time
 
 sys.path.insert(0, os.path.dirname(__file__))
 from _common import (  # noqa: E402
@@ -180,6 +183,31 @@ class TestStats(Base):
         chatter = topic(doc, '/chatter')
         pair = next(p for p in chatter['pairs'] if p['reader_node'] == '/listener')
         self.assertTrue(pair['measured']['available'], pair)
+
+    def test_default_one_shot_settles(self):
+        """
+        The default --stats one-shot stops on the settle rule (#168), not on its 30 s cap.
+
+        Five nodes: discovery is quiet, every RTPS_SENT writer heard from and the measured
+        traffic entries complete well within the cap, so the run ends a few seconds after the
+        5 s minimum (the 3 s window on the entries), and says so in the document.
+        """
+        cmd = ['ros2', 'run', 'fastdds_transport_viz', 'transport_viz', '--json', '--stats']
+        start = time.monotonic()
+        out = subprocess.run(cmd, check=True, capture_output=True, text=True, timeout=60)
+        wall = time.monotonic() - start
+        doc = json.loads(out.stdout)
+        stats = doc['stats']
+        self.assertEqual(doc['discovery']['stopped_on'], 'settled', (doc['discovery'], stats))
+        self.assertTrue(stats['settled'], stats)
+        self.assertGreater(stats['writers_announced'], 0, stats)
+        self.assertEqual(stats['writers_heard'], stats['writers_announced'], stats)
+        self.assertGreaterEqual(stats['settled_at_s'], 5.0, stats)
+        self.assertLess(stats['settled_at_s'], 15.0, stats)
+        self.assertLess(wall, 25.0, (wall, stats))
+        self.assertNotIn('not heard from', out.stderr)
+        # and every pair with a delivery proof carries a measured packet
+        self.assertEqual(stats['pairs_delivered_unmeasured'], 0, stats)
 
 
 @launch_testing.post_shutdown_test()

@@ -126,6 +126,31 @@ inline constexpr double kStatisticsLateJoinGraceSeconds = 5.0;
 bool statistics_late_join_window_open(
   bool any_writer_matched, double seconds_since_last_writer_match);
 
+/// The least a --stats one-shot observes (#168): the counters are reported as last - first, so
+/// every instance needs a second sample after the transient-local one, and small systems
+/// took this long before the settle rule existed.
+inline constexpr double kStatsSettleMinSeconds = 5.0;
+/// The least a --stats one-shot waits for the measured RTPS_SENT instances to stop growing
+/// before it ends (#168): the transient-local handoffs at 20 processes pause for up to about
+/// 2 s between one participant's and the next's, which a 1 s --quiet would take for the end.
+inline constexpr double kStatsMeasuredQuietSeconds = 3.0;
+
+/// Whether a --stats one-shot has seen what it waits for (#168): discovery is quiet, at least
+/// kStatsSettleMinSeconds have passed, every RTPS_SENT writer the reader matched has been
+/// heard from once, and the number of RTPS_SENT instances with a measured delta has not grown
+/// for `quiet_window_seconds` (`measured_quiet_seconds` is how long it has stood still). The
+/// transient-local handoff of the counter writers is what a fixed window cut short: at 20
+/// processes with 100 pairs each the last writer is first heard from at 16-20 s and measured
+/// instances keep coming until about 25 s, with pauses of up to 2 s in between. What the
+/// handoffs produce is measured instances, so the run ends when those stop coming, the way
+/// discovery ends when events do. Nothing matched means nothing to wait for. Pure function.
+/// `measured_instances` must be non-zero once anything was announced: on Fast DDS 3.6 every
+/// writer's first sample can be in before a single entry has its second, and "zero for 3 s"
+/// is not quiet, it is nothing measured yet.
+bool stats_settled(
+  bool discovery_quiet, double elapsed_seconds, size_t writers_announced, size_t writers_heard,
+  size_t measured_instances, double measured_quiet_seconds, double quiet_window_seconds);
+
 /// Whether losing statistics samples cost a measurement (#134, #147): counter samples were lost
 /// or rejected inside the observation window AND a pair with a delivery proof shows no measured
 /// packet (StatsData::pairs_delivered_unmeasured). Loss alone is harmless - the counters are

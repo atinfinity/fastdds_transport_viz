@@ -384,6 +384,16 @@ std::string render_json(const Snapshot & snap, const RenderOptions & opt)
   stats["samples_rejected"] = snap.stats.samples_rejected;
   // Writers, not samples: what never matched never published anything to count (#141).
   stats["writers_incompatible_qos"] = snap.stats.writers_incompatible_qos;
+  // The settle rule of a --stats one-shot (#168): RTPS_SENT writers the reader matched, those
+  // heard from, and when the run stopped on that (null: it hit --timeout first, or --watch).
+  stats["writers_announced"] = snap.stats.writers_announced;
+  stats["writers_heard"] = snap.stats.writers_heard;
+  stats["settled"] = snap.stats.settled;
+  if (snap.stats.settled_at_s >= 0.0) {
+    stats["settled_at_s"] = snap.stats.settled_at_s;
+  } else {
+    stats["settled_at_s"] = nullptr;
+  }
   // Part of samples_lost, named apart because it costs no measurement (#141).
   stats["samples_lost_latency"] = snap.stats.samples_lost_latency;
   // The lost measurements themselves, which is what stats-samples-lost is about (#147).

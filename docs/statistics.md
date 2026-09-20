@@ -112,8 +112,21 @@ as the remote writer of a reader's `HISTORY_LATENCY` report, does not count.
 
 Statistics are per *participant* (one per ROS node), so a measurement applies to the
 writer's node → reader's node link. The prediction from discovery is what tells the
-individual pairs apart. `--stats` observes for the full `--timeout` (default 5 s, the
-quiet-period early exit is disabled) so that counters can accumulate; idle topics show
+individual pairs apart. `--stats` observes for at least 5 s so that counters can accumulate,
+and goes on until discovery has been quiet for `--quiet` seconds, every `RTPS_SENT` writer
+(one per participant with statistics) the tool's reader matched has delivered a first sample,
+*and* the number of `RTPS_SENT` entries with measured packets has stopped growing for
+`--quiet` seconds (at least 3 s) - or until `--timeout` (default 30 s with `--stats`),
+whichever comes first. The last two conditions are what a fixed window cut short
+([#168](https://github.com/atinfinity/fastdds_transport_viz/issues/168)): a transient-local
+counter writer hands its whole history to a late-joining reader as one batch, the writers do
+it one process at a time with pauses of up to 2 s in between, and at 20 processes with 100
+pairs each the last writer was first heard from after 16-20 s and the entries kept coming
+until about 25 s, so a 5 s run measured a fraction of the pairs on one run and none on the
+next. `--json` records the rule in `stats.writers_announced` (`RTPS_SENT` writers matched),
+`stats.writers_heard`, `stats.settled` and `stats.settled_at_s` (`null` when the run hit
+`--timeout` first, in which case one stderr line names the writers still not heard from), and
+`discovery.stopped_on` reads `settled`. Idle topics show
 `!no-traffic-observed`. When `HISTORY_LATENCY` proves delivery but `RTPS_SENT` has no entry
 for any of the reader's locators, the warning is `!delivered-without-measured-traffic`
 instead: the samples arrived, the statistics just did not attribute the packets (seen on
@@ -274,8 +287,8 @@ the time between two takes, so the cadence matters more than the depth.
 Measured on an 8-CPU Docker VM with Jazzy (Fast DDS 2.14.6), statistics on every node, the
 tool next to the nodes (details: [development.md](development.md#scale-results)):
 
-- **Up to about 10 processes and 500 pairs** everything keeps up: every pair is measured within the default 5 s.
-- **At 20 processes and 2400 pairs** every pair is measured within 5 s as well, and the one-shot table shows all of them. Before [#141](https://github.com/atinfinity/fastdds_transport_viz/issues/141) a quarter of them had no measurement after 5 s and the table showed one.
+- **Up to about 10 processes and 500 pairs** everything keeps up: every pair is measured within 5 s, and the default `--stats` one-shot ends a few seconds after that.
+- **At 20 processes and 2400 pairs** the default `--stats` one-shot settles after 17-23 s and measures 95-100 % of the pairs, and the one-shot table shows all of them. A 5 s run measured none ([#168](https://github.com/atinfinity/fastdds_transport_viz/issues/168): the statistics writers hand their history to the tool's readers one process at a time), and before [#141](https://github.com/atinfinity/fastdds_transport_viz/issues/141) a quarter of the pairs had no measurement and the table showed one.
 - **At 40 processes and 5600 pairs** the tool measures most or all of the pairs: the coverage at 5 s was 0.62, 0.97 and 1.0 over three runs of the same build, where before #141 it was 0.0 in all three. The spread is the host rather than the tool - at this size the load alone takes 6.7 to 7.5 of the 8 cores before the tool starts - and a `--watch --stats` frame still takes 1.6 s here (0.44 s without `--stats`; at 20 processes 0.15 s, within the 250 ms budget since [#135](https://github.com/atinfinity/fastdds_transport_viz/issues/135)).
 
 The tool receives all statistics over UDP on one Fast DDS receive thread, and next to Nav2 (4
@@ -346,7 +359,7 @@ pair. Narrow the view instead:
 
 A longer `--timeout` does not reduce the loss - it collects more of it - but it does give every
 instance more chances to be sampled twice, which is exactly what the coverage figures above
-compare: what is measured at 5 s against what is measured at 30 s.
+compare: what the default one-shot measured against what is measured at 30 s.
 
 `stats.samples_lost_at_start` is counted apart and never warns. Every reader is told about the
 samples a writer's keep-last history had already dropped when it matched, which says nothing

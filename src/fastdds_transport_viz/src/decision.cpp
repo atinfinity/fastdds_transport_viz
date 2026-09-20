@@ -1127,8 +1127,10 @@ std::string incomplete_discovery_warning(
       << " endpoints announced by " << status.participants_incomplete
       << (status.participants_incomplete == 1 ? " participant" : " participants")
       << " were not seen); ";
+  // --stats stops on quiet too since #168 (once the counter writers are heard), so the same
+  // advice holds; only the cap it may have hit is its own, longer one.
   if (stats) {
-    out << "pass --timeout " << longer(timeout, 15);   // --stats ignores the quiet window
+    out << "pass --quiet " << longer(quiet, 3) << " or --timeout " << longer(timeout, 60);
   } else if (quiet > 0) {
     out << "pass --quiet " << longer(quiet, 3) << " or --timeout " << longer(timeout, 10);
   } else {
@@ -1136,6 +1138,16 @@ std::string incomplete_discovery_warning(
   }
   out << " for a complete view";
   return out.str();
+}
+
+bool stats_settled(
+  bool discovery_quiet, double elapsed_seconds, size_t writers_announced, size_t writers_heard,
+  size_t measured_instances, double measured_quiet_seconds, double quiet_window_seconds)
+{
+  return discovery_quiet && elapsed_seconds >= kStatsSettleMinSeconds &&
+         writers_heard >= writers_announced &&
+         (writers_announced == 0 || measured_instances > 0) &&
+         measured_quiet_seconds >= quiet_window_seconds;
 }
 
 bool statistics_late_join_window_open(

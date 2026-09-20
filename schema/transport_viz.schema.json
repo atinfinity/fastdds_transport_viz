@@ -786,6 +786,28 @@
           "minimum": 0,
           "description": "statistics DataWriters the tool's readers could not match because the writers' QoS is incompatible with theirs (#141). Nothing such a writer publishes ever arrives, and nothing is counted in samples_lost either: a reader is only told about the samples of writers it did match. Optional; documents written before #141 do not carry it."
         },
+        "writers_announced": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "statistics RTPS_SENT writers (one per participant with statistics) the tool's reader matched (#168). What the settle rule of a --stats one-shot waits to hear from: RTPS_SENT is what `measured` means, and every participant sends something within seconds, while the event counters (RTPS_LOST, GAP_COUNT, ...) stay silent on a healthy system. Optional; documents written before #168 do not carry it."
+        },
+        "writers_heard": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "those of writers_announced a sample was taken from (#168): a writer's transient-local history arrives as one handoff, so its first sample says the handoff has begun. Optional; documents written before #168 do not carry it."
+        },
+        "settled": {
+          "type": "boolean",
+          "description": "whether the --stats one-shot ended because discovery was quiet for --quiet seconds, at least 5 s had passed and writers_heard reached writers_announced (#168), which is what discovery.stopped_on = settled says as well. false under --watch and when --timeout was hit first. Optional; documents written before #168 do not carry it."
+        },
+        "settled_at_s": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "description": "seconds after the start at which the run settled (#168); null when it did not (--timeout first, or --watch). Optional; documents written before #168 do not carry it."
+        },
         "pairs_delivered": {
           "type": "integer",
           "minimum": 0,
@@ -1050,9 +1072,10 @@
         "stopped_on": {
           "enum": [
             "quiet",
-            "timeout"
+            "timeout",
+            "settled"
           ],
-          "description": "what ended the observation: a --quiet window without discovery events, or --timeout"
+          "description": "what ended the observation: a --quiet window without discovery events, --timeout, or (with --stats, #168) that window once every matched statistics RTPS_SENT writer was heard from"
         },
         "events": {
           "type": "integer",

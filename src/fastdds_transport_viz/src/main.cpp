@@ -102,7 +102,7 @@ namespace
 struct Options
 {
   int domain{-1};             // -1 => ROS_DOMAIN_ID / 0
-  double timeout{-1.0};       // seconds to wait for discovery (-1: 3, or 5 with --stats)
+  double timeout{-1.0};       // seconds to wait for discovery (-1: 3, or 20 with --stats)
   bool stats{false};
   double quiet{1.0};          // stop early after this many silent seconds
   bool json{false};
@@ -136,9 +136,11 @@ void usage()
     "\n"
     "Options:\n"
     "  --domain <id>      DDS domain id (default: $ROS_DOMAIN_ID or 0)\n"
-    "  --timeout <sec>    max time to wait for discovery (default: 3, 5 with --stats)\n"
+    "  --timeout <sec>    max time to wait for discovery (default: 3, 30 with --stats)\n"
     "  --quiet <sec>      stop early after this many seconds without discovery events\n"
-    "                     (default: 1; ignored with --stats)\n"
+    "                     (default: 1; with --stats also once every participant with\n"
+    "                     statistics has been heard from and the measured traffic\n"
+    "                     entries stop growing for max(--quiet, 3) s, never before 5 s)\n"
     "  --topic <regex>    only show topics whose (ROS) name matches the regex\n"
     "  --node <regex>     only show pairs where the writer or the reader belongs to a\n"
     "                     node whose full name matches the regex (that node's unpaired\n"
@@ -465,7 +467,8 @@ Snapshot collect(
   fastdds_transport_viz::RosGraphResolver & resolver,
   fastdds_transport_viz::RosDiscoveryInfoObserver * names,
   fastdds_transport_viz::StatsObserver * stats,
-  const Options & o, int domain, double observation_seconds, const std::string & stopped_on)
+  const Options & o, int domain, double observation_seconds, const std::string & stopped_on,
+  double settled_at_s = -1.0)
 {
   const auto & prof = profiler();
   const auto collect_start = prof.now();
@@ -481,6 +484,8 @@ Snapshot collect(
         {"writers_incompatible_qos", stats->writers_incompatible_qos()},
         {"drain_errors", stats->drain_errors()}});
     stats_data.local_addresses = local_ip_addresses();
+    stats_data.settled = settled_at_s >= 0.0;
+    stats_data.settled_at_s = settled_at_s;
   }
   if (names != nullptr) {names->poll();}
   auto t_resolve = prof.now();
@@ -969,7 +974,7 @@ int main(int argc, char ** argv)
   }
 
   if (o.timeout < 0) {
-    o.timeout = o.stats ? 5.0 : 3.0;
+    o.timeout = o.stats ? 30.0 : 3.0;
   }
   // The tool is meant to run in the observed nodes' environment, which may carry
   // FASTDDS_STATISTICS. Fast DDS would then add statistics DataWriters to our own two
@@ -1057,6 +1062,9 @@ int main(int argc, char ** argv)
     const auto start = std::chrono::steady_clock::now();
     double first_event_s = -1.0;
     std::string stopped_on = "timeout";
+    double settled_at_s = -1.0;
+    size_t measured_instances = 0;
+    double measured_changed_s = 0.0;
     // Wait until --timeout, or until discovery has been quiet for --quiet
     // seconds (but never less than --quiet seconds in total).
     for (;; ) {
@@ -1068,16 +1076,53 @@ int main(int argc, char ** argv)
       if (first_event_s < 0 && observer.event_count() > 0) {first_event_s = elapsed;}
       double since_last = std::chrono::duration<double>(now - observer.last_event()).count();
       if (elapsed >= o.timeout) {break;}
-      // With --stats the whole window is needed for traffic counters to accumulate. Quiet
-      // only counts once something was discovered: on a busy host the first participant
+      // Quiet only counts once something was discovered: on a busy host the first participant
       // announcement can take longer than --quiet, which printed an empty table (#74).
-      if (!o.stats && o.quiet > 0 && elapsed >= o.quiet && since_last >= o.quiet &&
-        observer.event_count() > 0)
-      {
+      const bool quiet_now = o.quiet > 0 && elapsed >= o.quiet && since_last >= o.quiet &&
+        observer.event_count() > 0;
+      if (!o.stats && quiet_now) {
         stopped_on = "quiet";
         break;
       }
+      // With --stats quiet is not enough: the counters need a window, and the statistics
+      // writers hand their transient-local history to a late-joining reader one at a time,
+      // which at 20 processes takes about 20 s (#168). The run ends once every matched
+      // RTPS_SENT writer has been heard from and the measured instances they hand over have
+      // stopped growing for --quiet (at least kStatsMeasuredQuietSeconds), and --timeout is
+      // the cap.
+      if (o.stats && o.quiet > 0 && elapsed >= fastdds_transport_viz::kStatsSettleMinSeconds) {
+        const auto settle = stats->settle_status();
+        if (settle.measured_instances != measured_instances) {
+          measured_instances = settle.measured_instances;
+          measured_changed_s = elapsed;
+        }
+        if (quiet_now && fastdds_transport_viz::stats_settled(
+            true, elapsed, settle.announced, settle.heard, settle.measured_instances,
+            elapsed - measured_changed_s,
+            std::max(o.quiet, fastdds_transport_viz::kStatsMeasuredQuietSeconds)))
+        {
+          stopped_on = "settled";
+          settled_at_s = elapsed;
+          break;
+        }
+      }
       if (!rclcpp::ok()) {break;}
+    }
+    // #168: the cap was hit with RTPS_SENT writers still to hear from, which is the state the
+    // settle rule was meant to end - say which, so a longer --timeout is an informed choice.
+    if (o.stats && stopped_on == "timeout" && !o.watch) {
+      const auto settle = stats->settle_status();
+      if (!settle.unheard.empty()) {
+        std::cerr << "warning: --timeout " << o.timeout << " ended the run with "
+                  << settle.unheard.size() << " of " << settle.announced
+                  << " statistics RTPS_SENT writers not heard from";
+        const size_t shown = std::min<size_t>(settle.unheard.size(), 5);
+        for (size_t i = 0; i < shown; ++i) {
+          std::cerr << (i == 0 ? ": " : ", ") << settle.unheard[i];
+        }
+        if (settle.unheard.size() > shown) {std::cerr << ", ...";}
+        std::cerr << "; their pairs may read (idle) - pass a longer --timeout\n";
+      }
     }
 
     const auto & prof = profiler();
@@ -1095,8 +1140,9 @@ int main(int argc, char ** argv)
     if (!o.watch) {
       double elapsed =
         std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
-      Snapshot snap =
-        collect(observer, resolver, names.get(), stats.get(), o, domain, elapsed, stopped_on);
+      Snapshot snap = collect(
+        observer, resolver, names.get(), stats.get(), o, domain, elapsed, stopped_on,
+        settled_at_s);
       const auto t = prof.now();
       const std::string out = o.json ? fastdds_transport_viz::render_json(snap, ropt) :
         fastdds_transport_viz::render_table(snap, ropt);

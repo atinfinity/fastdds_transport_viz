@@ -66,6 +66,10 @@ Snapshot snapshot()
   s.stats.samples_lost_at_start = 3;
   s.stats.samples_rejected = 1;
   s.stats.writers_incompatible_qos = 2;  // #141: writers the readers could not match
+  s.stats.writers_announced = 16;   // #168: the settle rule of the one-shot
+  s.stats.writers_heard = 16;
+  s.stats.settled = true;
+  s.stats.settled_at_s = 6.25;
   s.stats.samples_lost_latency = 4;      // #141: the best-effort part of samples_lost
   s.stats.pairs_delivered = 9;           // #147: pairs with a delivery proof ...
   s.stats.pairs_delivered_absent = 2;
@@ -208,6 +212,10 @@ TEST(RenderJson, DocumentKeys)
   EXPECT_EQ(doc["stats"]["samples_lost_at_start"], 3);
   EXPECT_EQ(doc["stats"]["samples_rejected"], 1);
   EXPECT_EQ(doc["stats"]["writers_incompatible_qos"], 2);
+  EXPECT_EQ(doc["stats"]["writers_announced"], 16);
+  EXPECT_EQ(doc["stats"]["writers_heard"], 16);
+  EXPECT_EQ(doc["stats"]["settled"], true);
+  EXPECT_DOUBLE_EQ(doc["stats"]["settled_at_s"].get<double>(), 6.25);
   // a part of samples_lost, not a number beside it
   EXPECT_EQ(doc["stats"]["samples_lost_latency"], 4);
   EXPECT_EQ(doc["stats"]["pairs_delivered"], 9);
@@ -495,6 +503,10 @@ TEST(ParseJson, RoundTripsEverythingTheRenderersShow)
   EXPECT_EQ(parsed.stats.samples_lost_at_start, 3u);
   EXPECT_EQ(parsed.stats.samples_rejected, 1u);
   EXPECT_EQ(parsed.stats.writers_incompatible_qos, 2u);
+  EXPECT_EQ(parsed.stats.writers_announced, 16u);
+  EXPECT_EQ(parsed.stats.writers_heard, 16u);
+  EXPECT_TRUE(parsed.stats.settled);
+  EXPECT_DOUBLE_EQ(parsed.stats.settled_at_s, 6.25);
   EXPECT_EQ(parsed.stats.samples_lost_latency, 4u);
   EXPECT_EQ(parsed.stats.pairs_delivered, 9u);
   EXPECT_EQ(parsed.stats.pairs_delivered_unmeasured, 5u);

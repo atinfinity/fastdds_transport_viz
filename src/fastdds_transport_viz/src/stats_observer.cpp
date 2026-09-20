@@ -82,8 +82,17 @@ void StatsObserver::Listener::on_sample_rejected(
 }
 
 void StatsObserver::Listener::on_subscription_matched(
-  dds::DataReader *, const dds::SubscriptionMatchedStatus & status)
+  dds::DataReader * reader, const dds::SubscriptionMatchedStatus & status)
 {
+  const std::string writer = guid_to_string(rtps::iHandle2GUID(status.last_publication_handle));
+  {
+    std::lock_guard<std::mutex> lock(matched_mutex);
+    if (status.current_count_change > 0) {
+      matched[reader].insert(writer);
+    } else if (status.current_count_change < 0) {
+      matched[reader].erase(writer);
+    }
+  }
   // Every new writer brings its own burst of history it had already dropped, so each match
   // opens the window again for the grace period; a writer that goes away does not.
   if (status.current_count_change <= 0) {return;}
@@ -268,11 +277,17 @@ void StatsObserver::drain()
       ++data_.samples;
       data_.participants_with_stats.insert(sample_publisher_prefix(info));
     };
+  // #168: a writer whose first sample was taken has begun its transient-local handoff;
+  // until every matched RTPS_SENT writer has, the one-shot has not settled.
+  auto count_counter_sample = [&](const Reader & r) {
+      count_sample();
+      heard_[r.reader].insert(guid_to_string(info.sample_identity.writer_guid()));
+    };
 
   st::Entity2LocatorTraffic traffic;
   while (retcode_ok(rtps_sent_.reader->take_next_sample(&traffic, &info))) {
     if (!info.valid_data) {continue;}
-    count_sample();
+    count_counter_sample(rtps_sent_);
     rtps::GUID_t src = to_rtps(traffic.src_guid());
     Locator dst = convert_locator(to_rtps(traffic.dst_locator()));
     TrafficSample s;
@@ -346,7 +361,7 @@ void StatsObserver::drain()
       st::EntityCount count;
       while (retcode_ok(reader.reader->take_next_sample(&count, &info))) {
         if (!info.valid_data) {continue;}
-        count_sample();
+        count_counter_sample(reader);
         rtps::GUID_t g = to_rtps(count.guid());
         auto & d = into[guid_to_string(g)];
         if (d.samples == 0) {d.first = count.count();}
@@ -368,7 +383,7 @@ void StatsObserver::drain()
   st::Entity2LocatorTraffic lost;
   while (retcode_ok(rtps_lost_.reader->take_next_sample(&lost, &info))) {
     if (!info.valid_data) {continue;}
-    count_sample();
+    count_counter_sample(rtps_lost_);
     rtps::GUID_t src = to_rtps(lost.src_guid());
     Locator dst = convert_locator(to_rtps(lost.dst_locator()));
     TrafficSample s;
@@ -453,14 +468,41 @@ void StatsObserver::prune_rate_window()
   }
 }
 
+StatsObserver::Settle StatsObserver::settle_status()
+{
+  Settle out;
+  std::lock_guard<std::mutex> lock(mutex_);
+  std::lock_guard<std::mutex> matched_lock(listener_.matched_mutex);
+  for (const auto & [key, t] : traffic_) {
+    if (t.packets > t.packets_first) {++out.measured_instances;}
+  }
+  for (const auto * r : {&rtps_sent_}) {
+    const auto matched = listener_.matched.find(r->reader);
+    if (matched == listener_.matched.end()) {continue;}
+    const auto heard = heard_.find(r->reader);
+    for (const auto & guid : matched->second) {
+      ++out.announced;
+      if (heard != heard_.end() && heard->second.count(guid) > 0) {
+        ++out.heard;
+      } else {
+        out.unheard.push_back(r->topic->get_name() + " " + guid);
+      }
+    }
+  }
+  return out;
+}
+
 StatsData StatsObserver::snapshot()
 {
   // A final sweep before the copy: the thread drains every kStatsDrainIntervalMs, so how long
   // this one still takes is the gauge of whether it keeps up (FTV_PROFILE "drain").
   drain();
+  const Settle settle = settle_status();
   std::lock_guard<std::mutex> lock(mutex_);
   StatsData out = data_;
   out.writer_instance_limit = FTV_STATS_WRITER_INSTANCE_LIMIT;
+  out.writers_announced = settle.announced;
+  out.writers_heard = settle.heard;
   out.samples_lost = listener_.lost;
   out.samples_lost_at_start = listener_.lost_at_start;
   out.samples_rejected = listener_.rejected;
