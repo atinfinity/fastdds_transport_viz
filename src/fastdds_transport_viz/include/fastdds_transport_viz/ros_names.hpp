@@ -37,6 +37,12 @@ RosName demangle_topic(const std::string & dds_topic);
 /// the name does not look like a ROS 2 type.
 std::string demangle_type(const std::string & dds_type);
 
+/// The REP-2011 type hash out of an endpoint's USER_DATA, which the rmw encodes as
+/// "key=value;" pairs under the key "typehash" (Jazzy and later; Humble announces none).
+/// Returns "RIHS01_<64 lowercase hex>" when the key is there and well formed, "" otherwise:
+/// USER_DATA is free for the application to use, so anything else is not a hash of ours.
+std::string parse_type_hash(const std::string & user_data);
+
 /// What the rmw reports for an endpoint whose `ros_discovery_info` it has not received.
 constexpr const char kUnknownNodeName[] = "_NODE_NAMESPACE_UNKNOWN_/_NODE_NAME_UNKNOWN_";
 

@@ -45,7 +45,9 @@ liveliness, ownership and partitions when set), a `data-sharing` row with the si
 writer's history and whether the endpoint's data-sharing segment is in the tool's `/dev/shm`
 ([#163](https://github.com/atinfinity/fastdds_transport_viz/issues/163)) and, when the document carries a `participants` section, an `shm` row per
 endpoint: its participant's SHM visibility from the tool's IPC namespace and the announced
-SHM ports with their lock state ([#125](https://github.com/atinfinity/fastdds_transport_viz/issues/125)).
+SHM ports with their lock state ([#125](https://github.com/atinfinity/fastdds_transport_viz/issues/125)), and a `type hash` row with the first eight
+characters of the endpoint's ROS 2 type hash when it announces one - hover it for the full
+value ([#85](https://github.com/atinfinity/fastdds_transport_viz/issues/85)).
 Click a node for its publishers, subscriptions and unmatched topics, and, for a client, the
 discovery protocol it announced, its participant prefix and metatraffic locators, and its
 server; a server's card lists the clients attributed to it. The second header line ends

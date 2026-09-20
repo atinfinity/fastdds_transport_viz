@@ -244,9 +244,8 @@ std::vector<std::string> datasharing_split_reasons(
   return out;
 }
 
-}  // namespace
-
-Verdict decide(const Endpoint & writer, const Endpoint & reader)
+/// decide() once the two endpoints are known to carry the same type name.
+Verdict decide_same_type(const Endpoint & writer, const Endpoint & reader)
 {
   Verdict v;
   const auto incompatible = qos_incompatibilities(writer, reader);
@@ -379,6 +378,31 @@ Verdict decide(const Endpoint & writer, const Endpoint & reader)
   return v;
 }
 
+}  // namespace
+
+Verdict decide(const Endpoint & writer, const Endpoint & reader)
+{
+  if (writer.dds_type != reader.dds_type) {
+    // Fast DDS matches on the type name: these two never see each other, whatever
+    // transport they share.
+    Verdict v;
+    v.transport = Transport::None;
+    v.confidence = Confidence::Certain;
+    v.reasons.push_back("type-name-mismatch");
+    return v;
+  }
+  Verdict v = decide_same_type(writer, reader);
+  // Same type name, different definition (#85). Fast DDS 2.x matches the pair and
+  // delivers the samples, which the rmw then drops, so the transport above is what the
+  // wire does and the warning is what the application gets - nothing.
+  if (!writer.type_hash.empty() && !reader.type_hash.empty() &&
+    writer.type_hash != reader.type_hash)
+  {
+    v.warnings.push_back("type-hash-mismatch");
+  }
+  return v;
+}
+
 namespace
 {
 
@@ -475,13 +499,10 @@ std::vector<TopicSummary> summarize(const std::vector<Endpoint> & endpoints)
   out.reserve(by_topic.size());
   for (auto & kv : by_topic) {
     auto & t = kv.second;
-    bool type_mismatch = false;
     for (const auto * w : t.writers) {
       for (const auto * r : t.readers) {
-        if (w->dds_type != r->dds_type) {
-          type_mismatch = true;
-          continue;
-        }
+        // a type mismatch is a pair of its own (NONE, type-name-mismatch): the two
+        // endpoints are there, and what is wrong is between them (#85)
         Pair p;
         p.writer = w;
         p.reader = r;
@@ -495,9 +516,6 @@ std::vector<TopicSummary> summarize(const std::vector<Endpoint> & endpoints)
     }
     if (t.readers.empty()) {
       t.unmatched_reasons.push_back("no-matching-reader");
-    }
-    if (type_mismatch) {
-      t.unmatched_reasons.push_back("type-name-mismatch");
     }
     if (t.pairs.empty()) {
       std::vector<const Endpoint *> all = t.writers;
@@ -547,18 +565,12 @@ void filter_by_node(
     prune(t.writers);
     prune(t.readers);
     t.pairs = std::move(pairs);
-    const bool type_mismatch = std::find(
-      t.unmatched_reasons.begin(), t.unmatched_reasons.end(), "type-name-mismatch") !=
-      t.unmatched_reasons.end();
     t.unmatched_reasons.clear();
     if (t.writers.empty()) {
       t.unmatched_reasons.push_back("no-matching-writer");
     }
     if (t.readers.empty()) {
       t.unmatched_reasons.push_back("no-matching-reader");
-    }
-    if (type_mismatch && t.pairs.empty()) {
-      t.unmatched_reasons.push_back("type-name-mismatch");
     }
     if (t.pairs.empty()) {
       std::vector<const Endpoint *> all = t.writers;
@@ -865,11 +877,18 @@ void apply_stats(std::vector<TopicSummary> & topics, const StatsData & stats)
       }
 
       Verdict & v = p.verdict;
-      if (std::find(v.warnings.begin(), v.warnings.end(), "qos-incompatible") != v.warnings.end()) {
-        // Nothing should flow. A delivery proof means the rules above are wrong for
-        // this Fast DDS version: report it rather than hide it.
+      // Endpoints Fast DDS never matches: their participants do exchange packets, but
+      // none of them belongs to this pair. A delivery proof means the rules above are
+      // wrong for this Fast DDS version: report it rather than hide it. The type name is
+      // a reason rather than a warning (#85), the incompatible QoS a warning.
+      const bool qos_unmatched =
+        std::find(v.warnings.begin(), v.warnings.end(), "qos-incompatible") != v.warnings.end();
+      const bool type_unmatched =
+        std::find(v.reasons.begin(), v.reasons.end(), "type-name-mismatch") != v.reasons.end();
+      if (qos_unmatched || type_unmatched) {
         if (m.delivered) {
-          v.warnings.push_back("qos-incompatible-but-delivered");
+          v.warnings.push_back(
+            qos_unmatched ? "qos-incompatible-but-delivered" : "type-name-mismatch-but-delivered");
         }
         continue;
       }
@@ -1635,6 +1654,26 @@ const std::map<std::string, CodeInfo> & explanations()
         "judged incompatible: the tool's matching rules disagree with this Fast DDS version. "
         "Please report this with the --json output.",
         std::nullopt}},
+    // ---- type
+    {"type-name-mismatch", {
+        "The writer and the reader announce different type names, so Fast DDS never matches "
+        "them and no data flows.",
+        "Use the same message type (package and name) on both sides of the topic; ROS 2 "
+        "announces it as <pkg>::msg::dds_::<Name>_."}},
+    {"type-name-mismatch-but-delivered", {
+        "HISTORY_LATENCY statistics prove that samples reached the reader although the two "
+        "announce different type names: the tool's matching rules disagree with this Fast DDS "
+        "version. Please report this with the --json output.",
+        std::nullopt}},
+    {"type-hash-mismatch", {
+        "Both sides announce the same type name but a different ROS 2 type hash (REP-2011), so "
+        "their message definitions differ. The subscription receives nothing: Fast DDS 2.x "
+        "matches the pair and delivers the samples, which the rmw then drops, while Fast DDS 3.x "
+        "does not match the pair at all - so the transport of this row is what the wire does, "
+        "not what the application gets.",
+        "Rebuild and reinstall every node against the same version of the message package "
+        "(a stale install or a different distribution on one side is the usual cause); "
+        "`ros2 topic info --verbose <topic>` prints the type hash of each endpoint."}},
     // ---- topics without pairs
     {"no-matching-writer", {
         "No publisher was discovered for this topic.",
@@ -1644,10 +1683,6 @@ const std::map<std::string, CodeInfo> & explanations()
         "No subscription was discovered for this topic.",
         "Start a subscription on this topic, or check the topic name, namespace and remappings of "
         "the node expected to subscribe to it."}},
-    {"type-name-mismatch", {
-        "A writer and a reader on this topic announce different type names, so they do not match.",
-        "Use the same message type (package and name) on both sides of the topic; ROS 2 announces "
-        "it as <pkg>::msg::dds_::<Name>_."}},
     // ---- rmw native-buffer companion topics
     {"buffer-companion-folded", {
         "rmw_fastrtps_cpp (ROS 2 Lyrical and later) gives a writer or reader of a type with an "

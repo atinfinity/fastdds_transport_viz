@@ -1,6 +1,6 @@
 # Web viewer
 
-> 英語版が正です。この文書は 2026-09-17 時点の英語版に対応しています。
+> 英語版が正です。この文書は 2026-09-20 時点の英語版に対応しています。
 
 `web/index.html` は `transport_viz --json` の文書をグラフとして描画します。ホストが列、ROS ノードが
 箱、writer → reader の各ペアが transport ごとに色分けされた矢印です。静的ページ (素の HTML/JS と
@@ -44,7 +44,8 @@ open web/index.html            # macOS。あるいはファイルをダブルク
 partition)、`data-sharing` 行 (writer の履歴のサイズと、エンドポイントの data-sharing セグメントが
 ツールの `/dev/shm` にあるか、[#163](https://github.com/atinfinity/fastdds_transport_viz/issues/163))、そして文書に `participants` があればエンドポイントごとの
 `shm` 行 (その participant のツールの IPC 名前空間からの SHM 可視性と、アナウンスされた SHM
-ポートのロック状態、[#125](https://github.com/atinfinity/fastdds_transport_viz/issues/125)) です。ノードをクリックすると publisher、subscription、相手のいない
+ポートのロック状態、[#125](https://github.com/atinfinity/fastdds_transport_viz/issues/125))、エンドポイントが ROS 2 の type hash をアナウンスしていれば
+その先頭 8 文字を出す `type hash` 行 (マウスを乗せると全体が出ます、[#85](https://github.com/atinfinity/fastdds_transport_viz/issues/85)) です。ノードをクリックすると publisher、subscription、相手のいない
 トピックが出ます。クライアントならさらにアナウンスした discovery プロトコル、participant の
 prefix と metatraffic locator、そのサーバーが、サーバーならそれに紐づくクライアントの一覧が
 出ます。ヘッダの 2 行目の末尾には、通常の discovery でなかった場合のツール自身の参加の仕方

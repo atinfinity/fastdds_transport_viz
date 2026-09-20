@@ -97,6 +97,7 @@ template<typename D> const auto & disc_deadline(const D & d) {return d.deadline;
 template<typename D> const auto & disc_liveliness(const D & d) {return d.liveliness;}
 template<typename D> const auto & disc_ownership(const D & d) {return d.ownership;}
 template<typename D> const auto & disc_partition(const D & d) {return d.partition;}
+template<typename D> const auto & disc_user_data(const D & d) {return d.user_data.data_vec();}
 // ... and of a remote participant (3.x ParticipantBuiltinTopicData)
 template<typename D> const auto & disc_participant_prefix(const D & d) {return d.guid.guidPrefix;}
 template<typename D> const auto & disc_participant_properties(const D & d) {return d.properties;}
@@ -121,6 +122,10 @@ template<typename D> const auto & disc_deadline(const D & d) {return d.m_qos.m_d
 template<typename D> const auto & disc_liveliness(const D & d) {return d.m_qos.m_liveliness;}
 template<typename D> const auto & disc_ownership(const D & d) {return d.m_qos.m_ownership;}
 template<typename D> const auto & disc_partition(const D & d) {return d.m_qos.m_partition;}
+template<typename D> const auto & disc_user_data(const D & d)
+{
+  return d.m_qos.m_userData.data_vec();
+}
 // ... and of a remote participant (2.x ParticipantProxyData)
 template<typename D> const auto & disc_participant_prefix(const D & d) {return d.m_guid.guidPrefix;}
 template<typename D> const auto & disc_participant_properties(const D & d) {return d.m_properties;}

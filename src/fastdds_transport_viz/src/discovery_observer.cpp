@@ -234,6 +234,8 @@ Endpoint make_endpoint(const ProxyData & data, bool is_writer)
     e.ros_topic = ros.name;
   }
   e.ros_type = demangle_type(e.dds_type);
+  const auto & user_data = disc_user_data(data);
+  e.type_hash = parse_type_hash(std::string(user_data.begin(), user_data.end()));
   fill_locators(disc_locators(data), e);
   e.qos.reliability = reliability_to_string(disc_reliability(data));
   e.qos.durability = durability_to_string(disc_durability(data));

@@ -4,6 +4,17 @@ Changelog for package fastdds_transport_viz
 
 Forthcoming
 -----------
+* Type mismatches on the same topic (#85): a writer and a reader whose DDS type names
+  differ are a ``NONE`` / ``certain`` pair with the reason ``type-name-mismatch``
+  (it used to be a topic-level ``unmatched_reasons`` entry, so the two endpoints were not
+  shown as a pair at all), and no traffic is attributed to it -
+  ``type-name-mismatch-but-delivered`` when the statistics say otherwise. The same type
+  name with two different ROS 2 type hashes (REP-2011) keeps its transport and gains the
+  warning ``type-hash-mismatch``: on Fast DDS 2.x the pair matches and delivers while the
+  subscription gets nothing, on 3.x it never matches. The hash is read out of the
+  endpoint's ``USER_DATA`` and published as ``type_hash`` on every endpoint of
+  ``--json`` (``""`` when it announces none, as on Humble); a ``type hash`` row in the web
+  viewer's endpoint panel. Additive, ``schema_version`` stays 1.
 * Per-endpoint data-sharing segment visibility in ``--json`` (#163):
   ``datasharing_segment_visibility`` (``visible``, ``not-visible``, ``unprobed``) on every
   writer and reader, the evidence behind ``datasharing-*-segment-not-visible``; probed only

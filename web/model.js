@@ -374,6 +374,19 @@
    * The loss is cumulative over the run, and a pair can show no measurement because of it.
    */
   /**
+   * The endpoint panel's type-hash row (#85): `{short, full}` of the REP-2011 hash the
+   * endpoint announces, null when it announces none (ROS 2 Humble, a non-ROS participant,
+   * a document before #85). `short` is what the row shows, `full` its title.
+   */
+  function typeHashText(ep) {
+    const full = (ep && ep.type_hash) || '';
+    if (!full) return null;
+    const prefix = 'RIHS01_';
+    const hex = full.startsWith(prefix) ? full.slice(prefix.length) : full;
+    return { short: hex.slice(0, 8), full };
+  }
+
+  /**
    * The `stats` object as one line for the meta bar, warnings as tooltips like shmText.
    * `lost` is what never reached the tool (#134); `samples_lost_at_start` is the normal
    * burst from before the readers matched and stays out of it. Whether the loss cost a
@@ -595,6 +608,6 @@
     return s;
   }
 
-  return { TRANSPORTS, INTERNAL_TOPICS, UNKNOWN_NODE_NAME, isFoldedBufferCompanion, isInternalTopic, normalizeDocument, buildModel, isDiscoveryServer, isDiscoveryClient, serverNodeId, clientParticipants, serversOf, discoveryText, filterRegex, visiblePairs, visibleNodesModel, bundle, humanBytes, humanSeconds, measuredText, latencyText, rateText, rateTitle, lossText, topicLatencyText, topicLossText, groupPairsByTopic, compareCells, escapeHtml, codeListHtml, shmText, participantShmText, datasharingText, statsText,
+  return { TRANSPORTS, INTERNAL_TOPICS, UNKNOWN_NODE_NAME, isFoldedBufferCompanion, isInternalTopic, normalizeDocument, buildModel, isDiscoveryServer, isDiscoveryClient, serverNodeId, clientParticipants, serversOf, discoveryText, filterRegex, visiblePairs, visibleNodesModel, bundle, humanBytes, humanSeconds, measuredText, latencyText, rateText, rateTitle, lossText, topicLatencyText, topicLossText, groupPairsByTopic, compareCells, escapeHtml, codeListHtml, shmText, participantShmText, datasharingText, typeHashText, statsText,
     pairKey, keyId, pairState, sameState, diffDocuments, changeText, changesSummary, decorations, holdChanges, heldDecorations, markedPairs, pruneNodes };
 });

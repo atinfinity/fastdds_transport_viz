@@ -1,6 +1,6 @@
 # 実測 transport (`--stats`)
 
-> 英語版が正です。この文書は 2026-09-17 時点の英語版に対応しています。
+> 英語版が正です。この文書は 2026-09-20 時点の英語版に対応しています。
 
 discovery のデータは「こうなる*はず*」を教えてくれます。`--stats` を付けると、ツールは
 [Fast DDS statistics モジュール](https://fast-dds.docs.eprosima.com/en/2.14.x/fastdds/statistics/statistics.html)
@@ -77,6 +77,8 @@ export FASTDDS_STATISTICS="RTPS_SENT_TOPIC;RTPS_LOST_TOPIC;HISTORY_LATENCY_TOPIC
 
 `qos-incompatible` と判定したペアは実測しません。それでも `HISTORY_LATENCY` が配送を証明した場合は
 警告 `qos-incompatible-but-delivered` でマッチング規則の穴を知らせます。
+`type-name-mismatch` と判定したペアも同じ扱いで、こちらは
+`type-name-mismatch-but-delivered` です ([#85](https://github.com/atinfinity/fastdds_transport_viz/issues/85))。
 `shm-ipc-namespace-split` のペアも、writer の SHM トラフィック (data-sharing のペアではハートビート) が
 計測されても `NONE` のままで、配送が
 証明されると `shm-ipc-namespace-split-but-delivered` が付きます。両端が SHM を広告するペアで

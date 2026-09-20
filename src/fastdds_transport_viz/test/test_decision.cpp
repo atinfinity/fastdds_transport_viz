@@ -391,8 +391,11 @@ TEST(Summarize, PairsWritersWithReadersAndFlagsUnmatched)
   EXPECT_EQ(topics[0].display_topic, "/chatter");
   EXPECT_EQ(topics[0].writers.size(), 1u);
   EXPECT_EQ(topics[0].readers.size(), 3u);
-  EXPECT_EQ(topics[0].pairs.size(), 2u);   // the Int32 reader is not paired
-  EXPECT_TRUE(has(topics[0].unmatched_reasons, "type-name-mismatch"));
+  ASSERT_EQ(topics[0].pairs.size(), 3u);   // the Int32 reader is paired too, as NONE
+  EXPECT_EQ(topics[0].pairs[2].reader, &eps[4]);
+  EXPECT_EQ(topics[0].pairs[2].verdict.transport, Transport::None);
+  EXPECT_TRUE(has(topics[0].pairs[2].verdict.reasons, "type-name-mismatch"));
+  EXPECT_TRUE(topics[0].unmatched_reasons.empty());   // the mismatch is the pair's, not the topic's
   EXPECT_EQ(topics[1].display_topic, "/lonely");
   EXPECT_TRUE(topics[1].pairs.empty());
   EXPECT_TRUE(has(topics[1].unmatched_reasons, "no-matching-reader"));
@@ -440,8 +443,9 @@ TEST(FilterByNode, KeepsMatchingNodesTheirPartnersAndUnpairedEndpoints)
 TEST(FilterByNode, RecomputesUnmatchedWhenPartnersVanish)
 {
   // writer of /talker paired with a reader of /other only: filtering on /talker keeps
-  // the pair (and thus /other's reader); filtering on /other keeps it too. Filtering on
-  // a node whose reader has no writer yields no-matching-writer.
+  // the pair (and thus /other's reader); filtering on /other keeps it too. A reader of
+  // another type is a pair of its own (#85), so its writer is kept as well - without the
+  // partner the mismatch could not be read off the row.
   auto ep = [](bool writer, const std::string & node) {
       Endpoint e = make(writer, HOST_A, {shm(), udp4("127.0.0.1")});
       e.node_name = node;
@@ -451,18 +455,23 @@ TEST(FilterByNode, RecomputesUnmatchedWhenPartnersVanish)
   eps.push_back(ep(true, "/talker"));
   eps.push_back(ep(false, "/other"));
   Endpoint lonely = ep(false, "/lonely");
-  lonely.dds_type = "other::type";       // type mismatch: never paired
+  lonely.dds_type = "other::type";       // type mismatch: paired as NONE
   eps.push_back(lonely);
   auto topics = summarize(eps);
   ASSERT_EQ(topics.size(), 1u);
-  EXPECT_TRUE(has(topics[0].unmatched_reasons, "type-name-mismatch"));
+  EXPECT_EQ(topics[0].pairs.size(), 2u);
+  EXPECT_TRUE(topics[0].unmatched_reasons.empty());
 
   filter_by_node(topics, [](const Endpoint & e) {return e.node_name == "/lonely";});
   ASSERT_EQ(topics.size(), 1u);
-  EXPECT_TRUE(topics[0].pairs.empty());
-  EXPECT_TRUE(topics[0].writers.empty());
-  EXPECT_TRUE(has(topics[0].unmatched_reasons, "no-matching-writer"));
-  EXPECT_FALSE(has(topics[0].unmatched_reasons, "no-matching-reader"));
+  ASSERT_EQ(topics[0].pairs.size(), 1u);
+  EXPECT_EQ(topics[0].pairs[0].writer, &eps[0]);       // partner kept
+  EXPECT_EQ(topics[0].pairs[0].reader, &eps[2]);
+  EXPECT_EQ(topics[0].pairs[0].verdict.transport, Transport::None);
+  EXPECT_TRUE(has(topics[0].pairs[0].verdict.reasons, "type-name-mismatch"));
+  EXPECT_EQ(topics[0].writers.size(), 1u);
+  EXPECT_EQ(topics[0].readers.size(), 1u);
+  EXPECT_TRUE(topics[0].unmatched_reasons.empty());
 }
 
 TEST(RosNames, DemangleTopics)
@@ -567,6 +576,103 @@ StatsData stats_with(
   return s;
 }
 }  // namespace
+
+/// A well-formed REP-2011 hash of `digit` repeated, as the rmw encodes it in USER_DATA.
+std::string type_hash_of(char digit)
+{
+  return "RIHS01_" + std::string(64, digit);
+}
+
+TEST(Decision, TypeNameMismatchIsANonePairAndOutranksEverythingElse)
+{
+  const std::string HASH_A = type_hash_of('a');
+  const std::string HASH_B = type_hash_of('b');
+  Endpoint w = make(true, HOST_A, {shm(7415)});
+  Endpoint r = make(false, HOST_A, {shm(7413)});
+  r.dds_type = "std_msgs::msg::dds_::Int32_";
+  // ... even where the QoS would not match either: the type name is checked first
+  r.qos.reliability = "BEST_EFFORT";
+  r.type_hash = HASH_B;
+  w.type_hash = HASH_A;
+  const Verdict v = decide(w, r);
+  EXPECT_EQ(v.transport, Transport::None);
+  EXPECT_EQ(v.confidence, Confidence::Certain);
+  EXPECT_EQ(v.reasons, (std::vector<std::string>{"type-name-mismatch"}));
+  EXPECT_TRUE(v.warnings.empty());   // no QoS and no hash code on top of it
+}
+
+TEST(Decision, TypeHashMismatchWarnsAndLeavesTheTransport)
+{
+  const std::string HASH_A = type_hash_of('a');
+  const std::string HASH_B = type_hash_of('b');
+  Endpoint w = make(true, HOST_A, {shm(7415)});
+  Endpoint r = make(false, HOST_A, {shm(7413)});
+  w.type_hash = HASH_A;
+  r.type_hash = HASH_B;
+  const Verdict v = decide(w, r);
+  EXPECT_EQ(v.transport, Transport::SHM);          // Fast DDS 2.x does carry the samples
+  EXPECT_EQ(v.confidence, Confidence::Certain);
+  EXPECT_TRUE(has(v.reasons, "both-shm-locators"));
+  EXPECT_EQ(v.warnings, (std::vector<std::string>{"type-hash-mismatch"}));
+}
+
+TEST(Decision, TypeHashIsComparedOnlyWhenBothSidesAnnounceOne)
+{
+  const std::string HASH_A = type_hash_of('a');
+  const std::string HASH_B = type_hash_of('b');
+  Endpoint w = make(true, HOST_A, {shm(7415)});
+  Endpoint r = make(false, HOST_A, {shm(7413)});
+  EXPECT_TRUE(decide(w, r).warnings.empty());      // neither announces one (Humble)
+  w.type_hash = HASH_A;
+  EXPECT_TRUE(decide(w, r).warnings.empty());      // only the writer does
+  r.type_hash = HASH_A;
+  EXPECT_TRUE(decide(w, r).warnings.empty());      // the same hash
+  r.type_hash = HASH_B;
+  EXPECT_TRUE(has(decide(w, r).warnings, "type-hash-mismatch"));
+}
+
+TEST(RosNames, TypeHashFromUserData)
+{
+  const std::string hash = "RIHS01_" +
+    std::string("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef");
+  EXPECT_EQ(parse_type_hash("typehash=" + hash + ";"), hash);
+  EXPECT_EQ(parse_type_hash("key=value;typehash=" + hash + ";other=x;"), hash);
+  EXPECT_EQ(parse_type_hash("typehash=" + hash), hash);          // no trailing separator
+  EXPECT_EQ(parse_type_hash(""), "");
+  EXPECT_EQ(parse_type_hash("key=value;"), "");                  // no such key
+  EXPECT_EQ(parse_type_hash("mytypehash=" + hash + ";"), "");    // not the key either
+  EXPECT_EQ(parse_type_hash("typehash=RIHS01_dead;"), "");       // too short
+  EXPECT_EQ(parse_type_hash("typehash=RIHS02_" + hash.substr(7) + ";"), "");   // other version
+  EXPECT_EQ(
+    parse_type_hash("typehash=RIHS01_" + std::string(63, '0') + "X;"), "");    // not hex
+  EXPECT_EQ(
+    parse_type_hash("typehash=RIHS01_" + std::string(63, '0') + "A;"), "");    // uppercase
+}
+
+TEST(ApplyStats, TypeNameMismatchAttributesNoTrafficAndSaysSoWhenDelivered)
+{
+  std::vector<Endpoint> eps;
+  eps.push_back(make(true, HOST_A, {udp4("10.0.0.1"), shm(7415)}));
+  eps.push_back(make(false, HOST_A, {udp4("10.0.0.1", 7413), shm(7413)}));
+  eps[1].dds_type = "std_msgs::msg::dds_::Int32_";
+  eps[0].participant_guid_prefix = "P1";
+  auto topics = summarize(eps);
+  ASSERT_EQ(topics[0].pairs.size(), 1u);
+  // the participants do talk to each other - about other topics and about discovery
+  auto stats = stats_with(eps[0], {TrafficSample{"P1", shm(7413), 10, 1000.0}});
+  apply_stats(topics, stats);
+  const auto & p = topics[0].pairs[0];
+  EXPECT_EQ(p.verdict.transport, Transport::None);
+  EXPECT_FALSE(has(p.verdict.reasons, "measured-shm-traffic"));
+  EXPECT_TRUE(p.verdict.warnings.empty());
+
+  // a delivery proof would mean Fast DDS matched them after all: never hidden
+  topics = summarize(eps);
+  stats = stats_with(eps[0], {TrafficSample{"P1", shm(7413), 10, 1000.0}}, true, &eps[1]);
+  apply_stats(topics, stats);
+  EXPECT_TRUE(
+    has(topics[0].pairs[0].verdict.warnings, "type-name-mismatch-but-delivered"));
+}
 
 TEST(ApplyStats, MeasuredShmConfirmsPrediction)
 {

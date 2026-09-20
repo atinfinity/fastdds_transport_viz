@@ -147,6 +147,11 @@ way and highlights the result. Details in
   host.
 - **Run it where the nodes run.** Same domain, same environment variables and XML profile,
   same network and IPC namespace. `ROS_AUTOMATIC_DISCOVERY_RANGE=OFF` hides everything.
+- **Type hashes need ROS 2 Jazzy or later.** A writer and a reader whose type *names*
+  differ are shown as `NONE` with `type-name-mismatch` on every distribution. Two versions
+  of the same message definition are told apart by the ROS 2 type hash (REP-2011), which
+  only the rmw of Jazzy and later announces: on Humble such a pair looks healthy, and the
+  subscription still receives nothing.
 - **A prediction is a model.** The verdicts encode Fast DDS's selection rules; some
   situations stay `likely` (marked `?`) until `--stats` confirms them. Measuring requires
   `FASTDDS_STATISTICS` on the observed nodes *before they start*, and the shipped profile

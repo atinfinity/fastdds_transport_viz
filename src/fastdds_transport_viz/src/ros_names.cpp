@@ -37,6 +37,36 @@ RosName demangle_topic(const std::string & dds_topic)
   return out;
 }
 
+std::string parse_type_hash(const std::string & user_data)
+{
+  const std::string key = "typehash=";
+  for (size_t begin = 0; begin < user_data.size(); ) {
+    size_t end = user_data.find(';', begin);
+    if (end == std::string::npos) {
+      end = user_data.size();
+    }
+    const std::string field = user_data.substr(begin, end - begin);
+    begin = end + 1;
+    if (!starts_with(field, key)) {
+      continue;
+    }
+    const std::string value = field.substr(key.size());
+    // rosidl parses the same shape: the version prefix and 32 bytes as hex digits
+    const std::string prefix = "RIHS01_";
+    if (value.size() != prefix.size() + 64 || !starts_with(value, prefix)) {
+      return "";
+    }
+    for (size_t i = prefix.size(); i < value.size(); ++i) {
+      const char ch = value[i];
+      if (!((ch >= '0' && ch <= '9') || (ch >= 'a' && ch <= 'f'))) {
+        return "";
+      }
+    }
+    return value;     // the first "typehash" wins, as the rmw's own parser does
+  }
+  return "";
+}
+
 std::string demangle_type(const std::string & dds_type)
 {
   const std::string marker = "::dds_::";
