@@ -9,6 +9,7 @@
 #include <stdexcept>
 #include <string>
 #include <thread>
+#include <utility>
 
 #include <fastdds/dds/core/policy/QosPolicies.hpp>
 #include <fastdds/dds/subscriber/SampleInfo.hpp>
@@ -474,7 +475,7 @@ StatsObserver::Settle StatsObserver::settle_status()
   std::lock_guard<std::mutex> lock(mutex_);
   std::lock_guard<std::mutex> matched_lock(listener_.matched_mutex);
   for (const auto & [key, t] : traffic_) {
-    if (t.packets > t.packets_first) {++out.measured_instances;}
+    if (measures_a_pair(t, reader_ports_)) {++out.measured_instances;}
   }
   for (const auto * r : {&rtps_sent_}) {
     const auto matched = listener_.matched.find(r->reader);
@@ -492,6 +493,12 @@ StatsObserver::Settle StatsObserver::settle_status()
   return out;
 }
 
+void StatsObserver::set_reader_ports(ReaderPorts ports)
+{
+  std::lock_guard<std::mutex> lock(mutex_);
+  reader_ports_ = std::move(ports);
+}
+
 StatsData StatsObserver::snapshot()
 {
   // A final sweep before the copy: the thread drains every kStatsDrainIntervalMs, so how long
@@ -503,6 +510,7 @@ StatsData StatsObserver::snapshot()
   out.writer_instance_limit = FTV_STATS_WRITER_INSTANCE_LIMIT;
   out.writers_announced = settle.announced;
   out.writers_heard = settle.heard;
+  out.measured_instances = settle.measured_instances;
   out.samples_lost = listener_.lost;
   out.samples_lost_at_start = listener_.lost_at_start;
   out.samples_rejected = listener_.rejected;

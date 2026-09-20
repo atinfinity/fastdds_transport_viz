@@ -289,6 +289,7 @@ StatsData stats(const json & j)
   // #168; absent in documents written before it
   s.writers_announced = j.value("writers_announced", 0ULL);
   s.writers_heard = j.value("writers_heard", 0ULL);
+  s.measured_instances = j.value("measured_instances", 0ULL);
   s.settled = j.value("settled", false);
   if (auto it = j.find("settled_at_s"); it != j.end() && it->is_number()) {
     s.settled_at_s = it->get<double>();

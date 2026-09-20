@@ -13,6 +13,7 @@
 #include <optional>
 #include <set>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "fastdds_transport_viz/model.hpp"
@@ -137,8 +138,9 @@ inline constexpr double kStatsMeasuredQuietSeconds = 3.0;
 
 /// Whether a --stats one-shot has seen what it waits for (#168): discovery is quiet, at least
 /// kStatsSettleMinSeconds have passed, every RTPS_SENT writer the reader matched has been
-/// heard from once, and the number of RTPS_SENT instances with a measured delta has not grown
-/// for `quiet_window_seconds` (`measured_quiet_seconds` is how long it has stood still). The
+/// heard from once, and the number of RTPS_SENT instances that measure a pair (see
+/// measures_a_pair, #179) has not grown for `quiet_window_seconds` (`measured_quiet_seconds`
+/// is how long it has stood still). The
 /// transient-local handoff of the counter writers is what a fixed window cut short: at 20
 /// processes with 100 pairs each the last writer is first heard from at 16-20 s and measured
 /// instances keep coming until about 25 s, with pauses of up to 2 s in between. What the
@@ -150,6 +152,20 @@ inline constexpr double kStatsMeasuredQuietSeconds = 3.0;
 bool stats_settled(
   bool discovery_quiet, double elapsed_seconds, size_t writers_announced, size_t writers_heard,
   size_t measured_instances, double measured_quiet_seconds, double quiet_window_seconds);
+
+/// The unicast (kind, port) of every discovered reader outside the tool's own participants
+/// (#179): where a pair's packets go. Multicast never - metatraffic to 239.255.0.1:7400
+/// moves within seconds of any participant, pair or not. Pure function.
+using ReaderPorts = std::set<std::pair<LocatorKind, uint32_t>>;
+ReaderPorts reader_ports(
+  const std::vector<Endpoint> & endpoints, const std::set<std::string> & own_prefixes);
+
+/// Whether an RTPS_SENT instance is a measured pair packet (#179): its counter moved since
+/// its first sample AND its destination is a discovered reader's unicast (kind, port). The
+/// settle rule of a --stats one-shot counts these; the metatraffic and own-port instances
+/// that move first (the Lyrical medium run settled at 8 s with 47 of them and no pair
+/// measured) do not. Pure function.
+bool measures_a_pair(const TrafficSample & traffic, const ReaderPorts & readers);
 
 /// Whether --watch may draw its first frame (#177): discovery is quiet and, with --stats, at
 /// least kStatsSettleMinSeconds have passed so the first frame has a counter window. The

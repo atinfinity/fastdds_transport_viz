@@ -139,8 +139,9 @@ void usage()
     "  --timeout <sec>    max time to wait for discovery (default: 3, 30 with --stats)\n"
     "  --quiet <sec>      stop early after this many seconds without discovery events\n"
     "                     (default: 1; with --stats also once every participant with\n"
-    "                     statistics has been heard from and the measured traffic\n"
-    "                     entries stop growing for max(--quiet, 3) s, never before 5 s;\n"
+    "                     statistics has been heard from and the traffic entries measured\n"
+    "                     towards a discovered reader stop growing for max(--quiet, 3) s,\n"
+    "                     never before 5 s;\n"
     "                     --watch --stats draws its first frame once discovery is quiet\n"
     "                     and 5 s have passed)\n"
     "  --topic <regex>    only show topics whose (ROS) name matches the regex\n"
@@ -464,6 +465,21 @@ std::vector<fastdds_transport_viz::Locator> resolve_discovery_servers(
   return servers;
 }
 
+// Participants of the tool itself: the rmw participant of our rclcpp node and the
+// discovery/statistics participant. Matching endpoints by our node name misses the rmw
+// participant where rclcpp creates no endpoint on it (Lyrical/Rolling with rosout and
+// parameter services off), so ask the factory for every participant of this process.
+std::set<std::string> own_participant_prefixes(int domain)
+{
+  std::set<std::string> prefixes;
+  for (const auto * p : eprosima::fastdds::dds::DomainParticipantFactory::get_instance()->
+    lookup_participants(static_cast<eprosima::fastdds::dds::DomainId_t>(domain)))
+  {
+    prefixes.insert(fastdds_transport_viz::prefix_to_string(p->guid().guidPrefix));
+  }
+  return prefixes;
+}
+
 Snapshot collect(
   fastdds_transport_viz::DiscoveryObserver & observer,
   fastdds_transport_viz::RosGraphResolver & resolver,
@@ -534,11 +550,7 @@ Snapshot collect(
   }
   fastdds_transport_viz::ShmScanInput shm_in;   // SHM ports of every endpoint, filtered or not
   const auto local_host = observer.local_host_id();
-  // Participants of the tool itself: the rmw participant of our rclcpp node and the
-  // discovery/statistics participant. Matching endpoints by our node name misses the rmw
-  // participant where rclcpp creates no endpoint on it (Lyrical/Rolling with rosout and
-  // parameter services off), so ask the factory for every participant of this process.
-  std::set<std::string> own_prefixes;
+  std::set<std::string> own_prefixes = own_participant_prefixes(domain);
   std::set<std::string> other_host_prefixes;
   // SHM ports per participant with our host id, from every endpoint (ros_discovery_info
   // is the only one announcing the 7000+ port on Jazzy and newer), and those announced by
@@ -550,11 +562,6 @@ Snapshot collect(
   // every discovered participant, before any view filter: the `participants` of the JSON
   std::map<std::string, fastdds_transport_viz::Participant> participants;
   std::map<std::string, std::set<uint32_t>> participant_ports;   // ... the tool's own included
-  for (const auto * p : eprosima::fastdds::dds::DomainParticipantFactory::get_instance()->
-    lookup_participants(static_cast<eprosima::fastdds::dds::DomainId_t>(domain)))
-  {
-    own_prefixes.insert(fastdds_transport_viz::prefix_to_string(p->guid().guidPrefix));
-  }
   // The lock files of the ports our participants listen on, including those no endpoint
   // announces (the discovery participant has none), so a node port that collides with
   // one of them in another IPC namespace is not taken for visible.
@@ -1067,6 +1074,10 @@ int main(int argc, char ** argv)
     double settled_at_s = -1.0;
     size_t measured_instances = 0;
     double measured_changed_s = 0.0;
+    // #179: the settle rule counts instances towards discovered readers only; the set is
+    // rebuilt when discovery delivered something since the last check, not every 50 ms
+    uint64_t reader_ports_event_count = 0;
+    std::set<std::string> own_prefixes;
     // Wait until --timeout, or until discovery has been quiet for --quiet
     // seconds (but never less than --quiet seconds in total).
     for (;; ) {
@@ -1101,6 +1112,12 @@ int main(int argc, char ** argv)
       if (o.stats && !o.watch && o.quiet > 0 &&
         elapsed >= fastdds_transport_viz::kStatsSettleMinSeconds)
       {
+        if (observer.event_count() != reader_ports_event_count) {
+          reader_ports_event_count = observer.event_count();
+          if (own_prefixes.empty()) {own_prefixes = own_participant_prefixes(domain);}
+          stats->set_reader_ports(
+            fastdds_transport_viz::reader_ports(observer.snapshot(), own_prefixes));
+        }
         const auto settle = stats->settle_status();
         if (settle.measured_instances != measured_instances) {
           measured_instances = settle.measured_instances;
@@ -1122,15 +1139,21 @@ int main(int argc, char ** argv)
     // settle rule was meant to end - say which, so a longer --timeout is an informed choice.
     if (o.stats && stopped_on == "timeout" && !o.watch) {
       const auto settle = stats->settle_status();
-      if (!settle.unheard.empty()) {
-        std::cerr << "warning: --timeout " << o.timeout << " ended the run with "
-                  << settle.unheard.size() << " of " << settle.announced
-                  << " statistics RTPS_SENT writers not heard from";
-        const size_t shown = std::min<size_t>(settle.unheard.size(), 5);
-        for (size_t i = 0; i < shown; ++i) {
-          std::cerr << (i == 0 ? ": " : ", ") << settle.unheard[i];
+      // #179: ... or with every writer heard from and still no instance towards a reader
+      const bool unmeasured = settle.announced > 0 && settle.measured_instances == 0;
+      if (!settle.unheard.empty() || unmeasured) {
+        std::cerr << "warning: --timeout " << o.timeout << " ended the run with ";
+        if (!settle.unheard.empty()) {
+          std::cerr << settle.unheard.size() << " of " << settle.announced
+                    << " statistics RTPS_SENT writers not heard from";
+          const size_t shown = std::min<size_t>(settle.unheard.size(), 5);
+          for (size_t i = 0; i < shown; ++i) {
+            std::cerr << (i == 0 ? ": " : ", ") << settle.unheard[i];
+          }
+          if (settle.unheard.size() > shown) {std::cerr << ", ...";}
         }
-        if (settle.unheard.size() > shown) {std::cerr << ", ...";}
+        if (!settle.unheard.empty() && unmeasured) {std::cerr << " and ";}
+        if (unmeasured) {std::cerr << "no measured RTPS_SENT entry to a discovered reader";}
         std::cerr << "; their pairs may read (idle) - pass a longer --timeout\n";
       }
     }
