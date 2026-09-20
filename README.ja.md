@@ -5,6 +5,7 @@
 > 英語版が正です。この文書は 2026-09-17 時点の英語版に対応しています。
 
 [![CI](https://github.com/atinfinity/fastdds_transport_viz/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/atinfinity/fastdds_transport_viz/actions/workflows/ci.yml)
+[![Coverage](https://coveralls.io/repos/github/atinfinity/fastdds_transport_viz/badge.svg?branch=main)](https://coveralls.io/github/atinfinity/fastdds_transport_viz?branch=main)
 
 ドキュメントサイト: <https://atinfinity.github.io/fastdds_transport_viz/ja/>
 

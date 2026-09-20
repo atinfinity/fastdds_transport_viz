@@ -162,6 +162,63 @@ jobs:
           path: /tmp/transport_viz_*.json
           if-no-files-found: ignore
 
+  coverage:
+    # Line coverage of the C++ package (scripts/coverage.sh: a --coverage build, the package's
+    # tests, gcovr) on Jazzy x86_64, for pull requests and the merge commit on main (#80).
+    # The lcov file goes to Coveralls with the workflow token (no secret; the README badge
+    # and the pull-request comment come from there), the HTML report is an artifact and the
+    # gcovr summary lands in the job summary. Nothing gates on the percentage.
+    name: coverage (ROS 2 jazzy, x86_64)
+    needs: changes
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      ((github.event_name == 'pull_request' || github.event_name == 'push') && needs.changes.outputs.code == 'true')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    container: ros:jazzy
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Install git for checkout
+        run: |
+          apt-get update
+          apt-get upgrade -y --no-install-recommends   # as in build-and-test (#171)
+          apt-get install -y --no-install-recommends git iproute2
+
+      - uses: actions/checkout@v7
+
+      - name: Install dependencies (rosdep)
+        run: |
+          rosdep update --rosdistro jazzy
+          rosdep install --from-paths src --ignore-src --rosdistro jazzy -y
+
+      - name: Build with --coverage, test, gcovr
+        run: |
+          source /opt/ros/jazzy/setup.bash
+          mkdir -p coverage
+          bash scripts/coverage.sh --lcov coverage/lcov.info --html-details coverage/index.html \
+            --txt coverage/summary.txt --print-summary
+          { echo '```'; cat coverage/summary.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          # gcovr 7 writes absolute SF: paths; Coveralls wants them relative to the checkout
+          sed -i "s|^SF:$GITHUB_WORKSPACE/|SF:|" coverage/lcov.info
+          grep -m1 '^SF:' coverage/lcov.info
+
+      - name: Upload HTML report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-html-jazzy-x86_64
+          path: coverage/
+          if-no-files-found: ignore
+
+      - name: Upload to Coveralls
+        uses: coverallsapp/github-action@v2
+        with:
+          file: coverage/lcov.info
+          format: lcov
+          fail-on-error: false
+
   web-unit-tests:
     # web/model.js and web/scene.js (the viewer's pure model/formatting/layout functions) under Node's test runner.
     name: web viewer unit tests (node)
@@ -180,14 +237,16 @@ jobs:
   # not count.
   ci-result:
     name: CI result
-    needs: [changes, build-and-test, integration, web-unit-tests]
+    needs: [changes, build-and-test, integration, coverage, web-unit-tests]
     if: always()
     runs-on: ubuntu-latest
     steps:
       - run: |
           echo "build-and-test: ${{ needs.build-and-test.result }}"
           echo "integration: ${{ needs.integration.result }}"
+          echo "coverage: ${{ needs.coverage.result }}"
           echo "web-unit-tests: ${{ needs.web-unit-tests.result }}"
           case "${{ needs.build-and-test.result }}" in success|skipped) ;; *) exit 1 ;; esac
           case "${{ needs.integration.result }}" in success|skipped) ;; *) exit 1 ;; esac
+          case "${{ needs.coverage.result }}" in success|skipped) ;; *) exit 1 ;; esac
           case "${{ needs.web-unit-tests.result }}" in success|skipped) ;; *) exit 1 ;; esac

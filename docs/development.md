@@ -220,11 +220,15 @@ colcon test && colcon test-result --verbose
   binary and missing input files.
   `test_list_live.py`: `ros2 transport list --json` against real demo nodes.
 
-Line coverage of the C++ sources, measured with `scripts/coverage.sh` inside the dev
-container (a `--coverage` build in `build_cov/`, the whole test suite, then `gcovr`):
-98 % as of 2026-09-06 (`shm_info.cpp` 100 %, `main.cpp`, `render_table.cpp`,
-`render_json.cpp` 99 %, `stats_observer.cpp` 98 %, `decision.cpp` and
-`discovery_observer.cpp` 96 %). What is left is unreachable by construction: subscriber
+Line coverage of the C++ sources is measured with `scripts/coverage.sh` (a `--coverage`
+build in `build/<distro>/coverage/`, the package's test suite, then `gcovr`; extra `gcovr`
+arguments pass through), by hand inside the dev container and in CI for every pull request
+and merge commit ([#80](https://github.com/atinfinity/fastdds_transport_viz/issues/80)): the
+current number is the Coverage badge of the README (Coveralls, `main`), the per-file report
+is the `coverage-html-jazzy-x86_64` artifact of the run. It has stayed between 91 and 98 %
+(91.1 % lines in the first CI run on 2026-09-20 with 63 tests skipped there; `shm_info.cpp` 100 %, `main.cpp`, `render_table.cpp`, `render_json.cpp` 99 %,
+`stats_observer.cpp` 98 %, `decision.cpp` and `discovery_observer.cpp` 96 % as of
+2026-09-06). What is left is unreachable by construction: subscriber
 and reader creation failures inside Fast DDS, `getifaddrs` errors, `default:` labels of
 switches over enums whose every value is handled, and discovery statuses Fast DDS 2.14 never
 reports for our participant.
@@ -274,6 +278,17 @@ run again on `main`: each change is built once, in its pull request. Every job h
 30-minute `timeout-minutes` (queue time excluded). The `rosdep` / `colcon build` /
 `colcon test` steps live in the composite action `.github/actions/colcon-build-test`, which
 the Rolling workflow shares.
+
+A `coverage` job runs `scripts/coverage.sh` in `ros:jazzy` on x86_64 for pull requests
+that touch code and for the merge commit on `main`
+([#80](https://github.com/atinfinity/fastdds_transport_viz/issues/80)): the C++ package
+built with `--coverage`, its tests, and `gcovr` writing the summary to the job summary, an
+HTML report to the `coverage-html-jazzy-x86_64` artifact and an lcov file that
+`coverallsapp/github-action` uploads with the workflow token (no repository secret).
+Coveralls provides the README badge (`main`) and comments the delta on pull requests. The
+job counts towards `CI result` like the matrix - a failing coverage build or test blocks -
+but nothing gates on the percentage, and a Coveralls outage does not fail the job
+(`fail-on-error: false`).
 
 `.github/workflows/rolling.yml` runs every Monday at 03:00 UTC (and on `workflow_dispatch`)
 against `ros:rolling`, which tracks the Fast DDS head and is only a non-blocking x86_64 job
