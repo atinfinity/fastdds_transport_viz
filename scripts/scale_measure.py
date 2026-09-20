@@ -7,8 +7,9 @@ Runs inside the container of the observed nodes (same host id and /dev/shm), aft
 has warmed up:
 
   one-shot   the default table 3 times (median), plus one -v table for its line count
-  --stats    --json at the default --timeout 5 and at --timeout 30: statistics coverage, dropped
-             statistics samples; the 30 s document is kept for the web viewer
+  --stats    --json with the default stop rule (#168: settled, --timeout 30 as the cap) and at
+             --timeout 30: statistics coverage, dropped statistics samples; the 30 s document is
+             kept for the web viewer
   --watch    --interval 2 for --watch-seconds with --stats, --stats -v and no --stats: frame times
 
 Timings come from FTV_PROFILE=1 (JSON lines on stderr); CPU time and peak RSS of the tool from
@@ -42,8 +43,8 @@ BUDGETS = {
     'stats_watch_coverage': (0.95, '>=', 'pairs with measured packets / pairs with a delivery '
                              'proof (HISTORY_LATENCY) at the last --watch frame, the lower of '
                              'the two --stats runs'),
-    'stats_coverage': (0.95, '>=', 'measured pairs at --timeout 5 / measured pairs at 30, over '
-                       'the /scale pairs when there are any'),
+    'stats_coverage': (0.95, '>=', 'measured pairs of the default --stats one-shot / measured '
+                       'pairs at --timeout 30, over the /scale pairs when there are any'),
 }
 
 
@@ -177,7 +178,10 @@ def pair_sets(document):
 
 
 def stats_run(timeout, keep):
-    run = run_tool(['--stats', '--json', '--timeout', str(timeout)], keep_stdout=keep)
+    # timeout None: the default one-shot, which stops on the settle rule (#168). The fixed
+    # window is the reference the rule is judged against, so --quiet 0 keeps the rule off it.
+    extra = [] if timeout is None else ['--timeout', str(timeout), '--quiet', '0']
+    run = run_tool(['--stats', '--json'] + extra, keep_stdout=keep)
     try:
         document = json.loads(run['stdout'])
     except ValueError:
@@ -273,15 +277,16 @@ def main():
         'runs': [summarize_run(r) for r in oneshots + [verbose]],
     }
 
-    print('== --stats --json at --timeout 5 and 30', file=sys.stderr, flush=True)
-    s5 = stats_run(5, os.path.join(args.out, f'{args.label}.stats5.json'))
+    print('== --stats --json with the default stop rule and at --timeout 30',
+          file=sys.stderr, flush=True)
+    s5 = stats_run(None, os.path.join(args.out, f'{args.label}.stats-default.json'))
     s30 = stats_run(30, os.path.join(args.out, f'{args.label}.viz.json'))
     # A reader that matches a statistics writer late misses the samples already gone from its
     # keep-last history and counts them as lost; that is not the tool falling behind, and the
     # tool separates them itself since #134 (sample_lost_at_start). Recorded only.
     startup_lost = {f'timeout_{t}': (last(r, 'drain', 'sample_lost_at_start', 0) or 0)
-                    for t, r in ((5, s5), (30, s30))}
-    # Topics without steady data (/parameter_events, /rosout) often have no packet in a 5 s
+                    for t, r in (('default', s5), (30, s30))}
+    # Topics without steady data (/parameter_events, /rosout) often have no packet in a short
     # window at all, so the synthetic loads count their 10 Hz /scale pairs only.
     synthetic = any(k[0].startswith('/scale/') for k in s30['pairs'])
 
@@ -291,10 +296,12 @@ def main():
     # nothing measured even in 30 s while there are pairs: the statistics did not get through
     coverage = len(m5 & m30) / len(m30) if m30 else (0.0 if s30['pairs'] else None)
     scale_pairs = sum(1 for k in s30['pairs'] if k[0].startswith('/scale/'))
-    missing_5s = {}
+    missing_default = {}
     for topic, _, _ in m30 - m5:   # the same pairs the coverage is judged on
         group = '/scale/*' if topic.startswith('/scale/') else topic
-        missing_5s[group] = missing_5s.get(group, 0) + 1
+        missing_default[group] = missing_default.get(group, 0) + 1
+    default_stats = s5['document'].get('stats', {})
+    default_discovery = s5['document'].get('discovery', {})
     result['stats'] = {
         'pairs_30s': len(s30['pairs']),
         'scale_pairs_30s': scale_pairs,
@@ -302,16 +309,22 @@ def main():
         'participants_30s': len(s30['participants']),
         'participants_with_stats_30s': len(
             s30['document'].get('stats', {}).get('participants_with_stats', [])),
-        'measured_pairs_5s': len(s5['measured']),
+        'measured_pairs_default': len(s5['measured']),
         'measured_pairs_30s': len(s30['measured']),
         # delivery proof without a measured packet; what the pre-#153 predicate counted as
         # measured. Recorded only.
-        'delivered_unmeasured_5s': len(s5['delivered_unmeasured']),
+        'delivered_unmeasured_default': len(s5['delivered_unmeasured']),
         'delivered_unmeasured_30s': len(s30['delivered_unmeasured']),
         'coverage_basis_pairs_30s': len(m30),
         'coverage': round(coverage, 4) if coverage is not None else None,
-        'missing_at_5s_by_topic': missing_5s,
-        'pairs_5s': len(s5['pairs']),
+        'missing_at_default_by_topic': missing_default,
+        'pairs_default': len(s5['pairs']),
+        # the settle rule of the default one-shot (#168): how it stopped and when
+        'default_stopped_on': default_discovery.get('stopped_on'),
+        'default_wall_s': round(s5['wall_s'], 1),
+        'settled_at_s': default_stats.get('settled_at_s'),
+        'writers_announced': default_stats.get('writers_announced'),
+        'writers_heard': default_stats.get('writers_heard'),
         'oneshot_lost_samples': startup_lost,
         'samples_30s': last(s30, 'drain', 'samples'),
         'viewer_json_bytes': len(s30['stdout']),

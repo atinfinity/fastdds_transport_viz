@@ -2501,10 +2501,32 @@ TEST(IncompleteDiscoveryWarning, TheAdviceIsAlwaysLongerThanWhatTheRunUsed)
   const auto no_quiet = incomplete_discovery_warning(d, 0.0, 3.0, false);
   EXPECT_EQ(no_quiet.find("--quiet"), std::string::npos) << no_quiet;
   EXPECT_NE(no_quiet.find("pass --timeout 10"), std::string::npos) << no_quiet;
-  // --stats runs the full timeout and ignores --quiet
-  const auto with_stats = incomplete_discovery_warning(d, 1.0, 5.0, true);
-  EXPECT_EQ(with_stats.find("--quiet"), std::string::npos) << with_stats;
-  EXPECT_NE(with_stats.find("pass --timeout 15"), std::string::npos) << with_stats;
+  // --stats stops on quiet too since #168, with its own, longer cap
+  const auto with_stats = incomplete_discovery_warning(d, 1.0, 30.0, true);
+  EXPECT_NE(with_stats.find("pass --quiet 3 or --timeout 60"), std::string::npos) << with_stats;
+}
+
+TEST(StatsSettled, WaitsForQuietTheMinimumEveryMatchedWriterAndStillMeasuredInstances)
+{
+  // all four: quiet, past the minimum, every matched writer heard from, measured instances
+  // unchanged for the --quiet window
+  EXPECT_TRUE(stats_settled(true, kStatsSettleMinSeconds, 20, 20, 800, 1.0, 1.0));
+  EXPECT_TRUE(stats_settled(true, 12.0, 20, 20, 800, 3.5, 1.0));
+  // nothing matched is nothing to wait for: a system without statistics takes the minimum
+  EXPECT_TRUE(stats_settled(true, kStatsSettleMinSeconds, 0, 0, 0, 5.0, 1.0));
+  // not quiet: discovery is still delivering endpoints, whose writers are not matched yet
+  EXPECT_FALSE(stats_settled(false, 12.0, 20, 20, 800, 3.5, 1.0));
+  // the counters need a window of two samples per instance, whatever the writers say
+  EXPECT_FALSE(stats_settled(true, kStatsSettleMinSeconds - 0.1, 20, 20, 800, 3.5, 1.0));
+  // a writer that matched but has not handed over its history yet is a pair reading (idle)
+  EXPECT_FALSE(stats_settled(true, 12.0, 20, 19, 800, 3.5, 1.0));
+  // every writer heard from, but the handoffs are still producing measured instances: at
+  // medium that is the state at 9 s, with a sixth of the pairs measured
+  EXPECT_FALSE(stats_settled(true, 12.0, 20, 20, 300, 0.4, 1.0));
+  EXPECT_FALSE(stats_settled(true, 12.0, 20, 20, 300, 2.0, 3.0));
+  // every writer heard from and nothing measured yet: not quiet, nothing has begun (Lyrical
+  // medium at 8 s)
+  EXPECT_FALSE(stats_settled(true, 8.0, 20, 20, 0, 3.0, 3.0));
 }
 
 TEST(StatisticsLossWarning, NothingLostSaysNothing)

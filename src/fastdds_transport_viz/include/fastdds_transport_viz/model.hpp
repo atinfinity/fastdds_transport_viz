@@ -412,6 +412,14 @@ struct StatsData
   /// Statistics DataWriters the readers could not match because their QoS is incompatible
   /// (#141): their samples never arrive and are never counted as lost either.
   uint64_t writers_incompatible_qos{0};
+  /// The settle rule of a --stats one-shot (#168): RTPS_SENT writers the reader
+  /// matched (`writers_announced`), those of them a sample was taken from (`writers_heard`),
+  /// whether the wait ended because both agreed (`settled`) and when (`settled_at_s`, negative
+  /// when the run hit --timeout first, or under --watch).
+  uint64_t writers_announced{0};
+  uint64_t writers_heard{0};
+  bool settled{false};
+  double settled_at_s{-1.0};
   /// Pairs in this document whose delivery HISTORY_LATENCY proves (#147), and those of them
   /// RTPS_SENT shows no packet for: the lost measurements. Only a delivery proof tells a
   /// starved RTPS_SENT instance from an idle one - the instance itself looks the same, one

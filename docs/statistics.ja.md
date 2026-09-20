@@ -106,8 +106,20 @@ statistics が有効な participant とは、その participant 自身が publis
 
 statistics は *participant* 単位 (ROS ノードごとに 1 つ) なので、測定値は writer のノード →
 reader のノードのリンクに対するものです。個々のペアを区別するのは discovery による予測の方です。
-`--stats` はカウンタが溜まるように `--timeout` の間ずっと観測します (既定 5 秒。静穏期間による
-早期終了は無効)。トラフィックの無いトピックには `!no-traffic-observed` が付きます。`HISTORY_LATENCY`
+`--stats` はカウンタが溜まるように少なくとも 5 秒観測し、その後は discovery が `--quiet` 秒
+静穏で、ツールの reader がマッチした `RTPS_SENT` writer (statistics 付きの participant ごとに
+1 つ) のすべてから最初のサンプルが届き、**かつ**実測パケットを持つ `RTPS_SENT` エントリの数が
+`--quiet` 秒 (少なくとも 3 秒) 増えなくなるまで、または `--timeout` (`--stats` 付きの既定は
+30 秒) まで、のどちらか早い方まで続けます。後の 2 つの条件は固定の窓では切れてしまっていたものです
+([#168](https://github.com/atinfinity/fastdds_transport_viz/issues/168))。transient-local の
+カウンタ writer は後から参加した reader に履歴をまとめて渡し、それはプロセスごとに順番に、間に
+最大 2 秒ほどの間を置いて起こるので、100 ペアずつの 20 プロセスでは最後の writer からの最初の
+サンプルが 16〜20 秒後に届き、エントリは約 25 秒まで増え続け、5 秒の観測ではペアの一部しか、
+あるいは 1 つも実測できませんでした。`--json` ではこの規則が `stats.writers_announced` (マッチした
+`RTPS_SENT` writer 数)、`stats.writers_heard`、`stats.settled`、`stats.settled_at_s` (先に `--timeout`
+に達した場合は `null` で、そのとき stderr に 1 行、まだ届いていない writer が出ます) に記録され、
+`discovery.stopped_on` は `settled` になります。トラフィックの無いトピックには
+`!no-traffic-observed` が付きます。`HISTORY_LATENCY`
 が配送を証明しているのに `RTPS_SENT` に reader のどの locator の項目も無い場合は、代わりに
 `!delivered-without-measured-traffic` が付きます。サンプルは届いたが statistics がパケットを
 帰属させなかったということです (遅いマシンで 2 MB のサンプルを既定の 512 KB セグメントの SHM で
@@ -257,8 +269,8 @@ reader の読み出しは observer が持つスレッドが 50 ms ごとに行�
 Docker の 8 CPU の VM で Jazzy (Fast DDS 2.14.6) を使い、すべてのノードで statistics を有効にし、
 ツールをノードと同じ場所で動かして測りました (詳細は [development.md](development.md#scale-results))。
 
-- **約 10 プロセス、500 ペアまで**は取りこぼしが無く、既定の 5 秒ですべてのペアが実測されます。
-- **20 プロセス、2400 ペア**でも 5 秒ですべてのペアが実測され、ワンショットの表にも全ペアが出ます。
+- **約 10 プロセス、500 ペアまで**は取りこぼしが無く、5 秒ですべてのペアが実測され、既定の `--stats` ワンショットはその数秒後に終わります。
+- **20 プロセス、2400 ペア**では既定の `--stats` ワンショットが 17〜23 秒で settle し、ペアの 95〜100 % が実測され、ワンショットの表には全ペアが出ます。5 秒の観測では 1 つも実測できませんでした ([#168](https://github.com/atinfinity/fastdds_transport_viz/issues/168): statistics writer はツールの reader へ履歴をプロセスごとに順番に渡します)。
   [#141](https://github.com/atinfinity/fastdds_transport_viz/issues/141) より前は 4 分の 1 のペアが 5 秒後も未実測で、表に出るのは 1 ペアだけでした。
 - **40 プロセス、5600 ペア**でも大半から全部のペアが実測されます。同じビルドの 3 回の実行で 5 秒
   時点の coverage は 0.62 / 0.97 / 1.0 でした。#141 より前は 3 回とも 0.0 です。このばらつきは

@@ -20,6 +20,7 @@
 #include <map>
 #include <memory>
 #include <mutex>
+#include <set>
 #include <string>
 #include <thread>
 #include <tuple>
@@ -97,6 +98,27 @@ public:
   /// Drains that ended in an exception. The drain thread counts them instead of dying.
   uint64_t drain_errors() const {return drain_errors_;}
 
+  /// What the settle rule of a --stats one-shot waits for (#168): the RTPS_SENT writers the
+  /// reader matched (discovered and QoS-compatible - one that never matches never delivers,
+  /// and must not hold the run to its cap), and those of them no sample was taken from yet,
+  /// as "<topic> <writer guid>". A writer's transient-local history arrives as one handoff,
+  /// so the first sample taken from it says the handoff has begun. RTPS_SENT only: it is
+  /// what "measured" means, and every participant sends something (its own announcement at
+  /// the least) within seconds, while RTPS_LOST, GAP_COUNT or NACKFRAG_COUNT writers match
+  /// and then stay silent for as long as nothing is lost - a healthy system would wait for
+  /// them until the cap.
+  /// `measured_instances` is what the handoffs produce: RTPS_SENT instances whose counter
+  /// moved since their first sample, the pairs' measured packets. The one-shot ends once it
+  /// stops growing.
+  struct Settle
+  {
+    size_t announced{0};
+    size_t heard{0};
+    size_t measured_instances{0};
+    std::vector<std::string> unheard;
+  };
+  Settle settle_status();
+
   /// Value for FASTDDS_STATISTICS that monitored nodes need.
   static std::string required_env_value();
 
@@ -148,6 +170,11 @@ private:
     std::atomic<bool> any_match{false};
     std::atomic<int64_t> last_match_ticks{
       std::chrono::steady_clock::now().time_since_epoch().count()};
+    /// Per reader, the writers currently matched (#168), from the match callbacks: Fast DDS
+    /// 2.14 does not implement DataReader::get_matched_publications. A writer that goes away
+    /// leaves the set, so a node that exits mid-run does not hold the settle rule.
+    std::mutex matched_mutex;
+    std::map<const eprosima::fastdds::dds::DataReader *, std::set<std::string>> matched;
     void on_sample_lost(
       eprosima::fastdds::dds::DataReader *,
       const eprosima::fastdds::dds::SampleLostStatus & status) override;
@@ -155,7 +182,7 @@ private:
       eprosima::fastdds::dds::DataReader *,
       const eprosima::fastdds::dds::SampleRejectedStatus & status) override;
     void on_subscription_matched(
-      eprosima::fastdds::dds::DataReader *,
+      eprosima::fastdds::dds::DataReader * reader,
       const eprosima::fastdds::dds::SubscriptionMatchedStatus & status) override;
     void on_requested_incompatible_qos(
       eprosima::fastdds::dds::DataReader *,
@@ -192,6 +219,8 @@ private:
   using LostKey = std::tuple<std::string, std::string, int, std::string, uint32_t>;
   std::map<LostKey, TrafficSample> lost_;
   StatsData data_;
+  /// Per counter reader, the writers a sample was taken from (#168). Under mutex_.
+  std::map<const eprosima::fastdds::dds::DataReader *, std::set<std::string>> heard_;
   /// HISTORY_LATENCY per second of source timestamp (#143): per pair the count and the first
   /// and last timestamp, per reader-side participant the sequence numbers of its statistics
   /// writer. Pruned to the rate window under --watch, kept whole otherwise.

@@ -125,10 +125,14 @@
     "samples_lost_at_start": 0,
     "samples_lost_latency": 0,
     "samples_rejected": 0,
+    "settled": false,
+    "settled_at_s": null,
     "statistics_writers": [],
     "throughput": {},
     "traffic": [],
     "warnings": [],
+    "writers_announced": 0,
+    "writers_heard": 0,
     "writers_incompatible_qos": 0
   },
   "topics": [
