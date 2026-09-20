@@ -251,8 +251,8 @@ code (docs-only changes skip the job); Rolling may break with upstream changes a
 not block (`continue-on-error`). Jazzy and Lyrical are built and tested twice, on the
 x86_64 runner and on GitHub's `ubuntu-24.04-arm` runner (the `ros:<distro>` images are
 multi-arch); the arm64 jobs block pull requests like the x86_64 ones. Humble on arm64 is
-not run (Fast DDS 2.6, prediction only), and Rolling on arm64 is left to the scheduled
-Rolling run ([#79](https://github.com/atinfinity/fastdds_transport_viz/issues/79)). Test
+not run (Fast DDS 2.6, prediction only), and Rolling on arm64 is left to the weekly
+Rolling run below ([#79](https://github.com/atinfinity/fastdds_transport_viz/issues/79)). Test
 result XML files and launch logs are uploaded as a workflow artifact per distribution,
 architecture and RMW. The matrix's `rmw` axis is `rmw_fastrtps_cpp` everywhere plus one
 `rmw_fastrtps_dynamic_cpp` job each for Humble, Jazzy and Lyrical on x86_64
@@ -271,7 +271,21 @@ selected scenarios on other images: Lyrical for `easy_mode_shm`, `easy_mode_tcp`
 `hostnet_split_stats`, `hostnet_split_datasharing` and `hostnet_split_datasharing_udp`,
 Humble for `hostnet_split_shm`, `hostnet_noipc_shm` and `hostnet_split_datasharing`. The matrix itself does not
 run again on `main`: each change is built once, in its pull request. Every job has a
-30-minute `timeout-minutes` (queue time excluded).
+30-minute `timeout-minutes` (queue time excluded). The `rosdep` / `colcon build` /
+`colcon test` steps live in the composite action `.github/actions/colcon-build-test`, which
+the Rolling workflow shares.
+
+`.github/workflows/rolling.yml` runs every Monday at 03:00 UTC (and on `workflow_dispatch`)
+against `ros:rolling`, which tracks the Fast DDS head and is only a non-blocking x86_64 job
+in the pull-request matrix ([#79](https://github.com/atinfinity/fastdds_transport_viz/issues/79)):
+`colcon build` and `colcon test` on x86_64 and arm64 (plus `rmw_fastrtps_dynamic_cpp` on
+x86_64) and `scripts/integration_test.sh all` on both architectures, none of them
+`continue-on-error`. Its `report` job opens the issue "Scheduled Rolling run failed" (label
+`rolling-ci`) with the run URL and the failed jobs when something broke, adds a comment to it
+while it stays open, and closes it once a run passes again. A `simulate_failure` input of
+`workflow_dispatch` exercises the issue path without a real failure. `.github/dependabot.yml`
+keeps the actions pinned in the workflows current, as one grouped pull request a week
+(Monday), verified by the ordinary matrix.
 
 ## Scale verification
 

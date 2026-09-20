@@ -1,0 +1,124 @@
+name: Rolling
+
+# The weekly Rolling run (#79). Rolling tracks the Fast DDS head, so in ci.yml it is one
+# non-blocking x86_64 job of the pull-request matrix; here it builds and tests on both
+# architectures and runs every multi-container scenario, and a breakage fails visibly: the
+# `report` job opens (or updates) the open `rolling-ci` issue, and closes it again once a
+# run passes. Monday, the same day as Dependabot's pull requests.
+on:
+  schedule:
+    - cron: "0 3 * * 1"
+  workflow_dispatch:
+    inputs:
+      simulate_failure:
+        description: Run the report job as if a job had failed (exercises the issue path)
+        type: boolean
+        default: false
+
+jobs:
+  build-and-test:
+    name: colcon build & test (ROS 2 rolling, ${{ matrix.arch }}, ${{ matrix.rmw }})
+    runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
+    timeout-minutes: 30
+    container: ros:rolling
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [x86_64, arm64]
+        rmw: [rmw_fastrtps_cpp]
+        include:
+          - arch: x86_64
+            rmw: rmw_fastrtps_dynamic_cpp
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Install git for checkout
+        run: |
+          apt-get update
+          # as in ci.yml: the image lags the apt repo, upgrade before rosdep installs (#171)
+          apt-get upgrade -y --no-install-recommends
+          apt-get install -y --no-install-recommends git iproute2
+
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/colcon-build-test
+        with:
+          distro: rolling
+          rmw: ${{ matrix.rmw }}
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-rolling-${{ matrix.arch }}-${{ matrix.rmw }}
+          path: |
+            build/**/test_results/**/*.xml
+            log/latest_test/**/*.log
+          if-no-files-found: ignore
+
+  integration:
+    name: multi-container integration (${{ matrix.arch }}, rolling)
+    runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [x86_64, arm64]
+    env:
+      ROS_DISTRO: rolling
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run every scenario
+        run: scripts/integration_test.sh all
+
+      - name: Upload transport_viz output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-json-${{ matrix.arch }}-rolling
+          path: /tmp/transport_viz_*.json
+          if-no-files-found: ignore
+
+  report:
+    name: Rolling result
+    needs: [build-and-test, integration]
+    if: always()
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      BUILD_RESULT: ${{ needs.build-and-test.result }}
+      INTEGRATION_RESULT: ${{ needs.integration.result }}
+      SIMULATE: ${{ github.event_name == 'workflow_dispatch' && inputs.simulate_failure }}
+    steps:
+      - run: |
+          echo "build-and-test: $BUILD_RESULT"
+          echo "integration: $INTEGRATION_RESULT"
+          failed=""
+          [ "$BUILD_RESULT" = success ] || failed="$failed- colcon build & test: $BUILD_RESULT"$'\n'
+          [ "$INTEGRATION_RESULT" = success ] || failed="$failed- multi-container integration: $INTEGRATION_RESULT"$'\n'
+          if [ "$SIMULATE" = true ]; then
+            failed="- (simulated by workflow_dispatch with simulate_failure)"$'\n'
+          fi
+          open=$(gh issue list --label rolling-ci --state open --json number --jq '.[0].number // empty')
+          if [ -n "$failed" ]; then
+            body="The scheduled Rolling run failed on \`${GITHUB_SHA}\` ($GITHUB_EVENT_NAME):"$'\n\n'"$failed"$'\n'"Run: $RUN_URL"$'\n'"Rolling tracks the Fast DDS head; see the failed jobs' logs and test-result artifacts."
+            if [ -n "$open" ]; then
+              gh issue comment "$open" --body "$body"
+              echo "commented on #$open"
+            else
+              gh issue create --title "Scheduled Rolling run failed" --label rolling-ci --body "$body"$'\n\n'"🤖 Opened by .github/workflows/rolling.yml"
+            fi
+            [ "$SIMULATE" = true ] || exit 1
+          elif [ -n "$open" ]; then
+            gh issue comment "$open" --body "The scheduled Rolling run passed again on \`${GITHUB_SHA}\`: $RUN_URL"
+            gh issue close "$open"
+            echo "closed #$open"
+          else
+            echo "passed, nothing open"
+          fi

@@ -1,0 +1,14 @@
+# Dependabot keeps the pinned GitHub Actions of .github/workflows current (#79). Only the
+# actions: the docs workflow installs its pip packages inline and docker/Dockerfile pulls
+# ros:${ROS_DISTRO}, a variable tag Dependabot cannot follow.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    # one pull request for every action that moved, verified by the ordinary PR matrix
+    groups:
+      actions:
+        patterns: ["*"]
