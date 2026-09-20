@@ -214,7 +214,13 @@ class Browser {
   async close() {
     this.proc.kill();
     await new Promise(resolve => this.proc.once('exit', resolve));
-    fs.rmSync(this.userDataDir, { recursive: true, force: true });
+    // Chrome's helper processes (zygote, crashpad) may still be writing into the profile
+    // for a moment after the browser exits: retry, and never fail a run over a temp directory
+    try {
+      fs.rmSync(this.userDataDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+    } catch (e) {
+      console.warn(`could not remove ${this.userDataDir}: ${e.message}`);
+    }
   }
 }
 
