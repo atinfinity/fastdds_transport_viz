@@ -13,6 +13,9 @@ has warmed up:
 
 Timings come from FTV_PROFILE=1 (JSON lines on stderr); CPU time and peak RSS of the tool from
 wait4(), CPU of the whole VM from /proc/stat. Writes <out>/<label>.json and prints a Markdown row.
+
+The budgets are always computed and shown in the row; the exit code says nothing about them
+unless --judge is given, which is how scripts/scale_test.sh runs the judged rung (#167).
 """
 
 import argparse
@@ -209,6 +212,8 @@ def main():
     ap.add_argument('--expected-load-processes', type=int, default=0)
     ap.add_argument('--date', default=datetime.date.today().isoformat(),
                     help='date of the run (the container clock is UTC)')
+    ap.add_argument('--judge', action='store_true',
+                    help='exit 1 when a budget fails or the load died; the rung is judged')
     args = ap.parse_args()
     os.makedirs(args.out, exist_ok=True)
 
@@ -400,7 +405,9 @@ def main():
     healthy = (not args.expected_load_processes
                or result['load_after']['load_processes'] >= args.expected_load_processes)
     result['load_healthy'] = healthy
-    result['pass'] = all(b['pass'] is not False for b in budgets.values()) and healthy
+    result['judged'] = args.judge
+    ok, failed = judge(result)
+    result['pass'] = ok
 
     path = os.path.join(args.out, f'{args.label}.json')
     with open(path, 'w') as f:
@@ -408,7 +415,21 @@ def main():
         f.write('\n')
     print(f'== wrote {path}', file=sys.stderr)
     print(markdown_row(result))
-    return 0
+    if not args.judge:
+        return 0
+    verdict = 'PASS' if ok else 'FAIL - ' + ', '.join(failed)
+    print(f"== {result['label']} ({result['ros_distro']}): {verdict}", file=sys.stderr)
+    return 0 if ok else 1
+
+
+def judge(result):
+    """(ok, reasons): every budget with a value holds (None is not judged) and the load
+    survived. `reasons` names each failure with its value and limit."""
+    failed = [f"{k} {b['value']} (must be {b['op']} {b['limit']})"
+              for k, b in result['budgets'].items() if b['pass'] is False]
+    if not result['load_healthy']:
+        failed.append('load processes died')
+    return not failed, failed
 
 
 def markdown_row(r):

@@ -48,9 +48,10 @@ measure() {
     --expected-load-processes "$procs" --date "$(date +%F)" "$@" | tee -a "$out/rows.md"
 }
 
-# run_synthetic <label> <processes> <topics> [split]
+# run_synthetic <label> <processes> <topics> <split|""> [scale_measure args]
 run_synthetic() {
-  local label="$1" processes="$2" topics="$3" split="${4:-}"
+  local label="$1" processes="$2" topics="$3" split="$4"
+  shift 4
   local readers=$((processes - 1 < 4 ? processes - 1 : 4))
   export SCALE_PROCESSES="$processes" SCALE_TOPICS="$topics"
   local in_a="$processes"
@@ -66,38 +67,25 @@ run_synthetic() {
   local rc=0
   measure "$label" scale_load_a "$((topics * readers))" "$in_a" \
     --load "$processes scale_load processes x 1 node, $topics topics, $readers readers each${split:+, split over two containers}" \
-    || rc=$?
+    "$@" || rc=$?
   docker compose --profile scale down --remove-orphans >/dev/null 2>&1 || true
   return $rc
 }
 
-# The budgets are judged on Jazzy; the other distros are recorded only. The one exception
-# (#152): on Fast DDS 3.6 the statistics counters stall without the heartbeat period of
-# the installed config/statistics.xml, which reads as a --watch coverage of 0.0 at medium.
-assert_lyrical_watch_coverage() {
-  [[ "$ROS_DISTRO" == "lyrical" ]] || return 0
-  python3 - "$out/medium.json" <<'EOF'
-import json, sys
-b = json.load(open(sys.argv[1]))['budgets']['stats_watch_coverage']
-print(f"== medium (lyrical): stats_watch_coverage {b['value']} (must be {b['op']} {b['limit']})")
-sys.exit(0 if b['pass'] else 1)
-EOF
-}
-
+# The budgets are judged at medium (#167): scale_measure.py --judge exits 1 there when a
+# budget with a value fails (Humble's stats_* budgets have none) or the load died. The other
+# rungs are recorded only: large takes most of the host and limit is meant to exceed them.
 build
 case "$scenario" in
-  small) run_synthetic small 10 100 ;;
-  medium)
-    run_synthetic medium 20 500
-    assert_lyrical_watch_coverage
-    ;;
-  large) run_synthetic large 40 1000 ;;
+  small) run_synthetic small 10 100 "" ;;
+  medium) run_synthetic medium 20 500 "" --judge ;;
+  large) run_synthetic large 40 1000 "" ;;
   large_multi) run_synthetic large_multi 40 1000 split ;;
   limit)
     processes=60
     while :; do
       label="limit_p${processes}"
-      if ! run_synthetic "$label" "$processes" $((processes * 25)); then
+      if ! run_synthetic "$label" "$processes" $((processes * 25)) ""; then
         echo "== $label: measurement failed, stopping"
         break
       fi
