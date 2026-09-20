@@ -283,7 +283,8 @@ A `coverage` job runs `scripts/coverage.sh` in `ros:jazzy` on x86_64 for pull re
 that touch code and for the merge commit on `main`
 ([#80](https://github.com/atinfinity/fastdds_transport_viz/issues/80)): the C++ package
 built with `--coverage`, its tests, and `gcovr` writing the summary to the job summary, an
-HTML report to the `coverage-html-jazzy-x86_64` artifact and an lcov file that
+HTML report to the `coverage-html-jazzy-x86_64` artifact and an lcov file (lines only:
+Coveralls would fold gcovr's branch records into its percentage) that
 `coverallsapp/github-action` uploads with the workflow token (no repository secret).
 Coveralls provides the README badge (`main`) and comments the delta on pull requests. The
 job counts towards `CI result` like the matrix - a failing coverage build or test blocks -
