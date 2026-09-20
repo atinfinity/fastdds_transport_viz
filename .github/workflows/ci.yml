@@ -222,16 +222,25 @@ jobs:
           fail-on-error: false
 
   web-unit-tests:
-    # web/model.js and web/scene.js (the viewer's pure model/formatting/layout functions) under Node's test runner.
-    name: web viewer unit tests (node)
+    # web/model.js and web/scene.js (the viewer's pure functions) plus app.js in headless
+    # Chrome over the DevTools protocol (rendering, filters, panels, table, diff, live mode).
+    name: web viewer tests (node)
     needs: changes
     if: >-
       github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'pull_request' && needs.changes.outputs.code == 'true')
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
-      - run: node --version && node --test "web/test/*.test.js"
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'      # global WebSocket, used by web/test/cdp.js
+      - run: node --version && google-chrome --version
+      - run: node --test "web/test/*.test.js"
+        env:
+          FTV_REQUIRE_BROWSER: '1'        # a missing browser must fail, never skip
+          FTV_CHROME_NO_SANDBOX: '1'      # the runner image forbids unprivileged user namespaces
 
   # Single check for main's branch protection: succeeds when every job above passed or
   # was skipped (a skipped matrix job reports an unexpanded name, so the per-distro /

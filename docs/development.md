@@ -244,8 +244,28 @@ layout, the edge curves and the label midpoints) are unit-tested under Node with
 node --test "web/test/*.test.js"
 ```
 
-CI runs this in the `web viewer unit tests (node)` job; `app.js` (DOM, d3, live mode) is
-exercised through `test_web_live.py`.
+`app.js` itself is an IIFE that only exists inside a page, so it is tested in a real
+browser instead: `web/test/browser.test.js` and `web/test/live.test.js` drive headless
+Chrome over the DevTools protocol (`web/test/cdp.js`, no dependencies and no build step -
+the same protocol `scripts/scale_viewer.js` uses) against the viewer served from `web/`,
+one tab per test. Together they cover the first render of `web/sample/sample.json`
+(arrows, nodes, host boxes, labels, `#meta`), the topic and node filters including an
+invalid regular expression, the transport checkboxes and *Show internal topics*, the edge
+and node panels, the table's topic rows, collapse and sorting, a `?diff=` load (summary,
+`.added` / `.changed` marks, ghost rows, `?key=guid`, *changes only*), drag and drop, a
+failed `?src=`, and live mode through `web/serve.py` with a fake producer
+(`web/test/fake_transport_viz.js`, frames released by a step file): the first frame, a new
+frame keeping the selection, *Pause* holding frames back and *Resume* applying them, and
+the end-of-stream banner. The expectations come from `web/model.js` and `web/scene.js`
+rather than from hard-coded numbers, so regenerating the samples does not break them.
+
+Everything runs from the same command. The browser tests need Node >= 22 (global
+`WebSocket`) and a Chrome or Chromium on the `PATH` - `$CHROME` names another one, and they
+skip with a reason when there is none. `FTV_REQUIRE_BROWSER=1` turns that skip into a
+failure, and `FTV_CHROME_NO_SANDBOX=1` adds `--no-sandbox` (needed where unprivileged user
+namespaces are forbidden, as on the Ubuntu runner image and inside a root container). CI
+runs the whole file set with both set, in the `web viewer tests (node)` job.
+`test_web_serve` / `test_web_live.py` stay the tests of the server itself.
 
 ## Continuous integration
 
@@ -555,6 +575,8 @@ The one-shot pair counts below the total are the `--quiet 1` stops described abo
 | 2026-09-20 | the `--watch` frame gate ([#177](https://github.com/atinfinity/fastdds_transport_viz/issues/177)): the `scale_load` medium rung on Jazzy (three runs) and Lyrical (three runs) with the median and p95 budgets and the `--watch` start rule; a bounded diagnosis of the Lyrical `-v` run (three runs each of `-v` and `--stats` alone, `FTV_PROFILE` per frame); `test_scale_measure.py` (median / p95 judged apart, the host share on the `FAIL` line, results without `load_before`); the unit tests of `watch_ready` | arm64 | 2.14.6 (`ros:jazzy`), 3.6.2 (`ros:lyrical`) | frame median 186 / 190 / 196 ms (Jazzy) and 184 / 218 / 196 ms (Lyrical) with `--stats`, 209-235 ms with `-v`, p95 227-328 ms: the gate passes on both distributions in all six runs (rows before this one were judged on the p95 alone at 250 ms). 27-29 frames per 60 s run (before: 16-22). The `-v` slowdown of the previous rows (753 / 925 ms) was the host: `/proc/loadavg` climbs from 3.6 to 24 over six back-to-back runs, and `-v` alone costs 27 ms of render per frame. One Lyrical run failed `stats_coverage` (0.0: the default one-shot settled at 8.0 s with no pair measured, [#179](https://github.com/atinfinity/fastdds_transport_viz/issues/179)) | `scripts/scale_test.sh medium`, `src/fastdds_transport_viz/test/test_scale_measure.py` |
 | 2026-09-20 | the `--stats` one-shot settle rule counting reader-bound entries only ([#179](https://github.com/atinfinity/fastdds_transport_viz/issues/179)): the `scale_load` medium rung on Lyrical (three runs) and Jazzy (one run); the unit tests of `reader_ports` / `measures_a_pair` and the `stats.measured_instances` round-trip; `colcon test` on the three distributions | arm64 | 2.14.6 (`ros:jazzy`), 3.6.2 (`ros:lyrical`), 2.6 (`ros:humble`, unit suites) | `stats_coverage` 1.0 in all four runs (before: one Lyrical run 0.0, settled at 8.0 s with 47 metatraffic / own-port entries). Settled at 27.7 s and 24.3 s on Lyrical, once at the 30 s cap (`stopped_on` `timeout`, 545 entries measured, coverage 1.0), at 15.4 s on Jazzy; 525-640 `measured_instances`. Frame median 174-233 ms, p95 211-308 ms, all within budget. `colcon test`: Jazzy 545 tests, Lyrical 541, Humble 545, 0 failures | `scripts/scale_test.sh medium`, `test_decision.cpp`, `test_render_json.cpp` |
 | 2026-09-20 | `rate_stats` on GitHub-hosted runners ([#186](https://github.com/atinfinity/fastdds_transport_viz/issues/186)): the CI `integration` jobs of that day (x86_64 and arm64 Jazzy, arm64 Rolling) and the scenario on the dev host after the change | x86_64 + arm64 (runners), arm64 (host) | 2.14.6 (`ros:jazzy`), 3.x head (`ros:rolling`) | the 1000 Hz rung failed three CI jobs with every pair a lower bound at 975.7 / 983.7 / 982.0 /s (10 and 100 Hz at 100.0 /s every time, the same code passing on the runs around them and on re-run); the assertion now accepts a lower bound within `[0.9, 1.03]` × rate, the strict ±3 % stays for a rate without one. Dev host: 10 / 100 / 1000 Hz pass, no lower bound | `scripts/integration_test.sh rate_stats` |
+
+| 2026-09-20 | the web viewer in a browser ([#81](https://github.com/atinfinity/fastdds_transport_viz/issues/81)): `web/test/browser.test.js` and `web/test/live.test.js` against headless Chrome on the host, plus the existing Node unit tests | arm64 (host) | - (viewer only) | `node --test "web/test/*.test.js"` 67 tests, 0 failures in 12 s with Node 22.17.0 and Chrome 153.0.8010.48 (48 before: 14 browser tests and one live-mode test with 4 subtests added). Without a browser those 15 tests skip with a reason and the 48 unit tests still run; `FTV_REQUIRE_BROWSER=1` fails instead, and a `$CHROME` that is not an executable fails rather than skipping. A removed pair turned out to have no ghost arrow when its nodes are gone from the after document (`sceneEdges()` keeps ghosts only between known nodes), so that case is asserted in the table, where the ghost row is | `web/test/cdp.js`, `web/test/fake_transport_viz.js`, `web/serve.py` |
 
 ## Documentation site
 
