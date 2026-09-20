@@ -67,7 +67,8 @@ participant から reader の unicast locator 宛てのパケットを取りこ�
 `resent` は writer が再送した DATA の数 (`RESENT_DATAS`)。どちらも 0 なら `0` です。heartbeat、
 gap、acknack、nackfrag は JSON の `measured.reliability` と web viewer のペアカードに出ます。
 statistics が無ければ 3 つの列とも `-` です。ペア行の `measured=` は観測中に transport が
-実際に運んだ量 (`SHM 148pkt 7.63 MB`。観測前にしか流れていなければ `(idle)`) です。
+実際に運んだ量 (`SHM 148pkt 7.63 MB`。観測前にしか流れていなければ `(idle)`、その間に配送が
+証明されていれば、欠けているのはパケットではなく statistics のサンプルなので `(unmeasured, delivered)`) です。
 
 ## 理由コード
 

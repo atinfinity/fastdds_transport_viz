@@ -28,6 +28,10 @@ test('measuredText: every cell value', () => {
   assert.equal(M.measuredText({ available: true, transports: [], delivered: false }), 'none');
   assert.equal(M.measuredText({ available: true, transports: [], delivered: true }), 'none (delivered)');
   assert.equal(M.measuredText({ available: true, transports: ['SHM'], packets: 0 }), 'SHM (idle)');
+  // a delivery proof without a measured packet is not idle (#149)
+  assert.equal(
+    M.measuredText({ available: true, transports: ['SHM'], packets: 0, delivered: true }),
+    'SHM (unmeasured, delivered)');
   assert.equal(M.measuredText({ available: true, transports: ['SHM', 'UDPv4'], packets: 47, bytes: 1310 }), 'SHM+UDPv4 47 pkt 1.31 kB');
   assert.equal(M.measuredText({ available: true, transports: ['SHM'], packets: 3 }), 'SHM 3 pkt');
   // with measured.locators the addresses replace the bare kinds

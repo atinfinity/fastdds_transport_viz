@@ -971,6 +971,12 @@ void apply_stats(std::vector<TopicSummary> & topics, const StatsData & stats)
       } else {
         v.warnings.push_back("measured-transport-mismatch");
       }
+      // Locators known from before the observation, delivery proven during it, but no
+      // measured packet: the same situation as above with older RTPS_SENT samples in
+      // hand, so the same code (#149; counted in stats.pairs_delivered_unmeasured).
+      if (m.packets == 0 && m.delivered) {
+        v.warnings.push_back("delivered-without-measured-traffic");
+      }
       // The locator the prediction selected is one of several the reader announced;
       // Fast DDS may legitimately use another one. Only its complete absence from the
       // measured traffic says something (a multi-homed reader reached over a different
