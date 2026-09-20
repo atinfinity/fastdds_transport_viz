@@ -808,8 +808,10 @@ void apply_stats(std::vector<TopicSummary> & topics, const StatsData & stats)
         // RTPS_LOST is published by the receiving participant only when it sees a
         // sequence-number gap, so its RTPS_LOST writer without a sample means nothing lost.
         // The sequence is per sender participant and destination locator: the loss belongs
-        // to the participant pair, not to this writer. Multicast destinations are left out,
-        // Fast DDS may number one multicast send once per socket.
+        // to the participant pair, not to this writer. Multicast destinations are left out:
+        // Fast DDS numbers a multicast send once per socket it goes out on, so a sender
+        // with N interfaces reads as N losses per message at a receiver elsewhere, measured
+        // in #130.
         const std::string & dst = p.reader->participant_guid_prefix;
         rel.lost_available = stats.statistics_writers.count({dst, kStatsRtpsLostTopic}) > 0;
         for (const auto & s : stats.lost) {

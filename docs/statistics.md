@@ -171,8 +171,15 @@ sample of the observation.
   counts (other topics, heartbeats, discovery traffic to those locators), and every pair
   between the same two participants shows the same number. The topic's `lost_packets`
   counts each entry once.
-- Multicast destinations are left out: Fast DDS may number one multicast send once per
-  socket, which a remote receiver would report as lost packets.
+- Multicast destinations are left out, and [#130](https://github.com/atinfinity/fastdds_transport_viz/issues/130)
+  measured why. Fast DDS writes the sequence number inside the transport's per-socket
+  `send()`, from a counter kept per destination locator, and one multicast send goes out on
+  the any-address socket as well as on one socket per interface. A sender with N interfaces
+  therefore spends N+1 numbers on a message a receiver elsewhere sees once, and reports the
+  N it never had as lost: measured `RTPS_LOST` / `RTPS_SENT` of 0.91-1.03 on one interface,
+  1.63-2.00 on two and 2.29-2.98 on three over twelve readings each on Fast DDS 2.14.6 and
+  3.6.2, against 0.00 in every reading when sender and receiver share a network namespace
+  and every copy arrives. Nothing is lost on the wire.
 - A packet that arrives late lowers the count again; a window that ends below its first
   sample shows 0.
 - Only UDP and TCP packets carry the numbers: SHM and data-sharing never report a loss.

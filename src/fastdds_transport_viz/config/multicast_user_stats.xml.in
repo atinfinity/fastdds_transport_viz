@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!-- User endpoints on a multicast locator + statistics.xml in one file: Fast DDS reads a
+     single FASTRTPS_DEFAULT_PROFILES_FILE, so use this one to observe multicast user data
+     with - -stats (scripts/multicast_stamping_test.sh, #130).
+       export FASTRTPS_DEFAULT_PROFILES_FILE=$(ros2 pkg prefix fastdds_transport_viz)/share/fastdds_transport_viz/config/multicast_user_stats.xml
+       export FASTDDS_STATISTICS="RTPS_SENT_TOPIC;RTPS_LOST_TOPIC;..."
+     defaultMulticastLocatorList puts every user endpoint of the participant on
+     239.255.0.7:7900, the group test/launch/multicast_user.xml uses; keep the two in sync.
+     Like statistics.xml, the installed file is generated from this template: CMake pastes
+     the statistics writer profiles of config/statistics_writers.xml.in in place of
+     FTV_STATS_WRITER_PROFILES (heartbeat period on Fast DDS 3.x, #152; one source, #159). -->
+<dds xmlns="http://www.eprosima.com/XMLSchemas/fastRTPS_Profiles">
+  <profiles>
+    <participant profile_name="multicast_user" is_default_profile="true">
+      <rtps>
+        <defaultMulticastLocatorList>
+          <locator><udpv4><address>239.255.0.7</address><port>7900</port></udpv4></locator>
+        </defaultMulticastLocatorList>
+      </rtps>
+    </participant>
+@FTV_STATS_WRITER_PROFILES@
+  </profiles>
+</dds>

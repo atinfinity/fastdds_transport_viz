@@ -8,6 +8,8 @@
 #   docker compose up talker_stats listener_stats   # same, with FASTDDS_STATISTICS
 #   docker compose up talker_stats_loss listener_stats_loss
 #                                               # same, 20 Hz and NET_ADMIN for `tc netem` (#122)
+#   scripts/multicast_stamping_test.sh          # profile `multicast`: a multi-homed sender
+#                                               # inflates the receiver's RTPS_LOST (#130)
 #   docker compose up talker_large_data listener_large_data   # LARGE_DATA => TCPv4
 #   docker compose up talker_udpv6 listener_udpv6   # DEFAULTv6 => UDPv6
 #   docker compose up pair_shm                  # talker + listener in one container => SHM
@@ -57,6 +59,17 @@ x-stats-env: &stats_env
   RMW_IMPLEMENTATION: ${RMW_IMPLEMENTATION:-rmw_fastrtps_cpp}
   FASTDDS_STATISTICS: RTPS_SENT_TOPIC;RTPS_LOST_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC;DATA_COUNT_TOPIC;RESENT_DATAS_TOPIC;HEARTBEAT_COUNT_TOPIC;ACKNACK_COUNT_TOPIC;NACKFRAG_COUNT_TOPIC;GAP_COUNT_TOPIC
   FASTRTPS_DEFAULT_PROFILES_FILE: /ws/build/${ROS_DISTRO:-jazzy}/install/fastdds_transport_viz/share/fastdds_transport_viz/config/statistics.xml
+
+# User endpoints on a multicast group (defaultMulticastLocatorList 239.255.0.7:7900) with
+# statistics, for the RTPS_LOST multicast experiment of #130
+# (scripts/multicast_stamping_test.sh). The generated profile merges the statistics writer
+# profiles, because Fast DDS reads a single profiles file.
+x-mcast-env: &mcast_env
+  ROS_DOMAIN_ID: ${ROS_DOMAIN_ID:-0}
+  RMW_IMPLEMENTATION: ${RMW_IMPLEMENTATION:-rmw_fastrtps_cpp}
+  FASTDDS_STATISTICS: RTPS_SENT_TOPIC;RTPS_LOST_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC;DATA_COUNT_TOPIC;RESENT_DATAS_TOPIC;HEARTBEAT_COUNT_TOPIC;ACKNACK_COUNT_TOPIC;NACKFRAG_COUNT_TOPIC;GAP_COUNT_TOPIC
+  FASTRTPS_DEFAULT_PROFILES_FILE: /ws/build/${ROS_DISTRO:-jazzy}/install/fastdds_transport_viz/share/fastdds_transport_viz/config/multicast_user_stats.xml
+  FTV_MCAST_IFACES: ${FTV_MCAST_IFACES:-3}
 
 # LARGE_DATA builtin transports (UDPv4 discovery, TCPv4 + SHM user data) with statistics.
 x-large-data-env: &large_data_env
@@ -137,6 +150,122 @@ services:
     <<: *base
     environment: *stats_env
     cap_add: [NET_ADMIN]
+    command: ros2 run demo_nodes_cpp listener
+
+  # The multicast RTPS_LOST experiment of #130 (profile `multicast`, never started by
+  # default; scripts/multicast_stamping_test.sh). Fast DDS stamps the statistics sequence
+  # number inside the transport's per-socket send(), and a multicast send goes out on the
+  # any-address socket plus one socket per interface, so a sender with N interfaces burns
+  # N+1 sequence numbers per message while a receiver in another namespace gets one copy.
+  # The sender sits on three networks and downs the ones it must not use before the
+  # publisher starts: Fast DDS enumerates the interfaces once, at startup. The shared
+  # network (172.28.x, where the listeners are) is always kept.
+  talker_mcast:
+    <<: *base
+    profiles: [multicast]
+    environment: *mcast_env
+    cap_add: [NET_ADMIN]
+    networks: [default, mcast_b, mcast_c]
+    command:
+      - bash
+      - -c
+      - >-
+        set -e;
+        addrs=$$(ip -o -4 addr show scope global);
+        shared=$$(echo "$$addrs" | awk '$$4 ~ /^172\.28\./ {print $$2; exit}');
+        n=1;
+        for dev in $$(echo "$$addrs" | awk '{print $$2}' | sort -u); do
+        if [ "$$dev" != "$$shared" ]; then n=$$((n+1));
+        [ "$$n" -le "$${FTV_MCAST_IFACES:-3}" ] || ip link set "$$dev" down; fi; done;
+        echo "== interfaces (FTV_MCAST_IFACES=$${FTV_MCAST_IFACES:-3}, shared=$$shared)"; ip -br addr;
+        case "$$ROS_DISTRO" in humble|jazzy) t=std_msgs/msg/String ;; *) t=example_interfaces/msg/String ;; esac;
+        exec ros2 topic pub -r 20 --qos-reliability best_effort -n talker /chatter "$$t" '{data: hello}'
+  # Two listeners: Fast DDS sends user data to the group only when more than one reader
+  # shares it (see config/unicast_discovery.xml). `ros2 topic echo`, not demo_nodes_cpp,
+  # because the reader has to be BEST_EFFORT to match the publisher and the demo node does
+  # not offer its subscription for QoS overrides. The metatraffic to 239.255.0.1:7400 is
+  # multicast too, but a handful of announcements per window is too small to divide.
+  listener_mcast:
+    <<: *base
+    profiles: [multicast]
+    environment: *mcast_env
+    command:
+      - bash
+      - -c
+      - >-
+        case "$$ROS_DISTRO" in humble|jazzy) t=std_msgs/msg/String ;; *) t=example_interfaces/msg/String ;; esac;
+        exec ros2 topic echo --qos-reliability best_effort /chatter "$$t" > /dev/null
+  listener_mcast2:
+    <<: *base
+    profiles: [multicast]
+    environment: *mcast_env
+    command:
+      - bash
+      - -c
+      - >-
+        case "$$ROS_DISTRO" in humble|jazzy) t=std_msgs/msg/String ;; *) t=example_interfaces/msg/String ;; esac;
+        exec ros2 topic echo --qos-reliability best_effort /chatter "$$t" > /dev/null
+
+  # The zero control: one network namespace, so the receiver also gets the copy the
+  # any-address socket sends to localhost and sees no gap at all (#130).
+  talker_mcast_hostnet:
+    <<: *base
+    profiles: [multicast]
+    network_mode: host
+    environment: *mcast_env
+    command:
+      - bash
+      - -c
+      - >-
+        echo "== interfaces (host namespace)"; ip -br addr;
+        case "$$ROS_DISTRO" in humble|jazzy) t=std_msgs/msg/String ;; *) t=example_interfaces/msg/String ;; esac;
+        exec ros2 topic pub -r 20 --qos-reliability best_effort -n talker /chatter "$$t" '{data: hello}'
+  listener_mcast_hostnet:
+    <<: *base
+    profiles: [multicast]
+    network_mode: host
+    environment: *mcast_env
+    command:
+      - bash
+      - -c
+      - >-
+        case "$$ROS_DISTRO" in humble|jazzy) t=std_msgs/msg/String ;; *) t=example_interfaces/msg/String ;; esac;
+        exec ros2 topic echo --qos-reliability best_effort /chatter "$$t" > /dev/null
+  listener_mcast_hostnet2:
+    <<: *base
+    profiles: [multicast]
+    network_mode: host
+    environment: *mcast_env
+    command:
+      - bash
+      - -c
+      - >-
+        case "$$ROS_DISTRO" in humble|jazzy) t=std_msgs/msg/String ;; *) t=example_interfaces/msg/String ;; esac;
+        exec ros2 topic echo --qos-reliability best_effort /chatter "$$t" > /dev/null
+
+  # The third check of #130: with an interface whitelist a UNICAST message goes out on every
+  # whitelisted socket as well (read from the source), each copy carrying the number it was
+  # stamped with, so what is measured here is that no false loss follows. The profile is
+  # generated at startup, because the addresses are the container's own.
+  talker_whitelist:
+    <<: *base
+    profiles: [multicast]
+    environment: *stats_env
+    networks: [default, mcast_b, mcast_c]
+    command:
+      - bash
+      - -c
+      - >-
+        set -e;
+        python3 /ws/scripts/whitelist_profile.py "$$FASTRTPS_DEFAULT_PROFILES_FILE" /tmp/whitelist_stats.xml;
+        export FASTRTPS_DEFAULT_PROFILES_FILE=/tmp/whitelist_stats.xml;
+        echo "== interfaces"; ip -br addr;
+        case "$$ROS_DISTRO" in humble|jazzy) t=std_msgs/msg/String ;; *) t=example_interfaces/msg/String ;; esac;
+        exec ros2 topic pub -r 20 -n talker /chatter "$$t" '{data: hello}'
+  listener_whitelist:
+    <<: *base
+    profiles: [multicast]
+    environment: *stats_env
     command: ros2 run demo_nodes_cpp listener
 
   # Same two containers with FASTDDS_BUILTIN_TRANSPORTS=LARGE_DATA: user data must go
@@ -378,3 +507,13 @@ networks:
       config:
         - subnet: 172.28.0.0/16
         - subnet: fd00:fd00:7a1e::/64
+  # Two more bridges so that one container can have two or three interfaces: the multicast
+  # experiment of #130 needs a multi-homed sender. Only the `multicast` profile uses them.
+  mcast_b:
+    ipam:
+      config:
+        - subnet: 172.29.0.0/16
+  mcast_c:
+    ipam:
+      config:
+        - subnet: 172.30.0.0/16
