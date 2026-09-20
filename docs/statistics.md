@@ -126,7 +126,10 @@ until about 25 s, so a 5 s run measured a fraction of the pairs on one run and n
 next. `--json` records the rule in `stats.writers_announced` (`RTPS_SENT` writers matched),
 `stats.writers_heard`, `stats.settled` and `stats.settled_at_s` (`null` when the run hit
 `--timeout` first, in which case one stderr line names the writers still not heard from), and
-`discovery.stopped_on` reads `settled`. Idle topics show
+`discovery.stopped_on` reads `settled`. `--watch --stats` does not wait for that rule: its
+first frame comes once discovery is quiet and 5 s have passed (`--timeout` still caps the
+wait), and the later frames carry what the handoff brings
+([#177](https://github.com/atinfinity/fastdds_transport_viz/issues/177)). Idle topics show
 `!no-traffic-observed`. When `HISTORY_LATENCY` proves delivery but `RTPS_SENT` has no entry
 for any of the reader's locators, the warning is `!delivered-without-measured-traffic`
 instead: the samples arrived, the statistics just did not attribute the packets (seen on

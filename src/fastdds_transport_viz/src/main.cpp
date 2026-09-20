@@ -140,7 +140,9 @@ void usage()
     "  --quiet <sec>      stop early after this many seconds without discovery events\n"
     "                     (default: 1; with --stats also once every participant with\n"
     "                     statistics has been heard from and the measured traffic\n"
-    "                     entries stop growing for max(--quiet, 3) s, never before 5 s)\n"
+    "                     entries stop growing for max(--quiet, 3) s, never before 5 s;\n"
+    "                     --watch --stats draws its first frame once discovery is quiet\n"
+    "                     and 5 s have passed)\n"
     "  --topic <regex>    only show topics whose (ROS) name matches the regex\n"
     "  --node <regex>     only show pairs where the writer or the reader belongs to a\n"
     "                     node whose full name matches the regex (that node's unpaired\n"
@@ -1084,13 +1086,21 @@ int main(int argc, char ** argv)
         stopped_on = "quiet";
         break;
       }
+      // --watch --stats: the first frame needs a counter window, not the settle rule below,
+      // which is for one-shot output - every second it waits is a frame not drawn (#177).
+      if (o.watch && quiet_now && fastdds_transport_viz::watch_ready(true, elapsed, o.stats)) {
+        stopped_on = "quiet";
+        break;
+      }
       // With --stats quiet is not enough: the counters need a window, and the statistics
       // writers hand their transient-local history to a late-joining reader one at a time,
       // which at 20 processes takes about 20 s (#168). The run ends once every matched
       // RTPS_SENT writer has been heard from and the measured instances they hand over have
       // stopped growing for --quiet (at least kStatsMeasuredQuietSeconds), and --timeout is
       // the cap.
-      if (o.stats && o.quiet > 0 && elapsed >= fastdds_transport_viz::kStatsSettleMinSeconds) {
+      if (o.stats && !o.watch && o.quiet > 0 &&
+        elapsed >= fastdds_transport_viz::kStatsSettleMinSeconds)
+      {
         const auto settle = stats->settle_status();
         if (settle.measured_instances != measured_instances) {
           measured_instances = settle.measured_instances;

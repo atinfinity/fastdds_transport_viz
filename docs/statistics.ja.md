@@ -118,7 +118,10 @@ reader のノードのリンクに対するものです。個々のペアを区�
 あるいは 1 つも実測できませんでした。`--json` ではこの規則が `stats.writers_announced` (マッチした
 `RTPS_SENT` writer 数)、`stats.writers_heard`、`stats.settled`、`stats.settled_at_s` (先に `--timeout`
 に達した場合は `null` で、そのとき stderr に 1 行、まだ届いていない writer が出ます) に記録され、
-`discovery.stopped_on` は `settled` になります。トラフィックの無いトピックには
+`discovery.stopped_on` は `settled` になります。`--watch --stats` はこの規則を待ちません。最初の
+フレームは discovery が静かになり 5 秒が経った時点で出て (`--timeout` が上限)、履歴の受け渡しで
+届く分は後のフレームに載ります
+([#177](https://github.com/atinfinity/fastdds_transport_viz/issues/177))。トラフィックの無いトピックには
 `!no-traffic-observed` が付きます。`HISTORY_LATENCY`
 が配送を証明しているのに `RTPS_SENT` に reader のどの locator の項目も無い場合は、代わりに
 `!delivered-without-measured-traffic` が付きます。サンプルは届いたが statistics がパケットを

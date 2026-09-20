@@ -151,6 +151,14 @@ bool stats_settled(
   bool discovery_quiet, double elapsed_seconds, size_t writers_announced, size_t writers_heard,
   size_t measured_instances, double measured_quiet_seconds, double quiet_window_seconds);
 
+/// Whether --watch may draw its first frame (#177): discovery is quiet and, with --stats, at
+/// least kStatsSettleMinSeconds have passed so the first frame has a counter window. The
+/// settle rule is for one-shot output: under --watch the frames keep coming and every
+/// second spent waiting is a frame the run does not measure (the harness got 16-22 frames out
+/// of 60 s, and the p95 of that few is the worst frame). --timeout still caps the wait, in the
+/// caller. Pure function.
+bool watch_ready(bool discovery_quiet, double elapsed_seconds, bool stats);
+
 /// Whether losing statistics samples cost a measurement (#134, #147): counter samples were lost
 /// or rejected inside the observation window AND a pair with a delivery proof shows no measured
 /// packet (StatsData::pairs_delivered_unmeasured). Loss alone is harmless - the counters are
