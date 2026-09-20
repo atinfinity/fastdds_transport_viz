@@ -1,6 +1,6 @@
 # Web viewer
 
-> 英語版が正です。この文書は 2026-09-20 時点の英語版に対応しています。
+> 英語版が正です。この文書は 2026-09-21 時点の英語版に対応しています。
 
 `web/index.html` は `transport_viz --json` の文書をグラフとして描画します。ホストが列、ROS ノードが
 箱、writer → reader の各ペアが transport ごとに色分けされた矢印です。静的ページ (素の HTML/JS と
@@ -125,6 +125,12 @@ ros2 run fastdds_transport_viz transport_viz_web --stats --interval 1
 跳びません)。ヘッダにはライブ状態と最終更新時刻が出ます。**Pause** でフレームの適用を止め、
 **Resume** で再開します。`/latest.json` は常に最新の文書を返します (`?src=/latest.json` で使えます。両方あるときは
 `?live=1` が優先)。
+
+接続が切れたとき (サーバーの停止、ネットワークの切断、ラップトップのスリープなど) は、
+直前の文書を表示したままヘッダが「live: connection lost, reconnecting…」になり、ブラウザは
+1 秒ごとに再接続を試みます (ストリームが `retry: 1000` で指定します。ブラウザ既定は 3 秒)。
+サーバーは新しい接続ごとに最新の文書を送るので、再びサーバーが待ち受けていれば次の
+`--interval` を待たずにこの表示は消えます。
 
 ![live mode](images/web-viewer-live.jpg)
 

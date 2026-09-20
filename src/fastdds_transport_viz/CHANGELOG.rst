@@ -4,6 +4,12 @@ Changelog for package fastdds_transport_viz
 
 Forthcoming
 -----------
+* ``transport_viz_web`` asks the browser to reconnect a second after a lost connection
+  (#191): the ``/events`` stream now opens with ``retry: 1000`` instead of leaving the
+  browser's own default (3 s in Chrome), so the viewer's "live: connection lost,
+  reconnecting…" banner clears sooner. The server already sends the latest document to
+  every new connection, so a reconnect heals the view without waiting for the next
+  ``--interval``; the browser test covers the banner and the recovery.
 * Type mismatches on the same topic (#85): a writer and a reader whose DDS type names
   differ are a ``NONE`` / ``certain`` pair with the reason ``type-name-mismatch``
   (it used to be a topic-level ``unmatched_reasons`` entry, so the two endpoints were not

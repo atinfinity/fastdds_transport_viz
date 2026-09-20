@@ -5,12 +5,17 @@
 // transport_viz (web/test/fake_transport_viz.js), whose frames the test releases one at a
 // time through a step file - so the EventSource wiring, the kept selection, the held
 // marks, Pause / Resume and the end-of-stream banner are asserted without a race.
+//
+// The second test (#191) breaks the connection under the browser: a TCP proxy in front of
+// serve.py drops the SSE socket on demand, which is the only way to reach the reconnect
+// banner and the recovery after it without killing a server and racing for its port.
 // Run: node --test web/test  (skips when Chrome or python3 is missing).
 'use strict';
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { spawn, spawnSync } = require('node:child_process');
 const fs = require('node:fs');
+const net = require('node:net');
 const os = require('node:os');
 const path = require('node:path');
 const readline = require('node:readline');
@@ -66,11 +71,47 @@ async function startServer(stepFile) {
   });
   return {
     base,
-    stop: () => new Promise(done => {
-      if (proc.exitCode !== null) return done();
-      proc.once('exit', () => done());
-      proc.kill();
+    // `grace` waits that long for serve.py to exit by itself first: SIGTERM kills it
+    // before its cleanup runs, which orphans the transport_viz it started - and that
+    // orphan holds this process's stderr pipe open, so node would never exit.
+    stop: (grace = 0) => new Promise(done => {
+      const gone = () => { proc.stdout.destroy(); proc.stderr.destroy(); done(); };
+      if (proc.exitCode !== null) return gone();
+      proc.once('exit', gone);
+      if (grace) setTimeout(() => { if (proc.exitCode === null) proc.kill(); }, grace).unref();
+      else proc.kill();
     }),
+  };
+}
+
+/**
+ * A TCP proxy in front of `port`, on a free port of its own; resolves to {base, cut(),
+ * stop()}. `cut()` destroys every connection the browser holds without closing the
+ * listening socket, so the EventSource retry finds a server again - a lost connection
+ * that serve.py never hears about, which is what the browser does when a cable, a Wi-Fi
+ * link or a laptop lid interrupts it.
+ */
+async function startProxy(port) {
+  const sockets = new Set();
+  const server = net.createServer(client => {
+    const upstream = net.connect(port, '127.0.0.1');
+    const pair = { client, upstream };
+    sockets.add(pair);
+    client.pipe(upstream);
+    upstream.pipe(client);
+    const drop = () => { sockets.delete(pair); client.destroy(); upstream.destroy(); };
+    for (const s of [client, upstream]) { s.on('error', drop); s.on('close', drop); }
+  });
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  const cut = () => {
+    for (const { client, upstream } of sockets) { client.destroy(); upstream.destroy(); }
+    sockets.clear();
+  };
+  return {
+    base: `http://127.0.0.1:${server.address().port}`,
+    cut,
+    // close() alone hangs while the page's keep-alive socket is open
+    stop: () => new Promise(done => { cut(); server.close(() => done()); }),
   };
 }
 
@@ -137,6 +178,56 @@ test('live mode: frames, kept selection, Pause / Resume and the end of the strea
     await page.close();
     await browser.close();
     await server.stop();
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('live mode: the reconnect banner and the recovery after it', opts, async (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ftv-reconnect-'));
+  const stepFile = path.join(dir, 'step');
+  const step = value => fs.writeFileSync(stepFile, String(value));
+  const browser = await cdp.launch();
+  const server = await startServer(stepFile);
+  // serve.py keeps listening throughout: only the browser's connection to it is severed
+  const proxy = await startProxy(Number(new URL(server.base).port));
+  const page = await browser.open(`${proxy.base}/index.html?live=1`);
+  const liveText = 'document.getElementById("live-text").textContent';
+  const liveClass = 'document.getElementById("live").className';
+  try {
+    step(0);
+    await page.waitFor(`/live: updated frame-0 \\(#1\\)/.test(${liveText})`, 'the first live frame');
+
+    await t.test('a lost connection raises the banner', async () => {
+      proxy.cut();
+      await page.waitFor(`${liveClass}.includes("reconnecting")`, 'the reconnect banner');
+      assert.equal(await page.text('#live-text'), 'live: connection lost, reconnecting…');
+      assert.match(await page.text('#meta'), /frame-0/, 'the disconnected viewer keeps showing the last frame');
+    });
+
+    await t.test('the next document clears it, without a new frame', async () => {
+      // serve.py sends the latest document to every new connection, so the viewer heals
+      // itself even when the next real frame is an --interval away. 15 s: the wait covers
+      // a delay the browser owns (serve.py asks for 1 s with `retry:`, Chrome's own
+      // default is 3 s), on a runner that may be loaded.
+      await page.waitFor(`/live: updated frame-0 \\(#2\\)/.test(${liveText})`, 'the recovery', 15000);
+      assert.equal(await page.evaluate(liveClass), 'live ', 'the banner is gone');
+      assert.match(await page.text('#meta'), /frame-0/);
+    });
+
+    await t.test('the stream is live again, not merely reconnected', async () => {
+      step(1);
+      await page.waitFor(`/live: updated frame-1 \\(#3\\)/.test(${liveText})`, 'a frame after the recovery');
+      assert.deepEqual(await page.evaluate(EDGE_IDS), edgeIdsOf(load('diff.json')));
+      assert.match(await page.text('#meta'), /frame-1/);
+    });
+
+    page.checkErrors();
+  } finally {
+    await page.close();
+    await browser.close();
+    await proxy.stop();
+    step('stop');            // the producer exits, serve.py follows; see stop()'s grace
+    await server.stop(3000);
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });

@@ -138,6 +138,13 @@ time of the last update; **Pause** stops applying frames until **Resume**. `/lat
 always returns the most recent document (usable with `?src=/latest.json`; `?live=1` takes
 precedence when both are given).
 
+If the connection drops - the server stopped, the network went away, the laptop slept -
+the header reads "live: connection lost, reconnecting…" while the last document stays on
+screen, and the browser retries once a second (the stream asks for it with `retry: 1000`;
+the browser's own default would be three). The server sends the latest document to every
+new connection, so the banner clears as soon as one is listening again, without waiting
+for the next `--interval`.
+
 ![live mode](images/web-viewer-live.jpg)
 
 The server takes its own options; every other argument is forwarded to `transport_viz`

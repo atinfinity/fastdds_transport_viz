@@ -132,12 +132,22 @@ class Page {
     return r.result.value;
   }
 
-  /** Load `url` and wait until the viewer has rendered once. */
+  /** Load `url` and wait until the viewer has rendered the document it was given. */
   async goto(url) {
     await this.send('Page.navigate', { url });
     await poll(async () => {
       try { return await this.evaluate('document.readyState === "complete" && document.body.dataset.render !== undefined'); } catch { return false; }
     }, `${url} to render`, 30000);
+    // A ?src= page renders once while it is still empty and fetches afterwards, so the
+    // render counter alone is a race a fast test can win (#191): wait for #meta to stop
+    // saying the page has nothing. A failed fetch says so there too and lets the test's
+    // own assertion report it, which is more useful than a timeout here.
+    if (/[?&]src=/.test(url)) {
+      await poll(async () => {
+        const meta = await this.text('#meta');
+        return meta && !meta.startsWith('no document loaded') ? meta : false;
+      }, `${url} to load its document`, 30000);
+    }
   }
 
   /** The viewer's render counter (app.js increments it on every render and selection change). */
