@@ -34,6 +34,7 @@
 #include <fastdds/dds/topic/Topic.hpp>
 #include <fastdds/rtps/common/LocatorList.hpp>
 
+#include "fastdds_transport_viz/decision.hpp"
 #include "fastdds_transport_viz/model.hpp"
 
 namespace fastdds_transport_viz
@@ -108,8 +109,9 @@ public:
   /// and then stay silent for as long as nothing is lost - a healthy system would wait for
   /// them until the cap.
   /// `measured_instances` is what the handoffs produce: RTPS_SENT instances whose counter
-  /// moved since their first sample, the pairs' measured packets. The one-shot ends once it
-  /// stops growing.
+  /// moved since their first sample towards a discovered reader's unicast port (#179,
+  /// measures_a_pair), the pairs' measured packets. The one-shot ends once it stops
+  /// growing. The ports come from set_reader_ports(); before the first call nothing counts.
   struct Settle
   {
     size_t announced{0};
@@ -118,6 +120,10 @@ public:
     std::vector<std::string> unheard;
   };
   Settle settle_status();
+
+  /// The unicast (kind, port) of the discovered readers (decision.hpp reader_ports), which
+  /// settle_status() counts measured instances against (#179).
+  void set_reader_ports(ReaderPorts ports);
 
   /// Value for FASTDDS_STATISTICS that monitored nodes need.
   static std::string required_env_value();
@@ -214,6 +220,7 @@ private:
   std::mutex mutex_;
   using TrafficKey = std::tuple<std::string, int, std::string, uint32_t>;  // src, kind, addr, port
   std::map<TrafficKey, TrafficSample> traffic_;
+  ReaderPorts reader_ports_;   // #179, under mutex_
   // reporter, src, kind, addr, port: two receivers of one multicast group report the same
   // (src, dst)
   using LostKey = std::tuple<std::string, std::string, int, std::string, uint32_t>;

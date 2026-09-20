@@ -1150,6 +1150,25 @@ bool stats_settled(
          measured_quiet_seconds >= quiet_window_seconds;
 }
 
+ReaderPorts reader_ports(
+  const std::vector<Endpoint> & endpoints, const std::set<std::string> & own_prefixes)
+{
+  ReaderPorts out;
+  for (const auto & e : endpoints) {
+    if (e.is_writer || own_prefixes.count(e.participant_guid_prefix) > 0) {continue;}
+    for (const auto & l : e.unicast) {
+      out.emplace(l.kind, l.port);
+    }
+  }
+  return out;
+}
+
+bool measures_a_pair(const TrafficSample & traffic, const ReaderPorts & readers)
+{
+  return traffic.packets > traffic.packets_first &&
+         readers.count({traffic.dst.kind, traffic.dst.port}) > 0;
+}
+
 bool watch_ready(bool discovery_quiet, double elapsed_seconds, bool stats)
 {
   return discovery_quiet && (!stats || elapsed_seconds >= kStatsSettleMinSeconds);

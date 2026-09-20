@@ -115,17 +115,22 @@ writer's node → reader's node link. The prediction from discovery is what tell
 individual pairs apart. `--stats` observes for at least 5 s so that counters can accumulate,
 and goes on until discovery has been quiet for `--quiet` seconds, every `RTPS_SENT` writer
 (one per participant with statistics) the tool's reader matched has delivered a first sample,
-*and* the number of `RTPS_SENT` entries with measured packets has stopped growing for
-`--quiet` seconds (at least 3 s) - or until `--timeout` (default 30 s with `--stats`),
-whichever comes first. The last two conditions are what a fixed window cut short
+*and* the number of `RTPS_SENT` entries with measured packets towards a discovered reader's
+unicast port has stopped growing for `--quiet` seconds (at least 3 s) - or until `--timeout`
+(default 30 s with `--stats`), whichever comes first. Only entries to a reader port count
+([#179](https://github.com/atinfinity/fastdds_transport_viz/issues/179)): the entries to
+multicast metatraffic and to the tool's own port move within seconds of any participant, and
+a run that counted them settled at 8 s with 47 such entries and no pair measured. The last two conditions are what a fixed window cut short
 ([#168](https://github.com/atinfinity/fastdds_transport_viz/issues/168)): a transient-local
 counter writer hands its whole history to a late-joining reader as one batch, the writers do
 it one process at a time with pauses of up to 2 s in between, and at 20 processes with 100
 pairs each the last writer was first heard from after 16-20 s and the entries kept coming
 until about 25 s, so a 5 s run measured a fraction of the pairs on one run and none on the
 next. `--json` records the rule in `stats.writers_announced` (`RTPS_SENT` writers matched),
-`stats.writers_heard`, `stats.settled` and `stats.settled_at_s` (`null` when the run hit
-`--timeout` first, in which case one stderr line names the writers still not heard from), and
+`stats.writers_heard`, `stats.measured_instances` (entries measured towards a reader port),
+`stats.settled` and `stats.settled_at_s` (`null` when the run hit `--timeout` first, in which
+case one stderr line names the writers still not heard from, or says that no entry towards a
+reader was measured), and
 `discovery.stopped_on` reads `settled`. `--watch --stats` does not wait for that rule: its
 first frame comes once discovery is quiet and 5 s have passed (`--timeout` still caps the
 wait), and the later frames carry what the handoff brings

@@ -68,6 +68,7 @@ Snapshot snapshot()
   s.stats.writers_incompatible_qos = 2;  // #141: writers the readers could not match
   s.stats.writers_announced = 16;   // #168: the settle rule of the one-shot
   s.stats.writers_heard = 16;
+  s.stats.measured_instances = 640;   // #179: RTPS_SENT instances towards a reader port
   s.stats.settled = true;
   s.stats.settled_at_s = 6.25;
   s.stats.samples_lost_latency = 4;      // #141: the best-effort part of samples_lost
@@ -214,6 +215,7 @@ TEST(RenderJson, DocumentKeys)
   EXPECT_EQ(doc["stats"]["writers_incompatible_qos"], 2);
   EXPECT_EQ(doc["stats"]["writers_announced"], 16);
   EXPECT_EQ(doc["stats"]["writers_heard"], 16);
+  EXPECT_EQ(doc["stats"]["measured_instances"], 640);
   EXPECT_EQ(doc["stats"]["settled"], true);
   EXPECT_DOUBLE_EQ(doc["stats"]["settled_at_s"].get<double>(), 6.25);
   // a part of samples_lost, not a number beside it
@@ -505,6 +507,7 @@ TEST(ParseJson, RoundTripsEverythingTheRenderersShow)
   EXPECT_EQ(parsed.stats.writers_incompatible_qos, 2u);
   EXPECT_EQ(parsed.stats.writers_announced, 16u);
   EXPECT_EQ(parsed.stats.writers_heard, 16u);
+  EXPECT_EQ(parsed.stats.measured_instances, 640u);
   EXPECT_TRUE(parsed.stats.settled);
   EXPECT_DOUBLE_EQ(parsed.stats.settled_at_s, 6.25);
   EXPECT_EQ(parsed.stats.samples_lost_latency, 4u);
