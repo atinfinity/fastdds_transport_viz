@@ -16,9 +16,9 @@ jobs:
     outputs:
       code: ${{ steps.filter.outputs.code }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - id: filter
-        uses: dorny/paths-filter@v3
+        uses: dorny/paths-filter@v4
         with:
           # 'every': a changed file counts only if it matches all patterns, i.e. it is
           # not documentation. With the default 'some', each negated pattern alone
@@ -91,7 +91,7 @@ jobs:
           apt-get upgrade -y --no-install-recommends
           apt-get install -y --no-install-recommends git iproute2   # iproute2: Easy Mode finds its server with `ss`
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # rosdep, colcon build, colcon test: shared with the scheduled Rolling run (#79)
       - uses: ./.github/actions/colcon-build-test
@@ -101,7 +101,7 @@ jobs:
 
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: test-results-${{ matrix.distro }}-${{ matrix.arch }}-${{ matrix.rmw }}
           path: |
@@ -148,7 +148,7 @@ jobs:
     env:
       ROS_DISTRO: ${{ matrix.distro }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Run scenarios
         run: |
@@ -156,7 +156,7 @@ jobs:
 
       - name: Upload transport_viz output
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: integration-json-${{ matrix.arch }}-${{ matrix.distro }}
           path: /tmp/transport_viz_*.json
@@ -171,7 +171,7 @@ jobs:
       (github.event_name == 'pull_request' && needs.changes.outputs.code == 'true')
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - run: node --version && node --test "web/test/*.test.js"
 
   # Single check for main's branch protection: succeeds when every job above passed or
