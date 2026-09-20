@@ -40,7 +40,7 @@ jobs:
           apt-get upgrade -y --no-install-recommends
           apt-get install -y --no-install-recommends git iproute2
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: ./.github/actions/colcon-build-test
         with:
@@ -49,7 +49,7 @@ jobs:
 
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: test-results-rolling-${{ matrix.arch }}-${{ matrix.rmw }}
           path: |
@@ -68,14 +68,14 @@ jobs:
     env:
       ROS_DISTRO: rolling
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Run every scenario
         run: scripts/integration_test.sh all
 
       - name: Upload transport_viz output
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: integration-json-${{ matrix.arch }}-rolling
           path: /tmp/transport_viz_*.json
