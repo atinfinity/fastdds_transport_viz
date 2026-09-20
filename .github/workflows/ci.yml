@@ -186,7 +186,7 @@ jobs:
           apt-get upgrade -y --no-install-recommends   # as in build-and-test (#171)
           apt-get install -y --no-install-recommends git iproute2
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install dependencies (rosdep)
         run: |
@@ -206,7 +206,7 @@ jobs:
 
       - name: Upload HTML report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-html-jazzy-x86_64
           path: coverage/
