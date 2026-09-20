@@ -3,6 +3,7 @@
 English | [日本語](README.ja.md)
 
 [![CI](https://github.com/atinfinity/fastdds_transport_viz/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/atinfinity/fastdds_transport_viz/actions/workflows/ci.yml)
+[![Coverage](https://coveralls.io/repos/github/atinfinity/fastdds_transport_viz/badge.svg?branch=main)](https://coveralls.io/github/atinfinity/fastdds_transport_viz?branch=main)
 
 Documentation site: <https://atinfinity.github.io/fastdds_transport_viz/>
 
