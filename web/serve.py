@@ -10,9 +10,9 @@ the latest document, and serves:
   /index.html …  -> the static viewer (web/ directory next to this script, or
                     share/fastdds_transport_viz/web when installed)
   /latest.json   -> the most recent document
-  /events        -> Server-Sent Events: the latest document on connect, then
-                    every new document ("document" events); a "status" event
-                    when the stream ends
+  /events        -> Server-Sent Events: a retry interval, the latest document on
+                    connect, then every new document ("document" events); a
+                    "status" event when the stream ends
 
 Standard library only. Unknown command-line options are forwarded verbatim to
 transport_viz (e.g. --stats, --interval 1, --domain 3, --all, --topic REGEX).
@@ -119,6 +119,11 @@ def make_handler(web_dir, stream, verbose):
             self.send_header('Cache-Control', 'no-store')
             self.send_header('Connection', 'keep-alive')
             self.end_headers()
+            # Reconnect a second after a lost connection instead of the browser's default
+            # (3 s in Chrome): the viewer sits next to the system it watches, and the
+            # banner is worth clearing quickly.
+            self.wfile.write(b'retry: 1000\n\n')
+            self.wfile.flush()
             seen = 0
             try:
                 while True:

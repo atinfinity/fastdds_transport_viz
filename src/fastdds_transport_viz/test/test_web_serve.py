@@ -49,9 +49,12 @@ def test_latest_and_events_then_shutdown(tmp_path):
             assert resp.headers['Content-Type'].startswith('text/event-stream')
             events = []
             event = {}
+            retry = None
             for raw in resp:
                 line = raw.decode().rstrip('\n')
-                if line.startswith('event: '):
+                if line.startswith('retry: '):
+                    retry = int(line[7:])
+                elif line.startswith('event: '):
                     event['event'] = line[7:]
                 elif line.startswith('data: '):
                     event['data'] = json.loads(line[6:])
@@ -60,6 +63,9 @@ def test_latest_and_events_then_shutdown(tmp_path):
                     event = {}
                     if events[-1]['event'] == 'status':
                         break
+        # the stream asks the browser to reconnect after a second, not after its own
+        # default of three (#191)
+        assert retry == 1000, events
         docs = [e['data'] for e in events if e['event'] == 'document']
         assert docs, events
         assert docs[0]['schema_version'] == 1
