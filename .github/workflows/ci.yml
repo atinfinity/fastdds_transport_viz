@@ -200,6 +200,9 @@ jobs:
           bash scripts/coverage.sh --lcov coverage/lcov.info --html-details coverage/index.html \
             --txt coverage/summary.txt --print-summary
           { echo '```'; cat coverage/summary.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          # gcovr 7 writes absolute SF: paths; Coveralls wants them relative to the checkout
+          sed -i "s|^SF:$GITHUB_WORKSPACE/|SF:|" coverage/lcov.info
+          grep -m1 '^SF:' coverage/lcov.info
 
       - name: Upload HTML report
         if: always()
@@ -214,8 +217,6 @@ jobs:
         with:
           file: coverage/lcov.info
           format: lcov
-          # gcovr writes paths relative to src/fastdds_transport_viz (its --root)
-          base-path: src/fastdds_transport_viz
           fail-on-error: false
 
   web-unit-tests:

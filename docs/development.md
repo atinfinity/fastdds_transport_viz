@@ -225,8 +225,8 @@ build in `build/<distro>/coverage/`, the package's test suite, then `gcovr`; ext
 arguments pass through), by hand inside the dev container and in CI for every pull request
 and merge commit ([#80](https://github.com/atinfinity/fastdds_transport_viz/issues/80)): the
 current number is the Coverage badge of the README (Coveralls, `main`), the per-file report
-is the `coverage-html-jazzy-x86_64` artifact of the run. It has stayed between 95 and 98 %
-(`shm_info.cpp` 100 %, `main.cpp`, `render_table.cpp`, `render_json.cpp` 99 %,
+is the `coverage-html-jazzy-x86_64` artifact of the run. It has stayed between 91 and 98 %
+(91.1 % lines in the first CI run on 2026-09-20 with 63 tests skipped there; `shm_info.cpp` 100 %, `main.cpp`, `render_table.cpp`, `render_json.cpp` 99 %,
 `stats_observer.cpp` 98 %, `decision.cpp` and `discovery_observer.cpp` 96 % as of
 2026-09-06). What is left is unreachable by construction: subscriber
 and reader creation failures inside Fast DDS, `getifaddrs` errors, `default:` labels of
