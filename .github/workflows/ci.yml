@@ -48,7 +48,8 @@ jobs:
     container: ros:${{ matrix.distro }}
     # Humble: Fast DDS 2.6 (no statistics module in the binary); Jazzy: Fast DDS 2.14;
     # Lyrical: Fast DDS 3.6; Rolling: Fast DDS 3.x head, may break with upstream changes,
-    # so it does not block PRs.
+    # so it does not block PRs - the weekly rolling.yml run is where a breakage fails
+    # visibly, on both architectures and with the integration scenarios (#79).
     continue-on-error: ${{ matrix.distro == 'rolling' }}
     strategy:
       fail-fast: false
@@ -58,7 +59,7 @@ jobs:
         rmw: [rmw_fastrtps_cpp]
         # arm64 for the two LTS distributions the bloom release targets; Humble on arm64
         # adds little (Fast DDS 2.6, prediction only) and Rolling on arm64 belongs to the
-        # scheduled Rolling run (#79). arm64 blocks pull requests like x86_64 does.
+        # weekly rolling.yml run (#79). arm64 blocks pull requests like x86_64 does.
         # rmw_fastrtps_dynamic_cpp (#73): same suite on the released distros, x86_64 only;
         # it blocks pull requests like the default RMW does.
         include:
@@ -92,24 +93,11 @@ jobs:
 
       - uses: actions/checkout@v4
 
-      - name: Install dependencies (rosdep)
-        run: |
-          rosdep update --rosdistro ${{ matrix.distro }}
-          rosdep install --from-paths src --ignore-src --rosdistro ${{ matrix.distro }} -y
-
-      - name: Build
-        run: |
-          source /opt/ros/${{ matrix.distro }}/setup.bash
-          colcon build --symlink-install --event-handlers console_cohesion+
-
-      - name: Test
-        env:
-          RMW_IMPLEMENTATION: ${{ matrix.rmw }}
-        run: |
-          source /opt/ros/${{ matrix.distro }}/setup.bash
-          source install/setup.bash
-          colcon test --event-handlers console_cohesion+ --return-code-on-test-failure
-          colcon test-result --verbose
+      # rosdep, colcon build, colcon test: shared with the scheduled Rolling run (#79)
+      - uses: ./.github/actions/colcon-build-test
+        with:
+          distro: ${{ matrix.distro }}
+          rmw: ${{ matrix.rmw }}
 
       - name: Upload test results
         if: always()

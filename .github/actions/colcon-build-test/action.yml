@@ -1,0 +1,38 @@
+name: colcon build & test
+description: >-
+  rosdep install, colcon build and colcon test of the workspace inside a ros:<distro>
+  container, as ci.yml runs it for pull requests and rolling.yml on its schedule (#79).
+  The caller checks the repository out; the test results and launch logs are left under
+  build/ and log/ for its upload step.
+inputs:
+  distro:
+    description: ROS 2 distribution of the container (humble, jazzy, lyrical, rolling)
+    required: true
+  rmw:
+    description: RMW_IMPLEMENTATION for the tests
+    required: false
+    default: rmw_fastrtps_cpp
+runs:
+  using: composite
+  steps:
+    - name: Install dependencies (rosdep)
+      shell: bash
+      run: |
+        rosdep update --rosdistro ${{ inputs.distro }}
+        rosdep install --from-paths src --ignore-src --rosdistro ${{ inputs.distro }} -y
+
+    - name: Build
+      shell: bash
+      run: |
+        source /opt/ros/${{ inputs.distro }}/setup.bash
+        colcon build --symlink-install --event-handlers console_cohesion+
+
+    - name: Test
+      shell: bash
+      env:
+        RMW_IMPLEMENTATION: ${{ inputs.rmw }}
+      run: |
+        source /opt/ros/${{ inputs.distro }}/setup.bash
+        source install/setup.bash
+        colcon test --event-handlers console_cohesion+ --return-code-on-test-failure
+        colcon test-result --verbose
