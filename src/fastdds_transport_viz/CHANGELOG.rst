@@ -141,7 +141,11 @@ Forthcoming
   with the old ``receiver_participant_guid_prefix`` / ``from_locator`` still load). A
   ``diff`` of a capture taken before this change against one taken after it can show
   ``rtps-packets-lost`` moving between pairs. New integration scenario
-  ``stats_loss_multi_container`` (#122).
+  ``stats_loss_multi_container`` (#122). The loss on a multicast destination stays out of
+  the count, and #130 measured what it would have been: Fast DDS spends one statistics
+  sequence number per socket a multicast send goes out on, so a sender with N interfaces
+  reads as exactly N lost packets per message at a receiver in another network namespace,
+  while nothing is lost on the wire (``scripts/multicast_stamping_test.sh``, #130).
 * ``stats-writer-instance-limit-suspected``: the remedy named
   ``FASTDDS_DEFAULT_PROFILES_FILE``, which Fast DDS 2.x does not read, while 2.x (Jazzy's
   2.14) is where the statistics DataWriters keep the 10-instance limit. It now names

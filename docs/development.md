@@ -75,6 +75,31 @@ every `hostnet_split_*` scenario also assert the real `writer_node` / `reader_no
 reach the tool only through its own `ros_discovery_info` reader
 ([#112](https://github.com/atinfinity/fastdds_transport_viz/issues/112)).
 
+## Multicast stamping experiment
+
+`scripts/multicast_stamping_test.sh [rung...]` (run on the Docker host) answers a question
+about Fast DDS rather than about this tool
+([#130](https://github.com/atinfinity/fastdds_transport_viz/issues/130)): does a sender with
+several interfaces inflate a remote receiver's `RTPS_LOST`? It starts a 20 Hz `BEST_EFFORT`
+talker and two `ros2 topic echo` readers on `239.255.0.7:7900`, runs `transport_viz --json
+--stats` three times per rung from a container of its own, and `scripts/multicast_stamping_report.py`
+divides each reporter's `RTPS_LOST` by the sender's `RTPS_SENT` on that locator:
+
+| Rung | Sender | Expected ratio |
+|---|---|---|
+| `mcast1`, `mcast2`, `mcast3` | one, two and three container networks, the readers on one of them | 1, 2 and 3 - the interface count |
+| `control` | `network_mode: host`, the readers with it in one network namespace | 0 - every copy arrives |
+| `whitelist` | unicast with an `<interfaceWhiteList>` of all three addresses | 0 - no false loss on unicast |
+
+`RTPS_SENT` is emitted once per logical message and is the honest denominator, so the
+verdict needs no timing accuracy; both counters come out of one `--stats` document. The
+services live in the `multicast` compose profile, so no other run starts them, and the
+experiment is deliberately outside `scripts/integration_test.sh` and CI: it measures a
+Fast DDS behaviour that should stop reproducing the day eProsima changes it. It needs a
+statistics-capable Fast DDS, so Humble cannot run it. The results are in
+[Verification results](#verification-results) and the mechanism in
+[Statistics](statistics.md).
+
 ## Two physical hosts
 
 Run the `hostnet` service on each machine so the nodes use the real LAN interfaces (the
@@ -580,6 +605,7 @@ The one-shot pair counts below the total are the `--quiet 1` stops described abo
 | 2026-09-20 | the web viewer in a browser ([#81](https://github.com/atinfinity/fastdds_transport_viz/issues/81)): `web/test/browser.test.js` and `web/test/live.test.js` against headless Chrome on the host, plus the existing Node unit tests | arm64 (host) | - (viewer only) | `node --test "web/test/*.test.js"` 67 tests, 0 failures in 12 s with Node 22.17.0 and Chrome 153.0.8010.48 (48 before: 14 browser tests and one live-mode test with 4 subtests added). Without a browser those 15 tests skip with a reason and the 48 unit tests still run; `FTV_REQUIRE_BROWSER=1` fails instead, and a `$CHROME` that is not an executable fails rather than skipping. A removed pair turned out to have no ghost arrow when its nodes are gone from the after document (`sceneEdges()` keeps ghosts only between known nodes), so that case is asserted in the table, where the ghost row is | `web/test/cdp.js`, `web/test/fake_transport_viz.js`, `web/serve.py` |
 | 2026-09-20 | type mismatches on the same topic ([#85](https://github.com/atinfinity/fastdds_transport_viz/issues/85)): the type-name case as a launch test (`ros2 topic pub` Int32 and `ros2 topic echo` String on one topic) on the three distributions; a type-hash probe with two builds of the same message package (`int32 data` against `string data`, so the same DDS type name with two REP-2011 hashes) published and subscribed the same way, with and without `--stats`; unit suites and `node --test` | arm64 | 2.14.6 (`ros:jazzy`), 3.6.2 (`ros:lyrical`), 2.6 (`ros:humble`) | name mismatch: one `NONE` / `certain` pair with `type-name-mismatch` and an empty `unmatched_reasons` on all three (before: no pair at all and a topic-level reason). Hash mismatch: both sides announce a hash on Jazzy and Lyrical (`RIHS01_a299ad13…` against `RIHS01_369ac5ac…`, the same values on both), the pair stays `SHM x1` / `certain` and gains `!type-hash-mismatch`, and `ros2 topic echo` printed nothing on either. With `--stats` the two behaviours the explanation names: Jazzy measured 35 delivered samples, 38 SHM packets and 0.41 ms latency (Fast DDS 2.x matches the pair and the rmw drops the samples), Lyrical 0 DATA submessages and `delivered` false (3.x never matches). Humble announces no hash at all (`type_hash` `""` on both endpoints), so no warning although the subscription receives nothing - the documented limitation. `colcon test`: Jazzy 557 tests, Lyrical 553, Humble 557, 0 failures; `node --test "web/test/*.test.js"` 68 tests | `test/launch/test_type_mismatch.py`, `test_decision.cpp`, `web/test/model.test.js` |
 | 2026-09-21 | the live reconnect banner and the recovery after it ([#191](https://github.com/atinfinity/fastdds_transport_viz/issues/191)): a TCP proxy in front of `web/serve.py` drops the browser's SSE socket, `serve.py` never hearing about it; the whole web suite run 8x on the host | arm64 (host) | - (viewer only) | the banner appeared 1-11 ms after the cut and the recovery 1002 ms later, from the latest document `serve.py` sends to every new connection - no new frame needed; the same probe on the browser's own default took 3032 ms, which is what `retry: 1000` replaces. A frame stepped after the recovery still arrived, so the stream was live and not merely reconnected. `node --test "web/test/*.test.js"` 72 tests (68 before), 13 s, 8/8 runs green with Node 22.17.0 and Chrome 153.0.8010.48. Two flakes were found and fixed on the way: a `?src=` page renders once while it is still empty, so `goto()` could return before the fetch and a filter test then asserted an empty graph (1 failure in 5 runs before `goto()` waited for `#meta`); and SIGTERM kills `serve.py` before its cleanup runs, orphaning the `transport_viz` it started - that orphan holds the test's stderr pipe and node never exits, so the test lets the producer stop itself first | `web/test/live.test.js`, `web/test/cdp.js`, `web/serve.py` |
+| 2026-09-21 | multicast stamping ([#130](https://github.com/atinfinity/fastdds_transport_viz/issues/130)): a 20 Hz `BEST_EFFORT` talker and two `ros2 topic echo` readers on `239.255.0.7:7900` (`defaultMulticastLocatorList`) with `FASTDDS_STATISTICS`, the talker on one, two and three container networks and the readers on one of them; the same pair in a single network namespace; an interface whitelist on unicast traffic; three 45 s `--stats` runs per rung, the tool in a container of its own | arm64 | 2.14.6 (`ros:jazzy`), 3.6.2 (`ros:lyrical`) | confirmed: a receiver's `RTPS_LOST` divided by the sender's `RTPS_SENT` on the group is the sender's interface count. Jazzy, 12 rows per rung (4 reporting participants x 3 runs): 0.93-1.03 on one interface, 1.86-2.00 on two, 2.74-2.92 on three, 0.00 in every row of the one-namespace control, all five rungs pass. Lyrical: 0.91-1.00, 1.63-2.00, 2.29-2.98 (one row of twelve under the 20 % band, its own reporter reading 2.65 and 2.75 in the other two runs), 0.00 in the control. One interface already costs one false loss per message: the any-address socket sends a copy of its own with `IP_MULTICAST_IF` on localhost, which is why nothing shows when sender and receiver share a namespace. Nothing is lost on the wire - the `/chatter` pair delivers 898 of 898 samples at 20 Hz with `lost_packets` 0, multicast destinations being excluded ([#122](https://github.com/atinfinity/fastdds_transport_viz/issues/122)). Unicast with an `<interfaceWhiteList>` of all three addresses reports no loss either (487-911 packets per run, ratio 0.00); the duplicate datagram per whitelisted socket is read from the source, not measured here. Not run on Humble, whose Fast DDS 2.6 binaries have no statistics module. Side finding: a pair that receives on a multicast locator only never satisfies the one-shot settle rule (`measures_a_pair` counts discovered reader unicast ports, [#179](https://github.com/atinfinity/fastdds_transport_viz/issues/179)), so every run ended at its `--timeout` warning `no measured RTPS_SENT entry to a discovered reader` although the pair was fully measured ([#196](https://github.com/atinfinity/fastdds_transport_viz/issues/196)). `colcon test`: Jazzy 570 tests, Lyrical 566, Humble 558, 0 failures | `scripts/multicast_stamping_test.sh` |
 
 ## Documentation site
 
@@ -707,4 +733,3 @@ Open, by priority (labels `priority/1-high` … `priority/3-low` on the issues):
 - Metrics export: Prometheus endpoint in `transport_viz_web`, CSV output — [#83](https://github.com/atinfinity/fastdds_transport_viz/issues/83)
 - Group service and action endpoints under `--all` — [#84](https://github.com/atinfinity/fastdds_transport_viz/issues/84)
 - `QUALITY_DECLARATION.md` (REP 2004) for both packages — [#87](https://github.com/atinfinity/fastdds_transport_viz/issues/87)
-- Verify whether multicast sends are stamped once per socket and inflate `RTPS_LOST` — [#130](https://github.com/atinfinity/fastdds_transport_viz/issues/130)
