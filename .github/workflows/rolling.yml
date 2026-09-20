@@ -8,6 +8,10 @@ name: Rolling
 on:
   schedule:
     - cron: "0 3 * * 1"
+  # TEMPORARY (#79 verification): workflow_dispatch needs the file on main, so run once per
+  # push of the pull-request branch; removed before the merge.
+  push:
+    branches: [feature/79-rolling-schedule]
   workflow_dispatch:
     inputs:
       simulate_failure:
