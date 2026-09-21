@@ -35,6 +35,29 @@ std::vector<std::string> qos_incompatibilities(const Endpoint & writer, const En
 /// gives NONE with the warning shm-ipc-namespace-split.
 Verdict decide(const Endpoint & writer, const Endpoint & reader);
 
+/// Whether Fast DDS delivers this pair inside one process (#201), which is what
+/// RTPSDomainImpl::should_intraprocess_between() asks: the first 8 bytes of the two GUID
+/// prefixes are equal - eProsima's layout is [0-1] vendor id, [2-3] host id, [4-5] the low
+/// bytes of the pid, [6-7] a value std::random_device gives each process once, the same in
+/// 2.6, 2.14 and 3.x - and the vendor is eProsima, because only its prefixes carry that
+/// layout. Intra-process delivery hands the change over inside the process: it beats
+/// data-sharing (ReaderLocator::start clears is_datasharing for a local reader) and publishes
+/// neither RTPS_SENT nor DATA_COUNT, while HISTORY_LATENCY and PUBLICATION_THROUGHPUT still
+/// flow. A node started with a custom <prefix>, or a Fast DDS built with intra-process
+/// delivery off, makes this false where it holds - the cases where the tool keeps its older,
+/// stricter behaviour. Pure function.
+bool intra_process_pair(const Endpoint & writer, const Endpoint & reader);
+
+/// How many pairs of the snapshot could ever show a measured packet (#201): writer and reader
+/// on the same DDS topic, in two different processes, neither of them the tool's own
+/// (`own_prefixes`, as for reader_destinations). QoS and type compatibility are deliberately
+/// not checked - the count decides whether a --stats one-shot waits for RTPS_SENT at all, so
+/// it over-approximates and any doubt keeps the strict rule. Zero means every delivery in the
+/// system is intra-process (or there is nothing to deliver), and no RTPS_SENT will ever
+/// arrive. Pure function; published as StatsData::measurable_pairs.
+size_t count_measurable_pairs(
+  const std::vector<Endpoint> & endpoints, const std::set<std::string> & own_prefixes);
+
 /// Suffix of the companion topic rmw_fastrtps_cpp (Lyrical and later) creates for a type
 /// with an unbounded uint8[] field: the samples go there whenever every subscription of
 /// the topic supports native buffers, and the parent topic stays silent.
@@ -149,10 +172,14 @@ inline constexpr double kStatsMeasuredQuietSeconds = 3.0;
 /// discovery ends when events do. Nothing matched means nothing to wait for. Pure function.
 /// `measured_instances` must be non-zero once anything was announced: on Fast DDS 3.6 every
 /// writer's first sample can be in before a single entry has its second, and "zero for 3 s"
-/// is not quiet, it is nothing measured yet.
+/// is not quiet, it is nothing measured yet. Unless nothing can be measured at all
+/// (`measurable_pairs`, #201): an intra-process-only system publishes no RTPS_SENT by
+/// construction, and waiting for one burns --timeout on every run. A publisher-only system
+/// is the same case, for the same reason - there is no reader to send to.
 bool stats_settled(
   bool discovery_quiet, double elapsed_seconds, size_t writers_announced, size_t writers_heard,
-  size_t measured_instances, double measured_quiet_seconds, double quiet_window_seconds);
+  size_t measurable_pairs, size_t measured_instances, double measured_quiet_seconds,
+  double quiet_window_seconds);
 
 /// Where the packets of a pair arrive: every locator a discovered reader outside the tool's
 /// own participants receives on (#179, #196). Unicast is keyed (kind, port) - the port is

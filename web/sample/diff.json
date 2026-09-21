@@ -115,6 +115,7 @@
     "data_count": {},
     "enabled": false,
     "lost": [],
+    "measurable_pairs": 0,
     "measured_instances": 0,
     "pairs_delivered": 0,
     "pairs_delivered_absent": 0,

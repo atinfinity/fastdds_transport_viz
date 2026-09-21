@@ -54,6 +54,17 @@ bool has(const std::vector<std::string> & v, const std::string & s)
   return std::find(v.begin(), v.end(), s) != v.end();
 }
 
+/// Put an endpoint in a process (#201). An eProsima GUID prefix is [0-1] vendor id,
+/// [2-3] host id, [4-5] the low bytes of the pid, [6-7] a value std::random_device gives the
+/// process once, [8-11] the participant id: two endpoints of one process share the first 8.
+void in_process(Endpoint & e, uint8_t process, uint8_t participant)
+{
+  e.guid_bytes = {0x01, 0x0f, 0xaa, 0xbb, process, 0x00, 0x2a, process,
+    0x00, 0x00, 0x00, participant, 0x00, 0x00, 0x01, 0x03};
+  e.participant_guid_prefix = "01.0f.aa.bb.0" + std::to_string(process) + ".00.2a.0" +
+    std::to_string(process) + ".00.00.00.0" + std::to_string(participant);
+}
+
 const HostId HOST_A{0x01, 0x0f, 0xaa, 0xbb};
 const HostId HOST_B{0x01, 0x0f, 0xcc, 0xdd};
 
@@ -2645,23 +2656,264 @@ TEST(StatsSettled, WaitsForQuietTheMinimumEveryMatchedWriterAndStillMeasuredInst
 {
   // all four: quiet, past the minimum, every matched writer heard from, measured instances
   // unchanged for the --quiet window
-  EXPECT_TRUE(stats_settled(true, kStatsSettleMinSeconds, 20, 20, 800, 1.0, 1.0));
-  EXPECT_TRUE(stats_settled(true, 12.0, 20, 20, 800, 3.5, 1.0));
+  EXPECT_TRUE(stats_settled(true, kStatsSettleMinSeconds, 20, 20, 100, 800, 1.0, 1.0));
+  EXPECT_TRUE(stats_settled(true, 12.0, 20, 20, 100, 800, 3.5, 1.0));
   // nothing matched is nothing to wait for: a system without statistics takes the minimum
-  EXPECT_TRUE(stats_settled(true, kStatsSettleMinSeconds, 0, 0, 0, 5.0, 1.0));
+  EXPECT_TRUE(stats_settled(true, kStatsSettleMinSeconds, 0, 0, 100, 0, 5.0, 1.0));
   // not quiet: discovery is still delivering endpoints, whose writers are not matched yet
-  EXPECT_FALSE(stats_settled(false, 12.0, 20, 20, 800, 3.5, 1.0));
+  EXPECT_FALSE(stats_settled(false, 12.0, 20, 20, 100, 800, 3.5, 1.0));
   // the counters need a window of two samples per instance, whatever the writers say
-  EXPECT_FALSE(stats_settled(true, kStatsSettleMinSeconds - 0.1, 20, 20, 800, 3.5, 1.0));
+  EXPECT_FALSE(stats_settled(true, kStatsSettleMinSeconds - 0.1, 20, 20, 100, 800, 3.5, 1.0));
   // a writer that matched but has not handed over its history yet is a pair reading (idle)
-  EXPECT_FALSE(stats_settled(true, 12.0, 20, 19, 800, 3.5, 1.0));
+  EXPECT_FALSE(stats_settled(true, 12.0, 20, 19, 100, 800, 3.5, 1.0));
   // every writer heard from, but the handoffs are still producing measured instances: at
   // medium that is the state at 9 s, with a sixth of the pairs measured
-  EXPECT_FALSE(stats_settled(true, 12.0, 20, 20, 300, 0.4, 1.0));
-  EXPECT_FALSE(stats_settled(true, 12.0, 20, 20, 300, 2.0, 3.0));
+  EXPECT_FALSE(stats_settled(true, 12.0, 20, 20, 100, 300, 0.4, 1.0));
+  EXPECT_FALSE(stats_settled(true, 12.0, 20, 20, 100, 300, 2.0, 3.0));
   // every writer heard from and nothing measured yet: not quiet, nothing has begun (Lyrical
   // medium at 8 s)
-  EXPECT_FALSE(stats_settled(true, 8.0, 20, 20, 0, 3.0, 3.0));
+  EXPECT_FALSE(stats_settled(true, 8.0, 20, 20, 100, 0, 3.0, 3.0));
+}
+
+TEST(StatsSettled, NothingMeasurableIsNothingToWaitFor)
+{
+  // #201: every pair of the system is delivered inside one process (or there is no pair at
+  // all), so no RTPS_SENT will ever arrive and waiting for one burns --timeout on every run.
+  EXPECT_TRUE(stats_settled(true, kStatsSettleMinSeconds, 20, 20, 0, 0, 3.0, 3.0));
+  // one measurable pair is enough to keep the strict rule: the run waits for its measurement
+  EXPECT_FALSE(stats_settled(true, kStatsSettleMinSeconds, 20, 20, 1, 0, 3.0, 3.0));
+  // the other conditions still hold with nothing measurable
+  EXPECT_FALSE(stats_settled(false, 12.0, 20, 20, 0, 0, 3.0, 3.0));
+  EXPECT_FALSE(stats_settled(true, 12.0, 20, 19, 0, 0, 3.0, 3.0));
+  EXPECT_FALSE(stats_settled(true, kStatsSettleMinSeconds - 0.1, 20, 20, 0, 0, 3.0, 3.0));
+}
+
+TEST(IntraProcess, TheFirstEightPrefixBytesOfAnEprosimaGuid)
+{
+  // #201: what RTPSDomainImpl::should_intraprocess_between() compares, byte for byte
+  Endpoint w = make(true, HOST_A, {shm(7415)});
+  Endpoint r = make(false, HOST_A, {shm(7413)});
+  in_process(w, 1, 1);
+  in_process(r, 1, 2);
+  EXPECT_TRUE(intra_process_pair(w, r));   // different participants of one process
+  in_process(r, 2, 2);
+  EXPECT_FALSE(intra_process_pair(w, r));  // another pid and random value
+  // the same pid in another process: the [6-7] random value is what tells them apart
+  in_process(r, 1, 2);
+  r.guid_bytes[7] = 0x77;
+  EXPECT_FALSE(intra_process_pair(w, r));
+  // another host: the prefix carries the host id in [2-3]
+  in_process(r, 1, 2);
+  r.guid_bytes[3] = 0xcd;
+  EXPECT_FALSE(intra_process_pair(w, r));
+  // another vendor lays its prefix out differently, and Fast DDS delivers intra-process
+  // between its own participants only
+  in_process(r, 1, 2);
+  w.guid_bytes[0] = 0x01;
+  w.guid_bytes[1] = 0x03;
+  r.guid_bytes[0] = 0x01;
+  r.guid_bytes[1] = 0x03;
+  EXPECT_FALSE(intra_process_pair(w, r));
+}
+
+TEST(Decision, IntraProcessPairKeepsItsTransportAndSaysWhyNothingIsSent)
+{
+  // #201: the locators still say what the pair would use from another process
+  Endpoint w = make(true, HOST_A, {udp4("10.0.0.1"), shm(7415)});
+  Endpoint r = make(false, HOST_A, {udp4("10.0.0.1"), shm(7413)});
+  in_process(w, 1, 1);
+  in_process(r, 1, 2);
+  auto v = decide(w, r);
+  EXPECT_EQ(v.transport, Transport::SHM);
+  EXPECT_EQ(v.confidence, Confidence::Certain);
+  EXPECT_TRUE(has(v.reasons, "intra-process"));
+  EXPECT_TRUE(v.warnings.empty());
+  // two processes: nothing is added
+  in_process(r, 2, 2);
+  EXPECT_FALSE(has(decide(w, r).reasons, "intra-process"));
+}
+
+TEST(Decision, IntraProcessBeatsDataSharingAndReplacesItsUnverifiedReason)
+{
+  // ReaderLocator::start clears is_datasharing for a local reader: the writer fills its
+  // segment and never notifies the reader through it, so no traffic can ever verify it (#201)
+  Endpoint w = make(true, HOST_A, {shm(7415)}, DataSharingKind::On, {1});
+  Endpoint r = make(false, HOST_A, {shm(7413)}, DataSharingKind::On, {1});
+  in_process(w, 1, 1);
+  in_process(r, 1, 2);
+  auto v = decide(w, r);
+  EXPECT_EQ(v.transport, Transport::DataSharing);
+  EXPECT_EQ(v.confidence, Confidence::Likely);
+  EXPECT_TRUE(has(v.reasons, "intra-process"));
+  EXPECT_FALSE(has(v.reasons, "datasharing-unverified-by-traffic"));
+}
+
+TEST(Decision, IntraProcessSaysNothingAboutAPairFastDdsNeverMatches)
+{
+  // an incompatible QoS delivers nothing, in or out of the process
+  Endpoint w = make(true, HOST_A, {shm(7415)});
+  Endpoint r = make(false, HOST_A, {shm(7413)});
+  r.qos.reliability = "RELIABLE";
+  w.qos.reliability = "BEST_EFFORT";
+  in_process(w, 1, 1);
+  in_process(r, 1, 2);
+  auto v = decide(w, r);
+  EXPECT_EQ(v.transport, Transport::None);
+  EXPECT_FALSE(has(v.reasons, "intra-process"));
+  EXPECT_TRUE(has(v.warnings, "qos-incompatible"));
+}
+
+TEST(ApplyStats, IntraProcessDeliveryIsNotALostMeasurement)
+{
+  std::vector<Endpoint> eps;
+  eps.push_back(make(true, HOST_A, {shm(7415)}));
+  eps.push_back(make(false, HOST_A, {shm(7413)}));
+  in_process(eps[0], 1, 1);
+  in_process(eps[1], 1, 2);
+  auto topics = summarize(eps);
+  auto stats = stats_with(eps[0], {}, true, &eps[1]);
+  apply_stats(topics, stats);
+  const auto & p = topics[0].pairs[0];
+  EXPECT_TRUE(p.measured.delivered);
+  EXPECT_TRUE(p.measured.transports.empty());
+  EXPECT_TRUE(has(p.verdict.reasons, "intra-process"));
+  // the deliveries are proven and no packet is missing: nothing to warn about (#201)
+  EXPECT_FALSE(has(p.verdict.warnings, "delivered-without-measured-traffic"));
+  EXPECT_FALSE(has(p.verdict.warnings, "no-traffic-observed"));
+  EXPECT_EQ(p.verdict.confidence, Confidence::Certain);   // prediction untouched
+}
+
+TEST(ApplyStats, IntraProcessPairWithoutADeliveryIsStillIdle)
+{
+  std::vector<Endpoint> eps;
+  eps.push_back(make(true, HOST_A, {shm(7415)}));
+  eps.push_back(make(false, HOST_A, {shm(7413)}));
+  in_process(eps[0], 1, 1);
+  in_process(eps[1], 1, 2);
+  auto topics = summarize(eps);
+  auto stats = stats_with(eps[0], {});
+  apply_stats(topics, stats);
+  const auto & p = topics[0].pairs[0];
+  EXPECT_TRUE(has(p.verdict.reasons, "intra-process"));
+  EXPECT_TRUE(has(p.verdict.warnings, "no-traffic-observed"));
+}
+
+TEST(ApplyStats, MeasuredPacketsBeatTheIntraProcessPrediction)
+{
+  // a custom <prefix>, a build with intra-process delivery off, or a multicast group shared
+  // with readers elsewhere: what the counters show wins (#201)
+  std::vector<Endpoint> eps;
+  eps.push_back(make(true, HOST_A, {shm(7415)}));
+  eps.push_back(make(false, HOST_A, {shm(7413)}));
+  in_process(eps[0], 1, 1);
+  in_process(eps[1], 1, 2);
+  auto topics = summarize(eps);
+  ASSERT_TRUE(has(topics[0].pairs[0].verdict.reasons, "intra-process"));
+  auto stats = stats_with(
+    eps[0], {TrafficSample{eps[0].participant_guid_prefix, shm(7413), 10, 1000.0}}, true,
+    &eps[1]);
+  apply_stats(topics, stats);
+  const auto & p = topics[0].pairs[0];
+  EXPECT_EQ(p.measured.packets, 10u);
+  EXPECT_FALSE(has(p.verdict.reasons, "intra-process"));
+  EXPECT_TRUE(has(p.verdict.reasons, "measured-shm-traffic"));
+}
+
+TEST(ApplyStats, IntraProcessDataSharingIsNotConfirmedByASilentDataCount)
+{
+  // DATA_COUNT stays 0 for the opposite reason: the samples never reach the data-sharing
+  // path at all, so it confirms nothing about zero-copy delivery (#201)
+  std::vector<Endpoint> eps;
+  eps.push_back(make(true, HOST_A, {shm(7415)}, DataSharingKind::On, {1}));
+  eps.push_back(make(false, HOST_A, {shm(7413)}, DataSharingKind::On, {1}));
+  in_process(eps[0], 1, 1);
+  in_process(eps[1], 1, 2);
+  auto topics = summarize(eps);
+  auto stats = stats_with(eps[0], {}, true, &eps[1]);
+  stats.statistics_writers.insert({eps[0].participant_guid_prefix, kStatsDataCountTopic});
+  apply_stats(topics, stats);
+  const auto & p = topics[0].pairs[0];
+  EXPECT_EQ(p.verdict.confidence, Confidence::Likely);
+  EXPECT_TRUE(has(p.verdict.reasons, "intra-process"));
+  EXPECT_FALSE(has(p.verdict.reasons, "datasharing-confirmed-no-data-submessages"));
+  EXPECT_FALSE(has(p.verdict.reasons, "datasharing-confirmed-no-traffic"));
+}
+
+TEST(NoteUnmeasuredPairs, IntraProcessPairsAreLeftOutAsDataSharingPairsAre)
+{
+  std::vector<Endpoint> eps;
+  eps.push_back(make(true, HOST_A, {shm(7415)}));    // intra-process pair
+  eps.push_back(make(false, HOST_A, {shm(7413)}));
+  in_process(eps[0], 1, 1);
+  in_process(eps[1], 1, 2);
+  eps.push_back(make(true, HOST_A, {shm(7417)}));    // pair across two processes
+  eps.push_back(make(false, HOST_A, {shm(7419)}));
+  in_process(eps[2], 3, 1);
+  in_process(eps[3], 4, 1);
+  for (size_t i = 2; i < 4; ++i) {
+    eps[i].dds_topic = "rt/other";
+    eps[i].ros_topic = "/other";
+  }
+  auto topics = summarize(eps);
+  StatsData stats;
+  stats.enabled = true;
+  stats.participants_with_stats = {eps[0].participant_guid_prefix,
+    eps[2].participant_guid_prefix};
+  stats.delivered[{eps[0].guid, eps[1].guid}] = 1;
+  stats.delivered[{eps[2].guid, eps[3].guid}] = 1;
+  apply_stats(topics, stats);
+  note_unmeasured_pairs(topics, stats);
+  // only the pair that had to send something counts as a lost measurement (#201)
+  EXPECT_EQ(stats.pairs_delivered, 1u);
+  EXPECT_EQ(stats.pairs_delivered_unmeasured, 1u);
+  EXPECT_EQ(stats.pairs_delivered_absent, 1u);
+  EXPECT_TRUE(has(stats.warnings, "rtps-sent-absent"));
+
+  // without it, an intra-process-only system reports nothing and prescribes nothing
+  auto intra_only = summarize({eps[0], eps[1]});
+  StatsData s2;
+  s2.enabled = true;
+  s2.participants_with_stats = {eps[0].participant_guid_prefix};
+  s2.delivered[{eps[0].guid, eps[1].guid}] = 1;
+  apply_stats(intra_only, s2);
+  note_unmeasured_pairs(intra_only, s2);
+  EXPECT_EQ(s2.pairs_delivered, 0u);
+  EXPECT_EQ(s2.pairs_delivered_absent, 0u);
+  EXPECT_FALSE(has(s2.warnings, "rtps-sent-absent"));
+  EXPECT_TRUE(rtps_sent_absent_warning(s2).empty());
+}
+
+TEST(CountMeasurablePairs, PairsWhoseTwoEndsAreInDifferentProcesses)
+{
+  std::vector<Endpoint> eps;
+  eps.push_back(make(true, HOST_A, {shm(7415)}));
+  eps.push_back(make(false, HOST_A, {shm(7413)}));
+  in_process(eps[0], 1, 1);
+  in_process(eps[1], 1, 2);
+  // one process: every delivery is intra-process, nothing can ever be measured (#201)
+  EXPECT_EQ(count_measurable_pairs(eps, {}), 0u);
+  // a second reader in another process makes one pair measurable
+  eps.push_back(make(false, HOST_A, {shm(7417)}));
+  in_process(eps[2], 2, 1);
+  EXPECT_EQ(count_measurable_pairs(eps, {}), 1u);
+  // ... and it is the tool's own reader that is not counted, as in reader_destinations()
+  EXPECT_EQ(count_measurable_pairs(eps, {eps[2].participant_guid_prefix}), 0u);
+  // endpoints of another topic are not paired
+  eps.push_back(make(true, HOST_A, {shm(7419)}));
+  in_process(eps[3], 5, 1);
+  eps[3].dds_topic = "rt/other";
+  EXPECT_EQ(count_measurable_pairs(eps, {}), 1u);
+  // a publisher-only system has nothing to send to, and settles for the same reason
+  EXPECT_EQ(count_measurable_pairs({eps[0], eps[3]}, {}), 0u);
+  // another vendor shares a process with nobody: its writer x reader pairs all count
+  std::vector<Endpoint> other;
+  other.push_back(make(true, HOST_A, {udp4("10.0.0.1")}));
+  other.push_back(make(false, HOST_A, {udp4("10.0.0.2")}));
+  in_process(other[0], 1, 1);
+  in_process(other[1], 1, 2);
+  other[0].guid_bytes[1] = 0x03;
+  other[1].guid_bytes[1] = 0x03;
+  EXPECT_EQ(count_measurable_pairs(other, {}), 1u);
 }
 
 TEST(ReaderDestinations, LocatorsOfDiscoveredReadersOutsideTheToolsOwnParticipants)

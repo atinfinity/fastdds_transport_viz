@@ -108,7 +108,9 @@ that observation the pair is not idle, its `RTPS_SENT` samples did not arrive: i
 ([#149](https://github.com/atinfinity/fastdds_transport_viz/issues/149)). Other values of
 the cell: `n/a` (the writer's participant publishes no statistics), `none` (statistics, but
 no packet to any locator of the reader) and `none(delivered)` (the same, while
-`HISTORY_LATENCY` proved delivery).
+`HISTORY_LATENCY` proved delivery). A pair delivered inside one process reads
+`(intra-process)` in place of `(unmeasured, delivered)` / `(delivered)`, because no packet
+is missing - none was ever sent (see [Intra-process pairs](#intra-process-pairs)).
 A participant has statistics when the tool received a statistics sample it published:
 that set is `stats.participants_with_stats` in the JSON and the N of the footer's
 "statistics from N participant(s)". A participant only named in another one's sample, such
@@ -123,7 +125,9 @@ and goes on until discovery has been quiet for `--quiet` seconds, every `RTPS_SE
 (one per participant with statistics) the tool's reader matched has delivered a first sample,
 *and* the number of `RTPS_SENT` entries with measured packets towards a locator a discovered
 reader receives on has stopped growing for `--quiet` seconds (at least 3 s) - or until
-`--timeout` (default 30 s with `--stats`), whichever comes first. Only reader-bound entries
+`--timeout` (default 30 s with `--stats`), whichever comes first. A run in which *no* pair can
+ever be measured settles as soon as the minimum window is over: see
+[Intra-process pairs](#intra-process-pairs). Only reader-bound entries
 count ([#179](https://github.com/atinfinity/fastdds_transport_viz/issues/179)): the entries
 to multicast metatraffic and to the tool's own port move within seconds of any participant,
 and a run that counted them settled at 8 s with 47 such entries and no pair measured. A
@@ -141,7 +145,8 @@ pairs each the last writer was first heard from after 16-20 s and the entries ke
 until about 25 s, so a 5 s run measured a fraction of the pairs on one run and none on the
 next. `--json` records the rule in `stats.writers_announced` (`RTPS_SENT` writers matched),
 `stats.writers_heard`, `stats.measured_instances` (entries measured towards a reader
-destination), `stats.settled` and `stats.settled_at_s` (`null` when the run hit `--timeout` first, in which
+destination), `stats.measurable_pairs` (pairs whose two ends are in different processes),
+`stats.settled` and `stats.settled_at_s` (`null` when the run hit `--timeout` first, in which
 case one stderr line names the writers still not heard from, or says that no entry towards a
 reader was measured), and
 `discovery.stopped_on` reads `settled`. `--watch --stats` does not wait for that rule: its
@@ -162,6 +167,33 @@ include those of its native-buffer
 companion on `<topic>/_buf_cpu` (`rmw_fastrtps_cpp` on Lyrical and later), which carries
 the samples of types with an unbounded `uint8[]` field; see
 [Native-buffer companion topics](how-it-works.md#native-buffer-companion-topics).
+
+## Intra-process pairs
+
+A writer and a reader of one process are served inside the participant and never put a
+sample on a transport, so no `RTPS_SENT` counter can ever move for the pair (nor
+`DATA_COUNT`, which counts DATA submessages handed to the network). `HISTORY_LATENCY` and
+`PUBLICATION_THROUGHPUT` do move: the delivery is proven and timed, the packets are not
+there to be counted. The tool names the pair `intra-process` from the GUID prefixes (see
+[Intra-process delivery](how-it-works.md#intra-process-delivery)) and treats it like a
+data-sharing pair everywhere a measurement is expected: the `MEASURED` column reads
+`(intra-process)`, the pair is left out of `stats.pairs_delivered` and therefore out of
+`stats.pairs_delivered_unmeasured`, `stats.pairs_delivered_absent`, `rtps-sent-absent` and
+the `stats_watch_coverage` denominator, and it raises no warning of its own.
+
+The settle rule counts the same fact once per run as `stats.measurable_pairs`: the pairs
+whose two ends are in *different* processes, over the endpoints discovered so far and
+excluding the tool's own participants. It over-approximates - the count pairs every writer
+with every reader of a topic without checking QoS compatibility - which is what it must do
+to be a lower bound on "something could be measured". With `measurable_pairs` at 0 the rule
+has nothing to wait for and the run ends at the minimum 5 s window with
+`discovery.stopped_on` `settled`; before
+[#201](https://github.com/atinfinity/fastdds_transport_viz/issues/201) an intra-process-only
+system waited out the full `--timeout` on every `--stats` run and then warned that no
+`RTPS_SENT` entry towards a reader was measured, prescribing a remedy that could not help.
+The same now holds for a publisher-only system, which has no reader to send to either. The
+timeout warning keeps its other half: writers announced and not heard from is still worth
+saying.
 
 ## RTPS_LOST
 
@@ -352,9 +384,9 @@ them in a run that lost no sample. What tells the two apart is a delivery proof.
 (`stats.pairs_delivered_unmeasured`), and the warning needs both: counter samples lost or
 rejected **and** at least one such pair. A loss alone is reported as a number and warns
 nobody; an unmeasured pair without a loss keeps its own `delivered-without-measured-traffic`.
-Data-sharing pairs, `qos-incompatible` and IPC-split pairs and
-`stats-writer-instance-limit-suspected` pairs are in neither number, and a pair without a
-delivery proof stays the ambiguity `no-traffic-observed` describes. The numbers follow the
+Data-sharing pairs, [intra-process pairs](#intra-process-pairs), `qos-incompatible` and
+IPC-split pairs and `stats-writer-instance-limit-suspected` pairs are in neither number, and a
+pair without a delivery proof stays the ambiguity `no-traffic-observed` describes. The numbers follow the
 frame, so under `--watch` the warning goes away once the measurements are back.
 
 Not every unmeasured pair is the tool's loss. Since
@@ -364,12 +396,19 @@ tool never saw an `RTPS_SENT` instance for (`packets_total` 0), and every unmeas
 run that lost no counter sample. They raise their own document-level warning,
 `rtps-sent-absent` (one stderr line in a one-shot run, the `statistics:` footer, the web
 viewer), and `stats-samples-lost` counts only the rest, so both can appear in one run. The
-usual cause is Fast DDS 3.6 (ROS 2 Lyrical): its statistics writers deliver almost only on
-their periodic heartbeat, 3 s by default, so the counters arrive in bursts with stalls of
-several seconds and nothing is reported lost. The tool's readers cannot change that. Start the
-observed nodes with the installed `config/statistics.xml` of this package
-(`FASTDDS_DEFAULT_PROFILES_FILE`, or `FASTRTPS_DEFAULT_PROFILES_FILE`), which shortens that
-heartbeat period on Fast DDS 3. The warning judges what it observes, not the Fast DDS version.
+usual cause is the statistics writers' own defaults, which every Fast DDS version shares: they
+are created in pull mode (`fastdds.push_mode` false), so they deliver on their periodic
+heartbeat - 3 s by default - and the counters arrive in bursts with stalls of several seconds
+while nothing is reported lost. It shows worst on Fast DDS 3.6 (ROS 2 Lyrical), where a
+one-shot run measured nothing at all
+([#152](https://github.com/atinfinity/fastdds_transport_viz/issues/152)). The tool's readers
+cannot change that; the writers' profile can. Start the observed nodes with the installed
+`config/statistics.xml` of this package (`FASTDDS_DEFAULT_PROFILES_FILE`, or
+`FASTRTPS_DEFAULT_PROFILES_FILE` on older Fast DDS), which puts those writers in push mode and
+shortens their heartbeat period. The warning judges what it observes, not the Fast DDS
+version, and pairs that can never be measured - data-sharing and intra-process - are not
+counted in it
+([#201](https://github.com/atinfinity/fastdds_transport_viz/issues/201)).
 
 `stats.samples_lost_latency` is counted apart, as a part of `stats.samples_lost` rather than
 beside it, and nothing warns about it. `HISTORY_LATENCY` is received best-effort by design

@@ -66,6 +66,31 @@ is compared on the type name alone. Two nodes built against different versions o
 message package therefore look healthy on Humble - the table shows the transport the wire
 uses, and the subscription still receives nothing.
 
+### Intra-process delivery
+
+A writer and a reader of the *same process* never put a sample on a transport: Fast DDS
+hands it over inside the domain participant factory (`intraprocess_delivery`, `FULL` by
+default, which `rmw_fastrtps` does not change). It also beats data-sharing -
+`ReaderLocator::start` clears the data-sharing flag for a local reader, so the writer fills
+its shared history and never notifies the reader through the segment.
+
+The tool recognises such a pair from the GUID prefixes alone. An eProsima prefix is
+`[0-1]` the vendor id `01.0f`, `[2-3]` the host id, `[4-5]` the low bytes of the pid,
+`[6-7]` a value `std::random_device` gives the process once and `[8-11]` the participant
+id, so two endpoints share their first 8 bytes exactly when they are in one process - which
+is what `RTPSDomainImpl::should_intraprocess_between()` compares. The pair keeps the
+transport the locators predict (what it *would* use from another process, usually `SHM`)
+and carries the reason `intra-process`, on every run and every distribution. In the
+`MEASURED` column it reads `(intra-process)` rather than `(unmeasured, delivered)`: no
+packet is missing, none was ever sent. A pair with data-sharing QoS on both sides gets
+`intra-process` in place of `datasharing-unverified-by-traffic` and no `certain` upgrade
+from a silent `DATA_COUNT`, because a `DATA_COUNT` of 0 says nothing here.
+
+Measurement wins over the prediction: a pair that *did* report packets - a custom
+`<prefix>`, a build with intra-process delivery off - loses the reason and is reported as
+measured. See [Intra-process pairs](statistics.md#intra-process-pairs) for what this means
+for `--stats`.
+
 ## The LATENCY, HZ and LOSS columns
 
 `HZ` is the number of samples per second that reached the reader of a pair, counted by the

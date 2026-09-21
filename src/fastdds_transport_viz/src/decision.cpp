@@ -244,6 +244,16 @@ std::vector<std::string> datasharing_split_reasons(
   return out;
 }
 
+/// Replace `from` by `to` in `codes`, or append `to` when `from` is not there.
+void replace_code(
+  std::vector<std::string> & codes, const std::string & from, const std::string & to)
+{
+  for (auto & c : codes) {
+    if (c == from) {c = to; return;}
+  }
+  codes.push_back(to);
+}
+
 /// decide() once the two endpoints are known to carry the same type name.
 Verdict decide_same_type(const Endpoint & writer, const Endpoint & reader)
 {
@@ -380,6 +390,16 @@ Verdict decide_same_type(const Endpoint & writer, const Endpoint & reader)
 
 }  // namespace
 
+bool intra_process_pair(const Endpoint & writer, const Endpoint & reader)
+{
+  const auto & w = writer.guid_bytes;
+  // Only eProsima lays its prefix out this way, and Fast DDS delivers intra-process between
+  // its own participants only. Bytes [0-1] are the vendor id; [2-7] host, pid and the
+  // per-process random value that make the first 8 bytes one process.
+  if (w[0] != 0x01 || w[1] != 0x0f) {return false;}
+  return std::equal(w.begin(), w.begin() + 8, reader.guid_bytes.begin());
+}
+
 Verdict decide(const Endpoint & writer, const Endpoint & reader)
 {
   if (writer.dds_type != reader.dds_type) {
@@ -392,6 +412,21 @@ Verdict decide(const Endpoint & writer, const Endpoint & reader)
     return v;
   }
   Verdict v = decide_same_type(writer, reader);
+  // Two endpoints of one process never reach a transport: Fast DDS hands the sample over
+  // inside the process (#201), which is why it publishes no RTPS_SENT and no DATA_COUNT for
+  // the pair while HISTORY_LATENCY still proves the delivery. The predicted transport stays
+  // what the locators would carry - a pair that leaves the process on a restart keeps the
+  // same row - and the reason says why they carry nothing. A pair Fast DDS never matches
+  // (incompatible QoS) delivers nothing at all, in or out of the process, so it keeps its
+  // own reasons.
+  if (intra_process_pair(writer, reader) &&
+    std::find(v.warnings.begin(), v.warnings.end(), "qos-incompatible") == v.warnings.end())
+  {
+    // Intra-process delivery beats data-sharing (ReaderLocator::start clears is_datasharing
+    // for a local reader), so "unverified by traffic" would promise a verification that
+    // cannot come: the writer fills its segment and never notifies the reader through it.
+    replace_code(v.reasons, "datasharing-unverified-by-traffic", "intra-process");
+  }
   // Same type name, different definition (#85). Fast DDS 2.x matches the pair and
   // delivers the samples, which the rmw then drops, so the transport above is what the
   // wire does and the warning is what the application gets - nothing.
@@ -662,15 +697,6 @@ std::string measured_reason(Transport t)
 
 constexpr size_t kStatsWriterInstanceLimit = 10;   // Fast DDS < 3.5 default max_instances
 
-void replace_code(
-  std::vector<std::string> & codes, const std::string & from, const std::string & to)
-{
-  for (auto & c : codes) {
-    if (c == from) {c = to; return;}
-  }
-  codes.push_back(to);
-}
-
 /// The GUID of an endpoint followed by those of its native-buffer companions.
 std::vector<std::string> entity_guids(const Endpoint & e)
 {
@@ -922,6 +948,20 @@ void apply_stats(std::vector<TopicSummary> & topics, const StatsData & stats)
         v.warnings.push_back("stats-not-enabled-on-writer");
         continue;
       }
+      if (std::find(v.reasons.begin(), v.reasons.end(), "intra-process") != v.reasons.end()) {
+        // The samples never leave the process (#201): there is no packet to measure, and an
+        // unmeasured pair here is the normal state rather than a lost measurement. Measurement
+        // wins - packets from the writer's participant to this reader's locators mean the
+        // prediction was wrong (a custom <prefix>, a build with intra-process delivery off,
+        // or a multicast group shared with readers elsewhere), and the pair is then reported
+        // from what the counters show.
+        if (m.packets == 0) {
+          if (!m.delivered) {v.warnings.push_back("no-traffic-observed");}
+          continue;
+        }
+        v.reasons.erase(
+          std::remove(v.reasons.begin(), v.reasons.end(), "intra-process"), v.reasons.end());
+      }
       if (v.transport == Transport::DataSharing) {
         // Zero-copy delivery leaves no RTPS trace. Delivery confirmed by
         // HISTORY_LATENCY plus silence on every locator of the reader => certain.
@@ -1169,12 +1209,53 @@ std::string incomplete_discovery_warning(
 
 bool stats_settled(
   bool discovery_quiet, double elapsed_seconds, size_t writers_announced, size_t writers_heard,
-  size_t measured_instances, double measured_quiet_seconds, double quiet_window_seconds)
+  size_t measurable_pairs, size_t measured_instances, double measured_quiet_seconds,
+  double quiet_window_seconds)
 {
   return discovery_quiet && elapsed_seconds >= kStatsSettleMinSeconds &&
          writers_heard >= writers_announced &&
-         (writers_announced == 0 || measured_instances > 0) &&
+         (writers_announced == 0 || measurable_pairs == 0 || measured_instances > 0) &&
          measured_quiet_seconds >= quiet_window_seconds;
+}
+
+size_t count_measurable_pairs(
+  const std::vector<Endpoint> & endpoints, const std::set<std::string> & own_prefixes)
+{
+  // Per DDS topic: every writer x reader pair, less those whose two ends live in one process.
+  // Counted per process group so that a large system costs one pass over the endpoints
+  // instead of one over the pairs; an endpoint of another vendor is a group of its own (it
+  // shares a process with nobody, as far as intra-process delivery is concerned).
+  struct TopicCounts
+  {
+    size_t writers{0};
+    size_t readers{0};
+    std::map<std::string, std::pair<size_t, size_t>> by_process;
+  };
+  std::map<std::string, TopicCounts> topics;
+  for (const auto & e : endpoints) {
+    if (own_prefixes.count(e.participant_guid_prefix) > 0) {continue;}
+    const bool eprosima = e.guid_bytes[0] == 0x01 && e.guid_bytes[1] == 0x0f;
+    const std::string key = eprosima ?
+      std::string(reinterpret_cast<const char *>(e.guid_bytes.data()), 8) : e.guid;
+    auto & t = topics[e.dds_topic];
+    auto & counts = t.by_process[key];
+    if (e.is_writer) {
+      ++t.writers;
+      ++counts.first;
+    } else {
+      ++t.readers;
+      ++counts.second;
+    }
+  }
+  size_t out = 0;
+  for (const auto & kv : topics) {
+    size_t same_process = 0;
+    for (const auto & pc : kv.second.by_process) {
+      same_process += pc.second.first * pc.second.second;
+    }
+    out += kv.second.writers * kv.second.readers - same_process;
+  }
+  return out;
 }
 
 ReaderDestinations reader_destinations(
@@ -1254,8 +1335,9 @@ std::string rtps_sent_absent_warning(const StatsData & stats)
   std::ostringstream out;
   out << "warning: " << stats.pairs_delivered_absent << " of " << stats.pairs_delivered
       << " pairs with proven deliveries show no measured packet and no lost statistics sample "
-    "explains it (RTPS_SENT did not arrive) - on Fast DDS 3.6 the statistics counters stall; "
-    "start the observed nodes with the shipped config/statistics.xml "
+    "explains it (RTPS_SENT did not arrive) - the statistics writers default to pull mode on "
+    "every Fast DDS version, so their samples wait for the next heartbeat; start the observed "
+    "nodes with the shipped config/statistics.xml "
     "(FASTDDS_DEFAULT_PROFILES_FILE or FASTRTPS_DEFAULT_PROFILES_FILE)";
   return out.str();
 }
@@ -1272,9 +1354,14 @@ void note_unmeasured_pairs(const std::vector<TopicSummary> & topics, StatsData &
     for (const auto & p : t.pairs) {
       const auto & m = p.measured;
       const auto & w = p.verdict.warnings;
+      const auto & r = p.verdict.reasons;
       auto has = [&w](const char * code) {return std::find(w.begin(), w.end(), code) != w.end();};
+      // An intra-process pair (#201) produces no RTPS_SENT by construction, exactly as a
+      // data-sharing pair does: counting it would make every such run report a lost
+      // measurement and prescribe a statistics profile that cannot help.
+      const bool intra = std::find(r.begin(), r.end(), "intra-process") != r.end();
       if (!m.available || !m.delivered || p.verdict.transport == Transport::DataSharing ||
-        has("qos-incompatible") || has("shm-ipc-namespace-split") ||
+        intra || has("qos-incompatible") || has("shm-ipc-namespace-split") ||
         has("stats-writer-instance-limit-suspected"))
       {
         continue;
@@ -1582,6 +1669,16 @@ const std::map<std::string, CodeInfo> & explanations()
         "user data is sent over a transport for this pair.",
         "Run the tool with --stats (the observed nodes need FASTDDS_STATISTICS, see --help) to "
         "confirm that no user data crosses a transport."}},
+    {"intra-process", {
+        "Writer and reader live in one process (the first 8 bytes of their GUID prefixes are "
+        "equal), so Fast DDS hands every sample over inside the process and sends no packet at "
+        "all. That path beats data-sharing too: the writer still fills its shared-memory "
+        "history, but it never notifies the reader through the segment. The statistics follow: "
+        "HISTORY_LATENCY and PUBLICATION_THROUGHPUT are published, RTPS_SENT and DATA_COUNT are "
+        "not, which is why such a pair shows a delivery proof and no measured packet. The "
+        "transport column keeps what the locators would carry if the two ended up in different "
+        "processes.",
+        std::nullopt}},
     // ---- data-sharing (measured)
     {"datasharing-confirmed-no-traffic", {
         "HISTORY_LATENCY statistics prove samples reached the reader while no RTPS packets went to "
@@ -1791,14 +1888,16 @@ const std::map<std::string, CodeInfo> & explanations()
         "Pairs whose deliveries HISTORY_LATENCY proves show no measured packet, and no lost "
         "statistics sample explains it (stats.pairs_delivered_absent of "
         "stats.pairs_delivered): the tool never saw an RTPS_SENT instance for the pair, or no "
-        "counter sample was lost at all. The RTPS_SENT samples did not arrive in time. On Fast "
-        "DDS 3.6 the statistics writers deliver almost only on their periodic heartbeat "
-        "(3 s by default), so the counters stall for seconds (#152). The tool's readers "
-        "cannot change that; the writers' profile can.",
+        "counter sample was lost at all. The RTPS_SENT samples did not arrive in time: the "
+        "statistics DataWriters are created in pull mode on every Fast DDS version, so they "
+        "deliver on their periodic heartbeat (3 s by default) and the counters stall for "
+        "seconds (#152, #201). The tool's readers cannot change that; the writers' profile "
+        "can. Pairs that cannot be measured at all - data-sharing and intra-process - are not "
+        "counted here.",
         "Start the observed nodes with the installed config/statistics.xml of this package "
         "(FASTDDS_DEFAULT_PROFILES_FILE, or FASTRTPS_DEFAULT_PROFILES_FILE on older Fast "
-        "DDS): on Fast DDS 3 it shortens the statistics writers' heartbeat period. A longer "
-        "--timeout also lets more of the stalled samples arrive."}},
+        "DDS): it puts the statistics writers in push mode and shortens their heartbeat "
+        "period. A longer --timeout also lets more of the stalled samples arrive."}},
     {"stats-samples-lost", {
         "The tool's statistics readers lost counter samples: the writers' keep-last history "
         "overwrote them before the tool read them, or a reader resource limit refused them - "

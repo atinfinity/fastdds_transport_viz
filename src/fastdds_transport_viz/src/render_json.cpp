@@ -390,6 +390,8 @@ std::string render_json(const Snapshot & snap, const RenderOptions & opt)
   stats["writers_announced"] = snap.stats.writers_announced;
   stats["writers_heard"] = snap.stats.writers_heard;
   stats["measured_instances"] = snap.stats.measured_instances;
+  // Pairs whose two ends are in different processes (#201): 0 means nothing can be measured.
+  stats["measurable_pairs"] = snap.stats.measurable_pairs;
   stats["settled"] = snap.stats.settled;
   if (snap.stats.settled_at_s >= 0.0) {
     stats["settled_at_s"] = snap.stats.settled_at_s;

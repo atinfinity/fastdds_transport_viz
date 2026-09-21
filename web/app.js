@@ -146,7 +146,7 @@
     { key: 'rate', label: 'Hz', get: v => rateText(meas(v)), sort: v => (meas(v) ? meas(v).delivered_per_s : null), title: v => rateTitle(meas(v)), group: () => '' },
     { key: 'loss', label: 'Loss', get: v => lossText(meas(v)), sort: v => (meas(v) && meas(v).reliability ? meas(v).reliability.lost_packets : null),
       group: g => g.loss, groupSort: g => g.lostValue },
-    { key: 'measured', label: 'Measured', get: v => measuredText(meas(v)), group: () => '' },
+    { key: 'measured', label: 'Measured', get: v => measuredText(meas(v), v.pair.reasons), group: () => '' },
     { key: 'reasons', label: 'Reasons', get: v => [...v.pair.reasons, ...v.pair.warnings.map(w => '!' + w)].join(', '), group: g => g.reasons },
   ];
   const sortValue = (c, v) => (c.sort ? c.sort(v) : c.get(v));
@@ -315,7 +315,7 @@
     return `<div class="pair ${selected ? 'selected' : ''}">
       ${marks ? changeHtml(vp, marks) : ''}
       <div><b>${escapeHtml(vp.topic.topic)}</b> <span class="muted">${escapeHtml(vp.topic.type)}</span></div>
-      <div style="margin:4px 0">${badge(p)} confidence ${p.confidence}${p.measured && p.measured.available ? ` · measured ${escapeHtml(measuredText(p.measured))}` : ''}${latencyText(p.measured) ? ` · latency ${escapeHtml(latencyText(p.measured))}` : ''}${rateText(p.measured) ? ` · <span title="${escapeHtml(rateTitle(p.measured))}">${escapeHtml(rateText(p.measured))} Hz</span>` : ''}${lossText(p.measured) ? ` · loss ${escapeHtml(lossText(p.measured))}` : ''}</div>
+      <div style="margin:4px 0">${badge(p)} confidence ${p.confidence}${p.measured && p.measured.available ? ` · measured ${escapeHtml(measuredText(p.measured, p.reasons))}` : ''}${latencyText(p.measured) ? ` · latency ${escapeHtml(latencyText(p.measured))}` : ''}${rateText(p.measured) ? ` · <span title="${escapeHtml(rateTitle(p.measured))}">${escapeHtml(rateText(p.measured))} Hz</span>` : ''}${lossText(p.measured) ? ` · loss ${escapeHtml(lossText(p.measured))}` : ''}</div>
       ${p.measured && p.measured.reliability ? `<div class="muted">heartbeats ${p.measured.reliability.heartbeats}, gaps ${p.measured.reliability.gaps}, acknacks ${p.measured.reliability.acknacks}, nackfrags ${p.measured.reliability.nackfrags}</div>` : ''}
       <div>${escapeHtml(p.writer_node || vp.writerNode)}@${escapeHtml(p.writer_host)} → ${escapeHtml(p.reader_node || vp.readerNode)}@${escapeHtml(p.reader_host)}</div>
       ${codeList(p.reasons, false)}${codeList(p.warnings, true)}

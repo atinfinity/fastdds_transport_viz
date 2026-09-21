@@ -4,6 +4,29 @@ Changelog for package fastdds_transport_viz
 
 Forthcoming
 -----------
+* Pairs delivered inside one process are named, and no longer keep a ``--stats`` one-shot
+  waiting (#201). Fast DDS hands a sample from a writer to a reader of the *same process*
+  inside the participant (``intraprocess_delivery``, ``FULL`` by default) and puts nothing
+  on a transport - it beats data-sharing too - so no ``RTPS_SENT`` or ``DATA_COUNT``
+  counter can ever move for such a pair, while ``HISTORY_LATENCY`` proves the delivery.
+  The tool recognises it from the GUID prefixes (equal first 8 bytes of an eProsima
+  prefix, what ``RTPSDomainImpl::should_intraprocess_between()`` compares), gives the pair
+  the reason ``intra-process`` on every run and every distribution, and shows
+  ``(intra-process)`` in the ``MEASURED`` column instead of ``(unmeasured, delivered)``.
+  A same-process data-sharing pair gets ``intra-process`` in place of
+  ``datasharing-unverified-by-traffic`` and no ``certain`` upgrade from a silent
+  ``DATA_COUNT``. Such pairs leave ``stats.pairs_delivered``, as data-sharing pairs
+  already did, so they no longer feed ``pairs_delivered_unmeasured`` /
+  ``pairs_delivered_absent``, ``rtps-sent-absent`` or the ``stats_watch_coverage``
+  denominator. The settle rule gains "nothing is measurable": ``stats.measurable_pairs``
+  counts the pairs whose two ends are in different processes (over-approximating QoS
+  compatibility, the tool's own participants excluded), and a run with 0 of them settles
+  at the 5 s minimum window rather than burning ``--timeout`` and then warning that no
+  ``RTPS_SENT`` entry towards a reader was measured. A publisher-only system settles the
+  same way. ``stats.measurable_pairs`` is additive in ``--json``; ``schema_version``
+  stays 1. The ``rtps-sent-absent`` remedy no longer blames Fast DDS 3.6 alone: the
+  statistics writers are in pull mode on every version, so ``config/statistics.xml`` is
+  the answer everywhere.
 * A multicast-only pair now lets a ``--stats`` one-shot settle (#196): the settle rule
   counted ``RTPS_SENT`` instances towards a discovered reader's *unicast* port only, while
   the measurement attributes packets to any locator the reader receives on, so a run whose

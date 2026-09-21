@@ -551,6 +551,12 @@ Snapshot collect(
   fastdds_transport_viz::ShmScanInput shm_in;   // SHM ports of every endpoint, filtered or not
   const auto local_host = observer.local_host_id();
   std::set<std::string> own_prefixes = own_participant_prefixes(domain);
+  // #201: how many pairs could show a packet at all, from the same raw snapshot the settle
+  // rule used. 0 means every delivery in the system is intra-process.
+  if (stats != nullptr) {
+    stats_data.measurable_pairs =
+      fastdds_transport_viz::count_measurable_pairs(endpoints, own_prefixes);
+  }
   std::set<std::string> other_host_prefixes;
   // SHM ports per participant with our host id, from every endpoint (ros_discovery_info
   // is the only one announcing the 7000+ port on Jazzy and newer), and those announced by
@@ -1077,6 +1083,10 @@ int main(int argc, char ** argv)
     // #179: the settle rule counts instances towards discovered readers only; the set is
     // rebuilt when discovery delivered something since the last check, not every 50 ms
     uint64_t reader_destinations_event_count = 0;
+    // #201: pairs whose two ends are in different processes, from the same snapshot. An
+    // intra-process-only system (or one without readers) publishes no RTPS_SENT at all, and
+    // waiting for one would burn --timeout on every run.
+    size_t measurable_pairs = 0;
     std::set<std::string> own_prefixes;
     // Wait until --timeout, or until discovery has been quiet for --quiet
     // seconds (but never less than --quiet seconds in total).
@@ -1115,8 +1125,11 @@ int main(int argc, char ** argv)
         if (observer.event_count() != reader_destinations_event_count) {
           reader_destinations_event_count = observer.event_count();
           if (own_prefixes.empty()) {own_prefixes = own_participant_prefixes(domain);}
+          const auto snapshot = observer.snapshot();
           stats->set_reader_destinations(
-            fastdds_transport_viz::reader_destinations(observer.snapshot(), own_prefixes));
+            fastdds_transport_viz::reader_destinations(snapshot, own_prefixes));
+          measurable_pairs =
+            fastdds_transport_viz::count_measurable_pairs(snapshot, own_prefixes);
         }
         const auto settle = stats->settle_status();
         if (settle.measured_instances != measured_instances) {
@@ -1124,8 +1137,8 @@ int main(int argc, char ** argv)
           measured_changed_s = elapsed;
         }
         if (quiet_now && fastdds_transport_viz::stats_settled(
-            true, elapsed, settle.announced, settle.heard, settle.measured_instances,
-            elapsed - measured_changed_s,
+            true, elapsed, settle.announced, settle.heard, measurable_pairs,
+            settle.measured_instances, elapsed - measured_changed_s,
             std::max(o.quiet, fastdds_transport_viz::kStatsMeasuredQuietSeconds)))
         {
           stopped_on = "settled";
@@ -1139,8 +1152,14 @@ int main(int argc, char ** argv)
     // settle rule was meant to end - say which, so a longer --timeout is an informed choice.
     if (o.stats && stopped_on == "timeout" && !o.watch) {
       const auto settle = stats->settle_status();
-      // #179: ... or with every writer heard from and still no instance towards a reader
-      const bool unmeasured = settle.announced > 0 && settle.measured_instances == 0;
+      // #179: ... or with every writer heard from and still no instance towards a reader.
+      // Recomputed here rather than taken from the loop, which never runs below --timeout 5
+      // (#201): with nothing measurable there is no RTPS_SENT entry to miss.
+      if (own_prefixes.empty()) {own_prefixes = own_participant_prefixes(domain);}
+      const bool measurable = fastdds_transport_viz::count_measurable_pairs(
+        observer.snapshot(), own_prefixes) > 0;
+      const bool unmeasured =
+        measurable && settle.announced > 0 && settle.measured_instances == 0;
       if (!settle.unheard.empty() || unmeasured) {
         std::cerr << "warning: --timeout " << o.timeout << " ended the run with ";
         if (!settle.unheard.empty()) {
