@@ -154,6 +154,9 @@ struct Endpoint
   // hex, "" when it announces none: Fast DDS 2.x under rmw_fastrtps never does (#193), and
   // a 3.x peer that registered no TypeObject does not either (#206)
   std::string type_information_hash;
+  // ... and its EK_MINIMAL one: the only one a `minimal_bandwidth` peer announces, and
+  // equal where two definitions differ only in type names or annotations (#213)
+  std::string type_information_minimal_hash;
   std::string node_name;          // fully-qualified ROS node name, may be empty
   std::string host_name;          // from statistics PHYSICAL_DATA, may be empty
   std::string process;            // from statistics PHYSICAL_DATA, may be empty

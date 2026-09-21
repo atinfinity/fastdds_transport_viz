@@ -177,6 +177,7 @@ Endpoint endpoint(const json & j, bool is_writer, const std::string & where)
   e.type_hash = j.value("type_hash", "");
   // absent before #206, and "" wherever the endpoint announces no TypeInformation
   e.type_information_hash = j.value("type_information_hash", "");
+  e.type_information_minimal_hash = j.value("type_information_minimal_hash", "");
   e.unicast = locators(at(j, "unicast_locators", where), where);
   e.multicast = locators(at(j, "multicast_locators", where), where);
   const auto ds = j.find("datasharing_history_bytes");

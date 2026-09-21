@@ -243,6 +243,10 @@
           "type": "string",
           "description": "the XTypes EK_COMPLETE equivalence hash of the endpoint's TypeInformation, lowercase hex; empty for an endpoint that announces none (Fast DDS 2.x under rmw_fastrtps, a peer that registered no TypeObject) and absent in documents before #206"
         },
+        "type_information_minimal_hash": {
+          "type": "string",
+          "description": "the XTypes EK_MINIMAL equivalence hash of the endpoint's TypeInformation, lowercase hex; Fast DDS 3.x matches two endpoints that both announce TypeInformation when their complete or their minimal hashes agree. Empty for an endpoint that announces none, and absent in documents before #213"
+        },
         "buffer_parent_guid": {
           "type": "string",
           "description": "rmw_fastrtps_cpp native-buffer companion (<topic>/_buf_cpu): the guid of the writer or reader of the parent topic whose samples it carries; absent for other endpoints"

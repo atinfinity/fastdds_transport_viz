@@ -4,6 +4,21 @@ Changelog for package fastdds_transport_viz
 
 Forthcoming
 -----------
+* Type matching now mirrors Fast DDS 3.x (#213). Where both endpoints announce an XTypes
+  ``TypeInformation`` - every ROS 2 endpoint on Lyrical and later - Fast DDS matches them
+  when the complete *or* the minimal type identifiers agree, and ignores the type names.
+  The tool now does the same. A pair whose identifiers both differ is ``NONE`` with the
+  reason ``type-information-mismatch`` (it was a warning on a pair that kept its
+  transport, and was checked only when a side lacked a ROS 2 type hash), which on Lyrical
+  also covers two versions of one ROS 2 message: those were shown with a transport and
+  ``type-hash-mismatch``, although Fast DDS never matches them. Two names for one type
+  are matched, with the reason ``type-names-differ-same-type``, instead of ``NONE`` with
+  ``type-name-mismatch``. A peer created with ``fastdds.type_propagation=minimal_bandwidth``
+  announces only the minimal identifier, which ``--json`` now records as
+  ``type_information_minimal_hash`` on each endpoint (``schema_version`` unchanged, empty
+  when read from an older document). ``--stats`` warns
+  ``type-information-mismatch-but-delivered`` if such a pair is proven delivered anyway.
+  Fast DDS 2.x announces no ``TypeInformation``, so Humble and Jazzy keep the name rule.
 * Services and actions are one row each under ``--all``, instead of their raw ``rq/`` /
   ``rr/`` topics (#84). A service is two DDS topics that both demangle to the same ROS
   name, so ``--all`` printed two rows with identical text; an action is eight of them, the

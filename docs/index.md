@@ -148,7 +148,10 @@ way and highlights the result. Details in
 - **Run it where the nodes run.** Same domain, same environment variables and XML profile,
   same network and IPC namespace. `ROS_AUTOMATIC_DISCOVERY_RANGE=OFF` hides everything.
 - **Type hashes need ROS 2 Jazzy or later.** A writer and a reader whose type *names*
-  differ are shown as `NONE` with `type-name-mismatch` on every distribution. Two versions
+  differ are shown as `NONE` with `type-name-mismatch`, except on Fast DDS 3.x (Lyrical and
+  later) when both announce an XTypes `TypeInformation` that agrees: Fast DDS then matches
+  them regardless of the names, and the pair carries `type-names-differ-same-type`
+  ([#213](https://github.com/atinfinity/fastdds_transport_viz/issues/213)). Two versions
   of the same message definition are told apart by the ROS 2 type hash (REP-2011), which
   only the rmw of Jazzy and later announces: on Humble such a pair looks healthy, and the
   subscription still receives nothing. Fast DDS's own, older type description cannot stand

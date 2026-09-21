@@ -401,18 +401,63 @@ bool intra_process_pair(const Endpoint & writer, const Endpoint & reader)
   return std::equal(w.begin(), w.begin() + 8, reader.guid_bytes.begin());
 }
 
+namespace
+{
+
+/// Whether Fast DDS 3.x takes the two for one type by their XTypes TypeInformation.
+enum class TypeInformationMatch {Unknown, Same, Different};
+
+/// `EDP::valid_matching` of Fast DDS 3.x: when both endpoints announce TypeInformation it
+/// runs `is_same_type` - complete identifiers both present and equal, or minimal ones - and
+/// never looks at the type names; otherwise it compares the names alone (#213). A
+/// `minimal_bandwidth` peer announces only the minimal identifier. Fast DDS 2.x under
+/// rmw_fastrtps announces none (#193), so there this is always Unknown.
+TypeInformationMatch type_information_match(const Endpoint & writer, const Endpoint & reader)
+{
+  auto announced = [](const Endpoint & e) {
+      return !e.type_information_hash.empty() || !e.type_information_minimal_hash.empty();
+    };
+  if (!announced(writer) || !announced(reader)) {return TypeInformationMatch::Unknown;}
+  auto equal = [](const std::string & a, const std::string & b) {
+      return !a.empty() && a == b;
+    };
+  if (equal(writer.type_information_hash, reader.type_information_hash) ||
+    equal(writer.type_information_minimal_hash, reader.type_information_minimal_hash))
+  {
+    return TypeInformationMatch::Same;
+  }
+  return TypeInformationMatch::Different;
+}
+
+}  // namespace
+
 Verdict decide(const Endpoint & writer, const Endpoint & reader)
 {
-  if (writer.dds_type != reader.dds_type) {
-    // Fast DDS matches on the type name: these two never see each other, whatever
-    // transport they share.
+  const auto type_match = type_information_match(writer, reader);
+  const bool names_differ = writer.dds_type != reader.dds_type;
+  // Same type name, different definition (#85). Fast DDS 2.x matches the pair and
+  // delivers the samples, which the rmw then drops; Fast DDS 3.x does not match it, which
+  // its TypeInformation already says below. The REP-2011 hash says it in the terms the
+  // ROS 2 user works in, so it is kept either way.
+  const bool ros_hashes_differ = !names_differ &&
+    !writer.type_hash.empty() && !reader.type_hash.empty() && writer.type_hash != reader.type_hash;
+  if (type_match == TypeInformationMatch::Different ||
+    (type_match == TypeInformationMatch::Unknown && names_differ))
+  {
+    // Fast DDS never matches these two, whatever transport they share: on the type name,
+    // or on 3.x on the TypeInformation both announce (#206, #213).
     Verdict v;
     v.transport = Transport::None;
     v.confidence = Confidence::Certain;
-    v.reasons.push_back("type-name-mismatch");
+    v.reasons.push_back(names_differ ? "type-name-mismatch" : "type-information-mismatch");
+    if (ros_hashes_differ) {v.warnings.push_back("type-hash-mismatch");}
     return v;
   }
   Verdict v = decide_same_type(writer, reader);
+  if (names_differ) {
+    // Fast DDS 3.x matched two type names on one type (#213).
+    v.reasons.push_back("type-names-differ-same-type");
+  }
   // Two endpoints of one process never reach a transport: Fast DDS hands the sample over
   // inside the process (#201), which is why it publishes no RTPS_SENT and no DATA_COUNT for
   // the pair while HISTORY_LATENCY still proves the delivery. The predicted transport stays
@@ -428,23 +473,8 @@ Verdict decide(const Endpoint & writer, const Endpoint & reader)
     // cannot come: the writer fills its segment and never notifies the reader through it.
     replace_code(v.reasons, "datasharing-unverified-by-traffic", "intra-process");
   }
-  // Same type name, different definition (#85). Fast DDS 2.x matches the pair and
-  // delivers the samples, which the rmw then drops, so the transport above is what the
-  // wire does and the warning is what the application gets - nothing.
-  const bool ros_hashes_comparable = !writer.type_hash.empty() && !reader.type_hash.empty();
-  if (ros_hashes_comparable && writer.type_hash != reader.type_hash) {
+  if (ros_hashes_differ) {
     v.warnings.push_back("type-hash-mismatch");
-  }
-  // Where at least one side announces no REP-2011 hash - a non-ROS Fast DDS 3.x peer, say -
-  // the rule above cannot see a mismatch. Their XTypes TypeInformation can: two EK_COMPLETE
-  // equivalence hashes that differ describe different types under one name (#206). The
-  // REP-2011 rule wins wherever both sides carry it, because it says the same thing in the
-  // terms the ROS 2 user works in.
-  if (!ros_hashes_comparable &&
-    !writer.type_information_hash.empty() && !reader.type_information_hash.empty() &&
-    writer.type_information_hash != reader.type_information_hash)
-  {
-    v.warnings.push_back("type-information-mismatch");
   }
   return v;
 }
@@ -1124,16 +1154,21 @@ void apply_stats(std::vector<TopicSummary> & topics, const StatsData & stats)
       Verdict & v = p.verdict;
       // Endpoints Fast DDS never matches: their participants do exchange packets, but
       // none of them belongs to this pair. A delivery proof means the rules above are
-      // wrong for this Fast DDS version: report it rather than hide it. The type name is
-      // a reason rather than a warning (#85), the incompatible QoS a warning.
+      // wrong for this Fast DDS version: report it rather than hide it. A type that does not
+      // match is a reason rather than a warning (#85, #213), the incompatible QoS a warning.
       const bool qos_unmatched =
         std::find(v.warnings.begin(), v.warnings.end(), "qos-incompatible") != v.warnings.end();
-      const bool type_unmatched =
-        std::find(v.reasons.begin(), v.reasons.end(), "type-name-mismatch") != v.reasons.end();
-      if (qos_unmatched || type_unmatched) {
+      auto has_reason = [&v](const char * code) {
+          return std::find(v.reasons.begin(), v.reasons.end(), code) != v.reasons.end();
+        };
+      const bool name_unmatched = has_reason("type-name-mismatch");
+      const bool type_information_unmatched = has_reason("type-information-mismatch");
+      if (qos_unmatched || name_unmatched || type_information_unmatched) {
         if (m.delivered) {
           v.warnings.push_back(
-            qos_unmatched ? "qos-incompatible-but-delivered" : "type-name-mismatch-but-delivered");
+            qos_unmatched ? "qos-incompatible-but-delivered" :
+            name_unmatched ? "type-name-mismatch-but-delivered" :
+            "type-information-mismatch-but-delivered");
         }
         continue;
       }
@@ -1988,24 +2023,34 @@ const std::map<std::string, CodeInfo> & explanations()
         std::nullopt}},
     {"type-hash-mismatch", {
         "Both sides announce the same type name but a different ROS 2 type hash (REP-2011), so "
-        "their message definitions differ. The subscription receives nothing: Fast DDS 2.x "
-        "matches the pair and delivers the samples, which the rmw then drops, while Fast DDS 3.x "
-        "does not match the pair at all - so the transport of this row is what the wire does, "
-        "not what the application gets.",
+        "their message definitions differ. The subscription receives nothing. Fast DDS 2.x "
+        "matches the pair and delivers the samples, which the rmw then drops, so there the "
+        "transport of this row is what the wire does, not what the application gets. Fast DDS "
+        "3.x does not match the pair at all, which the reason type-information-mismatch says.",
         "Rebuild and reinstall every node against the same version of the message package "
         "(a stale install or a different distribution on one side is the usual cause); "
         "`ros2 topic info --verbose <topic>` prints the type hash of each endpoint."}},
     {"type-information-mismatch", {
-        "Both sides announce the same type name but a different XTypes type (the EK_COMPLETE "
-        "equivalence hash of their TypeInformation differs), so their definitions are not the "
-        "same. At least one of them announces no ROS 2 type hash, which is what a non-ROS Fast "
-        "DDS peer looks like. The subscription receives nothing: Fast DDS 2.x matches the pair "
-        "and delivers the samples, which the deserialization then drops, while Fast DDS 3.x "
-        "does not match the pair at all.",
-        "Build both sides from the same IDL. The hash covers the member names and types and the "
-        "extensibility of the type: ROS 2 generates FINAL types, while a type registered from a "
-        "DynamicType in Fast DDS is APPENDABLE unless the IDL or the builder says otherwise, and "
-        "that alone makes the two hashes differ."}},
+        "The writer and the reader announce the same type name, but their XTypes "
+        "TypeInformation describes different types: neither the complete nor the minimal type "
+        "identifiers agree. Fast DDS 3.x matches on those identifiers when both sides announce "
+        "them, so it never matches this pair and no data flows. A peer created with "
+        "fastdds.type_propagation=minimal_bandwidth announces only the minimal identifier, which "
+        "leaves out type names and annotations but not the member layout.",
+        "Build both sides from the same type definition - the same members with the same names, "
+        "types and order, and the same extensibility (ROS 2 generates FINAL types; a DynamicType "
+        "registered in Fast DDS is APPENDABLE unless the builder says otherwise)."}},
+    {"type-information-mismatch-but-delivered", {
+        "HISTORY_LATENCY statistics prove that samples reached the reader although the "
+        "TypeInformation of the two describes different types: the tool's matching rules "
+        "disagree with this Fast DDS version. Please report this with the --json output.",
+        std::nullopt}},
+    {"type-names-differ-same-type", {
+        "The writer and the reader announce different type names, but their XTypes "
+        "TypeInformation describes the same type (the complete or the minimal type identifiers "
+        "agree). Fast DDS 3.x matches on those identifiers when both sides announce them and "
+        "ignores the names, so the pair is matched.",
+        std::nullopt}},
     // ---- topics without pairs
     {"no-matching-writer", {
         "No publisher was discovered for this topic.",

@@ -79,6 +79,8 @@ export FASTDDS_STATISTICS="RTPS_SENT_TOPIC;RTPS_LOST_TOPIC;HISTORY_LATENCY_TOPIC
 警告 `qos-incompatible-but-delivered` でマッチング規則の穴を知らせます。
 `type-name-mismatch` と判定したペアも同じ扱いで、こちらは
 `type-name-mismatch-but-delivered` です ([#85](https://github.com/atinfinity/fastdds_transport_viz/issues/85))。
+`type-information-mismatch` も同様で、`type-information-mismatch-but-delivered` になります
+([#213](https://github.com/atinfinity/fastdds_transport_viz/issues/213))。
 `shm-ipc-namespace-split` のペアも、writer の SHM トラフィック (data-sharing のペアではハートビート) が
 計測されても `NONE` のままで、配送が
 証明されると `shm-ipc-namespace-split-but-delivered` が付きます。両端が SHM を広告するペアで

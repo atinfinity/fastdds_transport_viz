@@ -81,7 +81,9 @@ export FASTDDS_STATISTICS="RTPS_SENT_TOPIC;RTPS_LOST_TOPIC;HISTORY_LATENCY_TOPIC
 A pair judged `qos-incompatible` is not measured; if `HISTORY_LATENCY` nevertheless proves
 delivery, the warning `qos-incompatible-but-delivered` flags a gap in the matching rules.
 A pair judged `type-name-mismatch` is treated the same way, with
-`type-name-mismatch-but-delivered` ([#85](https://github.com/atinfinity/fastdds_transport_viz/issues/85)).
+`type-name-mismatch-but-delivered` ([#85](https://github.com/atinfinity/fastdds_transport_viz/issues/85)),
+and so is `type-information-mismatch`, with `type-information-mismatch-but-delivered`
+([#213](https://github.com/atinfinity/fastdds_transport_viz/issues/213)).
 A pair with `shm-ipc-namespace-split` stays `NONE` too, although the writer's SHM traffic
 (for a data-sharing pair, its heartbeats) is measured; a proven delivery adds `shm-ipc-namespace-split-but-delivered`, and
 non-SHM packets during the observation between endpoints that both announce SHM add
