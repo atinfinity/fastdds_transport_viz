@@ -148,7 +148,7 @@ URL を開くと、ホストが列、ノードが箱、ペアが transport ご�
 
 ```
 ros2 transport list [--domain N] [--timeout S] [--quiet S] [--topic REGEX] [--node REGEX]
-                    [--all] [-v] [--explain] [--locators] [--advise] [--stats] [--json]
+                    [--all] [-v] [--explain] [--locators] [--advise] [--stats] [--json | --csv]
                     [--color auto|always|never] [--watch [--interval S]]
 ros2 transport codes
 ```

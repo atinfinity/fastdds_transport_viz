@@ -39,6 +39,7 @@ struct RenderOptions
   bool advise{false};      // "fix <code>: ..." lines under each pair row and remedies in the
                            // legend (implies verbose and explain)
   bool compact{false};     // JSON: one line per document (JSON Lines), no indentation
+  bool csv_no_header{false};   // CSV: rows only (the frames after the first of --watch --csv)
   bool color{false};       // ANSI colors for transports, warnings and marks
   size_t max_width{0};     // truncate table lines to this many visible columns (0 = never)
   const WatchDecorations * watch{nullptr};   // marks / ghosts / summary (nullptr = plain table)
@@ -102,6 +103,8 @@ std::string host_label(
 
 std::string render_table(const Snapshot & snap, const RenderOptions & opt);
 std::string render_json(const Snapshot & snap, const RenderOptions & opt);
+/// One row per pair (#83): RFC 4180 quoting, LF line ends, an empty cell for a null value.
+std::string render_csv(const Snapshot & snap, const RenderOptions & opt);
 
 }  // namespace fastdds_transport_viz
 

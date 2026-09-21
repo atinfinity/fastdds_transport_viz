@@ -4,6 +4,20 @@ Changelog for package fastdds_transport_viz
 
 Forthcoming
 -----------
+* Metrics export (#83). ``transport_viz_web`` serves ``/metrics``: the latest document in the
+  Prometheus text format, built when it is scraped, for a Grafana dashboard next to the rest
+  of the robot. Pair gauges carry ``topic``, the writer and reader node, host and GUID
+  labels: ``pair_transport{transport}``, ``pair_warning{code}`` and, with ``--stats``,
+  ``pair_measured_transport{transport}``, ``pair_packets``, ``pair_bytes``,
+  ``pair_delivered_per_second``, ``pair_latency_seconds{stat}``, ``pair_lost_packets`` and
+  ``pair_resent_datas``; the ``shm_*`` gauges carry the tool's host, and ``up``,
+  ``documents_total``, ``info``, ``last_document_timestamp_seconds`` and ``stats_enabled``
+  describe the stream. A null value has no series, and the startup lines name the URL.
+  ``transport_viz --csv`` (and ``ros2 transport list --csv``) prints one CSV row per pair
+  (RFC 4180, LF line ends, an empty cell for null, lists joined with ``;``) with a header
+  line, which ``--watch`` prints once. ``--csv`` is exclusive with ``--json`` and rejected
+  by ``diff``. There is no throughput metric or column: ``throughput_bytes_per_s`` has been
+  null since #137. Documents are unchanged (``schema_version`` 1).
 * The web viewer's live mode keeps the frames it receives (#218). From the second frame on,
   the replay timeline follows the newest frame and the charts of a selected pair cover the
   kept frames. A move on the timeline stops on that frame while the frames keep coming

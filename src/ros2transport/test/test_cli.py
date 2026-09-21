@@ -59,6 +59,8 @@ def test_list_argv_all_options():
         '--domain', '7', '--timeout', '2.5', '--quiet', '0', '--topic', '^/ch',
         '--node', 'talker', '--all', '-v', '--explain', '--locators', '--advise', '--json',
         '--stats', '--color', 'never', '--watch', '--interval', '1']
+    # --csv is forwarded as is; the binary refuses it next to --json (#83)
+    assert list_argv(parse(['--csv', '--watch'])) == ['--csv', '--watch']
 
 
 def test_color_rejects_unknown():
@@ -100,7 +102,7 @@ def test_diff_options_match_binary_help():
     binary_opts = binary_help_options()
     assert DIFF_ONLY <= binary_opts
     expected = mirrored_options(add_list_arguments) - {
-        '--domain', '--timeout', '--quiet', '--watch', '--interval'} | DIFF_ONLY
+        '--domain', '--timeout', '--quiet', '--watch', '--interval', '--csv'} | DIFF_ONLY
     assert mirrored_options(add_diff_arguments) == expected
 
 

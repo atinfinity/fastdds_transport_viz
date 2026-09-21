@@ -212,6 +212,50 @@ viewer は受信したフレームをすべて保持します
 ([how-it-works.ja.md](how-it-works.ja.md#2-つのスナップショットの比較) 参照)。viewer はまだそれを
 どちらの場合も強調表示します ([2 つの文書の比較](#2-つの文書の比較))。
 
+### Prometheus メトリクス
+
+`transport_viz_web` は `/metrics` も提供します。最新の文書を Prometheus のテキスト形式にしたもので、
+スクレイプされた時点で組み立てます (起動時の行に URL が出ます:
+`transport_viz_web: metrics: http://127.0.0.1:8765/metrics`)。Prometheus のスクレイプジョブを
+向ければ、ロボットの他の指標と並べて Grafana で transport をグラフにできます:
+
+```yaml
+scrape_configs:
+  - job_name: transport_viz
+    static_configs:
+      - targets: ['robot1:8765']   # transport_viz_web --bind 0.0.0.0
+```
+
+名前はすべて `transport_viz_` で始まります。ペアの系列はラベル `topic`、`writer_node`、
+`reader_node`、`writer_host`、`reader_host`、`writer_guid`、`reader_guid` を持ちます
+(同じノード間の 2 つのペアは GUID で区別されます):
+
+| 系列 | 値 |
+|---|---|
+| `pair_transport{transport}` | 1。ペアの予測 transport |
+| `pair_warning{code}` | ペアの警告コードごとに 1 |
+| `pair_measured_transport{transport}` | パケットを運んだ transport ごとに 1 (`--stats`) |
+| `pair_packets`、`pair_bytes` | 観測中に reader へ送られた RTPS パケット数 / バイト数 (`--stats`) |
+| `pair_delivered_per_second` | `measured.delivered_per_s` (`--stats`) |
+| `pair_latency_seconds{stat}` | `stat` = `mean`、`min`、`max`、`last` (`--stats`) |
+| `pair_lost_packets`、`pair_resent_datas` | `measured.reliability` (`--stats`) |
+| `shm_total_bytes`、`shm_used_bytes`、`shm_free_bytes`、`shm_fastdds_bytes`、`shm_segments`、`shm_ports`、`shm_stale_segments`、`shm_stale_ports` | `shm` オブジェクト。ラベル `host` はツール自身のホスト |
+| `info{domain,schema_version}` | 1 |
+| `up` | `transport_viz` の実行中は 1、終了後は 0 |
+| `documents_total` | 受け取った文書の数 (counter) |
+| `last_document_timestamp_seconds` | 最新の文書の `observed_at` |
+| `stats_enabled` | `--stats` のとき 1 |
+
+ペアの値はすべて最新の文書の gauge です。文書で null の値には系列がなく (実測のないペアは
+`pair_transport` と `pair_warning` だけ)、文書から消えたペアは次のスクレイプで `/metrics`
+からも消えます。スループットの系列はありません: `throughput_bytes_per_s` は常に null です
+([statistics.ja.md](statistics.ja.md) 参照)。最初の文書が届く前は `up` と `documents_total`
+だけを返します。ラベルの値は文書の値そのままなので、1 つの Prometheus に複数のロボットを
+集めるときは Prometheus が付ける `instance` ラベルで区別します。大きなシステムでは応答も
+大きくなります。medium スケール (`--stats` 付きで 2400 ペア) で約 24 000 系列、7.5 MB、
+組み立てに約 50 ms です。スクレイプ間隔は `--interval` 以上にし、一部のトピックだけで足りるなら
+`transport_viz_web --topic REGEX` で絞ってください。
+
 ## 録画と再生
 
 一時的な問題 (ノードの再起動中に 10 秒だけ UDPv4 に落ちるペアなど) は、誰かが viewer を開く前に

@@ -106,6 +106,7 @@ struct Options
   bool stats{false};
   double quiet{1.0};          // stop early after this many silent seconds
   bool json{false};
+  bool csv{false};
   bool verbose{false};
   bool explain{false};
   bool locators{false};
@@ -161,6 +162,10 @@ void usage()
     "                     (implies -v and --explain; ignored with --json, which always\n"
     "                     carries them as reason_code_remedies)\n"
     "  --json             emit JSON (schema_version 1) instead of a table\n"
+    "  --csv              emit CSV instead of a table: a header row, then one row per\n"
+    "                     writer -> reader pair (RFC 4180 quoting, an empty cell where\n"
+    "                     --json has null); with --watch the header comes once and every\n"
+    "                     frame appends its rows, told apart by observed_at\n"
     "  --stats            also subscribe to the Fast DDS statistics topics and show the\n"
     "                     transport that actually carried packets; observed nodes must run\n"
     "                     with FASTDDS_STATISTICS=\"RTPS_SENT_TOPIC;RTPS_LOST_TOPIC;"
@@ -248,6 +253,8 @@ bool parse(int argc, char ** argv, Options & o)
       o.explain = true;   // and the legend carries the remedy of every code in use
     } else if (a == "--json") {
       o.json = true;
+    } else if (a == "--csv") {
+      o.csv = true;
     } else if (a == "--stats") {
       o.stats = true;
     } else if (a == "--watch") {
@@ -286,6 +293,10 @@ bool parse(int argc, char ** argv, Options & o)
       return false;
     }
   }
+  if (o.json && o.csv) {
+    std::cerr << "--json and --csv are exclusive: pick one output format\n";
+    return false;
+  }
   if (o.command == "diff") {
     if (o.files.size() != 2) {
       std::cerr << "diff needs two documents: transport_viz diff <before.json> <after.json>\n";
@@ -302,6 +313,10 @@ bool parse(int argc, char ** argv, Options & o)
         std::cerr << flag << " does not apply to diff: the documents were already observed\n";
         return false;
       }
+    }
+    if (o.csv) {
+      std::cerr << "--csv does not apply to diff: a CSV row has no place for the changes\n";
+      return false;
     }
   } else {
     for (const char * flag : {"--key", "--changes-only"}) {
@@ -1215,13 +1230,14 @@ int main(int argc, char ** argv)
         settled_at_s);
       const auto t = prof.now();
       const std::string out = o.json ? fastdds_transport_viz::render_json(snap, ropt) :
+        o.csv ? fastdds_transport_viz::render_csv(snap, ropt) :
         fastdds_transport_viz::render_table(snap, ropt);
       prof.emit("render", t, {{"bytes", out.size()}, {"lines", line_count(out)}});
       std::cout << out << std::flush;
       warn_if_incomplete(snap, o);   // after the table: the last line stays in sight
       warn_if_statistics_lost(snap);
     } else {
-      Terminal term(!o.json);
+      Terminal term(!o.json && !o.csv);
       fastdds_transport_viz::WatchState ws;
       bool first_frame = true;
       bool paused = false;
@@ -1249,8 +1265,10 @@ int main(int argc, char ** argv)
           ws.diff(snap, ropt);
           prof.emit("update", t);
           t = prof.now();
-          if (o.json) {
-            const std::string out = fastdds_transport_viz::render_json(snap, ropt);
+          if (o.json || o.csv) {
+            const std::string out = o.json ? fastdds_transport_viz::render_json(snap, ropt) :
+              fastdds_transport_viz::render_csv(snap, ropt);
+            ropt.csv_no_header = true;   // the header row once, then rows only
             prof.emit("render", t, {{"bytes", out.size()}, {"lines", line_count(out)}});
             std::cout << out << std::flush;
           } else {

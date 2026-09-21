@@ -28,16 +28,18 @@ flowchart LR
     subgraph render["renderers"]
         RT["render_table"]
         RJ["render_json"]
+        RC["render_csv"]
     end
     DDS --> DO --> SNAP
     STATS --> SO --> SNAP
     GRAPH --> RR --> SNAP
     DINFO --> RD --> SNAP
     SHM --> SI --> SNAP
-    SNAP --> DEC --> RT & RJ
+    SNAP --> DEC --> RT & RJ & RC
     RT --> TTY["terminal / --watch"]
     RJ --> CLI["ros2 transport (execs the binary)"]
     RJ --> WEB["transport_viz_web → web/index.html"]
+    RC --> CSV["--csv: spreadsheets, pandas"]
 ```
 
 Two packages:
@@ -54,7 +56,7 @@ Inside the C++ package the sources are split into two libraries:
 | Library | Sources | Depends on |
 |---|---|---|
 | `fastdds_transport_viz_core` | `model.cpp`, `decision.cpp`, `ros_names.cpp`, `shm_info.cpp` | nothing but the C++ standard library and POSIX |
-| `fastdds_transport_viz_lib` | `discovery_observer.cpp`, `ros_discovery_info_observer.cpp`, `ros_graph_resolver.cpp`, `stats_observer.cpp`, `render_table.cpp`, `render_json.cpp` | core, rclcpp, Fast DDS, nlohmann_json, the vendored statistics types, the `rosidl_typesupport_fastrtps_cpp` type support of `rmw_dds_common` |
+| `fastdds_transport_viz_lib` | `discovery_observer.cpp`, `ros_discovery_info_observer.cpp`, `ros_graph_resolver.cpp`, `stats_observer.cpp`, `render_table.cpp`, `render_json.cpp`, `render_csv.cpp` | core, rclcpp, Fast DDS, nlohmann_json, the vendored statistics types, the `rosidl_typesupport_fastrtps_cpp` type support of `rmw_dds_common` |
 
 The split is the point: the decision logic never sees a Fast DDS type, so `test_decision`
 builds endpoints by hand and checks verdicts, statistics overlays and diffs without a DDS
@@ -89,7 +91,7 @@ sequenceDiagram
     C->>S: snapshot() StatsData
     C->>C: filter own endpoints, --topic/--all/--node, scan_shm()
     C->>C: summarize() → decide() per pair → apply_stats()
-    M->>R: render_table() or render_json()
+    M->>R: render_table(), render_json() or render_csv()
     opt --watch
         M->>M: repeat collect() every --interval, diff() against the last frame
     end
@@ -136,7 +138,8 @@ sequenceDiagram
    `decide()` predicts each pair, `apply_stats()` overlays the measurements.
 5. **Rendering** is a pure function of the `Snapshot`: `render_table()` (plain or ANSI
    colored, optionally truncated to the terminal width, with watch decorations) and
-   `render_json()` (pretty or JSON Lines).
+   `render_json()` (pretty or JSON Lines), and `render_csv()` (one row per pair, the header
+   left out after the first `--watch` frame).
 6. **`--watch`** repeats collect() and rendering every `--interval` seconds. `diff()`
    compares the `PairState` (transport, confidence, measured transports, warnings) of
    every pair with the previous frame; the table marks additions and changes for three
@@ -288,7 +291,8 @@ keys freely; a breaking change bumps `schema_version`.
 
 `web/serve.py` (`transport_viz_web`) runs `transport_viz --watch --json` as a subprocess,
 keeps the latest document, serves the static files, `/latest.json` and a Server-Sent
-Events stream at `/events`; the page reconnects to it in `?live=1` mode. Standard library
+Events stream at `/events`; the page reconnects to it in `?live=1` mode. `/metrics` turns
+the latest document into the Prometheus text format when it is scraped. Standard library
 only, so it installs with the package.
 
 ## Repository layout

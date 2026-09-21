@@ -75,6 +75,7 @@ add_library(${PROJECT_NAME}_lib
   src/stats_observer.cpp
   src/render_table.cpp
   src/render_json.cpp
+  src/render_csv.cpp
   src/parse_json.cpp)
 target_link_libraries(${PROJECT_NAME}_lib PRIVATE
   ${PROJECT_NAME}_stats_types
@@ -162,6 +163,8 @@ if(BUILD_TESTING)
   target_link_libraries(test_render ${PROJECT_NAME}_lib)
   ament_add_gtest(test_render_json test/test_render_json.cpp)
   target_link_libraries(test_render_json ${PROJECT_NAME}_lib)
+  ament_add_gtest(test_render_csv test/test_render_csv.cpp)
+  target_link_libraries(test_render_csv ${PROJECT_NAME}_lib)
   # real Fast DDS participants (no ROS nodes): conversions, error paths of the observers
   ament_add_gtest(test_observers test/test_observers.cpp)
   target_link_libraries(test_observers ${PROJECT_NAME}_lib ${PROJECT_NAME}_stats_types

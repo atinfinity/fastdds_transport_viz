@@ -93,7 +93,7 @@ the nodes you observe.
 
 ```
 ros2 transport list [--domain N] [--timeout S] [--quiet S] [--topic REGEX] [--node REGEX]
-                    [--all] [-v] [--explain] [--locators] [--advise] [--stats] [--json]
+                    [--all] [-v] [--explain] [--locators] [--advise] [--stats] [--json | --csv]
                     [--color auto|always|never] [--watch [--interval S]]
 ros2 transport diff BEFORE.json AFTER.json [--key node|guid] [--changes-only] [--json]
                     [--topic REGEX] [--node REGEX] [--all] [-v] [--explain] [--locators]
@@ -114,6 +114,7 @@ ros2 transport codes
 | `--advise` | add a `fix <code>: …` line under each pair for its reason codes that have a remedy, and the remedy under each code of the legend (implies `-v` and `--explain`; ignored with `--json`, which always carries them as `reason_code_remedies`) |
 | `--stats` | also show measured transports, latency and loss; observed nodes need `FASTDDS_STATISTICS`, see [docs/statistics.md](docs/statistics.md) |
 | `--json` | machine-readable output (`schema_version: 1`, see `schema/`); open it in the [web viewer](docs/web-viewer.md) |
+| `--csv` | one CSV row per writer → reader pair (RFC 4180 quoting, LF line ends, a header line first; an empty cell where the JSON value is null, lists joined with `;`), for a spreadsheet or pandas; exclusive with `--json`, not accepted by `diff`. With `--watch` the header is printed once and each frame adds its rows, `observed_at` telling the frames apart |
 | `--topic REGEX` | only topics whose name matches |
 | `--node REGEX` | only pairs involving a node whose full name matches (its unpaired endpoints stay visible) |
 | `--all` | include services/actions and non-ROS DDS topics; each service or action is one `SERVICE` / `ACTION` row per client-server pair rather than its raw `rq/` / `rr/` topics |

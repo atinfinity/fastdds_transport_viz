@@ -4,6 +4,8 @@ Changelog for package ros2transport
 
 Forthcoming
 -----------
+* ``ros2 transport list --csv`` passes ``--csv`` to the binary: one CSV row per pair
+  (#83). ``diff`` does not take it.
 * ``ros2 transport diff BEFORE AFTER``: runs ``transport_viz diff`` with the two documents
   and the ``--key``, ``--changes-only`` and view/rendering options; a missing input file is
   reported before the binary is started (#77).

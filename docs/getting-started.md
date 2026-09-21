@@ -149,7 +149,7 @@ the same page (`web/index.html`) can open offline. See [web-viewer.md](web-viewe
 
 ```
 ros2 transport list [--domain N] [--timeout S] [--quiet S] [--topic REGEX] [--node REGEX]
-                    [--all] [-v] [--explain] [--locators] [--advise] [--stats] [--json]
+                    [--all] [-v] [--explain] [--locators] [--advise] [--stats] [--json | --csv]
                     [--color auto|always|never] [--watch [--interval S]]
 ros2 transport codes
 ```

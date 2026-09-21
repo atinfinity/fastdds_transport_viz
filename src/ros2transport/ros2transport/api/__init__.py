@@ -63,6 +63,11 @@ def add_list_arguments(parser):
         '--json', action='store_true',
         help='emit JSON (schema_version 1) instead of a table')
     parser.add_argument(
+        '--csv', action='store_true',
+        help='emit CSV instead of a table: a header row, then one row per writer -> reader '
+             'pair (RFC 4180 quoting, an empty cell where --json has null); with --watch the '
+             'header comes once and every frame appends its rows, told apart by observed_at')
+    parser.add_argument(
         '--stats', action='store_true',
         help='also subscribe to the Fast DDS statistics topics and show the transport that '
              'actually carried packets; observed nodes must run with '
@@ -99,6 +104,7 @@ _LIST_OPTIONS = (
     ('locators', '--locators', False),
     ('advise', '--advise', False),
     ('json', '--json', False),
+    ('csv', '--csv', False),
     ('stats', '--stats', False),
     ('color', '--color', True),
     ('watch', '--watch', False),
@@ -122,7 +128,7 @@ def list_argv(args):
 # `diff` takes the view and rendering options of `list` (not the observation ones)
 _DIFF_OPTIONS = tuple(
     o for o in _LIST_OPTIONS
-    if o[0] not in ('domain', 'timeout', 'quiet', 'watch', 'interval')) + (
+    if o[0] not in ('domain', 'timeout', 'quiet', 'watch', 'interval', 'csv')) + (
     ('key', '--key', True),
     ('changes_only', '--changes-only', False),
 )

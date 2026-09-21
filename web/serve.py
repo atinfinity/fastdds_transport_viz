@@ -10,6 +10,10 @@ the latest document, and serves:
   /index.html …  -> the static viewer (web/ directory next to this script, or
                     share/fastdds_transport_viz/web when installed)
   /latest.json   -> the most recent document
+  /metrics       -> the most recent document in the Prometheus text format (#83): a gauge
+                    per measured value of every writer -> reader pair, info series for its
+                    predicted and measured transports and its warnings, the /dev/shm usage
+                    of this host, and the state of the stream
   /events        -> Server-Sent Events: a retry interval, the latest document on
                     connect, then every new document ("document" events, each
                     with ``id:`` its number in this server's stream: a client
@@ -25,6 +29,7 @@ Standard library only. Unknown command-line options are forwarded verbatim to
 transport_viz (e.g. --stats, --interval 1, --domain 3, --all, --topic REGEX).
 """
 import argparse
+import datetime
 import http.server
 import json
 import os
@@ -88,6 +93,127 @@ def pump(proc, stream, verbose, record=None):
     stream.end(f'transport_viz exited with code {rc}')
 
 
+# One label set per pair: the GUIDs keep two pairs of the same nodes (or of nodes without a
+# name) apart, and the transport is not among them, so a transport change does not cut the
+# value series; it is told by the info series instead (#83).
+PAIR_LABELS = ('topic', 'writer_node', 'reader_node', 'writer_host', 'reader_host',
+               'writer_guid', 'reader_guid')
+
+# name, type, HELP text; every family is a gauge except documents_total (the document values are
+# windows or observations the producer can restart, not counters)
+METRICS = (
+    ('up', 'gauge', '1 while transport_viz is running, 0 once it has exited.'),
+    ('documents_total', 'counter', 'Documents received from transport_viz.'),
+    ('info', 'gauge', 'The domain and schema version of the latest document (always 1).'),
+    ('last_document_timestamp_seconds', 'gauge',
+     'observed_at of the latest document, seconds since the epoch.'),
+    ('stats_enabled', 'gauge', '1 when transport_viz runs with --stats.'),
+    ('pair_transport', 'gauge', 'The transport predicted for the pair (always 1).'),
+    ('pair_measured_transport', 'gauge',
+     'A transport that carried packets of the pair (always 1; --stats).'),
+    ('pair_warning', 'gauge', 'A warning code of the pair (always 1).'),
+    ('pair_packets', 'gauge', 'RTPS packets sent to the reader during the observation.'),
+    ('pair_bytes', 'gauge', 'RTPS bytes sent to the reader during the observation.'),
+    ('pair_delivered_per_second', 'gauge',
+     'Samples delivered per second inside the rate window (a lower bound when the '
+     "reader's statistics lost samples)."),
+    ('pair_latency_seconds', 'gauge', 'Write-to-notification latency of the pair.'),
+    ('pair_lost_packets', 'gauge',
+     "RTPS_LOST packets the reader's participant missed from the writer's participant."),
+    ('pair_resent_datas', 'gauge', 'DATA submessages the writer sent again.'),
+    ('shm_total_bytes', 'gauge', 'Size of the shared-memory file system of this host.'),
+    ('shm_used_bytes', 'gauge', 'Used bytes of the shared-memory file system.'),
+    ('shm_free_bytes', 'gauge', 'Free bytes of the shared-memory file system.'),
+    ('shm_fastdds_bytes', 'gauge', 'Bytes of the Fast DDS files in it.'),
+    ('shm_segments', 'gauge', 'Fast DDS shared-memory segments.'),
+    ('shm_ports', 'gauge', 'Fast DDS shared-memory ports.'),
+    ('shm_stale_segments', 'gauge', 'Segments no live process holds.'),
+    ('shm_stale_ports', 'gauge', 'Ports no live process holds.'),
+)
+
+
+def _label_value(value):
+    return str(value).replace('\\', '\\\\').replace('"', '\\"').replace('\n', '\\n')
+
+
+def _number(value):
+    if isinstance(value, bool):
+        return '1' if value else '0'
+    return repr(float(value)) if isinstance(value, float) else str(value)
+
+
+def _timestamp(observed_at):
+    try:
+        at = datetime.datetime.fromisoformat(str(observed_at).replace('Z', '+00:00'))
+    except ValueError:
+        return None
+    if at.tzinfo is None:
+        return None
+    return at.timestamp()
+
+
+def _local_host(doc):
+    """The label the document gives the tool's own host, as the pair labels spell it."""
+    for participant in doc.get('participants') or []:
+        if participant.get('host_id') == doc.get('local_host_id') and participant.get('host'):
+            return participant['host']
+    return 'local'
+
+
+def metrics_text(doc, documents, ended):
+    """The Prometheus text format of the latest document; a null value has no series."""
+    samples = {name: [] for name, _, _ in METRICS}
+
+    def add(name, labels, value):
+        if value is not None:
+            samples[name].append((labels, value))
+
+    add('up', {}, 0 if ended else 1)
+    add('documents_total', {}, documents)
+    if doc is not None:
+        add('info', {'domain': doc.get('domain'), 'schema_version': doc.get('schema_version')}, 1)
+        add('last_document_timestamp_seconds', {}, _timestamp(doc.get('observed_at')))
+        add('stats_enabled', {}, bool((doc.get('stats') or {}).get('enabled')))
+        for topic in doc.get('topics') or []:
+            for pair in topic.get('pairs') or []:
+                base = {'topic': topic.get('topic')}
+                base.update((k, pair.get(k)) for k in PAIR_LABELS[1:])
+                add('pair_transport', {**base, 'transport': pair.get('transport')}, 1)
+                for code in pair.get('warnings') or []:
+                    add('pair_warning', {**base, 'code': code}, 1)
+                m = pair.get('measured') or {}
+                if not m.get('available'):
+                    continue
+                for transport in m.get('transports') or []:
+                    add('pair_measured_transport', {**base, 'transport': transport}, 1)
+                add('pair_packets', base, m.get('packets'))
+                add('pair_bytes', base, m.get('bytes'))
+                add('pair_delivered_per_second', base, m.get('delivered_per_s'))
+                for stat, value in (m.get('latency_s') or {}).items():
+                    if stat != 'samples':
+                        add('pair_latency_seconds', {**base, 'stat': stat}, value)
+                reliability = m.get('reliability') or {}
+                add('pair_lost_packets', base, reliability.get('lost_packets'))
+                add('pair_resent_datas', base, reliability.get('resent_datas'))
+        shm = doc.get('shm') or {}
+        if shm.get('available'):
+            for key in ('total_bytes', 'used_bytes', 'free_bytes', 'fastdds_bytes', 'segments',
+                        'ports', 'stale_segments', 'stale_ports'):
+                add('shm_' + key, {'host': _local_host(doc)}, shm.get(key))
+    lines = []
+    for name, kind, help_text in METRICS:
+        if not samples[name]:
+            continue
+        full = 'transport_viz_' + name
+        lines.append(f'# HELP {full} {help_text}')
+        lines.append(f'# TYPE {full} {kind}')
+        for labels, value in samples[name]:
+            text = ','.join(f'{k}="{_label_value(v)}"' for k, v in labels.items())
+            lines.append(f'{full}{{{text}}} {_number(value)}' if text else
+                         f'{full} {_number(value)}')
+    return '\n'.join(lines) + '\n'
+
+
 def make_handler(web_dir, stream, verbose):
     class Handler(http.server.SimpleHTTPRequestHandler):
         def __init__(self, *args, **kwargs):
@@ -107,6 +233,8 @@ def make_handler(web_dir, stream, verbose):
                 self.serve_latest()
             elif path == '/events':
                 self.serve_events()
+            elif path == '/metrics':
+                self.serve_metrics()
             else:
                 super().do_GET()
 
@@ -118,6 +246,18 @@ def make_handler(web_dir, stream, verbose):
             body = json.dumps(latest).encode()
             self.send_response(200)
             self.send_header('Content-Type', 'application/json')
+            self.send_header('Content-Length', str(len(body)))
+            self.send_header('Cache-Control', 'no-store')
+            self.end_headers()
+            self.wfile.write(body)
+
+        def serve_metrics(self):
+            # 200 before the first document too: the state series say why nothing else is
+            # there, and a scrape that fails would read as the server being down
+            seq, latest, ended = stream.wait(stream.seq, 0)
+            body = metrics_text(latest, seq, ended).encode()
+            self.send_response(200)
+            self.send_header('Content-Type', 'text/plain; version=0.0.4; charset=utf-8')
             self.send_header('Content-Length', str(len(body)))
             self.send_header('Cache-Control', 'no-store')
             self.end_headers()
@@ -216,6 +356,7 @@ def main(argv=None):
     if record is not None:
         print(f'transport_viz_web: recording to {args.record}', file=sys.stderr)
     print(f'transport_viz_web: listening on http://{host}:{port}/  (serving {web_dir})', flush=True)
+    print(f'transport_viz_web: metrics: http://{host}:{port}/metrics', file=sys.stderr)
 
     def watch_producer():
         with stream.cond:
