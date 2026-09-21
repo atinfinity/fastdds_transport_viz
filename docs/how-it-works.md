@@ -21,7 +21,13 @@ to select a transport for each writer → reader pair.
    what happens next depends on the Fast DDS version - 2.x matches the pair and delivers
    the samples over that transport, and the rmw drops them before the subscription
    callback; 3.x does not match the pair at all. Either way the subscription receives
-   nothing.
+   nothing. Where at least one side announces no ROS 2 type hash - a non-ROS Fast DDS peer,
+   or ROS 2 Humble - the same question is asked of the XTypes `TypeInformation` the
+   endpoints announce instead: two EK_COMPLETE equivalence hashes that differ describe
+   different types under one name, and the pair carries the warning
+   `type-information-mismatch` ([#206](https://github.com/atinfinity/fastdds_transport_viz/issues/206)).
+   Fast DDS 2.x announces none under `rmw_fastrtps` ([#193](https://github.com/atinfinity/fastdds_transport_viz/issues/193)),
+   so this reaches a 3.x peer only.
 1. **Do the QoS match at all?** Fast DDS only matches a writer and a reader whose
    request/offer policies agree: reliability (a BEST_EFFORT writer cannot serve a
    RELIABLE reader), durability (the writer must offer at least what the reader

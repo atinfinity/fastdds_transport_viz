@@ -431,10 +431,20 @@ Verdict decide(const Endpoint & writer, const Endpoint & reader)
   // Same type name, different definition (#85). Fast DDS 2.x matches the pair and
   // delivers the samples, which the rmw then drops, so the transport above is what the
   // wire does and the warning is what the application gets - nothing.
-  if (!writer.type_hash.empty() && !reader.type_hash.empty() &&
-    writer.type_hash != reader.type_hash)
-  {
+  const bool ros_hashes_comparable = !writer.type_hash.empty() && !reader.type_hash.empty();
+  if (ros_hashes_comparable && writer.type_hash != reader.type_hash) {
     v.warnings.push_back("type-hash-mismatch");
+  }
+  // Where at least one side announces no REP-2011 hash - a non-ROS Fast DDS 3.x peer, say -
+  // the rule above cannot see a mismatch. Their XTypes TypeInformation can: two EK_COMPLETE
+  // equivalence hashes that differ describe different types under one name (#206). The
+  // REP-2011 rule wins wherever both sides carry it, because it says the same thing in the
+  // terms the ROS 2 user works in.
+  if (!ros_hashes_comparable &&
+    !writer.type_information_hash.empty() && !reader.type_information_hash.empty() &&
+    writer.type_information_hash != reader.type_information_hash)
+  {
+    v.warnings.push_back("type-information-mismatch");
   }
   return v;
 }
@@ -1985,6 +1995,17 @@ const std::map<std::string, CodeInfo> & explanations()
         "Rebuild and reinstall every node against the same version of the message package "
         "(a stale install or a different distribution on one side is the usual cause); "
         "`ros2 topic info --verbose <topic>` prints the type hash of each endpoint."}},
+    {"type-information-mismatch", {
+        "Both sides announce the same type name but a different XTypes type (the EK_COMPLETE "
+        "equivalence hash of their TypeInformation differs), so their definitions are not the "
+        "same. At least one of them announces no ROS 2 type hash, which is what a non-ROS Fast "
+        "DDS peer looks like. The subscription receives nothing: Fast DDS 2.x matches the pair "
+        "and delivers the samples, which the deserialization then drops, while Fast DDS 3.x "
+        "does not match the pair at all.",
+        "Build both sides from the same IDL. The hash covers the member names and types and the "
+        "extensibility of the type: ROS 2 generates FINAL types, while a type registered from a "
+        "DynamicType in Fast DDS is APPENDABLE unless the IDL or the builder says otherwise, and "
+        "that alone makes the two hashes differ."}},
     // ---- topics without pairs
     {"no-matching-writer", {
         "No publisher was discovered for this topic.",
