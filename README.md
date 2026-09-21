@@ -116,7 +116,7 @@ ros2 transport codes
 | `--json` | machine-readable output (`schema_version: 1`, see `schema/`); open it in the [web viewer](docs/web-viewer.md) |
 | `--topic REGEX` | only topics whose name matches |
 | `--node REGEX` | only pairs involving a node whose full name matches (its unpaired endpoints stay visible) |
-| `--all` | include services/actions and non-ROS DDS topics |
+| `--all` | include services/actions and non-ROS DDS topics; each service or action is one `SERVICE` / `ACTION` row per client-server pair rather than its raw `rq/` / `rr/` topics |
 | `--watch` | re-render every `--interval` seconds, highlighting added/changed/removed pairs; keys `q p v e a l` (with `--json`: JSON Lines with a `changes` object) |
 | `--color` | ANSI colors for transports and warnings (`auto` = only on a terminal) |
 

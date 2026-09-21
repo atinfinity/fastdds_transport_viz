@@ -536,6 +536,141 @@ char topic_mark(const TopicSummary & t, const WatchDecorations & w)
   return best;
 }
 
+// ---- service and action group rows (#84) -------------------------------------
+
+using GroupMembers = std::vector<std::pair<const TopicSummary *, const Pair *>>;
+
+/// Who is on one side of a group row. Service endpoints are absent from ros_discovery_info,
+/// so an unnamed side is the normal case, not a failure: name it by the participant the row
+/// is keyed on rather than by nothing.
+std::string side_label(const Endpoint * e)
+{
+  if (e == nullptr) {
+    return "-";
+  }
+  if (!e->node_name.empty()) {
+    return e->node_name;
+  }
+  return "prefix:" + e->participant_guid_prefix.substr(0, 11) + "..";
+}
+
+std::string group_topic_cell(const DisplayRow & r)
+{
+  const std::string kind = r.kind == TopicKind::Action ? "ACTION " : "SERVICE ";
+  return kind + r.name + "  " + side_label(r.client) + " -> " + side_label(r.server);
+}
+
+std::string direction_transports(const GroupMembers & members, bool likely, bool color)
+{
+  if (members.empty()) {
+    return "-";
+  }
+  std::vector<Transport> order;
+  for (const auto & m : members) {
+    const Transport t = m.second->verdict.transport;
+    if (std::find(order.begin(), order.end(), t) == order.end()) {
+      order.push_back(t);
+    }
+  }
+  std::string out;
+  for (size_t i = 0; i < order.size(); ++i) {
+    if (i) {out += "|";}
+    out += paint(to_string(order[i]) + (likely ? "?" : ""), ansi_for(order[i]), color);
+  }
+  return out;
+}
+
+/// "UDPv4 -> SHM": what the client sends, and what comes back. Members that disagree print
+/// their distinct values joined; one member that is only likely makes the whole row likely,
+/// because a row that reads certain while a member is not would claim more than was proven.
+std::string group_transports(const DisplayRow & r, bool color)
+{
+  bool likely = false;
+  for (const auto * dir : {&r.to_server, &r.to_client}) {
+    for (const auto & m : *dir) {
+      likely = likely || m.second->verdict.confidence == Confidence::Likely;
+    }
+  }
+  return direction_transports(r.to_server, likely, color) + " -> " +
+         direction_transports(r.to_client, likely, color);
+}
+
+std::string group_reasons(const DisplayRow & r, bool color)
+{
+  std::vector<std::string> out;
+  std::set<std::string> seen;
+  auto add = [&](const std::string & c) {
+      if (seen.insert(c).second) {out.push_back(c);}
+    };
+  for (const auto * t : r.unpaired_members) {
+    for (const auto & c : t->unmatched_reasons) {
+      add(c);
+    }
+  }
+  for (const auto * dir : {&r.to_server, &r.to_client}) {
+    for (const auto & m : *dir) {
+      for (const auto & c : m.second->verdict.reasons) {
+        add(c);
+      }
+      for (const auto & w : m.second->verdict.warnings) {
+        add(paint("!" + w, RED, color));
+      }
+    }
+  }
+  return join(out, ",");
+}
+
+struct GroupStats
+{
+  bool latency_available{false};
+  double latency{0.0};
+  bool reliability_available{false};
+  bool lost_available{false};
+  uint64_t lost_packets{0};
+  uint64_t resent{0};
+};
+
+GroupStats group_stats(const DisplayRow & r)
+{
+  GroupStats g;
+  for (const auto * dir : {&r.to_server, &r.to_client}) {
+    for (const auto & m : *dir) {
+      const auto & measured = m.second->measured;
+      if (measured.latency_available) {
+        if (!g.latency_available || measured.latency.mean() > g.latency) {
+          g.latency = measured.latency.mean();
+        }
+        g.latency_available = true;
+      }
+      if (measured.reliability.available) {
+        g.reliability_available = true;
+        g.lost_available = g.lost_available || measured.reliability.lost_available;
+        // RTPS_LOST belongs to the participant pair, and a row is one participant pair: every
+        // member reports the same loss, so the row's loss is one member's and not their sum.
+        g.lost_packets = std::max(g.lost_packets, measured.reliability.lost_packets);
+        g.resent += measured.reliability.resent;
+      }
+    }
+  }
+  return g;
+}
+
+char row_mark(const DisplayRow & r, const WatchDecorations & w)
+{
+  if (r.topic != nullptr) {
+    return topic_mark(*r.topic, w);
+  }
+  char best = ' ';
+  for (const auto * dir : {&r.to_server, &r.to_client}) {
+    for (const auto & m : *dir) {
+      auto it = w.marks.find(pair_key(*m.first, *m.second));
+      if (it == w.marks.end()) {continue;}
+      if (mark_rank(it->second) > mark_rank(best)) {best = it->second;}
+    }
+  }
+  return best;
+}
+
 }  // namespace
 
 std::string render_table(const Snapshot & snap, const RenderOptions & opt)
@@ -554,18 +689,37 @@ std::string render_table(const Snapshot & snap, const RenderOptions & opt)
     "TOPIC", "TYPE", "PUBS", "SUBS", "TRANSPORT", "LATENCY", "HZ", "LOSS", "REASON"};
   if (watch) {header.insert(header.begin(), " ");}
   rows.push_back(header);
-  for (const auto & t : snap.topics) {
-    std::vector<std::string> row = {
-      t.display_topic, t.display_type,
-      std::to_string(t.writers.size()), std::to_string(t.readers.size()),
-      aggregate_transports(t, color),
-      latency_label(snap.stats.enabled && t.latency_available, t.latency, t.latency, false),
-      "",   // the rate is per pair (#143)
-      loss_label(
-        snap.stats.enabled && t.reliability_available, t.lost_available, t.lost_packets,
-        t.resent),
-      aggregate_reasons(t, color)};
-    if (watch) {row.insert(row.begin(), mark_cell(topic_mark(t, *watch), color));}
+  // Services and actions are one row per client-server pair, plain topics one row each (#84).
+  const auto drows = display_rows(snap.topics);
+  for (const auto & r : drows) {
+    std::vector<std::string> row;
+    if (r.topic != nullptr) {
+      const auto & t = *r.topic;
+      row = {
+        t.display_topic, t.display_type,
+        std::to_string(t.writers.size()), std::to_string(t.readers.size()),
+        aggregate_transports(t, color),
+        latency_label(snap.stats.enabled && t.latency_available, t.latency, t.latency, false),
+        "",   // the rate is per pair (#143)
+        loss_label(
+          snap.stats.enabled && t.reliability_available, t.lost_available, t.lost_packets,
+          t.resent),
+        aggregate_reasons(t, color)};
+    } else {
+      const GroupStats g = group_stats(r);
+      row = {
+        group_topic_cell(r), r.type,
+        // member pairs each way, so a complete service reads 1/1 and a complete action 3/5
+        std::to_string(r.to_server.size()), std::to_string(r.to_client.size()),
+        group_transports(r, color),
+        latency_label(snap.stats.enabled && g.latency_available, g.latency, g.latency, false),
+        "",
+        loss_label(
+          snap.stats.enabled && g.reliability_available, g.lost_available, g.lost_packets,
+          g.resent),
+        group_reasons(r, color)};
+    }
+    if (watch) {row.insert(row.begin(), mark_cell(row_mark(r, *watch), color));}
     rows.push_back(row);
   }
   // ghosts whose topic disappeared entirely get a topic row of their own
@@ -608,49 +762,64 @@ std::string render_table(const Snapshot & snap, const RenderOptions & opt)
     auto widths = column_widths(rows);
     emit_row(os, rows[0], widths, opt.max_width);
     size_t idx = 1;
-    for (const auto & t : snap.topics) {
+    for (const auto & r : drows) {
       emit_row(os, rows[idx++], widths, opt.max_width);
       std::vector<std::vector<std::string>> pair_rows;
       std::vector<std::string> locator_lines;   // parallel to pair_rows, "" when not shown
       std::vector<std::vector<std::string>> fix_lines;   // parallel to pair_rows, --advise
-      for (const auto & p : t.pairs) {
-        std::string reasons = join(p.verdict.reasons, ",");
-        for (const auto & w : p.verdict.warnings) {
-          reasons += "," + paint("!" + w, RED, color);
+      // A group's members are named here -- "send_goal", "reply" -- so that the per-direction
+      // reason codes the grouped row unions stay attributable to the member that raised them.
+      const auto add_pair = [&](const TopicSummary & t, const Pair & p) {
+          std::string reasons = join(p.verdict.reasons, ",");
+          for (const auto & w : p.verdict.warnings) {
+            reasons += "," + paint("!" + w, RED, color);
+          }
+          std::vector<std::string> row;
+          if (watch) {
+            auto it = watch->marks.find(pair_key(t, p));
+            row.push_back(mark_cell(it == watch->marks.end() ? ' ' : it->second, color));
+          }
+          const std::string member = member_label(t);
+          row.push_back(
+            indent.substr(watch ? 1 : 0) + (member.empty() ? "" : member + " ") +
+            endpoint_label(snap, *p.writer, opt) + " -> " +
+            endpoint_label(snap, *p.reader, opt));
+          row.push_back(transport_label(p.verdict, color));
+          row.push_back(
+            latency_label(
+              snap.stats.enabled && p.measured.latency_available,
+              p.measured.latency.mean(), p.measured.latency.max, true));
+          row.push_back(
+            rate_label(
+              snap.stats.enabled && p.measured.rate_available, p.measured.delivered_per_s,
+              p.measured.rate_lower_bound));
+          row.push_back(
+            loss_label(
+              snap.stats.enabled && p.measured.reliability.available,
+              p.measured.reliability.lost_available, p.measured.reliability.lost_packets,
+              p.measured.reliability.resent));
+          if (snap.stats.enabled) {
+            row.push_back("measured=" + measured_label(p));
+          }
+          row.push_back(reasons);
+          pair_rows.push_back(row);
+          locator_lines.push_back(opt.locators ? locators_line(p) : "");
+          fix_lines.push_back(opt.advise ? fix_lines_for(p) : std::vector<std::string>{});
+        };
+      if (r.topic != nullptr) {
+        for (const auto & p : r.topic->pairs) {
+          add_pair(*r.topic, p);
         }
-        std::vector<std::string> row;
-        if (watch) {
-          auto it = watch->marks.find(pair_key(t, p));
-          row.push_back(mark_cell(it == watch->marks.end() ? ' ' : it->second, color));
+      } else {
+        for (const auto * dir : {&r.to_server, &r.to_client}) {
+          for (const auto & m : *dir) {
+            add_pair(*m.first, *m.second);
+          }
         }
-        row.push_back(
-          indent.substr(watch ? 1 : 0) + endpoint_label(snap, *p.writer, opt) + " -> " +
-          endpoint_label(snap, *p.reader, opt));
-        row.push_back(transport_label(p.verdict, color));
-        row.push_back(
-          latency_label(
-            snap.stats.enabled && p.measured.latency_available,
-            p.measured.latency.mean(), p.measured.latency.max, true));
-        row.push_back(
-          rate_label(
-            snap.stats.enabled && p.measured.rate_available, p.measured.delivered_per_s,
-            p.measured.rate_lower_bound));
-        row.push_back(
-          loss_label(
-            snap.stats.enabled && p.measured.reliability.available,
-            p.measured.reliability.lost_available, p.measured.reliability.lost_packets,
-            p.measured.reliability.resent));
-        if (snap.stats.enabled) {
-          row.push_back("measured=" + measured_label(p));
-        }
-        row.push_back(reasons);
-        pair_rows.push_back(row);
-        locator_lines.push_back(opt.locators ? locators_line(p) : "");
-        fix_lines.push_back(opt.advise ? fix_lines_for(p) : std::vector<std::string>{});
       }
       // Ghost pairs are gone, so their locators are stale by definition and there is nothing
       // left to fix: no line for them.
-      for (auto & g : ghost_rows_for(t.display_topic)) {
+      for (auto & g : ghost_rows_for(r.name)) {
         pair_rows.push_back(g);
         locator_lines.push_back("");
         fix_lines.push_back({});

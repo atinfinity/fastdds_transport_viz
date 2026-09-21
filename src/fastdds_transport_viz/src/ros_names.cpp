@@ -4,6 +4,7 @@
 #include "fastdds_transport_viz/ros_names.hpp"
 
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace fastdds_transport_viz
@@ -87,6 +88,90 @@ std::string demangle_type(const std::string & dds_type)
     }
   }
   return out + "/" + name;
+}
+
+namespace
+{
+constexpr std::string_view kActionSep = "/_action/";
+
+/// The action type out of a member that names it: "example_interfaces::action::dds_::
+/// Fibonacci_SendGoal_Request_" + tail "_SendGoal_Request_" -> "example_interfaces/action/
+/// Fibonacci". "" when the type is not that member's.
+std::string action_type_from(const std::string & dds_type, const std::string & tail)
+{
+  const std::string marker = "::action::dds_::";
+  const auto pos = dds_type.find(marker);
+  if (pos == std::string::npos) {
+    return "";
+  }
+  const std::string pkg = dds_type.substr(0, pos);
+  if (pkg.empty() || pkg.find(':') != std::string::npos) {
+    return "";
+  }
+  const std::string rest = dds_type.substr(pos + marker.size());
+  if (!ends_with(rest, tail) || rest.size() == tail.size()) {
+    return "";
+  }
+  return pkg + "/action/" + rest.substr(0, rest.size() - tail.size());
+}
+
+struct MemberSpec
+{
+  const char * suffix;
+  RosEntityKind kind;
+  const char * type;     // a tail after "::action::dds_::", or the whole type when !names_action
+  bool names_action;
+};
+
+// send_goal and get_result are services of the action's own package; cancel_goal and status
+// are the action_msgs types every action shares, so they can never name the action.
+const MemberSpec kMembers[] = {
+  {"send_goal", RosEntityKind::ServiceRequest, "_SendGoal_Request_", true},
+  {"send_goal", RosEntityKind::ServiceReply, "_SendGoal_Response_", true},
+  {"get_result", RosEntityKind::ServiceRequest, "_GetResult_Request_", true},
+  {"get_result", RosEntityKind::ServiceReply, "_GetResult_Response_", true},
+  {"feedback", RosEntityKind::Topic, "_FeedbackMessage_", true},
+  {"cancel_goal", RosEntityKind::ServiceRequest,
+    "action_msgs::srv::dds_::CancelGoal_Request_", false},
+  {"cancel_goal", RosEntityKind::ServiceReply,
+    "action_msgs::srv::dds_::CancelGoal_Response_", false},
+  {"status", RosEntityKind::Topic, "action_msgs::msg::dds_::GoalStatusArray_", false},
+};
+}  // namespace
+
+ActionMember parse_action_member(const std::string & dds_topic, const std::string & dds_type)
+{
+  ActionMember out;
+  const RosName ros = demangle_topic(dds_topic);
+  if (ros.kind == RosEntityKind::NotRos) {
+    return out;
+  }
+  // The last separator: "/foo/_action/bar/_action/send_goal" is a constructible service name.
+  const auto sep = ros.name.rfind(kActionSep);
+  // sep == 0 is "/_action/send_goal", a service whose action name would be empty.
+  if (sep == std::string::npos || sep == 0) {
+    return out;
+  }
+  const std::string suffix = ros.name.substr(sep + kActionSep.size());
+  if (suffix.find('/') != std::string::npos) {
+    return out;
+  }
+  for (const auto & m : kMembers) {
+    if (m.kind != ros.kind || suffix != m.suffix) {
+      continue;
+    }
+    out.matched = true;
+    out.action = ros.name.substr(0, sep);
+    out.suffix = suffix;
+    if (m.names_action) {
+      out.action_type = action_type_from(dds_type, m.type);
+      out.type_ok = !out.action_type.empty();
+    } else {
+      out.type_ok = dds_type == m.type;
+    }
+    return out;
+  }
+  return out;
 }
 
 std::string normalize_node_name(const std::string & name)

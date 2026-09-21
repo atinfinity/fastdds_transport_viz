@@ -131,6 +131,11 @@ std::string render_json(const Snapshot & snap, const RenderOptions & opt)
     tj["dds_topic"] = t.dds_topic;
     tj["type"] = t.display_type;
     tj["is_ros_topic"] = t.is_ros_topic;
+    // What this topic is in ROS terms, and the group it belongs to (#84). The raw rq/rr
+    // topics stay entries of their own: the table collapses rows, the document loses nothing.
+    tj["kind"] = to_string(t.kind);
+    tj["group"] = t.group;
+    tj["direction"] = to_string(t.direction);
     tj["unmatched_reasons"] = t.unmatched_reasons;
     // #137: PUBLICATION_THROUGHPUT was not a rate and is no longer subscribed; the key
     // stays, fixed to null, so documents keep their shape and schema_version stays 1

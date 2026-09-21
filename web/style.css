@@ -52,6 +52,8 @@ main { display: grid; grid-template-columns: 1fr 380px; height: calc(100% - 84px
 .badge { display: inline-block; padding: 0 6px; border-radius: 10px; font-size: 11px; color: #fff; background: var(--c-none); }
 .badge.likely { opacity: .75; }
 .badge.warn { background: var(--warn); }
+/* #84: says whether a header row is a service or an action, not a plain topic */
+.badge.kind { background: var(--muted); font-weight: 600; letter-spacing: .04em; }
 /* graph */
 .host rect { fill: #fff; stroke: var(--line); }
 .host text.label { font-weight: 600; fill: var(--muted); }

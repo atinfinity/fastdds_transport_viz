@@ -41,7 +41,8 @@ def add_list_arguments(parser):
              "name matches the regex (that node's unpaired endpoints are kept too)")
     parser.add_argument(
         '--all', action='store_true',
-        help='include services/actions and non-ROS DDS topics')
+        help='include services/actions and non-ROS DDS topics (a service or an action is one '
+             'SERVICE / ACTION row per client-server pair, not its raw rq/ and rr/ topics)')
     parser.add_argument(
         '-v', '--verbose', action='store_true',
         help='expand writer -> reader pairs under each topic')
@@ -153,7 +154,8 @@ def add_diff_arguments(parser):
              'full name matches the regex')
     parser.add_argument(
         '--all', action='store_true',
-        help='include services/actions and non-ROS DDS topics')
+        help='include services/actions and non-ROS DDS topics (a service or an action is one '
+             'SERVICE / ACTION row per client-server pair, not its raw rq/ and rr/ topics)')
     parser.add_argument(
         '-v', '--verbose', action='store_true',
         help='expand writer -> reader pairs under each topic')

@@ -15,6 +15,7 @@
 #include <set>
 #include <sstream>
 #include <string>
+#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -526,6 +527,7 @@ std::vector<TopicSummary> summarize(const std::vector<Endpoint> & endpoints)
       t.is_ros_topic = !e.ros_topic.empty();
       t.display_topic = t.is_ros_topic ? e.ros_topic : e.dds_topic;
       t.display_type = !e.ros_type.empty() ? e.ros_type : e.dds_type;
+      t.dds_type = e.dds_type;
     }
     (e.is_writer ? t.writers : t.readers).push_back(&e);
   }
@@ -563,6 +565,211 @@ std::vector<TopicSummary> summarize(const std::vector<Endpoint> & endpoints)
     out.begin(), out.end(), [](const TopicSummary & a, const TopicSummary & b) {
       return a.display_topic < b.display_topic;
     });
+  classify_topics(out);
+  return out;
+}
+
+void classify_topics(std::vector<TopicSummary> & topics)
+{
+  std::map<std::string, std::vector<size_t>> candidates;
+  std::map<std::string, bool> every_member_type_ok;
+  std::map<std::string, std::set<std::string>> named_types;
+
+  for (size_t i = 0; i < topics.size(); ++i) {
+    auto & t = topics[i];
+    const RosName ros = demangle_topic(t.dds_topic);
+    t.group.clear();
+    t.direction = GroupDirection::None;
+    switch (ros.kind) {
+      case RosEntityKind::Topic:
+        t.kind = TopicKind::Topic;
+        break;
+      case RosEntityKind::ServiceRequest:
+        t.kind = TopicKind::Service;
+        t.group = ros.name;
+        t.direction = GroupDirection::ToServer;
+        break;
+      case RosEntityKind::ServiceReply:
+        t.kind = TopicKind::Service;
+        t.group = ros.name;
+        t.direction = GroupDirection::ToClient;
+        break;
+      default:
+        t.kind = TopicKind::Other;
+        break;
+    }
+    const ActionMember m = parse_action_member(t.dds_topic, t.dds_type);
+    if (!m.matched) {
+      continue;
+    }
+    candidates[m.action].push_back(i);
+    auto it = every_member_type_ok.emplace(m.action, true).first;
+    it->second = it->second && m.type_ok;
+    if (!m.action_type.empty()) {
+      named_types[m.action].insert(m.action_type);
+    }
+  }
+
+  for (const auto & kv : candidates) {
+    // Every member has to carry its own type, and the members that can name the action have
+    // to name one and the same: cancel_goal and status are action_msgs boilerplate anyone
+    // can publish, so they can never establish that an action is there.
+    if (!every_member_type_ok[kv.first] || named_types[kv.first].size() != 1) {
+      continue;
+    }
+    for (const size_t i : kv.second) {
+      auto & t = topics[i];
+      t.kind = TopicKind::Action;
+      t.group = kv.first;
+      t.direction = demangle_topic(t.dds_topic).kind == RosEntityKind::ServiceRequest ?
+        GroupDirection::ToServer : GroupDirection::ToClient;
+    }
+  }
+}
+
+std::string member_label(const TopicSummary & topic)
+{
+  if (topic.kind == TopicKind::Action) {
+    const ActionMember m = parse_action_member(topic.dds_topic, topic.dds_type);
+    if (m.matched) {
+      return m.suffix;
+    }
+  }
+  if (topic.kind != TopicKind::Service && topic.kind != TopicKind::Action) {
+    return "";
+  }
+  return topic.direction == GroupDirection::ToServer ? "request" : "reply";
+}
+
+namespace
+{
+/// The service type behind a member's: "example_interfaces/srv/AddTwoInts_Request" ->
+/// "example_interfaces/srv/AddTwoInts". The DDS topic says Reply, the DDS type says Response.
+std::string service_type_stem(const std::string & display_type)
+{
+  for (const char * tail : {"_Request_", "_Response_", "_Request", "_Response"}) {
+    const std::string t = tail;
+    if (display_type.size() > t.size() &&
+      display_type.compare(display_type.size() - t.size(), t.size(), t) == 0)
+    {
+      return display_type.substr(0, display_type.size() - t.size());
+    }
+  }
+  return display_type;
+}
+
+void add_distinct(std::vector<std::string> & out, const std::string & value)
+{
+  if (!value.empty() && std::find(out.begin(), out.end(), value) == out.end()) {
+    out.push_back(value);
+  }
+}
+
+void add_member(std::vector<const TopicSummary *> & out, const TopicSummary * t)
+{
+  if (std::find(out.begin(), out.end(), t) == out.end()) {
+    out.push_back(t);
+  }
+}
+
+/// The type of a group, from its members. An action's own type comes from send_goal,
+/// get_result and feedback alone: cancel_goal is action_msgs/srv/CancelGoal and status is
+/// action_msgs/msg/GoalStatusArray on every action there has ever been, so letting them into
+/// the cell would print boilerplate next to the name of the thing you asked about (#84).
+std::string group_type(const DisplayRow & row)
+{
+  std::vector<std::string> parts;
+  for (const auto * t : row.members) {
+    if (row.kind == TopicKind::Action) {
+      const ActionMember m = parse_action_member(t->dds_topic, t->dds_type);
+      add_distinct(parts, m.action_type);
+    } else {
+      add_distinct(parts, service_type_stem(t->display_type));
+    }
+  }
+  std::string out;
+  for (size_t i = 0; i < parts.size(); ++i) {
+    if (i) {out += "|";}
+    out += parts[i];
+  }
+  return out;
+}
+
+/// The order display_rows() sorts in: by group name, then by the two participants.
+auto sort_key(const DisplayRow & row)
+{
+  return std::tie(row.name, row.requester, row.replier);
+}
+}  // namespace
+
+std::vector<DisplayRow> display_rows(const std::vector<TopicSummary> & topics)
+{
+  std::vector<DisplayRow> out;
+  std::map<std::tuple<std::string, std::string, std::string>, size_t> index;
+
+  using EP = const Endpoint *;
+  const auto row_for = [&](const TopicSummary & t, EP client, EP server) -> DisplayRow & {
+      const std::string requester = client ? client->participant_guid_prefix : std::string();
+      const std::string replier = server ? server->participant_guid_prefix : std::string();
+      auto key = std::make_tuple(t.group, requester, replier);
+      auto it = index.find(key);
+      if (it == index.end()) {
+        DisplayRow row;
+        row.kind = t.kind;
+        row.name = t.group;
+        row.requester = requester;
+        row.replier = replier;
+        row.client = client;
+        row.server = server;
+        it = index.emplace(key, out.size()).first;
+        out.push_back(std::move(row));
+      }
+      return out[it->second];
+    };
+
+  for (const auto & t : topics) {
+    if (t.kind != TopicKind::Service && t.kind != TopicKind::Action) {
+      DisplayRow row;
+      row.kind = t.kind;
+      row.name = t.display_topic;
+      row.type = t.display_type;
+      row.topic = &t;
+      row.members.push_back(&t);
+      out.push_back(std::move(row));
+      continue;
+    }
+    const bool to_server = t.direction == GroupDirection::ToServer;
+    for (const auto & p : t.pairs) {
+      const Endpoint * client = to_server ? p.writer : p.reader;
+      const Endpoint * server = to_server ? p.reader : p.writer;
+      auto & row = row_for(t, client, server);
+      (to_server ? row.to_server : row.to_client).push_back({&t, &p});
+      add_member(row.members, &t);
+    }
+    if (!t.pairs.empty()) {
+      continue;
+    }
+    // pairs are writers x readers, so a topic without pairs is one whose endpoints are all
+    // on one side: a service offered and never called, or called and never offered
+    for (const auto * side : {&t.writers, &t.readers}) {
+      for (const auto * e : *side) {
+        const bool is_client = to_server ? e->is_writer : !e->is_writer;
+        auto & row = row_for(t, is_client ? e : nullptr, is_client ? nullptr : e);
+        add_member(row.members, &t);
+        add_member(row.unpaired_members, &t);
+        row.unpaired_endpoints.push_back(e);
+      }
+    }
+  }
+
+  for (auto & row : out) {
+    if (row.topic == nullptr) {
+      row.type = group_type(row);
+    }
+  }
+  std::stable_sort(
+    out.begin(), out.end(),
+    [](const DisplayRow & a, const DisplayRow & b) {return sort_key(a) < sort_key(b);});
   return out;
 }
 

@@ -71,6 +71,15 @@ unmatched の理由です。ペア行を足し合わせることはないので�
 (数値は数値として、値のないものは最後)。statistics があればペア行に観測中に運ばれたパケット数と
 バイト数、遅延、1 秒あたりに届いたサンプル数 (`Hz`、ホバーで窓の長さ)、欠落も出ます。
 
+`--all` で取得したサービスとアクションは、グループ全体で 1 つの見出し行になります。
+`SERVICE` / `ACTION` のバッジが付き、`rq/` / `rr/` トピックではなくサービス名・アクション名で
+表示され、その下にメンバーのペア行が並びます
+([#84](https://github.com/atinfinity/fastdds_transport_viz/issues/84))。writer / reader の
+セルは向きごとのメンバーペア数 (完全なサービスは `1`/`1`、完全なアクションは `3`/`5`)、型は
+メンバーの型から `_Request` / `_Response` を取り除いたものです。試すための capture として
+`sample/services.json` があります (`index.html?src=sample/services.json`)。グラフは変えて
+いません。エッジは矢印であり矢印には向きがあるので、メンバーごとのままです。
+
 ![table view](images/web-viewer-table.jpg)
 
 フィルタ (トピックの正規表現、ノードの正規表現、transport のチェックボックス、`/parameter_events`、

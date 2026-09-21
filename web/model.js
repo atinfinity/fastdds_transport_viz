@@ -268,36 +268,104 @@
     return lossText({ reliability: { lost_packets: t.lost_packets, resent_datas: t.resent_datas } });
   }
 
+  /** The `<kind>|<name>` a service's or action's member topics share, null for a plain topic (#84). */
+  function groupKeyOf(t) {
+    return t && t.group && (t.kind === 'service' || t.kind === 'action') ? `${t.kind}|${t.group}` : null;
+  }
+
+  // The tails rmw_fastrtps and rcl_action add to a member's type. An action's own type comes
+  // from send_goal, get_result and feedback alone: cancel_goal and status carry action_msgs
+  // types that every action shares, so they would print boilerplate rather than the action.
+  const ACTION_TYPE_TAILS = ['_SendGoal_Request', '_SendGoal_Response', '_GetResult_Request', '_GetResult_Response', '_FeedbackMessage'];
+  const SERVICE_TYPE_TAILS = ['_Request_', '_Response_', '_Request', '_Response'];
+
+  /** The type a group's header shows: its members' types with those tails taken off (#84). */
+  function groupTypeOf(members, kind) {
+    const tails = kind === 'action' ? ACTION_TYPE_TAILS : SERVICE_TYPE_TAILS;
+    const out = [];
+    for (const m of members) {
+      const tail = tails.find(x => m.type.length > x.length && m.type.endsWith(x));
+      if (kind === 'action' && !tail) continue;   // cancel_goal, status
+      const stem = tail ? m.type.slice(0, -tail.length) : m.type;
+      if (stem && !out.includes(stem)) out.push(stem);
+    }
+    return out.join('|');
+  }
+
+  /** One header's worth of aggregates, from the document's topics and never from the rows. */
+  function groupAggregates(members, kind) {
+    const pairs = members.flatMap(m => m.pairs);
+    const dir = d => members.filter(m => m.direction === d).reduce((n, m) => n + m.pairs.length, 0);
+    const latencies = members.map(m => m.latency_s).filter(v => typeof v === 'number');
+    const counted = members.filter(m => typeof m.resent_datas === 'number');
+    const lost = counted.map(m => m.lost_packets).filter(v => typeof v === 'number');
+    // RTPS_LOST belongs to the participant pair, so every member of a group reports the same
+    // loss: the group's loss is one member's, not their sum, while resends really do add up.
+    const synth = {
+      latency_s: latencies.length ? Math.max(...latencies) : null,
+      lost_packets: counted.length ? (lost.length ? Math.max(...lost) : null) : null,
+      resent_datas: counted.length ? counted.reduce((n, m) => n + m.resent_datas, 0) : null,
+    };
+    return {
+      // member pairs each way, so a complete service reads 1/1 and a complete action 3/5
+      pubs: dir('to_server'), subs: dir('to_client'),
+      transports: [...new Set(pairs.map(p => p.transport))],
+      latency: topicLatencyText(synth), latencyValue: synth.latency_s,
+      loss: topicLossText(synth), lostValue: synth.lost_packets,
+      reasons: [...new Set(members.flatMap(m => m.unmatched_reasons))].join(', '),
+      topic: { topic: members[0].group, type: groupTypeOf(members, kind) },
+    };
+  }
+
   /**
    * Table rows grouped under a header per topic (#144), the CLI's `--verbose` shape.
    * `rows` are visible pair rows, `ghosts` removed-pair rows; both carry `.topic.topic`.
    * `topics` is the document's `topics[]`: a header reads its aggregates from there and
    * never from the rows, so a filter that hides pairs leaves the topic's numbers alone.
    * A topic only ghosts still name (an orphan) gets a header without aggregates.
-   * Groups are keyed by the DDS topic name (a service's request and reply topics share a
-   * display name) and follow the first appearance of each topic in `rows` then `ghosts`.
+   * Groups are keyed by the DDS topic name, except that the member topics of a service or
+   * an action share one header under the service's or action's own ROS name (#84) -- the
+   * raw rq/rr topics are what #84 asked to stop showing. Headers follow the first
+   * appearance of each group in `rows` then `ghosts`.
    */
   function groupPairsByTopic(rows, ghosts, topics) {
     const byDds = new Map((topics || []).map(t => [t.dds_topic, t]));
     const byName = new Map();
     for (const t of topics || []) if (!byName.has(t.topic)) byName.set(t.topic, t);
+    const members = new Map();    // group key -> member topics, document order
+    for (const t of topics || []) {
+      const gk = groupKeyOf(t);
+      if (gk) members.set(gk, [...(members.get(gk) || []), t]);
+    }
     const groups = new Map();
     const groupOf = (row) => {
       // a ghost without its before document knows the display name only
       const named = row.topic.dds_topic ? null : byName.get(row.topic.topic);
-      const key = row.topic.dds_topic || (named ? named.dds_topic : row.topic.topic);
+      const dds = row.topic.dds_topic || (named ? named.dds_topic : row.topic.topic);
+      const t = byDds.get(dds) || null;
+      const gk = groupKeyOf(t);
+      const key = gk || dds;
       if (!groups.has(key)) {
-        const t = byDds.get(key) || null;
-        const name = row.topic.topic;
-        groups.set(key, {
-          id: `topic|${key}`, key, name, topic: t || { topic: name, type: row.topic.type || '' }, aggregates: !!t,
-          pubs: t ? t.writers.length : null, subs: t ? t.readers.length : null,
-          transports: t ? [...new Set(t.pairs.map(p => p.transport))] : [],
-          latency: t ? topicLatencyText(t) : '', latencyValue: t && typeof t.latency_s === 'number' ? t.latency_s : null,
-          loss: t ? topicLossText(t) : '', lostValue: t && typeof t.lost_packets === 'number' ? t.lost_packets : null,
-          reasons: t ? t.unmatched_reasons.join(', ') : '',
-          pairs: [], ghosts: [],
-        });
+        const kind = gk ? t.kind : 'topic';
+        const name = gk ? t.group : row.topic.topic;
+        const base = {
+          id: `topic|${key}`, key, name, kind, aggregates: !!t,
+          topic: t || { topic: name, type: row.topic.type || '' },
+          pubs: null, subs: null, transports: [], latency: '', latencyValue: null,
+          loss: '', lostValue: null, reasons: '', pairs: [], ghosts: [],
+        };
+        if (gk) {
+          Object.assign(base, groupAggregates(members.get(gk), kind));
+        } else if (t) {
+          Object.assign(base, {
+            pubs: t.writers.length, subs: t.readers.length,
+            transports: [...new Set(t.pairs.map(p => p.transport))],
+            latency: topicLatencyText(t), latencyValue: typeof t.latency_s === 'number' ? t.latency_s : null,
+            loss: topicLossText(t), lostValue: typeof t.lost_packets === 'number' ? t.lost_packets : null,
+            reasons: t.unmatched_reasons.join(', '),
+          });
+        }
+        groups.set(key, base);
       }
       return groups.get(key);
     };
@@ -617,6 +685,6 @@
     return s;
   }
 
-  return { TRANSPORTS, INTERNAL_TOPICS, UNKNOWN_NODE_NAME, isFoldedBufferCompanion, isInternalTopic, normalizeDocument, buildModel, isDiscoveryServer, isDiscoveryClient, serverNodeId, clientParticipants, serversOf, discoveryText, filterRegex, visiblePairs, visibleNodesModel, bundle, humanBytes, humanSeconds, measuredText, latencyText, rateText, rateTitle, lossText, topicLatencyText, topicLossText, groupPairsByTopic, compareCells, escapeHtml, codeListHtml, shmText, participantShmText, datasharingText, typeHashText, statsText,
+  return { TRANSPORTS, INTERNAL_TOPICS, UNKNOWN_NODE_NAME, isFoldedBufferCompanion, isInternalTopic, normalizeDocument, buildModel, isDiscoveryServer, isDiscoveryClient, serverNodeId, clientParticipants, serversOf, discoveryText, filterRegex, visiblePairs, visibleNodesModel, bundle, humanBytes, humanSeconds, measuredText, latencyText, rateText, rateTitle, lossText, topicLatencyText, topicLossText, groupKeyOf, groupTypeOf, groupPairsByTopic, compareCells, escapeHtml, codeListHtml, shmText, participantShmText, datasharingText, typeHashText, statsText,
     pairKey, keyId, pairState, sameState, diffDocuments, changeText, changesSummary, decorations, holdChanges, heldDecorations, markedPairs, pruneNodes };
 });

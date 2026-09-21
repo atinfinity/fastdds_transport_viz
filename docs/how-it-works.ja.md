@@ -152,6 +152,56 @@ JSON では結び付いたコンパニオンの endpoint が `buffer_parent_guid
 判定ロジックは `src/fastdds_transport_viz/src/decision.cpp` に DDS 依存の無い純粋関数として
 実装され、`test/test_decision.cpp` でテストされています。
 
+## サービスとアクション
+
+`rmw_fastrtps` は ROS 名を 3 種類の DDS 名のいずれかに変換します。トピックは
+`rt/<topic>`、サービスは `rq/<service>Request` と `rr/<service>Reply` です。つまり 1 つの
+サービスは 2 つの DDS トピックであり、しかも両方が同じ ROS 名に戻るため、これまでの
+`--all` は同じ文字列の行を 2 つ並べていました。アクションは `rcl_action` が
+`<action>/_action/` の下に 5 つのメンバー (`send_goal`、`cancel_goal`、`get_result` の 3
+サービスと `feedback`、`status` の 2 トピック) を作るので、DDS トピック 8 個、
+エンドポイント 16 個になります。
+
+`--all` はこれらをグループごと・クライアントとサーバの組ごとに 1 行へまとめます
+([#84](https://github.com/atinfinity/fastdds_transport_viz/issues/84))。
+
+```
+TOPIC                                                    TYPE                               PUBS  SUBS  TRANSPORT
+SERVICE /add_two_ints  /caller -> /add_two_ints_server   example_interfaces/srv/AddTwoInts  1     1     SHM -> SHM
+ACTION /fibonacci  /ftv_act_client -> /ftv_act_server    example_interfaces/action/Fibonacci  3   5     SHM -> SHM
+```
+
+左右は要求と応答ではなく **データが流れる向き** です。`PUBS` はサーバへ向かうメンバーの
+ペア数、`SUBS` は戻ってくるメンバーのペア数で、これがアクションを 1 行に収められる理由です
+(`feedback` と `status` は 3 つの応答と同じくクライアント側へ戻ります)。完全なサービスは
+`1`/`1`、完全なアクションは `3`/`5` と読めるので、欠けているグループはひと目で分かります。
+行のキーはノードではなく **participant** です。サービスのエンドポイントは
+`ros_discovery_info` に現れずノード名を持たないため、名前が分からない側は participant
+プレフィックスを表示します。1 つのサービスを呼ぶクライアントごとに行が分かれ、ペアを持たない
+エンドポイントにも片側だけの行 (`- -> /talker`、`0`/`0`) が出るので、誰も呼んでいない
+パラメータサービスも消えずに残ります。`TYPE` はメンバーの型から `_Request` / `_Response`
+を取り除いたもので、アクションの型は `send_goal`、`get_result`、`feedback` だけから決めます
+(`cancel_goal` と `status` はどのアクションでも共通の `action_msgs` 型だからです)。
+トランスポート、レイテンシ、ロス、理由コードはトピックのペアと同じようにメンバー分を
+集約し、`-v` では各ペアがどのメンバーのものかを表示します。
+
+`ACTION` と判定するのは **名前と型の両方** が一致したときだけです。アクション名は最後の
+`/_action/` より前のすべて、接尾辞は 5 つのメンバーのいずれか、そして存在するメンバーが
+すべて `rcl_action` が付けるはずの型 (`<pkg>::action::dds_::<Action>_SendGoal_*`、
+`action_msgs::srv::dds_::CancelGoal_*`、`action_msgs::msg::dds_::GoalStatusArray_` など) を
+announce していて、少なくとも 1 つが `::action::` 型であることが条件です。`/_action/` は
+予約されていません。`/fibonacci2/_action/send_goal` という普通のサービスを作れますし、
+`feedback` / `status` という普通のトピックの組には `ros2 action list` 自身がだまされます。
+そのため型の検査に落ちたグループはアクションを名乗らず、`SERVICE` または普通のトピックに
+戻ります。`<node>/_service_event` はグループに入れません。これは既定表示に現れる `rt/`
+トピックであり、グループに畳むと既定表示の行が消えてしまうためです。
+
+`--json` では `topics[]` の各要素が `kind` (`topic`、`service`、`action`、`other`)、
+`group` (所属する ROS 名。普通のトピックは `""`)、`direction` (`to_server`、`to_client`、
+`""`) を持ちます。生の `rq/` / `rr/` トピックは文書に残るので、行がまとまるのは表だけで
+JSON は何も失いません。これらのキーが無い時代の文書は読み込み時に DDS 名から再分類するため、
+`diff` でも同じようにグループ化されます。
+
 ## ノード名とツール自身の痕跡
 
 ROS のノード名は rclcpp のグラフ API (エンドポイント GID → ノード) で解決するため、ツールは

@@ -77,6 +77,47 @@ void link_buffer_companions(std::vector<Endpoint> & endpoints);
 /// (parent) or buffer-companion (companion), unlinked companions buffer-companion-unmatched.
 std::vector<TopicSummary> summarize(const std::vector<Endpoint> & endpoints);
 
+/// Fills TopicSummary::kind / group / direction (#84). summarize() calls it; parse_json()
+/// calls it for a document written before the keys existed, so a saved snapshot groups too.
+///
+/// A topic is an action member only when every member found under that name carries the DDS
+/// type it has to carry and at least one of them names the action: "/_action/" is not
+/// reserved, so a plain service can wear an action's exact DDS names.
+void classify_topics(std::vector<TopicSummary> & topics);
+
+/// One line of the table (#84): either one plain topic, or one service/action group between
+/// a client participant and a server participant.
+///
+/// The rule is total -- every endpoint of a service or action appears in exactly one row.
+/// Endpoints that are in no pair (an offered but never called service is the common case: a
+/// node's seven parameter services are 82 % of its rows under --all) get a half-open row for
+/// their own participant, so nothing disappears just because the other side is not running.
+struct DisplayRow
+{
+  TopicKind kind{TopicKind::Topic};
+  std::string name;        // the plain topic's display name, or the group's ROS name
+  std::string type;        // display type; the service or action type for a group
+  const TopicSummary * topic{nullptr};    // non-null only for a plain (ungrouped) row
+  const Endpoint * client{nullptr};       // a representative endpoint of each side, null
+  const Endpoint * server{nullptr};       // when that side was not discovered
+  std::string requester;   // client participant GUID prefix, "" when absent
+  std::string replier;     // server participant GUID prefix, "" when absent
+  // Members split by direction of travel, not by request and reply: an action's three
+  // requests go one way, its three replies plus feedback and status the other.
+  std::vector<std::pair<const TopicSummary *, const Pair *>> to_server;
+  std::vector<std::pair<const TopicSummary *, const Pair *>> to_client;
+  std::vector<const TopicSummary *> members;           // every member topic of this row
+  std::vector<const TopicSummary *> unpaired_members;  // ... those that contributed no pair
+  std::vector<const Endpoint *> unpaired_endpoints;
+};
+
+/// Groups `topics` into table rows. Plain topics pass through one for one.
+std::vector<DisplayRow> display_rows(const std::vector<TopicSummary> & topics);
+
+/// The member's short name inside its group, for the per-member lines under -v:
+/// "request" / "reply" for a service, the rcl_action suffix for an action.
+std::string member_label(const TopicSummary & topic);
+
 /// Whether the default view (without --all) shows the topic: a ROS topic ("rt/" prefix)
 /// that is not a companion topic whose every endpoint is folded into its parent.
 bool in_default_view(const TopicSummary & topic);
