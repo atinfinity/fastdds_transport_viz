@@ -29,7 +29,13 @@ writer → reader の各ペアで transport を選ぶときと同じルールを
    ([#206](https://github.com/atinfinity/fastdds_transport_viz/issues/206))。Fast DDS 2.x は
    `rmw_fastrtps` 上で `TypeInformation` を広告しないので
    ([#193](https://github.com/atinfinity/fastdds_transport_viz/issues/193))、これが効くのは
-   3.x のピアだけです。
+   3.x のピアだけです。`TypeInformation` をまったく広告しないエンドポイント - Fast DDS 2.x の
+   すべてのエンドポイント、TypeObject を登録しない 3.x アプリケーション、そして Fast DDS 3.x が
+   `TypeInformation` を無視する他ベンダーのピア - は型名だけでマッチし、ツールもその定義を
+   検証できません。定義が違うと、reader の `take()` は payload 次第でサンプルを捨てるか、欠けた
+   メンバーをデフォルト値で埋めます。ログも lost/rejected のカウントも残りません。statistics は
+   デシリアライズより前に記録されるので、`--stats` でもそのペアは配送済みに見えます
+   ([#210](https://github.com/atinfinity/fastdds_transport_viz/issues/210))。
 1. **そもそも QoS が合うか?** Fast DDS は request/offer のポリシーが合う writer と reader しか
    マッチさせません: reliability (BEST_EFFORT の writer は RELIABLE の reader に提供できない)、
    durability (writer は reader の要求以上を提供する必要がある: VOLATILE < TRANSIENT_LOCAL <
