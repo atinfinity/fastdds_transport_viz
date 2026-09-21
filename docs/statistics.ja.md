@@ -145,7 +145,10 @@ settle せず `--timeout` まで待って警告を出していました。ここ
 `discovery.stopped_on` は `settled` になります。`--watch --stats` はこの規則を待ちません。最初の
 フレームは discovery が静かになり 5 秒が経った時点で出て (`--timeout` が上限)、履歴の受け渡しで
 届く分は後のフレームに載ります
-([#177](https://github.com/atinfinity/fastdds_transport_viz/issues/177))。トラフィックの無いトピックには
+([#177](https://github.com/atinfinity/fastdds_transport_viz/issues/177))。それでも数える対象は同じで、
+`stats.measured_instances` は出力するスナップショットの reader 宛てかどうかで判定されます。これは
+どのモードでも変わりません (`--quiet` や `--timeout` をどう指定した一発実行でも、`--watch` の各フレーム
+でも、[#200](https://github.com/atinfinity/fastdds_transport_viz/issues/200))。トラフィックの無いトピックには
 `!no-traffic-observed` が付きます。`HISTORY_LATENCY`
 が配送を証明しているのに `RTPS_SENT` に reader のどの locator の項目も無い、または観測前の項目しか
 無い (`measured=SHM (unmeasured, delivered)`) 場合は、代わりに

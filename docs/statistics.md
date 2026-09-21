@@ -152,7 +152,10 @@ reader was measured), and
 `discovery.stopped_on` reads `settled`. `--watch --stats` does not wait for that rule: its
 first frame comes once discovery is quiet and 5 s have passed (`--timeout` still caps the
 wait), and the later frames carry what the handoff brings
-([#177](https://github.com/atinfinity/fastdds_transport_viz/issues/177)). Idle topics show
+([#177](https://github.com/atinfinity/fastdds_transport_viz/issues/177)). It still counts the
+same thing there: `stats.measured_instances` is judged against the readers of the snapshot the
+run prints, in every mode - a one-shot at any `--quiet` or `--timeout`, and every `--watch`
+frame ([#200](https://github.com/atinfinity/fastdds_transport_viz/issues/200)). Idle topics show
 `!no-traffic-observed`. When `HISTORY_LATENCY` proves delivery but `RTPS_SENT` has no entry
 for any of the reader's locators, or only entries from before the observation
 (`measured=SHM (unmeasured, delivered)`), the warning is

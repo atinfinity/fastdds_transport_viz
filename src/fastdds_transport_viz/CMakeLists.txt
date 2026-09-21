@@ -170,7 +170,9 @@ if(BUILD_TESTING)
   find_package(launch_testing_ament_cmake REQUIRED)
   add_launch_test(test/launch/test_same_host_shm.py TIMEOUT 60)
   add_launch_test(test/launch/test_same_host_udp.py TIMEOUT 60)
-  add_launch_test(test/launch/test_stats.py TIMEOUT 90)
+  # nine tests, 64 s here: the settle rule of #168 takes up to 25 s of that, and the
+  # --quiet 0 and --watch runs of #200 about 20 s
+  add_launch_test(test/launch/test_stats.py TIMEOUT 150)
   add_launch_test(test/launch/test_json_schema_live.py TIMEOUT 90)
 
   find_package(ament_cmake_pytest REQUIRED)
