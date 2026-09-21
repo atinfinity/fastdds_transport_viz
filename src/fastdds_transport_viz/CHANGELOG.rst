@@ -4,6 +4,23 @@ Changelog for package fastdds_transport_viz
 
 Forthcoming
 -----------
+* Measured why the Humble type-definition gap cannot be closed, and said so in the
+  Limitations (#193). Fast DDS carries an older description of a type than the ROS 2 type
+  hash (``TypeIdV1``, ``TypeObjectV1``, ``TypeInformation``), which looked like a way to
+  tell two definitions of one message apart on Humble, where the rmw announces no
+  REP-2011 hash. It is not: no Humble endpoint announces any of the three (0 of 36 across
+  17 type names, under ``rmw_fastrtps_cpp`` and ``rmw_fastrtps_dynamic_cpp`` alike), and
+  neither does Jazzy (0 of 40) - ``rmw_fastrtps``'s ``TypeSupport`` is a plain
+  ``TopicDataType``, so nothing is registered in the ``TypeObjectFactory`` that Fast DDS
+  2.x fills those parameters from, and they never reach the wire. The gap is
+  publisher-side and no setting of the tool's own participant can recover a value the
+  sender never wrote, so no detection is shipped and no field is added. The four
+  Limitations sections now state this as a measured fact with the remedy (rebuild every
+  node against the same message package; observe the same graph from a machine with Jazzy
+  or later, where the tool does report the mismatch), and ``docs/development.md`` records
+  the numbers and the Fast DDS source chain. Fast DDS 3.x does fill the XTypes 1.3
+  ``type_information`` on every endpoint, which is tracked separately for the non-ROS-peer
+  case.
 * Pairs delivered inside one process are named, and no longer keep a ``--stats`` one-shot
   waiting (#201). Fast DDS hands a sample from a writer to a reader of the *same process*
   inside the participant (``intraprocess_delivery``, ``FULL`` by default) and puts nothing

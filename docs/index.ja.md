@@ -146,6 +146,12 @@ ros2 transport codes
   ディストリビューションでも `NONE` と `type-name-mismatch` で表示されます。同じメッセージ定義の
   別バージョンを見分けるのは ROS 2 の type hash (REP-2011) ですが、これを広告するのは Jazzy 以降の
   rmw だけです。Humble ではそうしたペアは健全に見え、それでも subscription には何も届きません。
+  Fast DDS 自身が持つ、より古い型情報で代用することもできません。2026-09-21 の実測では、Humble の
+  エンドポイントは `TypeIdentifier` も `TypeObject` も `TypeInformation` も広告しませんでした。
+  これらの供給元である `TypeObjectFactory` に `rmw_fastrtps` が型を登録しないためで、Fast DDS 2.14
+  (つまり Jazzy) も同様に広告しません (`docs/development.md` 参照)。Humble では、すべてのノードを
+  同じバージョンのメッセージパッケージでビルドし直してインストールしてください。Jazzy 以降のマシンが
+  あれば、同じグラフをそちらで観測すればツールが不一致を報告します。
 - **予測はモデルです。** 判定は Fast DDS の選択規則を写したもので、`--stats` で確認するまで
   `likely` (`?` 付き) のままの状況があります。実測には観測対象ノードの *起動前* に
   `FASTDDS_STATISTICS` を設定する必要があり、10 を超える locator と通信するノードには同梱の

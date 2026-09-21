@@ -157,7 +157,13 @@ way and highlights the result. Details in
   differ are shown as `NONE` with `type-name-mismatch` on every distribution. Two versions
   of the same message definition are told apart by the ROS 2 type hash (REP-2011), which
   only the rmw of Jazzy and later announces: on Humble such a pair looks healthy, and the
-  subscription still receives nothing.
+  subscription still receives nothing. Fast DDS's own, older type description cannot stand
+  in for it — measured on 2026-09-21, no Humble endpoint announces a `TypeIdentifier`, a
+  `TypeObject` or a `TypeInformation` either, because `rmw_fastrtps` registers no type in
+  the `TypeObjectFactory` those are filled from (Fast DDS 2.14, and so Jazzy, announces
+  them just as little; see `docs/development.md`). On Humble, rebuild and reinstall every node
+  against the same version of the message package, and, if a machine with Jazzy or later is
+  available, run the same graph there, where the tool does report the mismatch.
 - **A prediction is a model.** The verdicts encode Fast DDS's selection rules; some
   situations stay `likely` (marked `?`) until `--stats` confirms them. Measuring requires
   `FASTDDS_STATISTICS` on the observed nodes *before they start*, and the shipped profile
