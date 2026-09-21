@@ -155,7 +155,9 @@ ros2 run fastdds_transport_viz transport_viz_web --stats --interval 1
 | それ以外 | 転送: `--stats`、`--interval S`、`--domain N`、`--all`、`--topic REGEX`、`--timeout S` |
 
 `transport_viz` が終了するとサーバーは `status` イベントを送り (「live: transport_viz exited …」と
-表示) 停止します。終了コードは `transport_viz` が失敗していれば 1、そうでなければ 0 です。Docker 環境では `docker compose run --rm --service-ports dev` が
+表示) 停止します。終了コードは `transport_viz` が失敗していれば 1、そうでなければ 0 です。
+`transport_viz_web` を止めると (Ctrl-C、またはこのプロセス自身への SIGTERM)、起動した
+`transport_viz` も一緒に止まります。Docker 環境では `docker compose run --rm --service-ports dev` が
 ポート 8765 を公開するので、コンテナ内の `transport_viz_web --bind 0.0.0.0` にホストのブラウザから
 届きます。
 
