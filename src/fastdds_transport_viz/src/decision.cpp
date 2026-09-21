@@ -1177,23 +1177,28 @@ bool stats_settled(
          measured_quiet_seconds >= quiet_window_seconds;
 }
 
-ReaderPorts reader_ports(
+ReaderDestinations reader_destinations(
   const std::vector<Endpoint> & endpoints, const std::set<std::string> & own_prefixes)
 {
-  ReaderPorts out;
+  ReaderDestinations out;
   for (const auto & e : endpoints) {
     if (e.is_writer || own_prefixes.count(e.participant_guid_prefix) > 0) {continue;}
     for (const auto & l : e.unicast) {
-      out.emplace(l.kind, l.port);
+      out.unicast_ports.emplace(l.kind, l.port);
+    }
+    for (const auto & l : e.multicast) {
+      out.multicast_locators.emplace(l.kind, l.address, l.port);
     }
   }
   return out;
 }
 
-bool measures_a_pair(const TrafficSample & traffic, const ReaderPorts & readers)
+bool measures_a_pair(const TrafficSample & traffic, const ReaderDestinations & readers)
 {
-  return traffic.packets > traffic.packets_first &&
-         readers.count({traffic.dst.kind, traffic.dst.port}) > 0;
+  if (traffic.packets <= traffic.packets_first) {return false;}
+  const Locator & dst = traffic.dst;
+  return readers.unicast_ports.count({dst.kind, dst.port}) > 0 ||
+         readers.multicast_locators.count({dst.kind, dst.address, dst.port}) > 0;
 }
 
 bool watch_ready(bool discovery_quiet, double elapsed_seconds, bool stats)

@@ -5,9 +5,11 @@
 
 #include <algorithm>
 #include <functional>
+#include <set>
 #include <stdexcept>
-#include <tuple>
 #include <string>
+#include <tuple>
+#include <utility>
 #include <vector>
 
 #include "fastdds_transport_viz/decision.hpp"
@@ -2662,46 +2664,71 @@ TEST(StatsSettled, WaitsForQuietTheMinimumEveryMatchedWriterAndStillMeasuredInst
   EXPECT_FALSE(stats_settled(true, 8.0, 20, 20, 0, 3.0, 3.0));
 }
 
-TEST(ReaderPorts, UnicastOfDiscoveredReadersOutsideTheToolsOwnParticipants)
+TEST(ReaderDestinations, LocatorsOfDiscoveredReadersOutsideTheToolsOwnParticipants)
 {
-  // #179: the writers' ports, the tool's own reader and multicast never count
+  // #179: the writers' locators and the tool's own reader never count
+  // #196: a group a reader announces does count, whole - the pairs of a multicast-only reader
+  // are measured through nothing else
   auto reader = make(false, HOST_A, {shm(7411), udp4("10.0.0.5", 7411)});
   reader.participant_guid_prefix = "01.0f.aa.bb.00.00.00.00.00.00.00.01";
-  reader.multicast = {Locator{LocatorKind::UDPv4, "239.255.0.1", 7400}};
+  reader.multicast = {Locator{LocatorKind::UDPv4, "239.255.0.7", 7900}};
   auto writer = make(true, HOST_A, {shm(7413), udp4("10.0.0.5", 7413)});
   writer.participant_guid_prefix = "01.0f.aa.bb.00.00.00.00.00.00.00.02";
+  writer.multicast = {Locator{LocatorKind::UDPv4, "239.255.0.8", 7900}};
   auto own = make(false, HOST_A, {shm(7453), udp4("10.0.0.5", 7453)});
   own.participant_guid_prefix = "01.0f.aa.bb.00.00.00.00.00.00.00.09";
-  const auto ports = reader_ports({reader, writer, own}, {own.participant_guid_prefix});
-  const ReaderPorts expected{{LocatorKind::SHM, 7411}, {LocatorKind::UDPv4, 7411}};
-  EXPECT_EQ(ports, expected);
+  own.multicast = {Locator{LocatorKind::UDPv4, "239.255.0.9", 7900}};
+  const auto dst = reader_destinations({reader, writer, own}, {own.participant_guid_prefix});
+  const std::set<std::pair<LocatorKind, uint32_t>> expected_unicast{
+    {LocatorKind::SHM, 7411}, {LocatorKind::UDPv4, 7411}};
+  const std::set<std::tuple<LocatorKind, std::string, uint32_t>> expected_multicast{
+    {LocatorKind::UDPv4, "239.255.0.7", 7900}};
+  EXPECT_EQ(dst.unicast_ports, expected_unicast);
+  EXPECT_EQ(dst.multicast_locators, expected_multicast);
+  EXPECT_FALSE(dst.empty());
 }
 
-TEST(MeasuresAPair, ADeltaTowardsADiscoveredReaderPortOnly)
+TEST(MeasuresAPair, ADeltaTowardsALocatorADiscoveredReaderReceivesOn)
 {
   // #179: the Lyrical medium run at 8 s had 47 instances with a delta, every one of them
   // metatraffic (multicast 7400, SHM 7000-7019) or the tool's own port (SHM 7453), and
   // settled with no pair measured; the reader ports of the load were 7411-7449
-  const ReaderPorts readers{{LocatorKind::SHM, 7411}, {LocatorKind::UDPv4, 7411}};
-  auto entry = [](LocatorKind kind, uint32_t port, uint64_t first, uint64_t last) {
+  // #196: the group a multicast-only reader announces is the one destination its pairs have
+  ReaderDestinations readers;
+  readers.unicast_ports = {{LocatorKind::SHM, 7411}, {LocatorKind::UDPv4, 7411}};
+  readers.multicast_locators = {{LocatorKind::UDPv4, "239.255.0.7", 7900}};
+  auto uc = [](LocatorKind kind, uint32_t port, uint64_t first, uint64_t last) {
       TrafficSample t;
-      t.dst = Locator{kind, kind == LocatorKind::SHM ? "" : "239.255.0.1", port};
+      t.dst = Locator{kind, kind == LocatorKind::SHM ? "" : "10.0.0.5", port};
       t.packets_first = first;
       t.packets = last;
       return t;
     };
-  EXPECT_TRUE(measures_a_pair(entry(LocatorKind::SHM, 7411, 10, 12), readers));
-  EXPECT_TRUE(measures_a_pair(entry(LocatorKind::UDPv4, 7411, 10, 12), readers));
-  // a reader port with only its first sample is not measured yet
-  EXPECT_FALSE(measures_a_pair(entry(LocatorKind::SHM, 7411, 10, 10), readers));
+  auto mc = [](const std::string & address, uint32_t port, uint64_t first, uint64_t last) {
+      TrafficSample t;
+      t.dst = Locator{LocatorKind::UDPv4, address, port};
+      t.packets_first = first;
+      t.packets = last;
+      return t;
+    };
+  EXPECT_TRUE(measures_a_pair(uc(LocatorKind::SHM, 7411, 10, 12), readers));
+  EXPECT_TRUE(measures_a_pair(uc(LocatorKind::UDPv4, 7411, 10, 12), readers));
+  // the group the reader announced: the only destination a multicast-only pair ever has
+  EXPECT_TRUE(measures_a_pair(mc("239.255.0.7", 7900, 10, 12), readers));
+  // a reader destination with only its first sample is not measured yet
+  EXPECT_FALSE(measures_a_pair(uc(LocatorKind::SHM, 7411, 10, 10), readers));
+  EXPECT_FALSE(measures_a_pair(mc("239.255.0.7", 7900, 10, 10), readers));
   // metatraffic and the tool's own port move first, and prove nothing about a pair
-  EXPECT_FALSE(measures_a_pair(entry(LocatorKind::UDPv4, 7400, 10, 40), readers));
-  EXPECT_FALSE(measures_a_pair(entry(LocatorKind::SHM, 7000, 10, 40), readers));
-  EXPECT_FALSE(measures_a_pair(entry(LocatorKind::SHM, 7453, 10, 40), readers));
+  EXPECT_FALSE(measures_a_pair(mc("239.255.0.1", 7400, 10, 40), readers));
+  EXPECT_FALSE(measures_a_pair(uc(LocatorKind::SHM, 7000, 10, 40), readers));
+  EXPECT_FALSE(measures_a_pair(uc(LocatorKind::SHM, 7453, 10, 40), readers));
+  // a group nobody announced is another group: the whole locator is the key, the port alone
+  // is shared with every other group in the domain
+  EXPECT_FALSE(measures_a_pair(mc("239.255.0.8", 7900, 10, 12), readers));
   // the kind is part of the key: the same number on another transport is another port
-  EXPECT_FALSE(measures_a_pair(entry(LocatorKind::UDPv6, 7411, 10, 12), readers));
+  EXPECT_FALSE(measures_a_pair(uc(LocatorKind::UDPv6, 7411, 10, 12), readers));
   // without a reader set nothing counts
-  EXPECT_FALSE(measures_a_pair(entry(LocatorKind::SHM, 7411, 10, 12), {}));
+  EXPECT_FALSE(measures_a_pair(uc(LocatorKind::SHM, 7411, 10, 12), {}));
 }
 
 TEST(WatchReady, QuietAloneWithoutStatsQuietAndTheMinimumWithStats)

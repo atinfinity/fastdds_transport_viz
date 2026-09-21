@@ -113,19 +113,26 @@ statistics は *participant* 単位 (ROS ノードごとに 1 つ) なので、�
 reader のノードのリンクに対するものです。個々のペアを区別するのは discovery による予測の方です。
 `--stats` はカウンタが溜まるように少なくとも 5 秒観測し、その後は discovery が `--quiet` 秒
 静穏で、ツールの reader がマッチした `RTPS_SENT` writer (statistics 付きの participant ごとに
-1 つ) のすべてから最初のサンプルが届き、**かつ**発見済み reader の unicast ポート宛てに実測
+1 つ) のすべてから最初のサンプルが届き、**かつ**発見済み reader が受信する locator 宛てに実測
 パケットを持つ `RTPS_SENT` エントリの数が `--quiet` 秒 (少なくとも 3 秒) 増えなくなるまで、
 または `--timeout` (`--stats` 付きの既定は 30 秒) まで、のどちらか早い方まで続けます。数える
-のは reader のポート宛てのエントリだけです
+のは reader 宛てのエントリだけです
 ([#179](https://github.com/atinfinity/fastdds_transport_viz/issues/179))。multicast の
 metatraffic 宛てやツール自身のポート宛てのエントリはどの participant でも数秒で動くため、それらを
-数えていた実装では 47 エントリで 8 秒に settle し、ペアは 1 つも実測できていませんでした。後の 2 つの条件は固定の窓では切れてしまっていたものです
+数えていた実装では 47 エントリで 8 秒に settle し、ペアは 1 つも実測できていませんでした。reader
+の宛先はその unicast ポート**と** reader が announce した multicast グループです
+([#196](https://github.com/atinfinity/fastdds_transport_viz/issues/196))。これは実測の帰属で
+使っている規則そのもので、unicast locator を持たずグループだけを announce する reader のペアは
+そのグループのエントリでしか測れないため、unicast だけを数えていると全パケットを帰属できていても
+settle せず `--timeout` まで待って警告を出していました。ここで metatraffic の除外は不要です。
+`239.255.0.1:7400` は *participant* の locator で、endpoint が announce することはありません。
+後の 2 つの条件は固定の窓では切れてしまっていたものです
 ([#168](https://github.com/atinfinity/fastdds_transport_viz/issues/168))。transient-local の
 カウンタ writer は後から参加した reader に履歴をまとめて渡し、それはプロセスごとに順番に、間に
 最大 2 秒ほどの間を置いて起こるので、100 ペアずつの 20 プロセスでは最後の writer からの最初の
 サンプルが 16〜20 秒後に届き、エントリは約 25 秒まで増え続け、5 秒の観測ではペアの一部しか、
 あるいは 1 つも実測できませんでした。`--json` ではこの規則が `stats.writers_announced` (マッチした
-`RTPS_SENT` writer 数)、`stats.writers_heard`、`stats.measured_instances` (reader ポート宛てに
+`RTPS_SENT` writer 数)、`stats.writers_heard`、`stats.measured_instances` (reader 宛てに
 実測できたエントリ数)、`stats.settled`、`stats.settled_at_s` (先に `--timeout` に達した場合は
 `null` で、そのとき stderr に 1 行、まだ届いていない writer、または reader 宛てのエントリが 1 つも
 実測できなかったことが出ます) に記録され、

@@ -4,6 +4,16 @@ Changelog for package fastdds_transport_viz
 
 Forthcoming
 -----------
+* A multicast-only pair now lets a ``--stats`` one-shot settle (#196): the settle rule
+  counted ``RTPS_SENT`` instances towards a discovered reader's *unicast* port only, while
+  the measurement attributes packets to any locator the reader receives on, so a run whose
+  readers announce a multicast group and no unicast locator settled at ``--timeout``
+  instead and printed "no measured RTPS_SENT entry to a discovered reader" although every
+  packet had been attributed. The rule now counts an instance whose destination is a
+  reader's unicast ``(kind, port)`` or a multicast group the reader announces, matched on
+  the whole locator; the ``#179`` exclusion of metatraffic and the tool's own ports is
+  unchanged, and needs no exception for ``239.255.0.1:7400``, which is a participant
+  locator that no endpoint announces. No output or schema change.
 * ``transport_viz_web`` asks the browser to reconnect a second after a lost connection
   (#191): the ``/events`` stream now opens with ``retry: 1000`` instead of leaving the
   browser's own default (3 s in Chrome), so the viewer's "live: connection lost,
