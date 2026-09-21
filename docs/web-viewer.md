@@ -231,6 +231,52 @@ also what `transport_viz diff --json before.json after.json` emits (see
 [how-it-works.md](how-it-works.md#comparing-two-snapshots)); the viewer highlights it in
 both cases ([Comparing two documents](#comparing-two-documents)).
 
+### Prometheus metrics
+
+`transport_viz_web` also serves `/metrics`: the latest document in the Prometheus text
+format, built when it is scraped (the startup lines name it:
+`transport_viz_web: metrics: http://127.0.0.1:8765/metrics`). Point a Prometheus scrape job
+at it and chart the transports in Grafana next to the rest of the robot:
+
+```yaml
+scrape_configs:
+  - job_name: transport_viz
+    static_configs:
+      - targets: ['robot1:8765']   # transport_viz_web --bind 0.0.0.0
+```
+
+Every name starts with `transport_viz_`. The pair series carry the labels `topic`,
+`writer_node`, `reader_node`, `writer_host`, `reader_host`, `writer_guid` and `reader_guid`
+(the GUIDs keep two pairs between the same nodes apart):
+
+| Series | Value |
+|---|---|
+| `pair_transport{transport}` | 1, the predicted transport of the pair |
+| `pair_warning{code}` | 1 per warning code of the pair |
+| `pair_measured_transport{transport}` | 1 per transport that carried packets (`--stats`) |
+| `pair_packets`, `pair_bytes` | RTPS packets / bytes sent to the reader during the observation (`--stats`) |
+| `pair_delivered_per_second` | `measured.delivered_per_s` (`--stats`) |
+| `pair_latency_seconds{stat}` | `stat` = `mean`, `min`, `max`, `last` (`--stats`) |
+| `pair_lost_packets`, `pair_resent_datas` | `measured.reliability` (`--stats`) |
+| `shm_total_bytes`, `shm_used_bytes`, `shm_free_bytes`, `shm_fastdds_bytes`, `shm_segments`, `shm_ports`, `shm_stale_segments`, `shm_stale_ports` | the `shm` object, labelled `host` with the tool's own host |
+| `info{domain,schema_version}` | 1 |
+| `up` | 1 while `transport_viz` runs, 0 once it has exited |
+| `documents_total` | documents received (a counter) |
+| `last_document_timestamp_seconds` | `observed_at` of the latest document |
+| `stats_enabled` | 1 with `--stats` |
+
+All pair values are gauges of the latest document: a value that is null in the document
+has no series (a pair without measurement has only `pair_transport` and `pair_warning`),
+and a pair that leaves the document leaves `/metrics` at the next scrape. There is no
+throughput series: `throughput_bytes_per_s` is always null (see
+[statistics.md](statistics.md)). Before the first document the endpoint answers with `up`
+and `documents_total` alone. The label values are the document's, so several robots
+scraped into one Prometheus are told apart by the `instance` label Prometheus adds. A
+large system makes a large response - the medium scale rung (2400 pairs with `--stats`)
+is about 24 000 series and 7.5 MB, built in about 50 ms - so keep the scrape interval at
+or above `--interval` and narrow it with `transport_viz_web --topic REGEX` when only
+some topics matter.
+
 ## Recording and replaying
 
 A transient problem - a pair that falls back to UDPv4 for ten seconds while a node

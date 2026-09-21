@@ -86,7 +86,7 @@ ros2 transport list -v --explain
 
 ```
 ros2 transport list [--domain N] [--timeout S] [--quiet S] [--topic REGEX] [--node REGEX]
-                    [--all] [-v] [--explain] [--locators] [--advise] [--stats] [--json]
+                    [--all] [-v] [--explain] [--locators] [--advise] [--stats] [--json | --csv]
                     [--color auto|always|never] [--watch [--interval S]]
 ros2 transport diff BEFORE.json AFTER.json [--key node|guid] [--changes-only] [--json]
                     [--topic REGEX] [--node REGEX] [--all] [-v] [--explain] [--locators]
@@ -107,6 +107,7 @@ ros2 transport codes
 | `--advise` | ペアごとに、対処のある理由コードについて `fix <code>: …` 行を追加し、凡例の各コードの下にも対処を出す (`-v` と `--explain` を暗黙に有効化。`--json` では無視され、JSON は常に `reason_code_remedies` を持つ) |
 | `--stats` | 実測の transport、遅延、欠落も表示する (観測対象ノードに `FASTDDS_STATISTICS` が必要。[実測 transport](statistics.md)) |
 | `--json` | 機械可読な出力 (`schema_version: 1`)。[web viewer](web-viewer.md) で開ける |
+| `--csv` | writer → reader ペアごとに 1 行の CSV (RFC 4180 の引用、改行は LF、先頭に見出し行。JSON で null の値は空セル、リストは `;` で連結)。表計算ソフトや pandas 向け。`--json` とは排他で、`diff` では使えない。`--watch` では見出しを 1 回だけ出し、各フレームが行を追加する (フレームは `observed_at` で区別できる) |
 | `--topic REGEX` | 名前が一致するトピックだけ表示する |
 | `--node REGEX` | 完全修飾ノード名が一致するノードが関わるペアだけ表示する (そのノードの未接続エンドポイントも残る) |
 | `--all` | サービス/アクションと ROS 以外の DDS トピックも含める。サービスとアクションは生の `rq/` / `rr/` トピックではなく、クライアントとサーバの組ごとに 1 行の `SERVICE` / `ACTION` 行として表示します |

@@ -1,6 +1,7 @@
 # Copyright 2026 atinfinity
 # SPDX-License-Identifier: Apache-2.0
-"""web/serve.py with a fake transport_viz: framing, /latest.json, SSE, shutdown on exit."""
+"""web/serve.py with a fake transport_viz: framing, /latest.json, SSE, /metrics, shutdown."""
+import calendar
 import json
 import os
 import pathlib
@@ -17,6 +18,7 @@ import pytest
 REPO = pathlib.Path(__file__).resolve().parents[3]
 SERVE = REPO / 'web' / 'serve.py'
 SAMPLE = REPO / 'web' / 'sample' / 'sample.json'
+RECORDING = REPO / 'web' / 'sample' / 'recording.jsonl'
 
 FAKE = textwrap.dedent("""\
     #!/usr/bin/env python3
@@ -54,6 +56,21 @@ FAKE_FOREVER = textwrap.dedent("""\
 """)
 
 
+# Holds its document back until the file given after it exists, then keeps running: /metrics
+# is scraped before the first document and after it.
+FAKE_GATED = textwrap.dedent("""\
+    #!/usr/bin/env python3
+    import json, os, sys, time
+    assert sys.argv[1:3] == ['--watch', '--json'], sys.argv
+    doc = json.load(open(sys.argv[3]))
+    while not os.path.exists(sys.argv[4]):
+        time.sleep(0.05)
+    print(json.dumps(doc), flush=True)
+    while True:
+        time.sleep(0.05)
+""")
+
+
 def alive(pid):
     try:
         os.kill(pid, 0)
@@ -62,13 +79,13 @@ def alive(pid):
     return True
 
 
-def start(tmp_path, src=FAKE, extra=()):
+def start(tmp_path, src=FAKE, extra=(), doc=SAMPLE):
     fake = tmp_path / 'fake_transport_viz.py'
     fake.write_text(src)
     fake.chmod(0o755)
     proc = subprocess.Popen(
         [sys.executable, str(SERVE), '--port', '0', '--transport-viz', str(fake),
-         str(SAMPLE), *extra],
+         str(doc), *extra],
         stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     line = proc.stdout.readline()
     m = re.search(r'listening on (http://[^/]+)/', line)
@@ -204,3 +221,147 @@ def test_record_to_an_unwritable_path_fails_before_starting(tmp_path):
     assert proc.returncode == 1
     assert 'cannot write the recording' in proc.stderr
     assert 'listening' not in proc.stdout
+
+
+SAMPLE_LINE = re.compile(r'^([a-zA-Z_:][a-zA-Z0-9_:]*)(?:\{(.*)\})? (\S+)$')
+LABEL = re.compile(r'([a-zA-Z_][a-zA-Z0-9_]*)="((?:[^"\\]|\\.)*)",?')
+
+
+def parse_metrics(text):
+    """Check the Prometheus text format and return {(name, labels): value}."""
+    assert text.endswith('\n'), text
+    helped, typed, series = set(), {}, {}
+    for line in text.splitlines():
+        if line.startswith('# HELP '):
+            helped.add(line.split(' ')[2])
+        elif line.startswith('# TYPE '):
+            _, _, name, kind = line.split(' ')
+            assert kind in ('gauge', 'counter'), line
+            assert name not in typed, f'{name} typed twice'
+            typed[name] = kind
+        else:
+            m = SAMPLE_LINE.match(line)
+            assert m, line
+            name, body, value = m.groups()
+            assert name in helped and name in typed, f'{name} without HELP/TYPE before it'
+            labels = []
+            rest = body or ''
+            while rest:
+                lm = LABEL.match(rest)
+                assert lm, (line, rest)
+                raw = lm.group(2)
+                labels.append((lm.group(1), re.sub(
+                    r'\\(.)', lambda e: '\n' if e.group(1) == 'n' else e.group(1), raw)))
+                rest = rest[lm.end():]
+            key = (name, tuple(sorted(labels)))
+            assert key not in series, f'duplicate series {key}'
+            series[key] = float(value)
+    return series
+
+
+def scrape(base):
+    with urllib.request.urlopen(f'{base}/metrics', timeout=5) as resp:
+        assert resp.status == 200
+        assert resp.headers['Content-Type'].startswith('text/plain; version=0.0.4')
+        return parse_metrics(resp.read().decode())
+
+
+def values(series, name):
+    return {dict(labels).get('stat') or dict(labels).get('transport') or
+            dict(labels).get('code') or '': v
+            for (n, labels), v in series.items() if n == name}
+
+
+def test_metrics_before_and_after_the_first_document(tmp_path):
+    # #83: a measured document (the recording's last frame) with a node name that needs
+    # escaping, a second pair of the same nodes (only the GUIDs tell the two apart) and a
+    # warning; scraped before transport_viz printed anything, and after
+    doc = json.loads(RECORDING.read_text().splitlines()[-1])
+    topic = next(t for t in doc['topics'] if t['pairs'] and t['pairs'][0]['measured']['available'])
+    pair = topic['pairs'][0]
+    pair['writer_node'] = '/odd"\\name\nx'
+    pair['warnings'] = ['split-but-non-shm-traffic']
+    twin = json.loads(json.dumps(pair))
+    twin['reader_guid'] = twin['reader_guid'][:-1] + 'f'
+    twin['measured']['latency_s'] = None
+    topic['pairs'].append(twin)
+    doc['shm'].update(available=True, used_bytes=40, stale_ports=2)
+    doc_file = tmp_path / 'doc.json'
+    doc_file.write_text(json.dumps(doc))
+    gate = tmp_path / 'go'
+    proc, base = start(tmp_path, src=FAKE_GATED, extra=[str(gate)], doc=doc_file)
+    try:
+        before = scrape(base)
+        assert before == {('transport_viz_up', ()): 1.0,
+                          ('transport_viz_documents_total', ()): 0.0}, before
+        gate.write_text('')
+        deadline = time.time() + 5
+        while time.time() < deadline:
+            series = scrape(base)
+            if series[('transport_viz_documents_total', ())] == 1:
+                break
+            time.sleep(0.05)
+        assert series[('transport_viz_documents_total', ())] == 1
+        assert series[('transport_viz_stats_enabled', ())] == 1
+        assert values(series, 'transport_viz_info') == {'': 1.0}
+        info = next(dict(k[1]) for k in series if k[0] == 'transport_viz_info')
+        assert info == {'domain': str(doc['domain']), 'schema_version': '1'}
+        # the pair labels: the escaped node name reads back as it was
+        latency = [dict(k[1]) for k in series if k[0] == 'transport_viz_pair_latency_seconds']
+        assert {lb['stat'] for lb in latency} == {'mean', 'min', 'max', 'last'}
+        assert {lb['writer_node'] for lb in latency} == {'/odd"\\name\nx'}
+        assert set(latency[0]) == {'topic', 'writer_node', 'reader_node', 'writer_host',
+                                   'reader_host', 'writer_guid', 'reader_guid', 'stat'}
+        assert latency[0]['reader_guid'] == pair['reader_guid']   # the twin has no latency
+        m = pair['measured']
+        assert sorted(values(series, 'transport_viz_pair_latency_seconds').values()) == \
+            sorted(m['latency_s'][k] for k in ('mean', 'min', 'max', 'last'))
+        # both pairs: the value series, the predicted and measured transports, the warning
+        for name in ('transport_viz_pair_packets', 'transport_viz_pair_bytes',
+                     'transport_viz_pair_transport', 'transport_viz_pair_warning',
+                     'transport_viz_pair_measured_transport'):
+            assert len([k for k in series if k[0] == name]) == 2 * (
+                len(m['transports']) if name.endswith('measured_transport') else 1), name
+        assert values(series, 'transport_viz_pair_transport') == {pair['transport']: 1.0}
+        assert values(series, 'transport_viz_pair_warning') == {'split-but-non-shm-traffic': 1.0}
+        assert set(values(series, 'transport_viz_pair_packets').values()) == {m['packets']}
+        # /dev/shm of this host, under the label the pairs give it
+        shm = {k[0]: (dict(k[1]), v) for k, v in series.items() if k[0].startswith(
+            'transport_viz_shm_')}
+        assert len(shm) == 8, shm
+        assert shm['transport_viz_shm_used_bytes'][1] == 40
+        assert shm['transport_viz_shm_stale_ports'][1] == 2
+        assert shm['transport_viz_shm_used_bytes'][0]['host'] == pair['reader_host']
+        ts = series[('transport_viz_last_document_timestamp_seconds', ())]
+        assert ts == calendar.timegm(time.strptime(doc['observed_at'], '%Y-%m-%dT%H:%M:%SZ'))
+        assert series[('transport_viz_up', ())] == 1
+    finally:
+        proc.kill()
+        proc.wait()
+
+
+def test_metrics_without_statistics_and_after_the_end(tmp_path):
+    # a document observed without --stats: no measured series at all; then the stream ends
+    proc, base = start(tmp_path, doc=REPO / 'web' / 'sample' / 'diff_after.json')
+    try:
+        deadline = time.time() + 10
+        series = {}
+        while time.time() < deadline:
+            try:
+                series = scrape(base)
+            except (urllib.error.URLError, ConnectionError):
+                break   # the server went down after the producer exited
+            if series[('transport_viz_up', ())] == 0:
+                break
+            time.sleep(0.05)
+        assert series[('transport_viz_up', ())] == 0, series
+        assert series[('transport_viz_documents_total', ())] == 3
+        assert series[('transport_viz_stats_enabled', ())] == 0
+        names = {k[0] for k in series}
+        assert 'transport_viz_pair_transport' in names
+        assert not {n for n in names if n.startswith('transport_viz_pair_') and
+                    n not in ('transport_viz_pair_transport', 'transport_viz_pair_warning')}, names
+    finally:
+        if proc.poll() is None:
+            proc.kill()
+        proc.wait()

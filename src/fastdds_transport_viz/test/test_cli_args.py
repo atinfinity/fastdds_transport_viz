@@ -6,6 +6,8 @@ transport_viz argument handling: exits before any DDS participant is created.
 Also `transport_viz diff`, which never creates one: the two fixture documents under
 web/sample/ (a profile change with every node restarted in between, see docs/how-it-works.md).
 """
+import csv
+import io
 import json
 import os
 import pathlib
@@ -34,7 +36,7 @@ def test_help_exits_zero_with_usage():
         assert r.returncode == 0, r
         assert r.stdout.startswith('Usage: transport_viz [options]'), r.stdout
         for opt in ('--domain', '--timeout', '--quiet', '--topic', '--node', '--all', '--explain',
-                    '--locators', '--advise', '--stats', '--json', '--color', '--watch',
+                    '--locators', '--advise', '--stats', '--json', '--csv', '--color', '--watch',
                     '--interval', '--list-codes', '--key', '--changes-only'):
             assert opt in r.stdout, opt
         assert 'transport_viz diff <before.json> <after.json>' in r.stdout
@@ -93,6 +95,39 @@ def test_color_modes_are_accepted_and_always_paints_without_a_terminal():
         '\033[1mshared memory: \033[0m' in r.stdout or '(no endpoints discovered' in r.stdout
     ), r.stdout
     assert '\033[' in r.stdout
+
+
+CSV_HEADER = [
+    'observed_at', 'domain', 'topic', 'type', 'writer_node', 'writer_host', 'writer_guid',
+    'reader_node', 'reader_host', 'reader_guid', 'transport', 'confidence', 'reasons',
+    'warnings', 'measured_transports', 'packets', 'bytes', 'delivered_per_s',
+    'delivered_per_s_lower_bound', 'latency_mean_s', 'latency_min_s', 'latency_max_s',
+    'latency_last_s', 'lost_packets', 'resent_datas']
+
+
+def test_csv_is_a_header_and_rows_and_excludes_json():
+    # #83: the header also comes when nothing was discovered, and every row has its columns
+    r = run('--csv', '--timeout', '0.5', '--quiet', '0')
+    assert r.returncode == 0, r
+    rows = list(csv.reader(io.StringIO(r.stdout)))
+    assert rows[0] == CSV_HEADER, rows
+    assert all(len(row) == len(CSV_HEADER) for row in rows), rows
+    r = run('--csv', '--json')
+    assert r.returncode == 2 and '--json and --csv are exclusive' in r.stderr, r
+
+
+def test_watch_csv_prints_the_header_once():
+    proc = subprocess.Popen([BINARY, '--watch', '--csv', '--interval', '0.3'],
+                            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    try:
+        time.sleep(2.5)   # the first frame waits for discovery to go quiet, then 0.3 s each
+    finally:
+        proc.terminate()
+        out, _ = proc.communicate(timeout=15)
+    rows = list(csv.reader(io.StringIO(out)))
+    assert rows and rows[0] == CSV_HEADER, out
+    assert CSV_HEADER not in rows[1:], out
+    assert '\033[' not in out, 'no terminal screen for CSV'
 
 
 def test_explain_ros_args_and_default_timeout():
@@ -295,7 +330,8 @@ def test_diff_errors_exit_2(tmp_path):
     bad.write_text('{"schema_version": 2}')
     r = run('diff', BEFORE, str(bad))
     assert r.returncode == 2 and 'schema_version 2 is not supported' in r.stderr, r
-    for flag in (['--domain', '1'], ['--timeout', '1'], ['--watch'], ['--interval', '1']):
+    for flag in (['--domain', '1'], ['--timeout', '1'], ['--watch'], ['--interval', '1'],
+                 ['--csv']):
         r = run('diff', *flag, BEFORE, AFTER)
         assert r.returncode == 2 and 'does not apply to diff' in r.stderr, (flag, r)
     r = run('--key', 'guid')
