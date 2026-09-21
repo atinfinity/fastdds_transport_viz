@@ -27,7 +27,14 @@ to select a transport for each writer → reader pair.
    different types under one name, and the pair carries the warning
    `type-information-mismatch` ([#206](https://github.com/atinfinity/fastdds_transport_viz/issues/206)).
    Fast DDS 2.x announces none under `rmw_fastrtps` ([#193](https://github.com/atinfinity/fastdds_transport_viz/issues/193)),
-   so this reaches a 3.x peer only.
+   so this reaches a 3.x peer only. An endpoint that announces no `TypeInformation` at all -
+   every Fast DDS 2.x endpoint, a 3.x application that registered no TypeObject, and any
+   peer of another vendor, whose `TypeInformation` Fast DDS 3.x ignores - is matched on the
+   type name alone, and the tool cannot check its definition either. When that definition
+   differs, the reader's `take()` drops the sample or fills the missing member with its
+   default, depending on the payload, without a log line or a lost/rejected count; the
+   statistics are recorded before deserialization, so `--stats` still shows the pair as
+   delivered ([#210](https://github.com/atinfinity/fastdds_transport_viz/issues/210)).
 1. **Do the QoS match at all?** Fast DDS only matches a writer and a reader whose
    request/offer policies agree: reliability (a BEST_EFFORT writer cannot serve a
    RELIABLE reader), durability (the writer must offer at least what the reader
