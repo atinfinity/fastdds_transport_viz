@@ -44,6 +44,24 @@ test('measuredText: every cell value', () => {
     'SHM:8169 (idle)');
 });
 
+test('measuredText: a pair delivered inside one process (#201)', () => {
+  // nothing is sent, so nothing can be measured: the cell says why, not that a packet is missing
+  assert.equal(
+    M.measuredText({ available: true, transports: [], delivered: true }, ['intra-process']),
+    'none (intra-process)');
+  assert.equal(
+    M.measuredText({ available: true, transports: ['SHM'], packets: 0, delivered: true }, ['intra-process']),
+    'SHM (intra-process)');
+  // without a delivery it is idle like any other pair
+  assert.equal(
+    M.measuredText({ available: true, transports: ['SHM'], packets: 0 }, ['intra-process']),
+    'SHM (idle)');
+  // and measured packets leave the reason behind (apply_stats drops it)
+  assert.equal(
+    M.measuredText({ available: true, transports: ['SHM'], packets: 3, delivered: true }, []),
+    'SHM 3 pkt');
+});
+
 test('escapeHtml', () => {
   assert.equal(M.escapeHtml('<a href="x">&\'</a>'), '&lt;a href=&quot;x&quot;&gt;&amp;&#39;&lt;/a&gt;');
   assert.equal(M.escapeHtml(42), '42');

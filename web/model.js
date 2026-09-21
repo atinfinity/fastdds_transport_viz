@@ -185,16 +185,25 @@
 
   /** "UDPv4 127.0.0.1:7413 + SHM:8169 47 pkt 1.31 kB": the addresses stay next to their
    *  transport, falling back to the kinds alone for a document without measured.locators. */
-  function measuredText(m) {
+  function measuredText(m, reasons) {
     if (!m || !m.available) return '';
-    if (!m.transports.length) return m.delivered ? 'none (delivered)' : 'none';
+    // Delivered inside one process (#201): no packet was sent because none had to be, so
+    // "unmeasured" would read like a measurement the tool missed.
+    const intra = Array.isArray(reasons) && reasons.includes('intra-process');
+    if (!m.transports.length) {
+      if (!m.delivered) return 'none';
+      return intra ? 'none (intra-process)' : 'none (delivered)';
+    }
     const locators = Array.isArray(m.locators) ? m.locators : [];
     const label = locators.length
       ? locators.map(l => `${l.kind}${l.address ? ' ' + l.address : ''}:${l.port}`).join(' + ')
       : m.transports.join('+');
     // No packet in the window: with a delivery proof the link is not idle, its RTPS_SENT
     // samples did not arrive (#149).
-    if (!m.packets) return `${label} ${m.delivered ? '(unmeasured, delivered)' : '(idle)'}`;
+    if (!m.packets) {
+      if (!m.delivered) return `${label} (idle)`;
+      return `${label} ${intra ? '(intra-process)' : '(unmeasured, delivered)'}`;
+    }
     const bytes = typeof m.bytes === 'number' ? ` ${humanBytes(m.bytes, 'B')}` : '';
     return `${label} ${m.packets} pkt${bytes}`;
   }

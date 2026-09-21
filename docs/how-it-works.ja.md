@@ -63,6 +63,30 @@ ROS 2 ノードでない participant は広告しないため、型名だけで�
 同じメッセージパッケージの違うバージョンでビルドされた 2 つのノードは健全に見えます。表に出るのは
 ワイヤ上の transport で、それでも subscription には何も届きません。
 
+### プロセス内配送 (intra-process)
+
+*同じプロセス*の writer と reader は、サンプルを transport に載せることがありません。Fast DDS が
+domain participant factory の中で直接受け渡すからです (`intraprocess_delivery`。既定は `FULL` で、
+`rmw_fastrtps` はこれを変更しません)。これは data-sharing よりも優先されます。
+`ReaderLocator::start` がローカル reader に対して data-sharing フラグを落とすため、writer は共有
+ヒストリを埋めるものの、セグメント経由で reader に通知することはありません。
+
+ツールはこのペアを GUID prefix だけから判定します。eProsima の prefix は `[0-1]` がベンダ ID
+`01.0f`、`[2-3]` が host id、`[4-5]` が pid の下位バイト、`[6-7]` がプロセス起動時に
+`std::random_device` が 1 度返す値、`[8-11]` が participant id なので、先頭 8 バイトが一致するのは
+同一プロセスのときだけです。これは `RTPSDomainImpl::should_intraprocess_between()` が比較している
+ものそのものです。ペアは locator から予測される transport (別プロセスなら使ったはずのもの。通常は
+`SHM`) をそのまま保ち、理由コード `intra-process` を持ちます。これは `--stats` の有無にも
+ディストリビューションにもよりません。`MEASURED` 列は `(unmeasured, delivered)` ではなく
+`(intra-process)` と表示します。パケットが取りこぼされたのではなく、そもそも 1 つも送られていない
+からです。両側が data-sharing QoS のペアでは、`datasharing-unverified-by-traffic` の代わりに
+`intra-process` が付き、`DATA_COUNT` が 0 でも `certain` には上がりません。ここでの `DATA_COUNT`
+0 は何も意味しないからです。
+
+予測より計測が優先されます。実際にパケットが計測されたペア (独自の `<prefix>`、プロセス内配送を
+無効にしたビルドなど) では理由コードが外れ、計測どおりに報告されます。`--stats` への影響は
+[プロセス内のペア](statistics.ja.md#プロセス内のペア) を参照してください。
+
 ## LATENCY 列、HZ 列、LOSS 列
 
 `HZ` はペアの reader に 1 秒あたりに届いたサンプル数で、ツールが statistics の `HISTORY_LATENCY`

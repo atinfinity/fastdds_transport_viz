@@ -800,6 +800,11 @@
           "minimum": 0,
           "description": "those of writers_announced a sample was taken from (#168): a writer's transient-local history arrives as one handoff, so its first sample says the handoff has begun. Optional; documents written before #168 do not carry it."
         },
+        "measurable_pairs": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "pairs of the observed system whose writer and reader are in different processes, so that Fast DDS has to send a packet a statistics counter can report (#201). 0 means every delivery is intra-process (or there is no pair at all), no RTPS_SENT will ever arrive, and a --stats one-shot settles without waiting for one. Counted over the raw discovery snapshot, before --topic / --node filters and without checking QoS compatibility. Optional; documents written before #201 do not carry it."
+        },
         "settled": {
           "type": "boolean",
           "description": "whether the --stats one-shot ended because discovery was quiet for --quiet seconds, at least 5 s had passed and writers_heard reached writers_announced (#168), which is what discovery.stopped_on = settled says as well. false under --watch and when --timeout was hit first. Optional; documents written before #168 do not carry it."
@@ -815,7 +820,7 @@
         "pairs_delivered": {
           "type": "integer",
           "minimum": 0,
-          "description": "pairs of this document whose delivery HISTORY_LATENCY proves (#147). Data-sharing pairs (no RTPS trace by design), pairs that should carry nothing (qos-incompatible, shm-ipc-namespace-split) and stats-writer-instance-limit-suspected pairs are left out. Optional; documents written before #147 do not carry it."
+          "description": "pairs of this document whose delivery HISTORY_LATENCY proves (#147). Data-sharing pairs and intra-process pairs (no RTPS trace by design, #201), pairs that should carry nothing (qos-incompatible, shm-ipc-namespace-split) and stats-writer-instance-limit-suspected pairs are left out. Optional; documents written before #147 do not carry it."
         },
         "pairs_delivered_unmeasured": {
           "type": "integer",

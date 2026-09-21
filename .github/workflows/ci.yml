@@ -138,13 +138,14 @@ jobs:
           # scenarios (#101, #106, #110, #118).
           - arch: x86_64
             distro: lyrical
-            scenarios: easy_mode_shm easy_mode_tcp hostnet_noipc_shm hostnet_split_shm hostnet_split_shm_visible hostnet_split_shm_shared_port hostnet_split_stats hostnet_split_datasharing hostnet_split_datasharing_udp
+            scenarios: easy_mode_shm easy_mode_tcp hostnet_noipc_shm hostnet_split_shm hostnet_split_shm_visible hostnet_split_shm_shared_port hostnet_split_stats hostnet_split_datasharing hostnet_split_datasharing_udp intra_process
           # Humble (Fast DDS 2.6) has no 7000+ port, but its pid-based SHM ports are
           # numbered per IPC namespace too, so the split shows as a port collision; the
-          # visible and UDPv4-only variants skip there.
+          # visible and UDPv4-only variants skip there. intra_process runs its non-statistics
+          # half here: naming an intra-process pair needs no statistics module (#201).
           - arch: x86_64
             distro: humble
-            scenarios: hostnet_split_shm hostnet_noipc_shm hostnet_split_datasharing
+            scenarios: hostnet_split_shm hostnet_noipc_shm hostnet_split_datasharing intra_process
     env:
       ROS_DISTRO: ${{ matrix.distro }}
     steps:

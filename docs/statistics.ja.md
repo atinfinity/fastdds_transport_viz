@@ -102,6 +102,9 @@ reader を読み続け、最初と最後のサンプルの *差分* を `packets
 が付きます ([#149](https://github.com/atinfinity/fastdds_transport_viz/issues/149))。このセルの他の値:
 `n/a` (writer の participant が statistics を出していない)、`none` (statistics はあるが reader のどの
 locator にもパケットが無い)、`none(delivered)` (同じ状況で `HISTORY_LATENCY` が配送を証明している)。
+同一プロセス内で配送されるペアは、`(unmeasured, delivered)` や `(delivered)` の代わりに
+`(intra-process)` と表示します。パケットを取りこぼしたのではなく、そもそも 1 つも送られていない
+からです ([プロセス内のペア](#プロセス内のペア) を参照)。
 statistics が有効な participant とは、その participant 自身が publish した statistics のサンプルをツールが
 受信したものです。この集合が JSON の `stats.participants_with_stats` で、フッタの
 「statistics from N participant(s)」の N です。reader 側の `HISTORY_LATENCY` に出てくるリモートの writer
@@ -115,7 +118,9 @@ reader のノードのリンクに対するものです。個々のペアを区�
 静穏で、ツールの reader がマッチした `RTPS_SENT` writer (statistics 付きの participant ごとに
 1 つ) のすべてから最初のサンプルが届き、**かつ**発見済み reader が受信する locator 宛てに実測
 パケットを持つ `RTPS_SENT` エントリの数が `--quiet` 秒 (少なくとも 3 秒) 増えなくなるまで、
-または `--timeout` (`--stats` 付きの既定は 30 秒) まで、のどちらか早い方まで続けます。数える
+または `--timeout` (`--stats` 付きの既定は 30 秒) まで、のどちらか早い方まで続けます。そもそも
+1 つも実測しえない実行は、最小の観測窓が終わった時点で settle します
+([プロセス内のペア](#プロセス内のペア))。数える
 のは reader 宛てのエントリだけです
 ([#179](https://github.com/atinfinity/fastdds_transport_viz/issues/179))。multicast の
 metatraffic 宛てやツール自身のポート宛てのエントリはどの participant でも数秒で動くため、それらを
@@ -133,7 +138,8 @@ settle せず `--timeout` まで待って警告を出していました。ここ
 サンプルが 16〜20 秒後に届き、エントリは約 25 秒まで増え続け、5 秒の観測ではペアの一部しか、
 あるいは 1 つも実測できませんでした。`--json` ではこの規則が `stats.writers_announced` (マッチした
 `RTPS_SENT` writer 数)、`stats.writers_heard`、`stats.measured_instances` (reader 宛てに
-実測できたエントリ数)、`stats.settled`、`stats.settled_at_s` (先に `--timeout` に達した場合は
+実測できたエントリ数)、`stats.measurable_pairs` (両端が別プロセスにあるペア数)、
+`stats.settled`、`stats.settled_at_s` (先に `--timeout` に達した場合は
 `null` で、そのとき stderr に 1 行、まだ届いていない writer、または reader 宛てのエントリが 1 つも
 実測できなかったことが出ます) に記録され、
 `discovery.stopped_on` は `settled` になります。`--watch --stats` はこの規則を待ちません。最初の
@@ -152,6 +158,30 @@ writer や reader 単位のカウンタ (`HISTORY_LATENCY`、`DATA_COUNT`、`RES
 `<topic>/_buf_cpu` 上の native buffer のコンパニオン (Lyrical 以降の `rmw_fastrtps_cpp`。上限の無い
 `uint8[]` フィールドを持つ型のサンプルを運ぶ) の値も含まれます。
 [native buffer のコンパニオントピック](how-it-works.ja.md#native-buffer-のコンパニオントピック) を参照してください。
+
+## プロセス内のペア
+
+同一プロセスの writer と reader は participant の内部で配送され、サンプルが transport に載ることは
+ありません。したがってこのペアで `RTPS_SENT` のカウンタが動くことはありません (ネットワークに渡した
+DATA サブメッセージを数える `DATA_COUNT` も同様です)。一方で `HISTORY_LATENCY` と
+`PUBLICATION_THROUGHPUT` は動きます。配送は証明され時間も測れるが、数えるべきパケットが無いという
+ことです。ツールは GUID prefix からこのペアを `intra-process` と名付け
+([プロセス内配送](how-it-works.ja.md#プロセス内配送-intra-process))、実測が期待される場所では
+data-sharing のペアと同じ扱いにします。`MEASURED` 列は `(intra-process)` と表示し、ペアは
+`stats.pairs_delivered` から外れ、したがって `stats.pairs_delivered_unmeasured`、
+`stats.pairs_delivered_absent`、`rtps-sent-absent`、`stats_watch_coverage` の分母からも外れます。
+ペア単位の警告も付きません。
+
+settle 規則は同じ事実を実行ごとに 1 度だけ `stats.measurable_pairs` として数えます。これは、その時点
+までに発見したエンドポイントのうち両端が*別プロセス*にあるペアの数で、ツール自身の participant は
+除きます。この数は QoS の適合性を見ずにトピックごとに writer × reader を数える過大評価ですが、
+「何かが実測されうる」の下限であるためにはそれが必要です。`measurable_pairs` が 0 なら規則は待つ
+ものが無く、最小の 5 秒の窓で実行が終わり `discovery.stopped_on` は `settled` になります。
+[#201](https://github.com/atinfinity/fastdds_transport_viz/issues/201) 以前は、プロセス内配送だけの
+システムでは `--stats` のたびに `--timeout` を使い切り、そのうえで reader 宛ての `RTPS_SENT` を 1 つも
+実測できなかったと警告し、効きようのない対処を提示していました。publisher しか無いシステム (送る先の
+reader が無い) も同様です。タイムアウト時の警告のもう半分、announce された writer からまだ届いていない、
+は今までどおり出ます。
 
 ## RTPS_LOST
 
@@ -338,8 +368,8 @@ warning: 682142 of 690671 statistics samples were lost (the tool could not keep 
 カウンタのサンプルが失われた (または拒否された) こと**と**、そうしたペアが 1 つ以上あることです。
 損失だけなら数として報告されるだけで警告にはなりません。損失の無い未実測ペアには、従来どおり
 ペア単位の `delivered-without-measured-traffic` が付きます。data-sharing のペア、
-`qos-incompatible` や IPC 分断のペア、`stats-writer-instance-limit-suspected` のペアはどちらの
-数にも入らず、配送の証拠が無いペアは `no-traffic-observed` が説明するあいまいさのままです。
+[プロセス内のペア](#プロセス内のペア)、`qos-incompatible` や IPC 分断のペア、
+`stats-writer-instance-limit-suspected` のペアはどちらの数にも入らず、配送の証拠が無いペアは `no-traffic-observed` が説明するあいまいさのままです。
 数はフレームごとに数え直すので、`--watch` では実測が戻れば警告も消えます。
 
 未実測のペアがすべてツールの取りこぼしとは限りません。
@@ -349,12 +379,17 @@ warning: 682142 of 690671 statistics samples were lost (the tool could not keep 
 1 つも失っていない実行の未実測ペアすべてです。これらには文書単位の別の警告 `rtps-sent-absent` が
 付きます (ワンショット実行の stderr 1 行、`statistics:` フッター、web ビューア)。
 `stats-samples-lost` は残りだけを数えるので、1 回の実行で両方が出ることもあります。主な原因は
-Fast DDS 3.6 (ROS 2 Lyrical) です。statistics の writer がほぼ周期ハートビート (既定 3 秒) でしか
-配送しないため、カウンタは数秒の停滞をはさんでまとめて届き、損失は報告されません。ツールの reader
-側では変えられません。観測対象のノードを、このパッケージがインストールする
-`config/statistics.xml` (`FASTDDS_DEFAULT_PROFILES_FILE` または
-`FASTRTPS_DEFAULT_PROFILES_FILE`) 付きで起動してください。Fast DDS 3 ではこのハートビート周期を
-短くします。警告は観測した事実で判定し、Fast DDS のバージョンでは分岐しません。
+statistics の writer 自身の既定で、これはどの Fast DDS バージョンでも同じです。これらの writer は
+pull モード (`fastdds.push_mode` が false) で生成されるため、周期ハートビート (既定 3 秒) でしか
+配送せず、カウンタは数秒の停滞をはさんでまとめて届き、損失は報告されません。最も顕著なのは
+Fast DDS 3.6 (ROS 2 Lyrical) で、ワンショット実行では何も実測できませんでした
+([#152](https://github.com/atinfinity/fastdds_transport_viz/issues/152))。ツールの reader 側では
+変えられませんが、writer のプロファイルでは変えられます。観測対象のノードを、このパッケージが
+インストールする `config/statistics.xml` (`FASTDDS_DEFAULT_PROFILES_FILE`、古い Fast DDS では
+`FASTRTPS_DEFAULT_PROFILES_FILE`) 付きで起動してください。これらの writer を push モードにし、
+ハートビート周期を短くします。警告は観測した事実で判定し、Fast DDS のバージョンでは分岐しません。
+また、そもそも実測しえないペア (data-sharing とプロセス内) はこの数に入りません
+([#201](https://github.com/atinfinity/fastdds_transport_viz/issues/201))。
 
 `stats.samples_lost_latency` は別に数えます。`stats.samples_lost` の**内数**であって並ぶ数では
 なく、これを警告の対象にするものはありません。`HISTORY_LATENCY` は設計として best-effort で

@@ -376,8 +376,14 @@ std::string measured_label(const Pair & p)
   if (!p.measured.available) {
     return "n/a";
   }
+  // Nothing was sent because nothing had to be: the pair is delivered inside one process
+  // (#201), so "delivered but unmeasured" would read like a measurement the tool missed.
+  const auto & reasons = p.verdict.reasons;
+  const bool intra =
+    std::find(reasons.begin(), reasons.end(), "intra-process") != reasons.end();
   if (p.measured.transports.empty()) {
-    return p.measured.delivered ? "none(delivered)" : "none";
+    if (!p.measured.delivered) {return "none";}
+    return intra ? "none(intra-process)" : "none(delivered)";
   }
   std::vector<std::string> parts;
   for (auto t : p.measured.transports) {
@@ -387,7 +393,8 @@ std::string measured_label(const Pair & p)
   if (p.measured.packets == 0) {
     // Packets before the observation, none during it. With a delivery proof the link is
     // not idle: the RTPS_SENT samples did not arrive (#149).
-    return s + (p.measured.delivered ? " (unmeasured, delivered)" : " (idle)");
+    if (!p.measured.delivered) {return s + " (idle)";}
+    return s + (intra ? " (intra-process)" : " (unmeasured, delivered)");
   }
   s += " " + std::to_string(p.measured.packets) + "pkt " + human_bytes(p.measured.bytes, "B");
   return s;

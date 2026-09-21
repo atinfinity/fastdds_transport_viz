@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Multi-container integration tests (run on the Docker host, not inside a container).
 #
-#   scripts/integration_test.sh [multi_container|stats_multi_container|stats_loss_multi_container|rate_stats|hostnet_shm|hostnet_noipc_shm|hostnet_split_shm|hostnet_split_shm_visible|hostnet_split_shm_shared_port|hostnet_split_stats|hostnet_split_datasharing|hostnet_split_datasharing_udp|large_data_tcp|udpv6_multi_container|easy_mode_shm|easy_mode_tcp|all]
+#   scripts/integration_test.sh [multi_container|stats_multi_container|stats_loss_multi_container|rate_stats|intra_process|hostnet_shm|hostnet_noipc_shm|hostnet_split_shm|hostnet_split_shm_visible|hostnet_split_shm_shared_port|hostnet_split_stats|hostnet_split_datasharing|hostnet_split_datasharing_udp|large_data_tcp|udpv6_multi_container|easy_mode_shm|easy_mode_tcp|all]
 #
 #   multi_container        talker and listener in two bridged containers (separate
 #                          network and IPC namespaces => different Fast DDS host ids).
@@ -16,6 +16,12 @@
 #                          the HZ column (delivered_per_s) within 3 % of the nominal rate for
 #                          every pair (#143); a lower bound is accepted between 0.9 and
 #                          1.03 times the rate (runner stalls at 1000 Hz, #186).
+#   intra_process          one container with a single `rate_load both` process: writer and
+#                          reader in one process, which Fast DDS delivers intra-process and
+#                          never sends. Expect the pair's reason "intra-process", a `--stats`
+#                          run that stops on "settled" with nothing on stderr and
+#                          stats.measurable_pairs 0, and the same reason without --stats
+#                          (every distribution, #201).
 #   stats_loss_multi_container  same with NET_ADMIN and a 20 Hz talker; tc netem drops 30% of
 #                          one node's packets to the other at a time (skipped on Humble).
 #                          Expect no lost packets on /chatter while the listener drops, lost
@@ -141,7 +147,7 @@ def topic_doc(name):
 
 
 topic = '/bounded' if scenario.startswith('hostnet_split_datasharing') else '/chatter'
-if scenario.startswith('rate_stats_'):
+if scenario.startswith('rate_stats_') or scenario.startswith('intra_process'):
     chatter, p = None, None   # its own topics, checked below
 else:
     chatter = topic_doc(topic)
@@ -192,6 +198,9 @@ elif scenario.startswith('rate_stats_'):
         if measured is not None:
             assert m['transports'] == measured, (name, m['transports'])
         assert m['delivered'], q
+        # the same-process pair says why no packet was measured, the others do not (#201)
+        assert ('intra-process' in q['reasons']) == (name == '/rate_intra'), q
+        assert 'delivered-without-measured-traffic' not in q['warnings'], q
         assert isinstance(m['delivered_per_s'], (int, float)), m
         if m['delivered_per_s_lower_bound']:
             # the load's statistics writer is keep-last 10, ~10 ms of slack at 1000 Hz:
@@ -204,6 +213,36 @@ elif scenario.startswith('rate_stats_'):
         bound = '>= ' if m['delivered_per_s_lower_bound'] else ''
         print(f"PASS: {name} {transport} delivered {bound}{m['delivered_per_s']:.1f}/s at {hz:g} Hz "
               f"over {m['delivered_per_s_window_s']:.1f} s")
+elif scenario.startswith('intra_process'):
+    # writer and reader of one process: Fast DDS delivers inside the participant and sends
+    # nothing, so the pair is explained by the prediction alone (#201)
+    t = topic_doc('/rate_intra')
+    assert len(t['pairs']) == 1, t
+    q = t['pairs'][0]
+    assert q['writer_node'] == q['reader_node'], q
+    assert 'intra-process' in q['reasons'], q
+    assert q['warnings'] == [], q
+    stats = doc['stats']
+    if scenario == 'intra_process_stats':
+        assert stats['enabled'], stats
+        # nothing in this system can ever publish an RTPS_SENT sample towards a reader:
+        # waiting for one is what burnt --timeout on every run before #201
+        assert stats['measurable_pairs'] == 0, stats
+        assert doc['discovery']['stopped_on'] == 'settled', doc['discovery']
+        assert isinstance(stats['settled_at_s'], (int, float)), stats
+        assert stats['settled_at_s'] < doc['observation_seconds'], stats
+        # an intra-process pair is not a delivery the tool failed to measure
+        assert stats['pairs_delivered'] == 0, stats
+        assert stats['pairs_delivered_unmeasured'] == 0, stats
+        assert 'rtps-sent-absent' not in stats['warnings'], stats
+        assert q['measured']['delivered'], q       # HISTORY_LATENCY still proves the delivery
+        assert q['measured']['packets'] == 0, q
+        print(f"PASS: the intra-process system settled at {stats['settled_at_s']:.1f} s "
+              f"with nothing measurable and no warning")
+    else:
+        assert not stats['enabled'], stats
+        assert doc['discovery']['stopped_on'] == 'quiet', doc['discovery']
+        print('PASS: the intra-process pair is named without --stats too')
 elif scenario in ('stats_loss_listener_drops', 'stats_loss_talker_drops'):
     # RTPS_LOST is published by the receiving participant: only the talker's drops are the
     # pair's loss, the listener's (its ACKNACKs) are the talker's to report (#122)
@@ -479,6 +518,47 @@ scenario_rate_stats() {
   done
 }
 
+# A system that never sends: Fast DDS delivers between a writer and a reader of one process
+# inside the participant, so no RTPS_SENT sample can ever exist for the pair. The tool must
+# say so and stop, not wait out --timeout for a packet nobody will send (#201).
+run_intra_process() {   # run_intra_process <name> [--stats]
+  local name="$1"; shift
+  local out="$out_dir/transport_viz_$name.json"
+  local err="$out_dir/transport_viz_$name.stderr"
+  echo "== rate_load both (writer and reader in one process) with transport_viz $*"
+  docker compose run --rm -T rate_load bash -c "
+    set -e
+    ros2 run fastdds_transport_viz rate_load both --topic /rate_intra --hz 100 > /dev/null 2>&1 &
+    sleep 3
+    ros2 run fastdds_transport_viz transport_viz --json --timeout 30 --quiet 2 $* 2> /tmp/viz_err
+    kill %1 2>/dev/null; wait
+    cat /tmp/viz_err >&2" > "$out" 2> "$err"
+  # the tool has nothing to warn about here: an intra-process pair is not a lost measurement
+  if grep -q '^warning:' "$err"; then
+    echo "ERROR: transport_viz warned on a system it can fully explain:" >&2
+    cat "$err" >&2
+    return 1
+  fi
+  jq '{stopped_on: .discovery.stopped_on, settled_at_s: .stats.settled_at_s,
+       measurable_pairs: .stats.measurable_pairs, pairs_delivered: .stats.pairs_delivered,
+       pair: (.topics[] | select(.topic == "/rate_intra") | .pairs[0]
+              | {transport, reasons, warnings, measured: .measured.transports,
+                 delivered: .measured.delivered, packets: .measured.packets})}' "$out"
+  assert "$name" "$out"
+}
+
+scenario_intra_process() {
+  # #201: the settle rule waited for an RTPS_SENT entry the system cannot produce, and every
+  # --stats run ended on --timeout with a warning. Only Jazzy or newer has the statistics.
+  if [ "${ROS_DISTRO:-jazzy}" != humble ]; then
+    run_intra_process intra_process_stats --stats
+  else
+    echo "SKIP: the --stats half needs the Fast DDS statistics module (Jazzy or newer)"
+  fi
+  # the reason itself is not a statistics feature: it is on every run and every distribution
+  run_intra_process intra_process
+}
+
 scenario_large_data_tcp() {
   local out="$out_dir/transport_viz_large_data_tcp.json"
   echo "== starting talker_large_data / listener_large_data containers"
@@ -675,14 +755,14 @@ scenario_easy_mode_tcp() {
 
 build
 case "$scenario" in
-  multi_container|stats_multi_container|stats_loss_multi_container|rate_stats|hostnet_shm|hostnet_noipc_shm|hostnet_split_shm|hostnet_split_shm_visible|hostnet_split_shm_shared_port|hostnet_split_stats|hostnet_split_datasharing|hostnet_split_datasharing_udp|large_data_tcp|udpv6_multi_container|easy_mode_shm|easy_mode_tcp)
+  multi_container|stats_multi_container|stats_loss_multi_container|rate_stats|intra_process|hostnet_shm|hostnet_noipc_shm|hostnet_split_shm|hostnet_split_shm_visible|hostnet_split_shm_shared_port|hostnet_split_stats|hostnet_split_datasharing|hostnet_split_datasharing_udp|large_data_tcp|udpv6_multi_container|easy_mode_shm|easy_mode_tcp)
     "scenario_$scenario" ;;
   all)
-    for s in multi_container stats_multi_container stats_loss_multi_container rate_stats hostnet_shm hostnet_noipc_shm hostnet_split_shm hostnet_split_shm_visible hostnet_split_shm_shared_port hostnet_split_stats hostnet_split_datasharing hostnet_split_datasharing_udp large_data_tcp udpv6_multi_container easy_mode_shm easy_mode_tcp; do
+    for s in multi_container stats_multi_container stats_loss_multi_container rate_stats intra_process hostnet_shm hostnet_noipc_shm hostnet_split_shm hostnet_split_shm_visible hostnet_split_shm_shared_port hostnet_split_stats hostnet_split_datasharing hostnet_split_datasharing_udp large_data_tcp udpv6_multi_container easy_mode_shm easy_mode_tcp; do
       echo; echo "#### $s"
       "scenario_$s"
       cleanup
     done ;;
   *)
-    echo "usage: $0 [multi_container|stats_multi_container|stats_loss_multi_container|rate_stats|hostnet_shm|hostnet_noipc_shm|hostnet_split_shm|hostnet_split_shm_visible|hostnet_split_shm_shared_port|hostnet_split_stats|hostnet_split_datasharing|hostnet_split_datasharing_udp|large_data_tcp|udpv6_multi_container|easy_mode_shm|easy_mode_tcp|all]" >&2; exit 2 ;;
+    echo "usage: $0 [multi_container|stats_multi_container|stats_loss_multi_container|rate_stats|intra_process|hostnet_shm|hostnet_noipc_shm|hostnet_split_shm|hostnet_split_shm_visible|hostnet_split_shm_shared_port|hostnet_split_stats|hostnet_split_datasharing|hostnet_split_datasharing_udp|large_data_tcp|udpv6_multi_container|easy_mode_shm|easy_mode_tcp|all]" >&2; exit 2 ;;
 esac

@@ -423,6 +423,11 @@ struct StatsData
   uint64_t writers_announced{0};
   uint64_t writers_heard{0};
   uint64_t measured_instances{0};
+  /// Pairs of the observed system that could ever show a measured packet (#201): the two ends
+  /// are in different processes, so Fast DDS has to send something. Zero means every delivery
+  /// is intra-process and no RTPS_SENT will arrive, whatever the run waits for - which is what
+  /// the settle rule above then skips. From count_measurable_pairs() over the raw snapshot.
+  uint64_t measurable_pairs{0};
   bool settled{false};
   double settled_at_s{-1.0};
   /// Pairs in this document whose delivery HISTORY_LATENCY proves (#147), and those of them
