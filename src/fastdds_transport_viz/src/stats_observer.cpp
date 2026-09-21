@@ -475,7 +475,7 @@ StatsObserver::Settle StatsObserver::settle_status()
   std::lock_guard<std::mutex> lock(mutex_);
   std::lock_guard<std::mutex> matched_lock(listener_.matched_mutex);
   for (const auto & [key, t] : traffic_) {
-    if (measures_a_pair(t, reader_ports_)) {++out.measured_instances;}
+    if (measures_a_pair(t, reader_destinations_)) {++out.measured_instances;}
   }
   for (const auto * r : {&rtps_sent_}) {
     const auto matched = listener_.matched.find(r->reader);
@@ -493,10 +493,10 @@ StatsObserver::Settle StatsObserver::settle_status()
   return out;
 }
 
-void StatsObserver::set_reader_ports(ReaderPorts ports)
+void StatsObserver::set_reader_destinations(ReaderDestinations destinations)
 {
   std::lock_guard<std::mutex> lock(mutex_);
-  reader_ports_ = std::move(ports);
+  reader_destinations_ = std::move(destinations);
 }
 
 StatsData StatsObserver::snapshot()

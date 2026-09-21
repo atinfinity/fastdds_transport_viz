@@ -13,6 +13,7 @@
 #include <optional>
 #include <set>
 #include <string>
+#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -153,19 +154,30 @@ bool stats_settled(
   bool discovery_quiet, double elapsed_seconds, size_t writers_announced, size_t writers_heard,
   size_t measured_instances, double measured_quiet_seconds, double quiet_window_seconds);
 
-/// The unicast (kind, port) of every discovered reader outside the tool's own participants
-/// (#179): where a pair's packets go. Multicast never - metatraffic to 239.255.0.1:7400
-/// moves within seconds of any participant, pair or not. Pure function.
-using ReaderPorts = std::set<std::pair<LocatorKind, uint32_t>>;
-ReaderPorts reader_ports(
+/// Where the packets of a pair arrive: every locator a discovered reader outside the tool's
+/// own participants receives on (#179, #196). Unicast is keyed (kind, port) - the port is
+/// that one reader's - while a multicast group is keyed whole, because the group IS the
+/// address and the port alone is shared with every other group in the domain. Metatraffic
+/// needs no filter here: 239.255.0.1:7400 is a participant locator, and only the unicast
+/// half of those ever reaches a snapshot, so no endpoint announces it. Pure function.
+struct ReaderDestinations
+{
+  std::set<std::pair<LocatorKind, uint32_t>> unicast_ports;
+  std::set<std::tuple<LocatorKind, std::string, uint32_t>> multicast_locators;
+  bool empty() const {return unicast_ports.empty() && multicast_locators.empty();}
+};
+ReaderDestinations reader_destinations(
   const std::vector<Endpoint> & endpoints, const std::set<std::string> & own_prefixes);
 
-/// Whether an RTPS_SENT instance is a measured pair packet (#179): its counter moved since
-/// its first sample AND its destination is a discovered reader's unicast (kind, port). The
+/// Whether an RTPS_SENT instance is a measured pair packet (#179, #196): its counter moved
+/// since its first sample AND its destination is one of the reader destinations above. The
 /// settle rule of a --stats one-shot counts these; the metatraffic and own-port instances
 /// that move first (the Lyrical medium run settled at 8 s with 47 of them and no pair
-/// measured) do not. Pure function.
-bool measures_a_pair(const TrafficSample & traffic, const ReaderPorts & readers);
+/// measured) do not. A multicast group counts for the run although one such instance serves
+/// every reader of the group: the rule asks whether measurement is still arriving, not how
+/// many pairs it covers, and a pair that receives on a group only (#130) is measured through
+/// this instance and through no other. Pure function.
+bool measures_a_pair(const TrafficSample & traffic, const ReaderDestinations & readers);
 
 /// Whether --watch may draw its first frame (#177): discovery is quiet and, with --stats, at
 /// least kStatsSettleMinSeconds have passed so the first frame has a counter window. The

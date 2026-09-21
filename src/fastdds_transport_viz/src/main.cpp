@@ -1076,7 +1076,7 @@ int main(int argc, char ** argv)
     double measured_changed_s = 0.0;
     // #179: the settle rule counts instances towards discovered readers only; the set is
     // rebuilt when discovery delivered something since the last check, not every 50 ms
-    uint64_t reader_ports_event_count = 0;
+    uint64_t reader_destinations_event_count = 0;
     std::set<std::string> own_prefixes;
     // Wait until --timeout, or until discovery has been quiet for --quiet
     // seconds (but never less than --quiet seconds in total).
@@ -1112,11 +1112,11 @@ int main(int argc, char ** argv)
       if (o.stats && !o.watch && o.quiet > 0 &&
         elapsed >= fastdds_transport_viz::kStatsSettleMinSeconds)
       {
-        if (observer.event_count() != reader_ports_event_count) {
-          reader_ports_event_count = observer.event_count();
+        if (observer.event_count() != reader_destinations_event_count) {
+          reader_destinations_event_count = observer.event_count();
           if (own_prefixes.empty()) {own_prefixes = own_participant_prefixes(domain);}
-          stats->set_reader_ports(
-            fastdds_transport_viz::reader_ports(observer.snapshot(), own_prefixes));
+          stats->set_reader_destinations(
+            fastdds_transport_viz::reader_destinations(observer.snapshot(), own_prefixes));
         }
         const auto settle = stats->settle_status();
         if (settle.measured_instances != measured_instances) {
