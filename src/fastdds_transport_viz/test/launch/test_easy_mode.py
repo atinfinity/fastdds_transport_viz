@@ -15,7 +15,8 @@ import sys
 
 sys.path.insert(0, os.path.dirname(__file__))
 from _common import (  # noqa: E402
-    Base, description, node_action, pair_of, skip_without_easy_mode, transport_viz_json)
+    Base, description, node_action, pair_of, run_tool, skip_without_easy_mode,
+    transport_viz_json)
 
 import launch_testing  # noqa: E402
 
@@ -78,8 +79,7 @@ class TestEasyMode(Base):
             self.assertEqual(p['discovery_server'], server['guid_prefix'], p)
 
     def test_server_was_spawned_for_the_domain(self):
-        out = subprocess.run(['fastdds', 'discovery', 'list'], check=True,
-                             capture_output=True, text=True, timeout=30).stdout
+        out = run_tool(['fastdds', 'discovery', 'list'], timeout=30).stdout
         self.assertIn(f'Domain ID: {DOMAIN}', out, out)
 
 

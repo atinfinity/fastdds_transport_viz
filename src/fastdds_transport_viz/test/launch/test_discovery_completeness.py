@@ -14,11 +14,10 @@ itself and the wording of the warning are unit tests in test_decision.cpp.
 """
 import json
 import os
-import subprocess
 import sys
 
 sys.path.insert(0, os.path.dirname(__file__))
-from _common import Base, description, node_action  # noqa: E402
+from _common import Base, description, node_action, run_tool  # noqa: E402
 
 WARNING = 'warning: discovery was still in progress'
 
@@ -33,7 +32,7 @@ def generate_test_description():
 def run(extra_args):
     """Run transport_viz --json and return (document, stderr)."""
     cmd = ['ros2', 'run', 'fastdds_transport_viz', 'transport_viz', '--json', *extra_args]
-    p = subprocess.run(cmd, check=True, capture_output=True, text=True, timeout=60)
+    p = run_tool(cmd, timeout=60)
     return json.loads(p.stdout), p.stderr
 
 

@@ -9,12 +9,12 @@ Services and actions on the wire group under one row each (#84).
 the members counted by direction of travel -- 1/1 for a service, 3/5 for an action.
 """
 import os
-import subprocess
 import sys
 import time
 
 sys.path.insert(0, os.path.dirname(__file__))
-from _common import Base, description, node_action, transport_viz_json  # noqa: E402
+from _common import (  # noqa: E402
+    Base, description, node_action, run_tool, transport_viz_json)
 
 import launch  # noqa: E402
 import launch_testing  # noqa: E402
@@ -98,10 +98,10 @@ class TestServiceAndActionGrouping(Base):
 
     def test_the_table_shows_one_row_per_service_and_action(self):
         self.document(ACTION, 8)
-        out = subprocess.run(
+        out = run_tool(
             ['ros2', 'run', 'fastdds_transport_viz', 'transport_viz',
              '--all', '--timeout', '6', '--quiet', '0'],
-            check=True, capture_output=True, text=True, timeout=60).stdout
+            timeout=60).stdout
         service_rows = [line for line in out.splitlines()
                         if line.startswith(f'SERVICE {SERVICE} ')]
         action_rows = [line for line in out.splitlines()
