@@ -344,3 +344,154 @@ test('loading: a ?src that does not exist reports the failure in the header', op
   await page.waitFor('document.getElementById("meta").textContent.includes("failed to load")', 'the failure message');
   assert.match(await page.text('#meta'), /failed to load sample\/nope\.json: 404/);
 }));
+
+// ------------------------------------------------------------------ replay (#82)
+
+// the shipped recording (scripts/integration_test.sh record_flip), read the way replay.js reads it
+const R = require('../replay.js');
+const recordingFile = path.join(__dirname, '..', 'sample', 'recording.jsonl');
+const recording = (() => {
+  if (!fs.existsSync(recordingFile)) return null;
+  const split = R.lineSplitter();
+  const rec = R.createRecording('node');
+  const docs = [];
+  const bytes = new Uint8Array(fs.readFileSync(recordingFile));
+  for (const l of [...split.push(bytes, 0), ...split.finish()]) {
+    const doc = R.parseFrame(new TextDecoder().decode(l.bytes));
+    if (doc) { R.addFrame(rec, doc, l.start, l.end); docs.push(doc); }
+  }
+  return { rec, docs };
+})();
+const replayOpts = skip ? { skip } : recording ? {} : { skip: 'web/sample/recording.jsonl not captured' };
+const REC = 'sample/recording.jsonl';
+const TL_LABEL = 'document.getElementById("tl-label").textContent';
+/** Wait until the timeline says frame i (0-based) of the recording is on screen. */
+const atFrame = (page, i) => page.waitFor(
+  `document.title.endsWith(${JSON.stringify(` #${i + 1}`)}) && ${TL_LABEL}.includes(${JSON.stringify(`${i + 1} / ${recording.rec.frames}`)})`,
+  `frame ${i + 1}`);
+const chatterTransport = doc => doc.topics.find(t => t.topic === '/chatter').pairs.map(p => p.transport).join();
+
+test('replay: a recording opens on its first frame with the timeline and a tick per change', replayOpts, () => browser.withPage(url(`?src=${REC}`), async (page) => {
+  const { rec } = recording;
+  await atFrame(page, 0);
+  await page.waitFor('!document.getElementById("tl-status").textContent.includes("loading")', 'the whole recording');
+  assert.equal(await page.evaluate(hidden('timeline')), false);
+  assert.equal(await page.evaluate('document.getElementById("tl-slider").max'), String(rec.frames - 1));
+  assert.equal(await page.count('#tl-ticks line'), rec.changed.filter(Boolean).length);
+  assert.ok(await page.count('#tl-ticks line') > 0, 'the flip must show as a change');
+  assert.match(await page.text('#tl-label'), new RegExp(`^${rec.observedAt[0]} · 1 / ${rec.frames}$`));
+  assert.equal(await page.evaluate('document.getElementById("tl-prev").disabled'), true);
+}));
+
+test('replay: next, previous, the arrow keys and "change" move the frame and ?frame=', replayOpts, () => browser.withPage(url(`?src=${REC}`), async (page) => {
+  const { rec, docs } = recording;
+  await atFrame(page, 0);
+  await page.click('#tl-next');
+  await atFrame(page, 1);
+  assert.match(await page.evaluate('location.search'), /[?&]frame=2(&|$)/);
+  await page.evaluate('document.body.dispatchEvent(new KeyboardEvent("keydown", {key: "ArrowRight", bubbles: true})), true');
+  await atFrame(page, 2);
+  await page.evaluate('document.body.dispatchEvent(new KeyboardEvent("keydown", {key: "ArrowLeft", bubbles: true})), true');
+  await atFrame(page, 1);
+  await page.click('#tl-prev');
+  await atFrame(page, 0);
+
+  const k = R.nextChange(rec, 0, 1);
+  await page.click('#tl-next-change');
+  await atFrame(page, k);
+  // the frame's own changes, nothing held over from the frames before
+  assert.equal(await page.evaluate(hidden('changes-group')), false);
+  assert.equal(await page.text('#changes-summary'), M.changesSummary(docs[k].changes));
+  // the frame right after a change: its (empty) changes, no mark held over as in live mode
+  const plain = rec.changed.findIndex((c, i) => i > k && !c);
+  await page.evaluate(`(() => { const s = document.getElementById('tl-slider'); s.value = '${plain}'; s.dispatchEvent(new Event('change')); return true; })()`);
+  await atFrame(page, plain);
+  assert.equal(await page.text('#changes-summary'), M.changesSummary(docs[plain].changes));
+  assert.equal(await page.count('#graph g.edge.added, #graph g.edge.changed, #graph g.edge.removed'), 0);
+}));
+
+test('replay: ?frame= opens that frame, one past the end the last', replayOpts, () => browser.withPage(url(`?src=${REC}&frame=4`), async (page) => {
+  await atFrame(page, 3);
+  const n = recording.rec.frames;
+  await page.goto(url(`?src=${REC}&frame=${n + 5}`));
+  await atFrame(page, n - 1);
+}));
+
+test('replay: a selected pair keeps its card and charts from frame to frame; a click on a chart jumps', replayOpts, () => browser.withPage(url(`?src=${REC}`), async (page) => {
+  const { rec, docs } = recording;
+  await page.waitFor('!document.getElementById("tl-status").textContent.includes("loading")', 'the whole recording');
+  // a frame with the /chatter pair
+  const first = docs.findIndex(d => chatterTransport(d));
+  await page.evaluate(`(() => { const s = document.getElementById('tl-slider'); s.value = '${first}'; s.dispatchEvent(new Event('change')); return true; })()`);
+  await atFrame(page, first);
+  let mark = await page.render();
+  await page.click('.tab[data-view="table"]');
+  await page.waitForRender(mark, 'the table tab');
+  mark = await page.render();
+  await page.click('#pairs-body tr:not(.topic)');
+  await page.waitForRender(mark, 'the pair panel');
+  assert.equal(await page.count('#panel .replay-charts'), 1);
+  assert.ok(await page.count('#panel .replay-charts rect') >= 2, 'the strip shows SHM and UDPv4 runs');
+  assert.ok(await page.count('#panel .replay-charts path') >= 1, 'a --stats recording has a line chart');
+
+  // the flip: the next frame with another transport still shows the same pair
+  const other = docs.findIndex((d, i) => i > first && chatterTransport(d) && chatterTransport(d) !== chatterTransport(docs[first]));
+  await page.evaluate(`(() => { const s = document.getElementById('tl-slider'); s.value = '${other}'; s.dispatchEvent(new Event('change')); return true; })()`);
+  await atFrame(page, other);
+  assert.equal(await page.text('#panel h2'), 'Pair');
+  assert.match(await page.text('#panel .pair.selected'), new RegExp(chatterTransport(docs[other])));
+
+  // a click at the right end of the strip shows the last frame
+  await page.evaluate(`(() => {
+    const svg = document.querySelector('#panel .replay-charts svg');
+    const r = svg.getBoundingClientRect();
+    svg.dispatchEvent(new MouseEvent('click', {bubbles: true, clientX: r.right - 1, clientY: r.top + 2}));
+    return true;
+  })()`);
+  await atFrame(page, rec.frames - 1);
+}));
+
+test('replay: Compare with… leaves replay and compares the shown frame with the file', replayOpts, () => browser.withPage(url(`?src=${REC}`), async (page) => {
+  await atFrame(page, 0);
+  await page.click('#tl-next');
+  await atFrame(page, 1);
+  await page.evaluate(`(async () => {
+    const text = await fetch('sample/sample.json').then(r => r.text());
+    const data = new DataTransfer();
+    data.items.add(new File([text], 'sample.json', {type: 'application/json'}));
+    const input = document.getElementById('file-diff');
+    input.files = data.files;
+    input.dispatchEvent(new Event('change'));
+    return true;
+  })()`);
+  await page.waitFor('document.title.endsWith("#2 vs sample.json")', 'the comparison');
+  assert.equal(await page.evaluate(hidden('timeline')), true);
+  assert.equal(await page.evaluate(hidden('diff-key-label')), false, 'a before document: the key selector');
+  assert.equal(await page.count('#panel .replay-charts'), 0);
+}));
+
+test('replay: a dropped recording with foreign lines counts them, one document is no recording', opts, () => browser.withPage(url('?src=sample/sample.json'), async (page) => {
+  await page.evaluate(`(async () => {
+    const doc = await fetch('sample/sample.json').then(r => r.json());
+    const line = (at) => JSON.stringify({...doc, observed_at: at});
+    const text = ['[ros2run]: Process started', line('2026-09-22T00:00:00Z'), '{"schema_version":1,"topics":[', line('2026-09-22T00:00:02Z'), ''].join('\\n');
+    const data = new DataTransfer();
+    data.items.add(new File([text], 'rec.jsonl'));
+    document.dispatchEvent(new DragEvent('drop', {bubbles: true, dataTransfer: data}));
+    return true;
+  })()`);
+  await page.waitFor('document.title.endsWith("rec.jsonl #1")', 'the dropped recording');
+  await page.waitFor('document.getElementById("tl-status").textContent === "2 lines skipped (not a document)"', 'the skipped lines');
+  assert.match(await page.text('#tl-label'), / · 1 \/ 2$/);
+
+  // a JSON Lines file with a single document is shown like any document
+  await page.evaluate(`(async () => {
+    const text = JSON.stringify(await fetch('sample/sample.json').then(r => r.json())) + '\\n';
+    const data = new DataTransfer();
+    data.items.add(new File([text], 'one.jsonl'));
+    document.dispatchEvent(new DragEvent('drop', {bubbles: true, dataTransfer: data}));
+    return true;
+  })()`);
+  await page.waitFor('document.title.endsWith("one.jsonl")', 'the single document');
+  assert.equal(await page.evaluate(hidden('timeline')), true);
+}));

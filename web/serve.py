@@ -14,6 +14,10 @@ the latest document, and serves:
                     connect, then every new document ("document" events); a
                     "status" event when the stream ends
 
+With ``--record FILE`` every line transport_viz prints is also written to FILE as it
+arrives, which is what ``transport_viz --watch --json > FILE`` would have written: a
+recording the viewer replays with a timeline (#82).
+
 Standard library only. Unknown command-line options are forwarded verbatim to
 transport_viz (e.g. --stats, --interval 1, --domain 3, --all, --topic REGEX).
 """
@@ -57,12 +61,18 @@ class Stream:
             return self.seq, self.latest, self.ended
 
 
-def pump(proc, stream, verbose):
-    """Read JSON Lines from the subprocess into the stream."""
+def pump(proc, stream, verbose, record=None):
+    """Read JSON Lines from the subprocess into the stream (and the recording)."""
     for raw in proc.stdout:
         line = raw.strip()
         if not line:
             continue
+        if record is not None:
+            # as it came, unparsable lines included: the file is the one a shell
+            # redirection would have written, flushed per line so an interrupted
+            # recording loses at most the line being written
+            record.write(raw if raw.endswith('\n') else raw + '\n')
+            record.flush()
         try:
             doc = json.loads(line)
         except json.JSONDecodeError as e:
@@ -174,20 +184,30 @@ def main(argv=None):
     parser.add_argument('--bind', default='127.0.0.1', help='address to listen on (default: 127.0.0.1; use 0.0.0.0 for remote browsers)')
     parser.add_argument('--port', type=int, default=8765, help='port to listen on (default: 8765; 0 = any free port)')
     parser.add_argument('--transport-viz', metavar='PATH', help='transport_viz executable (default: next to this script, then $PATH)')
+    parser.add_argument('--record', metavar='FILE', help='also write every document to FILE (JSON Lines, overwritten) for replay in the viewer')
     parser.add_argument('--verbose', action='store_true', help='log HTTP requests and received documents')
     args, forward = parser.parse_known_args(argv)
 
     binary = find_transport_viz(args.transport_viz)
     web_dir = find_web_dir()
+    record = None
+    if args.record:
+        try:
+            record = open(args.record, 'w', encoding='utf-8')
+        except OSError as e:
+            sys.exit(f'transport_viz_web: cannot write the recording: {e}')
     cmd = [binary, '--watch', '--json', *forward]
     proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, text=True, bufsize=1)
     stream = Stream()
-    threading.Thread(target=pump, args=(proc, stream, args.verbose), daemon=True).start()
+    pumper = threading.Thread(target=pump, args=(proc, stream, args.verbose, record), daemon=True)
+    pumper.start()
 
     server = http.server.ThreadingHTTPServer((args.bind, args.port), make_handler(web_dir, stream, args.verbose))
     server.daemon_threads = True
     host, port = server.server_address[:2]
     print(f'transport_viz_web: running {" ".join(cmd)}', file=sys.stderr)
+    if record is not None:
+        print(f'transport_viz_web: recording to {args.record}', file=sys.stderr)
     print(f'transport_viz_web: listening on http://{host}:{port}/  (serving {web_dir})', flush=True)
 
     def watch_producer():
@@ -222,6 +242,9 @@ def main(argv=None):
             except subprocess.TimeoutExpired:
                 proc.kill()
         server.server_close()
+        if record is not None:
+            pumper.join(timeout=3)   # the last lines transport_viz wrote before it stopped
+            record.close()
     return rc
 
 

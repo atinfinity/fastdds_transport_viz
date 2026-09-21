@@ -57,7 +57,8 @@ The same run opened in the [web viewer](web-viewer.md) (table view):
   prediction is flagged.
 - **Several front-ends.** A table with colors, `--watch` (live terminal view that marks
   what changed), `--json` with a published schema, the `ros2 transport` command, and a
-  web viewer (graph and table, live updates through `transport_viz_web`).
+  web viewer (graph and table, live updates through `transport_viz_web`, and
+  recordings made with `transport_viz_web --record` replayed on a timeline).
 - **Focus.** `--topic` / `--node` regex filters, `--explain` for the codes in use,
   `--advise` for what to change to get past them, `ros2 transport codes` for all of them.
 - **Shared memory of the environment.** Capacity of `/dev/shm`, the Fast DDS segments,
@@ -131,7 +132,7 @@ way and highlights the result. Details in
 - [How it works](how-it-works.md) — decision rules, reason codes, hosts and addresses, where to run it, watch mode
 - [Measured transports (`--stats`)](statistics.md) — statistics topics, enabling them, the 10-instance pitfall
 - [Data-sharing (zero-copy)](data-sharing.md) — why ROS 2 topics show `SHM` by default and how to enable data-sharing
-- [Web viewer](web-viewer.md) — graph view and a topic-grouped table of `--json` output in the browser, live mode (`transport_viz_web`), JSON schema
+- [Web viewer](web-viewer.md) — graph view and a topic-grouped table of `--json` output in the browser, live mode (`transport_viz_web`), recording and replay (`--record`), JSON schema
 - [Architecture](architecture.md) — components, the flow of one run, data model, Fast DDS 2.14/3.x layer, extension points
 - [Development, verification and tests](development.md) — Docker environment, packages, verification nodes, multi-container scenarios, tests, verification results, roadmap
 

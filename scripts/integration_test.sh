@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Multi-container integration tests (run on the Docker host, not inside a container).
 #
-#   scripts/integration_test.sh [multi_container|stats_multi_container|stats_loss_multi_container|rate_stats|intra_process|hostnet_shm|hostnet_noipc_shm|hostnet_split_shm|hostnet_split_shm_visible|hostnet_split_shm_shared_port|hostnet_split_stats|hostnet_split_datasharing|hostnet_split_datasharing_udp|large_data_tcp|udpv6_multi_container|easy_mode_shm|easy_mode_tcp|all]
+#   scripts/integration_test.sh [multi_container|stats_multi_container|stats_loss_multi_container|rate_stats|intra_process|hostnet_shm|hostnet_noipc_shm|hostnet_split_shm|hostnet_split_shm_visible|hostnet_split_shm_shared_port|hostnet_split_stats|hostnet_split_datasharing|hostnet_split_datasharing_udp|large_data_tcp|udpv6_multi_container|easy_mode_shm|easy_mode_tcp|record_flip|all]
 #
 #   multi_container        talker and listener in two bridged containers (separate
 #                          network and IPC namespaces => different Fast DDS host ids).
@@ -70,6 +70,11 @@
 #                          the talker's (Fast DDS 3.2+, skipped otherwise); transport_viz runs
 #                          on the talker's host with --stats. Expect /chatter = TCPv4,
 #                          "common-tcpv4-locator", measured TCPv4, no multicast.
+#   record_flip            one container; the talker is restarted with
+#                          FASTDDS_BUILTIN_TRANSPORTS=UDPv4 and back while transport_viz_web
+#                          --record (--interval 1, --stats except on Humble) records.
+#                          Expect every line a document, /chatter SHM -> UDPv4 -> SHM and
+#                          frames with `changes` (#82).
 #
 # transport_viz always runs in a third container on the same scope as the nodes.
 # Results are written to ${TMPDIR:-/tmp}/transport_viz_<scenario>.json.
@@ -753,16 +758,73 @@ scenario_easy_mode_tcp() {
   return 1
 }
 
+# A recording of a transport change (#82): the talker restarted with UDPv4 only and back,
+# recorded the way docs/web-viewer.md says (transport_viz_web --record). Every line must be a
+# document and /chatter must go SHM -> UDPv4 -> SHM with `changes` on the frames that say so.
+# The Jazzy capture is the viewer's web/sample/recording.jsonl (web/sample/README.md).
+scenario_record_flip() {
+  local rec="$out_dir/transport_viz_record_flip.jsonl" service=talker_stats stats=--stats
+  if [ "${ROS_DISTRO:-jazzy}" = humble ]; then service=dev; stats=; fi   # no statistics module
+  echo "== talker SHM -> UDPv4 -> SHM, recorded by transport_viz_web --record ${stats}"
+  # one container: same host id and /dev/shm, so the pair is SHM unless the talker has no SHM
+  # the executables themselves, not `ros2 run`: a background job of a non-interactive shell
+  # ignores SIGINT, and `ros2 run` forwards SIGTERM only on Lyrical or newer (#195)
+  docker compose run --rm -T "$service" bash -c "
+    set -e
+    demo=\$(ros2 pkg prefix demo_nodes_cpp)/lib/demo_nodes_cpp
+    web=\$(ros2 pkg prefix fastdds_transport_viz)/lib/fastdds_transport_viz/transport_viz_web
+    \$demo/listener > /dev/null 2>&1 &
+    listener=\$!
+    \$demo/talker > /dev/null 2>&1 &
+    talker=\$!
+    sleep 3
+    \$web --port 0 --record /tmp/rec.jsonl --interval 1 --topic '^/chatter\$' $stats > /dev/null 2> /tmp/web.err &
+    recorder=\$!
+    sleep 10
+    kill \$talker; wait \$talker || true
+    FASTDDS_BUILTIN_TRANSPORTS=UDPv4 \$demo/talker > /dev/null 2>&1 &
+    talker=\$!
+    sleep 10
+    kill \$talker; wait \$talker || true
+    \$demo/talker > /dev/null 2>&1 &
+    talker=\$!
+    sleep 10
+    kill \$recorder; wait \$recorder || true
+    kill \$talker \$listener; wait || true
+    cat /tmp/web.err >&2
+    cat /tmp/rec.jsonl" > "$rec"
+  python3 - "$rec" "$stats" <<'PY'
+import json, sys
+path, stats = sys.argv[1], sys.argv[2]
+lines = [line for line in open(path) if line.strip()]
+docs = [json.loads(line) for line in lines]   # every line a document: --record wrote nothing else
+assert len(docs) >= 10, f'{len(docs)} frames'
+assert all(d['schema_version'] == 1 for d in docs)
+seen = []
+for d in docs:
+    pairs = [p for t in d['topics'] if t['topic'] == '/chatter' for p in t['pairs']]
+    if len(pairs) == 1 and (not seen or seen[-1] != pairs[0]['transport']):
+        seen.append(pairs[0]['transport'])
+print('/chatter transports:', ' -> '.join(seen))
+assert seen == ['SHM', 'UDPv4', 'SHM'], seen
+changed = [i for i, d in enumerate(docs) if any(d.get('changes', {}).get(k) for k in ('added_pairs', 'removed_pairs', 'changed_pairs'))]
+assert changed, 'no frame carries changes'
+if stats:
+    assert any(p.get('measured', {}).get('available') for d in docs for t in d['topics'] for p in t['pairs']), 'nothing measured'
+print(f'PASS: {len(docs)} frames recorded, /chatter SHM -> UDPv4 -> SHM, changes on frames {changed}')
+PY
+}
+
 build
 case "$scenario" in
-  multi_container|stats_multi_container|stats_loss_multi_container|rate_stats|intra_process|hostnet_shm|hostnet_noipc_shm|hostnet_split_shm|hostnet_split_shm_visible|hostnet_split_shm_shared_port|hostnet_split_stats|hostnet_split_datasharing|hostnet_split_datasharing_udp|large_data_tcp|udpv6_multi_container|easy_mode_shm|easy_mode_tcp)
+  multi_container|stats_multi_container|stats_loss_multi_container|rate_stats|intra_process|hostnet_shm|hostnet_noipc_shm|hostnet_split_shm|hostnet_split_shm_visible|hostnet_split_shm_shared_port|hostnet_split_stats|hostnet_split_datasharing|hostnet_split_datasharing_udp|large_data_tcp|udpv6_multi_container|easy_mode_shm|easy_mode_tcp|record_flip)
     "scenario_$scenario" ;;
   all)
-    for s in multi_container stats_multi_container stats_loss_multi_container rate_stats intra_process hostnet_shm hostnet_noipc_shm hostnet_split_shm hostnet_split_shm_visible hostnet_split_shm_shared_port hostnet_split_stats hostnet_split_datasharing hostnet_split_datasharing_udp large_data_tcp udpv6_multi_container easy_mode_shm easy_mode_tcp; do
+    for s in multi_container stats_multi_container stats_loss_multi_container rate_stats intra_process hostnet_shm hostnet_noipc_shm hostnet_split_shm hostnet_split_shm_visible hostnet_split_shm_shared_port hostnet_split_stats hostnet_split_datasharing hostnet_split_datasharing_udp large_data_tcp udpv6_multi_container easy_mode_shm easy_mode_tcp record_flip; do
       echo; echo "#### $s"
       "scenario_$s"
       cleanup
     done ;;
   *)
-    echo "usage: $0 [multi_container|stats_multi_container|stats_loss_multi_container|rate_stats|intra_process|hostnet_shm|hostnet_noipc_shm|hostnet_split_shm|hostnet_split_shm_visible|hostnet_split_shm_shared_port|hostnet_split_stats|hostnet_split_datasharing|hostnet_split_datasharing_udp|large_data_tcp|udpv6_multi_container|easy_mode_shm|easy_mode_tcp|all]" >&2; exit 2 ;;
+    echo "usage: $0 [multi_container|stats_multi_container|stats_loss_multi_container|rate_stats|intra_process|hostnet_shm|hostnet_noipc_shm|hostnet_split_shm|hostnet_split_shm_visible|hostnet_split_shm_shared_port|hostnet_split_stats|hostnet_split_datasharing|hostnet_split_datasharing_udp|large_data_tcp|udpv6_multi_container|easy_mode_shm|easy_mode_tcp|record_flip|all]" >&2; exit 2 ;;
 esac

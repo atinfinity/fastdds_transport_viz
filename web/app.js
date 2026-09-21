@@ -13,8 +13,11 @@
   // geometry) in scene.js; both unit-tested under Node
   const { TRANSPORTS, isInternalTopic, normalizeDocument, buildModel, filterRegex, bundle,
     humanBytes, measuredText, latencyText, rateText, rateTitle, lossText, groupPairsByTopic, compareCells, escapeHtml, codeListHtml, shmText, participantShmText, datasharingText, typeHashText, statsText, clientParticipants, discoveryText,
-    pairKey, keyId, diffDocuments, changeText, changesSummary, decorations, holdChanges, heldDecorations } = globalThis.TransportVizModel;
+    pairKey, keyId, diffDocuments, changeText, changesSummary, decorations, holdChanges, heldDecorations, humanSeconds } = globalThis.TransportVizModel;
   const { L, markOf, visibleScene, sceneEdges, edgeLabel, layout, edgeCurve, edgePathD, edgeMidpoint } = globalThis.TransportVizScene;
+  // recordings (#82): a JSON Lines file of documents, replayed frame by frame
+  const { lineSplitter, parseFrame, createRecording, addFrame, identsOf, frameLatency, frameLoss, hasValues,
+    transportRuns, nextChange, frameX, nearestFrame } = globalThis.TransportVizReplay;
   const COLORS = {
     UDPv4: 'var(--c-udpv4)', UDPv6: 'var(--c-udpv6)', TCPv4: 'var(--c-tcp)', TCPv6: 'var(--c-tcp)',
     SHM: 'var(--c-shm)', DATA_SHARING: 'var(--c-ds)', NONE: 'var(--c-none)',
@@ -26,7 +29,10 @@
     scene: null,   // what the last render drew; selection changes reuse it (#136)
     view: 'graph',
     filter: { topic: '', node: '', transports: new Set(TRANSPORTS), hideInternal: true },
-    selection: null,   // {kind: 'node', id} | {kind: 'edge', id} | {kind: 'pair', id} | {kind: 'ghost', id}
+    // {kind: 'node', id} | {kind: 'edge', id} | {kind: 'pair', id} | {kind: 'ghost', id}; while
+    // replaying, a pair also carries `ident` (its series, id null when not in the frame) and
+    // an edge `follow` (keep its two nodes when its transport changes)
+    selection: null,
     sort: { key: 'topic', asc: true },
     collapsed: new Set(),   // DDS topic names whose pair rows are folded under their header (#144)
     // comparison (transport_viz diff): `changes` from the document itself (a diff file or a
@@ -67,7 +73,7 @@
   const rowClass = d => (d.group ? `topic ${d.collapsed ? 'collapsed' : ''}` : `${MARK_CLASS[d.mark || ' ']} ${isSelected(d.ghost ? 'ghost' : 'pair', d.id) ? 'selected' : ''}`);
 
   function renderGraph(scene) {
-    const edges = sceneEdges(scene);
+    const edges = scene.edges || sceneEdges(scene);
     scene.edges = edges;   // the panel finds a selected edge here instead of bundling again
     const { model, matched } = scene;
     const { pos, hostBoxes } = layout(model);
@@ -319,6 +325,7 @@
     return `<div class="pair ${selected ? 'selected' : ''}">
       ${marks ? changeHtml(vp, marks) : ''}
       <div><b>${escapeHtml(vp.topic.topic)}</b> <span class="muted">${escapeHtml(vp.topic.type)}</span></div>
+      ${replaying() ? replayCharts(identOf(vp), selected) : ''}
       <div style="margin:4px 0">${badge(p)} confidence ${p.confidence}${p.measured && p.measured.available ? ` · measured ${escapeHtml(measuredText(p.measured, p.reasons))}` : ''}${latencyText(p.measured) ? ` · latency ${escapeHtml(latencyText(p.measured))}` : ''}${rateText(p.measured) ? ` · <span title="${escapeHtml(rateTitle(p.measured))}">${escapeHtml(rateText(p.measured))} Hz</span>` : ''}${lossText(p.measured) ? ` · loss ${escapeHtml(lossText(p.measured))}` : ''}</div>
       ${p.measured && p.measured.reliability ? `<div class="muted">heartbeats ${p.measured.reliability.heartbeats}, gaps ${p.measured.reliability.gaps}, acknacks ${p.measured.reliability.acknacks}, nackfrags ${p.measured.reliability.nackfrags}</div>` : ''}
       <div>${escapeHtml(p.writer_node || vp.writerNode)}@${escapeHtml(p.writer_host)} → ${escapeHtml(p.reader_node || vp.readerNode)}@${escapeHtml(p.reader_host)}</div>
@@ -347,6 +354,12 @@
       panel.html(`<h2>${escapeHtml(g.key.writer_node || 'guid:' + g.key.writer_guid)} → ${escapeHtml(g.key.reader_node || 'guid:' + g.key.reader_guid)}</h2>${ghostCard(g)}`);
     } else if (sel.kind === 'pair') {
       const vp = model.pairs.find(x => x.id === sel.id);
+      if (!vp && sel.ident && replaying()) {
+        // the selected pair is not in this frame: its series still is
+        panel.html(`<h2>Pair</h2><div class="pair selected"><div><b>${escapeHtml(sel.ident.slice(0, sel.ident.indexOf('|')))}</b></div>
+          <div class="muted">not in this frame</div>${replayCharts(sel.ident, true)}</div>`);
+        return;
+      }
       if (!vp) { select(null); return; }
       panel.html(`<h2>Pair</h2>${pairCard(vp, true, scene.marks)}`);
     } else if (sel.kind === 'node') {
@@ -430,6 +443,7 @@
     if (!state.doc) { rendered(); return; }
     const scene = currentScene();
     state.scene = scene;
+    followEdge(scene);
     if (state.view === 'graph') renderGraph(scene); else renderTable(scene);
     renderPanel(scene);
     rendered();
@@ -452,7 +466,8 @@
 
   /**
    * Show `doc`. opts.before: compare against that document here (Compare with…, ?diff=);
-   * opts.live: a frame of the live stream, whose own `changes` are held for a few frames.
+   * opts.live: a frame of the live stream, whose own `changes` are held for a few frames;
+   * opts.reselect(selection, oldModel, model): the selection in `doc` (a replayed frame).
    * Otherwise a `changes` object inside the document (a `transport_viz diff --json` file)
    * is shown as it is.
    */
@@ -478,9 +493,11 @@
       state.changes = doc.changes && Array.isArray(doc.changes.added_pairs) ? doc.changes : null;
     }
     if (!state.changes && !state.hold) state.changesOnly = false;
+    const oldModel = state.model;
     state.doc = doc;
     state.model = buildModel(doc);
     if (!keepSelection) state.selection = null;   // live updates keep the selection; render() drops it if gone
+    else if (opts.reselect && state.selection) state.selection = opts.reselect(state.selection, oldModel, state.model);
     render();
     document.title = `transport_viz viewer – ${sourceName}`;
   }
@@ -525,30 +542,329 @@
     });
   }
 
-  function loadFile(file, compare) {
-    const reader = new FileReader();
-    reader.onload = () => {
+  // ---------------------------------------------------------------- replay (#82)
+
+  // A recording is read in chunks of CHUNK bytes. Only the byte range of each frame and a
+  // few numbers per pair and frame are kept (replay.js); a frame is parsed again from the
+  // file when it is shown, so a recording far larger than one document fits in memory.
+  const CHUNK = 8 << 20;
+  const SLIDER_DEBOUNCE_MS = 100;
+  const CHART_W = 1000;   // viewBox width of the charts, stretched to the panel
+  const replay = {
+    blob: null, name: '', fromUrl: false,
+    rec: null,        // createRecording(): frames, their byte ranges and the series
+    index: 0,         // the frame the timeline points at
+    shown: -1,        // the frame on screen
+    xs: null,         // frameX(rec)
+    idents: null,     // identsOf(the shown frame): keyId of a pair -> its series
+    loading: false, bytesRead: 0, skipped: 0,
+    token: 0,         // bumped by stopReplay() and every new scan: a stale scan stops reading
+    showToken: 0,     // the same for frames being read
+    timer: null,      // slider debounce
+  };
+  const timeline = document.getElementById('timeline');
+  const slider = document.getElementById('tl-slider');
+
+  const replaying = () => !!(replay.rec && replay.rec.frames >= 2);
+  const identOf = vp => (replay.idents ? replay.idents.get(keyId(pairKey(vp.topic, vp.pair))) : undefined);
+  const isJson = (s) => { try { JSON.parse(s); return true; } catch { return false; } };
+
+  /** The document of a file: the whole text, or the last document line of a recording (Compare with…, ?diff=). */
+  function lastDocument(text) {
+    try { return JSON.parse(text); } catch (e) {
+      for (let end = text.length; end > 0;) {
+        const start = text.lastIndexOf('\n', end - 1) + 1;
+        const doc = parseFrame(text.slice(start, end));
+        if (doc) return doc;
+        end = start - 1;
+      }
+      throw e;
+    }
+  }
+
+  /** Leave replay mode (any other load does): stop reading, hide the timeline. */
+  function stopReplay() {
+    replay.token++;
+    replay.showToken++;
+    clearTimeout(replay.timer);
+    Object.assign(replay, { blob: null, rec: null, xs: null, idents: null, shown: -1, index: 0, loading: false, skipped: 0, timer: null });
+    timeline.hidden = true;
+  }
+
+  /**
+   * Open a file or a fetched ?src: a recording (JSON Lines) when its first line is JSON of its
+   * own, else one document; a file that is neither but has document lines is a recording too.
+   */
+  async function openBlob(blob, name, { fromUrl = false, frame = 1 } = {}) {
+    stopReplay();
+    const token = replay.token;
+    const fail = msg => (fromUrl ? loadFailed(name, new Error(msg)) : alert(msg));
+    const head = await blob.slice(0, Math.min(blob.size, CHUNK)).text();
+    if (token !== replay.token) return;
+    let from = 0;
+    while (from < head.length && /\s/.test(head[from])) from++;
+    const nl = head.indexOf('\n', from);
+    let parseError = null;
+    if (nl < 0 || !isJson(head.slice(from, nl))) {
+      const text = blob.size <= CHUNK ? head : await blob.text();
+      if (token !== replay.token) return;
       let doc;
-      try { doc = JSON.parse(reader.result); } catch (e) { alert(`Invalid JSON: ${e.message}`); return; }
-      if (compare) compareWith(doc, file.name); else setDocument(doc, file.name);
+      try { doc = JSON.parse(text); } catch (e) { parseError = e; }
+      if (!parseError) { setDocument(doc, name); return; }   // it reports a JSON that is not a document
+    }
+    scanRecording(blob, name, token, { fromUrl, frame, fail, parseError });
+  }
+
+  /**
+   * Read a recording once: every document line becomes a frame (other lines are counted as
+   * skipped), frame `frame` (1-based) is shown as soon as it is read, the timeline grows
+   * chunk by chunk. `opts.fail` reports a file without any document.
+   */
+  async function scanRecording(blob, name, token, opts) {
+    const rec = createRecording(state.key);
+    Object.assign(replay, { blob, name, fromUrl: opts.fromUrl, rec, xs: frameX(rec), loading: true, bytesRead: 0, skipped: 0 });
+    const want = Math.max(0, opts.frame - 1);
+    const split = lineSplitter();
+    const decoder = new TextDecoder();
+    let first = null;
+    const take = (lines) => {
+      for (const l of lines) {
+        const text = decoder.decode(l.bytes);
+        const doc = parseFrame(text);
+        if (!doc) { if (text.trim()) replay.skipped++; continue; }
+        addFrame(rec, doc, l.start, l.end);
+        if (!first) first = doc;
+        if (rec.frames - 1 === want) { replay.xs = frameX(rec); display(doc, want); }
+      }
     };
-    reader.readAsText(file);
+    for (let at = 0; at < blob.size; at += CHUNK) {
+      const bytes = new Uint8Array(await blob.slice(at, at + CHUNK).arrayBuffer());
+      if (token !== replay.token) return;
+      take(split.push(bytes, at));
+      replay.bytesRead = Math.min(blob.size, at + CHUNK);
+      replay.xs = frameX(rec);
+      renderTimeline();
+    }
+    take(split.finish());
+    replay.loading = false;
+    if (rec.frames < 2) {
+      // no recording after all: one document is shown as any other, none is an error
+      stopReplay();
+      if (first) setDocument(first, name);
+      else opts.fail(opts.parseError ? `Invalid JSON: ${opts.parseError.message}` : `Not a transport_viz --json document (schema_version 1): ${name}`);
+      return;
+    }
+    replay.xs = frameX(rec);
+    if (replay.shown < 0) showFrame(rec.frames - 1);   // ?frame= past the end: the last one
+    renderTimeline();
+    if (state.scene) renderPanel(state.scene);   // the charts now cover every frame
+  }
+
+  /** Show frame i: its bytes are read and parsed again, the newest request wins. */
+  function showFrame(i) {
+    const rec = replay.rec;
+    if (!rec || i < 0 || i >= rec.frames) return;
+    clearTimeout(replay.timer);
+    replay.timer = null;
+    replay.index = i;
+    renderTimeline();
+    if (i === replay.shown) return;
+    const token = ++replay.showToken;
+    const blob = replay.blob;
+    blob.slice(rec.starts[i], rec.ends[i]).text().then((text) => {
+      if (token !== replay.showToken) return;
+      const doc = parseFrame(text);
+      if (doc) display(doc, i);
+    });
+  }
+
+  /** Put frame i on screen, the selection following its pair or edge (Match by key). */
+  function display(doc, i) {
+    const oldIdents = replay.idents;
+    const newIdents = identsOf(doc, replay.rec.key);
+    replay.index = i;
+    replay.shown = i;
+    replay.idents = newIdents;
+    const keep = !!oldIdents;
+    setDocument(doc, `${replay.name} #${i + 1}`, keep,
+      keep ? { reselect: (sel, oldModel, model) => followSelection(sel, oldModel, model, oldIdents, newIdents) } : {});
+    renderTimeline();
+    if (replay.fromUrl && replaying()) {
+      const q = new URLSearchParams(location.search);
+      q.set('frame', String(i + 1));
+      history.replaceState(null, '', `${location.pathname}?${q}`);
+    }
+  }
+
+  /** The selection in the next frame: a pair by its series, an edge by its nodes (followEdge). */
+  function followSelection(sel, oldModel, model, oldIdents, newIdents) {
+    if (sel.kind === 'pair') {
+      const vp = oldModel && sel.id !== null ? oldModel.pairs.find(x => x.id === sel.id) : null;
+      const ident = vp ? oldIdents.get(keyId(pairKey(vp.topic, vp.pair))) : sel.ident;
+      if (!ident) return null;
+      const next = model.pairs.find(x => newIdents.get(keyId(pairKey(x.topic, x.pair))) === ident);
+      return { kind: 'pair', id: next ? next.id : null, ident };
+    }
+    if (sel.kind === 'edge') return { kind: 'edge', id: sel.id, follow: true };
+    return sel.kind === 'ghost' ? null : sel;
+  }
+
+  // an edge id is `writer→reader|transport|confidence`: the part before the last two bars
+  const edgeNodes = id => id.slice(0, id.lastIndexOf('|', id.lastIndexOf('|') - 1));
+
+  /** A followed edge whose transport or confidence changed selects the edge between the same nodes. */
+  function followEdge(scene) {
+    const sel = state.selection;
+    if (!sel || sel.kind !== 'edge' || !sel.follow) return;
+    scene.edges = sceneEdges(scene);
+    if (scene.edges.some(e => e.id === sel.id)) return;
+    const e = scene.edges.find(x => !x.ghost && !x.client && edgeNodes(x.id) === edgeNodes(sel.id));
+    if (e) sel.id = e.id;
+  }
+
+  const frameLabel = i => `${replay.rec.observedAt[i]} · ${i + 1} / ${replay.rec.frames}`;
+  const mb = b => (b / (1 << 20)).toFixed(1);
+
+  function renderTimeline() {
+    const rec = replay.rec;
+    timeline.hidden = !replaying();
+    if (timeline.hidden) return;
+    const n = rec.frames;
+    const i = replay.index;
+    slider.max = String(n - 1);
+    slider.value = String(i);
+    d3.select('#tl-label').text(frameLabel(i));
+    d3.select('#tl-prev').property('disabled', i <= 0);
+    d3.select('#tl-next').property('disabled', i >= n - 1);
+    d3.select('#tl-prev-change').property('disabled', nextChange(rec, i, -1) < 0);
+    d3.select('#tl-next-change').property('disabled', nextChange(rec, i, 1) < 0);
+    d3.select('#tl-key').property('value', rec.key);
+    const status = [];
+    if (replay.loading) status.push(`loading ${mb(replay.bytesRead)} / ${mb(replay.blob.size)} MB`);
+    if (replay.skipped) status.push(`${replay.skipped} line${replay.skipped === 1 ? '' : 's'} skipped (not a document)`);
+    d3.select('#tl-status').text(status.join(' · '));
+    // a tick above the slider for every frame whose `changes` is not empty
+    const ticks = [];
+    for (let k = 0; k < n; ++k) if (rec.changed[k]) ticks.push(k);
+    d3.select('#tl-ticks').selectAll('line').data(ticks).join('line')
+      .attr('x1', k => `${(k / (n - 1)) * 100}%`).attr('x2', k => `${(k / (n - 1)) * 100}%`).attr('y1', 0).attr('y2', 6);
+  }
+
+  /**
+   * The charts of one pair's series over the recording: the transport strip, and with
+   * `full` delivered/s, the latency of each frame's interval and the packets lost in it
+   * (each only when the recording has values, i.e. was made with --stats). The cursor is
+   * the shown frame; a click shows the frame nearest to it.
+   */
+  function replayCharts(ident, full) {
+    const rec = replay.rec;
+    const s = ident && rec.series.get(ident);
+    if (!s) return '';
+    const n = rec.frames;
+    const xs = replay.xs;
+    const i = replay.index;
+    const X = k => xs[k] * CHART_W;
+    const border = k => (k <= 0 ? 0 : k >= n ? CHART_W : (X(k - 1) + X(k)) / 2);   // left edge of frame k's span
+    const chart = (h, body) => `<svg viewBox="0 0 ${CHART_W} ${h}" preserveAspectRatio="none" style="height:${h}px">${body}` +
+      `<line class="cursor" x1="${X(i)}" x2="${X(i)}" y1="0" y2="${h}" vector-effect="non-scaling-stroke"/></svg>`;
+    const strip = transportRuns(s, n).filter(r => r.transport).map(r =>
+      `<rect x="${border(r.from)}" width="${border(r.to) - border(r.from)}" y="0" height="12" style="fill:${COLORS[r.transport]}">` +
+      `<title>${r.transport}: frames ${r.from + 1}–${r.to}</title></rect>`).join('');
+    const line = (label, a, fmt) => {
+      if (!hasValues(a, n)) return '';
+      let max = 0;
+      for (let k = 0; k < n; ++k) if (a[k] > max) max = a[k];
+      const h = 36;
+      const y = v => h - 2 - (max > 0 ? v / max : 0) * (h - 4);
+      let d = '';
+      let pen = false;
+      for (let k = 0; k < n; ++k) {
+        if (Number.isNaN(a[k])) { pen = false; continue; }
+        const lone = !pen && (k + 1 >= n || Number.isNaN(a[k + 1]));   // a dot for a value between gaps
+        d += `${pen ? 'L' : 'M'}${X(k).toFixed(1)},${y(a[k]).toFixed(1)}${lone ? 'h1' : ''}`;
+        pen = true;
+      }
+      return `<div class="chart-label">${label} <b>${Number.isNaN(a[i]) ? '—' : escapeHtml(fmt(a[i]))}</b> <span class="muted">max ${escapeHtml(fmt(max))}</span></div>` +
+        chart(h, `<path d="${d}" vector-effect="non-scaling-stroke"/>`);
+    };
+    const now = s.transport[i] ? transportRuns(s, i + 1).pop().transport : 'not in this frame';
+    return `<div class="replay-charts"><div class="chart-label">transport <b>${escapeHtml(now)}</b></div>${chart(12, strip)}` +
+      (full ? line('delivered/s', s.hz, v => v.toFixed(1)) + line('latency', frameLatency(s, n), humanSeconds) +
+        line('lost packets', frameLoss(s, n), v => String(v)) : '') + '</div>';
+  }
+
+  const step = d => showFrame(Math.max(0, Math.min(replay.rec.frames - 1, replay.index + d)));
+  const jumpChange = (dir) => { const k = nextChange(replay.rec, replay.index, dir); if (k >= 0) showFrame(k); };
+  d3.select('#tl-prev').on('click', () => step(-1));
+  d3.select('#tl-next').on('click', () => step(1));
+  d3.select('#tl-prev-change').on('click', () => jumpChange(-1));
+  d3.select('#tl-next-change').on('click', () => jumpChange(1));
+  // dragging shows the frame once per pause of SLIDER_DEBOUNCE_MS, releasing it at once
+  slider.addEventListener('input', () => {
+    const i = Number(slider.value);
+    d3.select('#tl-label').text(frameLabel(i));
+    clearTimeout(replay.timer);
+    replay.timer = setTimeout(() => showFrame(i), SLIDER_DEBOUNCE_MS);
+  });
+  slider.addEventListener('change', () => showFrame(Number(slider.value)));
+  document.addEventListener('keydown', (ev) => {
+    if (!replaying() || ev.altKey || ev.ctrlKey || ev.metaKey || (ev.key !== 'ArrowLeft' && ev.key !== 'ArrowRight')) return;
+    const t = ev.target;
+    if (t && /^(INPUT|SELECT|TEXTAREA)$/.test(t.tagName)) return;   // the slider moves itself
+    ev.preventDefault();
+    step(ev.key === 'ArrowLeft' ? -1 : 1);
+  });
+  document.getElementById('panel').addEventListener('click', (ev) => {
+    const chart = ev.target.closest && ev.target.closest('.replay-charts svg');
+    if (!chart || !replaying()) return;
+    const r = chart.getBoundingClientRect();
+    showFrame(nearestFrame(replay.xs, (ev.clientX - r.left) / r.width));
+  });
+  // Match by: the series are keyed like transport_viz diff --key, so a change reads the file again
+  d3.select('#tl-key').on('change', function () {
+    if (!replaying()) return;
+    state.key = this.value;
+    const { blob, name, fromUrl, index } = replay;
+    replay.token++;
+    replay.showToken++;
+    replay.shown = -1;
+    replay.idents = state.doc ? identsOf(state.doc, state.key) : null;
+    if (state.selection && state.selection.kind === 'pair' && state.selection.id === null) state.selection = null;
+    scanRecording(blob, name, replay.token, { fromUrl, frame: index + 1, fail: () => {} });
+  });
+
+
+  /** Open a file, or compare the shown document (a replayed frame too) with its (last) document. */
+  function loadFile(file, compare) {
+    if (!compare) { openBlob(file, file.name); return; }
+    file.text().then((text) => {
+      let doc;
+      try { doc = lastDocument(text); } catch (e) { alert(`Invalid JSON: ${e.message}`); return; }
+      stopReplay();
+      compareWith(doc, file.name);
+    });
   }
 
   function fetchDocument(url) {
-    return fetch(url).then(r => { if (!r.ok) throw new Error(`${r.status} ${r.statusText}`); return r.json(); });
+    return fetch(url).then(r => { if (!r.ok) throw new Error(`${r.status} ${r.statusText}`); return r.text(); }).then(lastDocument);
   }
 
   function loadFailed(url, e) {
     d3.select('#meta').text(`failed to load ${url}: ${e.message} (fetch does not work from file://; use "Open JSON…")`);
   }
 
-  function loadUrl(url) {
-    fetchDocument(url).then(doc => setDocument(doc, url)).catch(e => loadFailed(url, e));
+  /** ?src=: a document or a recording, whose frame `frame` (1-based, ?frame=) is shown. */
+  function loadUrl(url, frame = 1) {
+    stopReplay();
+    const token = replay.token;
+    fetch(url).then(r => { if (!r.ok) throw new Error(`${r.status} ${r.statusText}`); return r.blob(); })
+      .then(blob => { if (token === replay.token) return openBlob(blob, url, { fromUrl: true, frame }); })
+      .catch(e => loadFailed(url, e));
   }
 
   /** ?src=before&diff=after: both fetched, then compared like `transport_viz diff before after`. */
   function loadDiffUrls(beforeUrl, afterUrl) {
+    stopReplay();
     Promise.all([fetchDocument(beforeUrl), fetchDocument(afterUrl)])
       .then(([b, a]) => {
         if (!isDocument(b)) throw new Error(`${beforeUrl} is not a transport_viz --json document`);
@@ -591,6 +907,7 @@
   document.addEventListener('drop', (e) => { e.preventDefault(); dragDepth = 0; overlay.hidden = true; if (e.dataTransfer.files[0]) loadFile(e.dataTransfer.files[0]); });
 
   function loadSample() {
+    stopReplay();
     // sample/sample.js embeds sample.json so this also works from file://
     if (window.TRANSPORT_VIZ_SAMPLE) setDocument(window.TRANSPORT_VIZ_SAMPLE, 'sample/sample.json');
     else loadUrl('sample/sample.json');
@@ -601,6 +918,6 @@
   if (params.get('key') === 'guid') state.key = 'guid';
   if (params.get('live')) connectLive();
   else if (params.get('src') && params.get('diff')) loadDiffUrls(params.get('src'), params.get('diff'));
-  else if (params.get('src')) loadUrl(params.get('src'));
+  else if (params.get('src')) loadUrl(params.get('src'), Number(params.get('frame')) || 1);
   else loadSample();
 })();

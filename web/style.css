@@ -30,7 +30,11 @@ header .live.ended .dot, header .live.reconnecting .dot { background: var(--warn
 .legend .sw.dashed { border-top-style: dashed; }
 .legend .sw.warn { border-top-color: var(--warn); }
 .legend span.item { margin-right: 10px; white-space: nowrap; }
-main { display: grid; grid-template-columns: 1fr 380px; height: calc(100% - 84px); }
+body { display: flex; flex-direction: column; }
+header, .toolbar, .timeline { flex: none; }
+main { display: grid; grid-template-columns: 1fr 380px; flex: 1 1 auto; min-height: 0; }
+.muted { color: var(--muted); }
+.btn:disabled { opacity: .45; cursor: default; }
 .view { overflow: auto; position: relative; }
 #graph { width: 100%; height: 100%; display: block; background: var(--bg); }
 #panel { border-left: 1px solid var(--line); background: var(--panel); overflow: auto; padding: 12px; }
@@ -108,3 +112,17 @@ main { display: grid; grid-template-columns: 1fr 380px; height: calc(100% - 84px
 .legend .sw.removed { border-top-color: var(--muted); border-top-style: dotted; }
 #drop-overlay[hidden] { display: none; }
 #drop-overlay { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(9,105,218,.15); border: 4px dashed var(--accent); font-size: 22px; color: var(--accent); z-index: 10; pointer-events: none; }
+/* replay of a recording (#82): the timeline under the toolbar, the charts in a pair card */
+.timeline { display: flex; align-items: center; gap: 8px; padding: 6px 12px; background: var(--panel); border-bottom: 1px solid var(--line); }
+.timeline .track { position: relative; flex: 1; min-width: 160px; padding-top: 6px; }
+.timeline input[type=range] { display: block; width: 100%; margin: 0; }
+/* the ticks line up with the thumb's centre, which stays half a thumb inside the track */
+#tl-ticks { position: absolute; top: 0; left: 8px; width: calc(100% - 16px); height: 6px; overflow: visible; pointer-events: none; }
+#tl-ticks line { stroke: var(--c-ds); stroke-width: 2; }
+#tl-label { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.replay-charts { margin: 6px 0; }
+.replay-charts .chart-label { margin-top: 4px; font-size: 11px; color: var(--muted); }
+.replay-charts .chart-label b { color: var(--fg); font-weight: 600; }
+.replay-charts svg { display: block; width: 100%; background: #f6f8fa; border-radius: 3px; cursor: pointer; }
+.replay-charts path { fill: none; stroke: var(--accent); stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.replay-charts line.cursor { stroke: var(--fg); stroke-width: 1.5; }

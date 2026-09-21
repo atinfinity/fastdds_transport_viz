@@ -4,6 +4,21 @@ Changelog for package fastdds_transport_viz
 
 Forthcoming
 -----------
+* The web viewer replays recordings (#82). ``transport_viz_web --record FILE`` writes every
+  document of the live stream to ``FILE`` as it arrives - the same JSON Lines that
+  ``transport_viz --watch --json > FILE`` prints - and the viewer opens such a file (Open,
+  drag & drop, ``?src=``) with a timeline: a slider, previous / next frame (also the arrow
+  keys), previous / next frame with changes, a tick per such frame, ``&frame=N`` in the
+  address, and the ``diff`` key that tells how a pair is followed across frames. Each frame
+  is marked with its own ``changes``; the selection follows its pair or its nodes, and the
+  card of a selected pair charts its transport, ``delivered/s``, per-interval latency and
+  lost packets over the whole recording, with a click to jump. The file is read in chunks
+  and never held whole, so a recording of hundreds of megabytes opens in a couple of
+  seconds. A file with one document is still a document, **Compare with…** leaves the
+  replay, and a recording stands for its last document wherever one document is expected.
+  Documents are unchanged (``schema_version`` 1). ``scripts/integration_test.sh
+  record_flip`` records a transport flip on every image; ``web/sample/recording.jsonl`` is
+  its Jazzy capture.
 * Type matching now mirrors Fast DDS 3.x (#213). Where both endpoints announce an XTypes
   ``TypeInformation`` - every ROS 2 endpoint on Lyrical and later - Fast DDS matches them
   when the complete *or* the minimal type identifiers agree, and ignores the type names.
