@@ -237,6 +237,7 @@ Endpoint make_endpoint(const ProxyData & data, bool is_writer)
   const auto & user_data = disc_user_data(data);
   e.type_hash = parse_type_hash(std::string(user_data.begin(), user_data.end()));
   e.type_information_hash = disc_type_information_hash(data);
+  e.type_information_minimal_hash = disc_type_information_minimal_hash(data);
   fill_locators(disc_locators(data), e);
   e.qos.reliability = reliability_to_string(disc_reliability(data));
   e.qos.durability = durability_to_string(disc_durability(data));

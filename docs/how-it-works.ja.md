@@ -14,27 +14,38 @@ writer → reader の各ペアで transport を選ぶときと同じルールを
 
 ## 判定ルール
 
-0. **そもそも同じ型を広告しているか?** Fast DDS は writer と reader をトピックの型名で
-   マッチさせるので、型名が違うエンドポイント同士は互いに見えません。ペアは `NONE` になり、
-   理由 `type-name-mismatch` が付きます。問題は 2 つの「あいだ」にあるので、エンドポイントも
-   ペアも表示されます。型名は同じで **ROS 2 の type hash** (REP-2011) が違う場合は、メッセージ
-   定義そのものが違います。このときペアは以下のルールどおりの transport を保ったまま、警告
-   `type-hash-mismatch` が付きます。その先の挙動は Fast DDS のバージョン次第で、2.x はペアを
-   マッチさせてその transport でサンプルを配送し、rmw が subscription のコールバック手前で
-   捨てます。3.x はそもそもマッチさせません。いずれにせよ subscription には何も届きません。
-   少なくとも片側が ROS 2 の type hash を広告しない場合 (ROS 2 でない Fast DDS ピア、または
-   ROS 2 Humble) は、代わりにエンドポイントが広告する XTypes の `TypeInformation` で同じことを
-   判定します。EK_COMPLETE の equivalence hash が食い違えば、同じ型名で別の型を指しているので、
-   ペアに警告 `type-information-mismatch` が付きます
-   ([#206](https://github.com/atinfinity/fastdds_transport_viz/issues/206))。Fast DDS 2.x は
-   `rmw_fastrtps` 上で `TypeInformation` を広告しないので
-   ([#193](https://github.com/atinfinity/fastdds_transport_viz/issues/193))、これが効くのは
-   3.x のピアだけです。`TypeInformation` をまったく広告しないエンドポイント - Fast DDS 2.x の
-   すべてのエンドポイント、TypeObject を登録しない 3.x アプリケーション、そして Fast DDS 3.x が
-   `TypeInformation` を無視する他ベンダーのピア - は型名だけでマッチし、ツールもその定義を
-   検証できません。定義が違うと、reader の `take()` は payload 次第でサンプルを捨てるか、欠けた
-   メンバーをデフォルト値で埋めます。ログも lost/rejected のカウントも残りません。statistics は
-   デシリアライズより前に記録されるので、`--stats` でもそのペアは配送済みに見えます
+0. **Fast DDS は 2 つを同じ型とみなすか?** 判定の仕方は 2 通りあります
+   ([#213](https://github.com/atinfinity/fastdds_transport_viz/issues/213))。
+   - **両方の**エンドポイントが XTypes の `TypeInformation` を広告する場合 - Lyrical 以降の
+     すべての ROS 2 エンドポイントと、TypeObject を持つ Fast DDS 3.x のピア - Fast DDS 3.x は
+     それだけを比べます。complete の型識別子が一致するか、minimal の型識別子が一致すれば同じ型
+     です。minimal の識別子は型名とアノテーションを含みませんが、メンバーの名前・型・順序と
+     extensibility は含みます。そのため型名 (自身の名前、または入れ子の型の名前) だけが違う
+     定義同士はマッチし、ペアには理由 `type-names-differ-same-type` が付きます。
+     `fastdds.type_propagation=minimal_bandwidth` で作ったピアは minimal の識別子しか広告
+     しません。どちらの識別子も一致しなければペアは `NONE` になり、理由
+     `type-information-mismatch` (型名も違う場合は `type-name-mismatch`) が付きます。
+   - それ以外では Fast DDS は **型名** だけでマッチさせるので、型名が違うエンドポイント同士は
+     互いに見えません。ペアは `NONE` になり、理由 `type-name-mismatch` が付きます。
+
+   問題は 2 つの「あいだ」にあるので、エンドポイントもペアも表示されます。加えて、型名が同じで
+   **ROS 2 の type hash** (REP-2011) が違う場合はメッセージ定義そのものが違うので、ペアに警告
+   `type-hash-mismatch` が付き、ROS 2 の言葉で直し方を示します。Fast DDS 3.x ではこのペアは
+   上の `TypeInformation` のルールでも `NONE` になります (計測したすべてのケースで 2 つの hash は
+   そろって違っていました)。Fast DDS 2.x は `rmw_fastrtps` 上で `TypeInformation` を広告しない
+   ので ([#193](https://github.com/atinfinity/fastdds_transport_viz/issues/193))、そこではペアは
+   以下のルールどおりの transport を保ちます。2.x はペアをマッチさせてその transport でサンプルを
+   配送し、rmw が subscription のコールバック手前で捨てます。いずれにせよ subscription には
+   何も届きません
+   ([#85](https://github.com/atinfinity/fastdds_transport_viz/issues/85)、
+   [#206](https://github.com/atinfinity/fastdds_transport_viz/issues/206))。
+
+   `TypeInformation` をまったく広告しないエンドポイント - Fast DDS 2.x のすべてのエンドポイント、
+   TypeObject を登録しないか `fastdds.type_propagation=disabled` で動く 3.x アプリケーション、
+   そして Fast DDS 3.x が `TypeInformation` を無視する他ベンダーのピア - は型名だけでマッチし、
+   ツールもその定義を検証できません。定義が違うと、reader の `take()` は payload 次第でサンプルを
+   捨てるか、欠けたメンバーをデフォルト値で埋めます。ログも lost/rejected のカウントも残りません。
+   statistics はデシリアライズより前に記録されるので、`--stats` でもそのペアは配送済みに見えます
    ([#210](https://github.com/atinfinity/fastdds_transport_viz/issues/210))。
 1. **そもそも QoS が合うか?** Fast DDS は request/offer のポリシーが合う writer と reader しか
    マッチさせません: reliability (BEST_EFFORT の writer は RELIABLE の reader に提供できない)、

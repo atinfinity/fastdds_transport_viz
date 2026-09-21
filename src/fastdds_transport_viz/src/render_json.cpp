@@ -71,6 +71,7 @@ json endpoint_json(const Snapshot & snap, const Endpoint & e, const RenderOption
     {"ros_type", e.ros_type},
     {"type_hash", e.type_hash},
     {"type_information_hash", e.type_information_hash},
+    {"type_information_minimal_hash", e.type_information_minimal_hash},
     {"unicast_locators", locators_json(e.unicast)},
     {"multicast_locators", locators_json(e.multicast)},
     {"datasharing_history_bytes", e.datasharing_history_available ?

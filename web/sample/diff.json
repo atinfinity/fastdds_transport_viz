@@ -257,6 +257,7 @@
           "ros_type": "std_msgs/msg/String",
           "type_hash": "",
           "type_information_hash": "",
+          "type_information_minimal_hash": "",
           "unicast_locators": [
             {
               "address": "127.0.0.1",
@@ -293,6 +294,7 @@
           "ros_type": "std_msgs/msg/String",
           "type_hash": "",
           "type_information_hash": "",
+          "type_information_minimal_hash": "",
           "unicast_locators": [
             {
               "address": "",
@@ -341,6 +343,7 @@
           "ros_type": "std_msgs/msg/String",
           "type_hash": "",
           "type_information_hash": "",
+          "type_information_minimal_hash": "",
           "unicast_locators": [
             {
               "address": "",
@@ -475,6 +478,7 @@
           "ros_type": "geometry_msgs/msg/Twist",
           "type_hash": "",
           "type_information_hash": "",
+          "type_information_minimal_hash": "",
           "unicast_locators": [
             {
               "address": "",
@@ -523,6 +527,7 @@
           "ros_type": "geometry_msgs/msg/Twist",
           "type_hash": "",
           "type_information_hash": "",
+          "type_information_minimal_hash": "",
           "unicast_locators": [
             {
               "address": "",
@@ -564,6 +569,7 @@
           "ros_type": "geometry_msgs/msg/Twist",
           "type_hash": "",
           "type_information_hash": "",
+          "type_information_minimal_hash": "",
           "unicast_locators": [
             {
               "address": "",
@@ -658,6 +664,7 @@
           "ros_type": "std_msgs/msg/String",
           "type_hash": "",
           "type_information_hash": "",
+          "type_information_minimal_hash": "",
           "unicast_locators": [
             {
               "address": "",
@@ -706,6 +713,7 @@
           "ros_type": "std_msgs/msg/String",
           "type_hash": "",
           "type_information_hash": "",
+          "type_information_minimal_hash": "",
           "unicast_locators": [
             {
               "address": "",
@@ -800,6 +808,7 @@
           "ros_type": "",
           "type_hash": "",
           "type_information_hash": "",
+          "type_information_minimal_hash": "",
           "unicast_locators": [
             {
               "address": "",
@@ -848,6 +857,7 @@
           "ros_type": "",
           "type_hash": "",
           "type_information_hash": "",
+          "type_information_minimal_hash": "",
           "unicast_locators": [
             {
               "address": "",

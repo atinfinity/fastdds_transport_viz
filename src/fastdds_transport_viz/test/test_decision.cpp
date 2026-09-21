@@ -644,52 +644,121 @@ TEST(Decision, TypeHashIsComparedOnlyWhenBothSidesAnnounceOne)
   EXPECT_TRUE(has(decide(w, r).warnings, "type-hash-mismatch"));
 }
 
-/// An XTypes EK_COMPLETE equivalence hash of `digit` repeated (14 bytes, lowercase hex).
+/// An XTypes equivalence hash of `digit` repeated (14 bytes, lowercase hex).
 std::string type_information_hash_of(char digit)
 {
   return std::string(28, digit);
 }
 
-TEST(Decision, TypeInformationMismatchWarnsWhenOneSideAnnouncesNoRosHash)
+/// What a Fast DDS 3.x endpoint with a TypeObject announces: both identifiers.
+void announce(Endpoint & e, char complete, char minimal)
+{
+  e.type_information_hash = type_information_hash_of(complete);
+  e.type_information_minimal_hash = type_information_hash_of(minimal);
+}
+
+TEST(Decision, DifferingTypeInformationIsANonePairWhenOneSideAnnouncesNoRosHash)
 {
   Endpoint w = make(true, HOST_A, {shm(7415)});
   Endpoint r = make(false, HOST_A, {shm(7413)});
   w.type_hash = type_hash_of('a');            // the ROS 2 side; the peer is not ROS
-  w.type_information_hash = type_information_hash_of('1');
-  r.type_information_hash = type_information_hash_of('2');
+  announce(w, '1', '3');
+  announce(r, '2', '4');
   const Verdict v = decide(w, r);
-  EXPECT_EQ(v.transport, Transport::SHM);     // as with the REP-2011 hash: the wire carries it
+  // Fast DDS 3.x matches on the TypeInformation both announce, and never matches these (#213)
+  EXPECT_EQ(v.transport, Transport::None);
   EXPECT_EQ(v.confidence, Confidence::Certain);
-  EXPECT_EQ(v.warnings, (std::vector<std::string>{"type-information-mismatch"}));
+  EXPECT_EQ(v.reasons, (std::vector<std::string>{"type-information-mismatch"}));
+  EXPECT_TRUE(v.warnings.empty());
+}
+
+TEST(Decision, TypeInformationMatchesOnTheCompleteOrTheMinimalIdentifier)
+{
+  Endpoint w = make(true, HOST_A, {shm(7415)});
+  Endpoint r = make(false, HOST_A, {shm(7413)});
+  announce(w, '1', '3');
+  announce(r, '1', '3');
+  EXPECT_EQ(decide(w, r).transport, Transport::SHM);      // the same type
+  announce(r, '2', '3');
+  // only the type names or annotations differ: Fast DDS 3.x matches on the minimal one
+  EXPECT_EQ(decide(w, r).transport, Transport::SHM);
+  EXPECT_TRUE(decide(w, r).warnings.empty());
+  announce(r, '1', '4');
+  EXPECT_EQ(decide(w, r).transport, Transport::SHM);      // the complete one is enough
+  announce(r, '2', '4');
+  EXPECT_EQ(decide(w, r).transport, Transport::None);
+}
+
+TEST(Decision, AMinimalBandwidthPeerIsComparedOnTheMinimalIdentifier)
+{
+  Endpoint w = make(true, HOST_A, {shm(7415)});
+  Endpoint r = make(false, HOST_A, {shm(7413)});
+  announce(w, '1', '3');
+  // fastdds.type_propagation=minimal_bandwidth: the complete identifier is TK_NONE
+  r.type_information_minimal_hash = type_information_hash_of('3');
+  EXPECT_EQ(decide(w, r).transport, Transport::SHM);
+  r.type_information_minimal_hash = type_information_hash_of('4');
+  EXPECT_EQ(decide(w, r).reasons, (std::vector<std::string>{"type-information-mismatch"}));
+  // two minimal_bandwidth peers
+  w.type_information_hash.clear();
+  EXPECT_EQ(decide(w, r).transport, Transport::None);
+  w.type_information_minimal_hash = type_information_hash_of('4');
+  EXPECT_EQ(decide(w, r).transport, Transport::SHM);
 }
 
 TEST(Decision, TypeInformationIsComparedOnlyWhenBothSidesAnnounceOne)
 {
   Endpoint w = make(true, HOST_A, {shm(7415)});
   Endpoint r = make(false, HOST_A, {shm(7413)});
-  EXPECT_TRUE(decide(w, r).warnings.empty());   // neither announces one (Fast DDS 2.x)
-  w.type_information_hash = type_information_hash_of('1');
-  EXPECT_TRUE(decide(w, r).warnings.empty());   // only the writer does: a 3.x/2.x pair
-  r.type_information_hash = type_information_hash_of('1');
-  EXPECT_TRUE(decide(w, r).warnings.empty());   // the same type
-  r.type_information_hash = type_information_hash_of('2');
-  EXPECT_TRUE(has(decide(w, r).warnings, "type-information-mismatch"));
+  EXPECT_EQ(decide(w, r).transport, Transport::SHM);   // neither announces one (Fast DDS 2.x)
+  announce(w, '1', '3');
+  // only the writer does - a peer without a TypeObject, or of Fast DDS 2.x (#210): the type
+  // name alone decides
+  EXPECT_EQ(decide(w, r).transport, Transport::SHM);
+  EXPECT_TRUE(decide(w, r).warnings.empty());
+  r.dds_type = "other::msg::dds_::String_";
+  EXPECT_EQ(decide(w, r).reasons, (std::vector<std::string>{"type-name-mismatch"}));
 }
 
-TEST(Decision, TypeHashOutranksTypeInformationWhereBothSidesAreRos)
+TEST(Decision, TheSameTypeUnderTwoNamesIsMatchedWhereBothAnnounceTypeInformation)
+{
+  Endpoint w = make(true, HOST_A, {shm(7415)});
+  Endpoint r = make(false, HOST_A, {shm(7413)});
+  r.dds_type = "other::msg::dds_::String_";
+  announce(w, '1', '3');
+  announce(r, '2', '3');              // the name is in the complete identifier only
+  const Verdict v = decide(w, r);
+  EXPECT_EQ(v.transport, Transport::SHM);
+  EXPECT_TRUE(has(v.reasons, "type-names-differ-same-type"));
+  EXPECT_TRUE(v.warnings.empty());
+  // different names and different types: the name says it in the user's terms (#85)
+  announce(r, '2', '4');
+  EXPECT_EQ(decide(w, r).reasons, (std::vector<std::string>{"type-name-mismatch"}));
+}
+
+TEST(Decision, TwoRosVersionsOfOneMessageAreANonePairOnFastDds3)
 {
   Endpoint w = make(true, HOST_A, {shm(7415)});
   Endpoint r = make(false, HOST_A, {shm(7413)});
   w.type_hash = type_hash_of('a');
   r.type_hash = type_hash_of('b');
-  w.type_information_hash = type_information_hash_of('1');
-  r.type_information_hash = type_information_hash_of('2');
-  // Both mismatches are real, but the REP-2011 one says it in the user's terms.
-  EXPECT_EQ(decide(w, r).warnings, (std::vector<std::string>{"type-hash-mismatch"}));
-  // Two ROS endpoints of one type: the same REP-2011 hash keeps the pair quiet even if the
-  // TypeInformation were to differ, which is the case the tool cannot act on.
+  // Fast DDS 2.x: no TypeInformation, the pair is matched and the rmw drops the samples
+  Verdict v = decide(w, r);
+  EXPECT_EQ(v.transport, Transport::SHM);
+  EXPECT_EQ(v.warnings, (std::vector<std::string>{"type-hash-mismatch"}));
+  // Fast DDS 3.x: both identifiers differ with the REP-2011 hash (measured in #213)
+  announce(w, '1', '3');
+  announce(r, '2', '4');
+  v = decide(w, r);
+  EXPECT_EQ(v.transport, Transport::None);
+  EXPECT_EQ(v.reasons, (std::vector<std::string>{"type-information-mismatch"}));
+  EXPECT_EQ(v.warnings, (std::vector<std::string>{"type-hash-mismatch"}));
+  // one type: nothing to say
   r.type_hash = w.type_hash;
-  EXPECT_TRUE(decide(w, r).warnings.empty());
+  announce(r, '1', '3');
+  v = decide(w, r);
+  EXPECT_EQ(v.transport, Transport::SHM);
+  EXPECT_TRUE(v.warnings.empty());
 }
 
 TEST(RosNames, TypeHashFromUserData)
@@ -733,6 +802,31 @@ TEST(ApplyStats, TypeNameMismatchAttributesNoTrafficAndSaysSoWhenDelivered)
   apply_stats(topics, stats);
   EXPECT_TRUE(
     has(topics[0].pairs[0].verdict.warnings, "type-name-mismatch-but-delivered"));
+}
+
+TEST(ApplyStats, TypeInformationMismatchAttributesNoTrafficAndSaysSoWhenDelivered)
+{
+  std::vector<Endpoint> eps;
+  eps.push_back(make(true, HOST_A, {udp4("10.0.0.1"), shm(7415)}));
+  eps.push_back(make(false, HOST_A, {udp4("10.0.0.1", 7413), shm(7413)}));
+  announce(eps[0], '1', '3');
+  announce(eps[1], '2', '4');
+  eps[0].participant_guid_prefix = "P1";
+  auto topics = summarize(eps);
+  ASSERT_EQ(topics[0].pairs.size(), 1u);
+  auto stats = stats_with(eps[0], {TrafficSample{"P1", shm(7413), 10, 1000.0}});
+  apply_stats(topics, stats);
+  const auto & p = topics[0].pairs[0];
+  EXPECT_EQ(p.verdict.transport, Transport::None);
+  EXPECT_FALSE(has(p.verdict.reasons, "measured-shm-traffic"));
+  EXPECT_TRUE(p.verdict.warnings.empty());
+
+  topics = summarize(eps);
+  stats = stats_with(eps[0], {TrafficSample{"P1", shm(7413), 10, 1000.0}}, true, &eps[1]);
+  apply_stats(topics, stats);
+  EXPECT_EQ(
+    topics[0].pairs[0].verdict.warnings,
+    (std::vector<std::string>{"type-information-mismatch-but-delivered"}));
 }
 
 TEST(ApplyStats, MeasuredShmConfirmsPrediction)

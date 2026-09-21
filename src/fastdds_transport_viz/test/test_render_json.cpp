@@ -65,6 +65,8 @@ Snapshot snapshot()
   s.endpoints[1].type_hash = s.endpoints[0].type_hash;
   s.endpoints[0].type_information_hash = std::string(28, '1');   // #206
   s.endpoints[1].type_information_hash = s.endpoints[0].type_information_hash;
+  s.endpoints[0].type_information_minimal_hash = std::string(28, '3');   // #213
+  s.endpoints[1].type_information_minimal_hash = s.endpoints[0].type_information_minimal_hash;
   s.topics = summarize(s.endpoints);
   s.stats.enabled = true;
   s.stats.samples = 5;
@@ -181,6 +183,7 @@ TEST(RenderJson, DocumentKeys)
   EXPECT_EQ(t["readers"][0]["datasharing_segment_visibility"], "not-visible");
   EXPECT_EQ(t["writers"][0]["type_hash"], "RIHS01_" + std::string(64, 'a'));
   EXPECT_EQ(t["writers"][0]["type_information_hash"], std::string(28, '1'));
+  EXPECT_EQ(t["writers"][0]["type_information_minimal_hash"], std::string(28, '3'));
   EXPECT_EQ(t["writers"][0]["host"], "robot");
   EXPECT_EQ(t["writers"][0]["qos"]["data_sharing"], "OFF");
   ASSERT_EQ(t["pairs"].size(), 1u);
@@ -492,6 +495,8 @@ TEST(ParseJson, RoundTripsEverythingTheRenderersShow)
   EXPECT_EQ(p.reader->type_hash, p.writer->type_hash);
   EXPECT_EQ(p.writer->type_information_hash, std::string(28, '1'));
   EXPECT_EQ(p.reader->type_information_hash, p.writer->type_information_hash);
+  EXPECT_EQ(p.writer->type_information_minimal_hash, std::string(28, '3'));
+  EXPECT_EQ(p.reader->type_information_minimal_hash, p.writer->type_information_minimal_hash);
   EXPECT_EQ(p.reader->guid, "R1");
   EXPECT_FALSE(p.reader->is_writer);
   EXPECT_TRUE(p.measured.rate_available);   // #143
@@ -738,6 +743,20 @@ TEST(ParseJson, EndpointsWithoutATypeInformationHashReadAsEmpty)
   EXPECT_EQ(parsed.endpoints[1].type_information_hash, std::string(28, '1'));
   const auto again = json::parse(render_json(parsed, RenderOptions{}));
   EXPECT_EQ(again["topics"][0]["writers"][0]["type_information_hash"], "");
+}
+
+TEST(ParseJson, EndpointsWithoutAMinimalTypeInformationHashReadAsEmpty)
+{
+  // written before #213
+  auto s = snapshot();
+  auto doc = json::parse(render_json(s, RenderOptions{}));
+  doc["topics"][0]["writers"][0].erase("type_information_minimal_hash");
+  const auto parsed = parse_json(doc.dump());
+  EXPECT_EQ(parsed.endpoints[0].type_information_minimal_hash, "");
+  EXPECT_EQ(parsed.endpoints[0].type_information_hash, std::string(28, '1'));
+  EXPECT_EQ(parsed.endpoints[1].type_information_minimal_hash, std::string(28, '3'));
+  const auto again = json::parse(render_json(parsed, RenderOptions{}));
+  EXPECT_EQ(again["topics"][0]["writers"][0]["type_information_minimal_hash"], "");
 }
 
 TEST(ParseJson, ParticipantsWithUnknownValuesReadAsUnprobed)

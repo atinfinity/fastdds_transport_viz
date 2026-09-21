@@ -99,19 +99,21 @@ template<typename D> const auto & disc_liveliness(const D & d) {return d.livelin
 template<typename D> const auto & disc_ownership(const D & d) {return d.ownership;}
 template<typename D> const auto & disc_partition(const D & d) {return d.partition;}
 template<typename D> const auto & disc_user_data(const D & d) {return d.user_data.data_vec();}
-/// The XTypes EK_COMPLETE equivalence hash the endpoint announced in its TypeInformation,
-/// as lowercase hex; empty when it announced none. Two endpoints of the same type name whose
-/// hashes differ describe different types (#206).
-template<typename D> std::string disc_type_information_hash(const D & d)
+/// The XTypes equivalence hash of one kind (EK_COMPLETE or EK_MINIMAL) the endpoint
+/// announced in its TypeInformation, as lowercase hex; empty when it announced none, or
+/// announced that kind as TK_NONE (a `minimal_bandwidth` peer sends no complete one, #213).
+template<typename D> std::string disc_type_information_hash_of(const D & d, uint8_t kind)
 {
   namespace xt = eprosima::fastdds::dds::xtypes;
   const auto & tip = d.type_information;
   if (!tip.assigned()) {
     return {};
   }
-  const auto & tid = tip.type_information.complete().typeid_with_size().type_id();
-  if (tid._d() != xt::EK_COMPLETE) {
-    return {};                          // TK_NONE: nothing was registered on that side
+  const auto & ti = tip.type_information;
+  const auto & tid = kind == xt::EK_COMPLETE ?
+    ti.complete().typeid_with_size().type_id() : ti.minimal().typeid_with_size().type_id();
+  if (tid._d() != kind) {
+    return {};                          // TK_NONE: nothing of that kind on that side
   }
   const auto & hash = tid.equivalence_hash();
   static const char digits[] = "0123456789abcdef";
@@ -123,6 +125,17 @@ template<typename D> std::string disc_type_information_hash(const D & d)
     out.push_back(digits[b & 0x0f]);
   }
   return out;
+}
+/// Fast DDS 3.x matches two endpoints that both announce TypeInformation when their
+/// complete or their minimal identifiers agree (`is_same_type`), whatever their type
+/// names (#206, #213).
+template<typename D> std::string disc_type_information_hash(const D & d)
+{
+  return disc_type_information_hash_of(d, eprosima::fastdds::dds::xtypes::EK_COMPLETE);
+}
+template<typename D> std::string disc_type_information_minimal_hash(const D & d)
+{
+  return disc_type_information_hash_of(d, eprosima::fastdds::dds::xtypes::EK_MINIMAL);
 }
 // ... and of a remote participant (3.x ParticipantBuiltinTopicData)
 template<typename D> const auto & disc_participant_prefix(const D & d) {return d.guid.guidPrefix;}
@@ -156,6 +169,7 @@ template<typename D> const auto & disc_user_data(const D & d)
 /// DynamicPubSubType, so the TypeObjectFactory stays empty and Humble/Jazzy send neither
 /// TypeIdV1/TypeObjectV1 nor TypeInformation (measured in #193).
 template<typename D> std::string disc_type_information_hash(const D &) {return {};}
+template<typename D> std::string disc_type_information_minimal_hash(const D &) {return {};}
 // ... and of a remote participant (2.x ParticipantProxyData)
 template<typename D> const auto & disc_participant_prefix(const D & d) {return d.m_guid.guidPrefix;}
 template<typename D> const auto & disc_participant_properties(const D & d) {return d.m_properties;}

@@ -148,7 +148,10 @@ ros2 transport codes
 - **ノードと同じ場所で実行する必要があります。** 同じドメイン、同じ環境変数と XML プロファイル、
   同じネットワーク/IPC 名前空間。`ROS_AUTOMATIC_DISCOVERY_RANGE=OFF` では何も見えません。
 - **type hash には ROS 2 Jazzy 以降が必要です。** 型 *名* が違う writer と reader は、どの
-  ディストリビューションでも `NONE` と `type-name-mismatch` で表示されます。同じメッセージ定義の
+  ディストリビューションでも `NONE` と `type-name-mismatch` で表示されます。例外は Fast DDS 3.x
+  (Lyrical 以降) で両方が一致する XTypes の `TypeInformation` を広告する場合で、Fast DDS は型名に
+  かかわらずマッチさせ、ペアには `type-names-differ-same-type` が付きます
+  ([#213](https://github.com/atinfinity/fastdds_transport_viz/issues/213))。同じメッセージ定義の
   別バージョンを見分けるのは ROS 2 の type hash (REP-2011) ですが、これを広告するのは Jazzy 以降の
   rmw だけです。Humble ではそうしたペアは健全に見え、それでも subscription には何も届きません。
   Fast DDS 自身が持つ、より古い型情報で代用することもできません。2026-09-21 の実測では、Humble の

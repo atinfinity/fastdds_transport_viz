@@ -12,29 +12,44 @@ to select a transport for each writer → reader pair.
 
 ## Decision rules
 
-0. **Do the two announce the same type?** Fast DDS matches a writer and a reader by the
-   type name of the topic, so endpoints of different types never see each other: the pair
-   is `NONE` with the reason `type-name-mismatch`. Both endpoints are still shown, and so
-   is the pair, because what is wrong is between them. The same type name with a different
-   **ROS 2 type hash** (REP-2011) means the two message definitions differ: the pair keeps
-   the transport of the rules below and carries the warning `type-hash-mismatch`, because
-   what happens next depends on the Fast DDS version - 2.x matches the pair and delivers
-   the samples over that transport, and the rmw drops them before the subscription
-   callback; 3.x does not match the pair at all. Either way the subscription receives
-   nothing. Where at least one side announces no ROS 2 type hash - a non-ROS Fast DDS peer,
-   or ROS 2 Humble - the same question is asked of the XTypes `TypeInformation` the
-   endpoints announce instead: two EK_COMPLETE equivalence hashes that differ describe
-   different types under one name, and the pair carries the warning
-   `type-information-mismatch` ([#206](https://github.com/atinfinity/fastdds_transport_viz/issues/206)).
-   Fast DDS 2.x announces none under `rmw_fastrtps` ([#193](https://github.com/atinfinity/fastdds_transport_viz/issues/193)),
-   so this reaches a 3.x peer only. An endpoint that announces no `TypeInformation` at all -
-   every Fast DDS 2.x endpoint, a 3.x application that registered no TypeObject, and any
-   peer of another vendor, whose `TypeInformation` Fast DDS 3.x ignores - is matched on the
-   type name alone, and the tool cannot check its definition either. When that definition
-   differs, the reader's `take()` drops the sample or fills the missing member with its
-   default, depending on the payload, without a log line or a lost/rejected count; the
-   statistics are recorded before deserialization, so `--stats` still shows the pair as
-   delivered ([#210](https://github.com/atinfinity/fastdds_transport_viz/issues/210)).
+0. **Does Fast DDS take the two for one type?** It asks this in one of two ways
+   ([#213](https://github.com/atinfinity/fastdds_transport_viz/issues/213)):
+   - When **both** endpoints announce an XTypes `TypeInformation` - every ROS 2 endpoint
+     from Lyrical on, and a Fast DDS 3.x peer with a TypeObject - Fast DDS 3.x compares that
+     and nothing else: the two are one type when their complete type identifiers agree or
+     their minimal ones do. The minimal identifier leaves out type names and annotations but
+     not the member names, types, order or extensibility, so two definitions that differ
+     only in a type name - their own, or that of a nested type - still match; the pair then
+     carries the reason `type-names-differ-same-type`. A peer created with
+     `fastdds.type_propagation=minimal_bandwidth` announces the minimal identifier only.
+     When neither identifier agrees the pair is `NONE` with the reason
+     `type-information-mismatch` (`type-name-mismatch` when the names differ as well).
+   - Otherwise Fast DDS matches on the **type name** alone, and endpoints of different
+     type names never see each other: the pair is `NONE` with the reason
+     `type-name-mismatch`.
+
+   Both endpoints are still shown, and so is the pair, because what is wrong is between
+   them. On top of that, the same type name with a different **ROS 2 type hash** (REP-2011)
+   means the two message definitions differ, and the pair carries the warning
+   `type-hash-mismatch`, which names the fix in ROS 2 terms. On Fast DDS 3.x such a pair is
+   also `NONE` by the `TypeInformation` rule above (the two hashes differed together in
+   every case measured). Fast DDS 2.x announces no `TypeInformation` under `rmw_fastrtps`
+   ([#193](https://github.com/atinfinity/fastdds_transport_viz/issues/193)), so there the
+   pair keeps the transport of the rules below: 2.x matches it and delivers the samples
+   over that transport, and the rmw drops them before the subscription callback. Either way
+   the subscription receives nothing
+   ([#85](https://github.com/atinfinity/fastdds_transport_viz/issues/85),
+   [#206](https://github.com/atinfinity/fastdds_transport_viz/issues/206)).
+
+   An endpoint that announces no `TypeInformation` at all - every Fast DDS 2.x endpoint, a
+   3.x application that registered no TypeObject or runs with
+   `fastdds.type_propagation=disabled`, and any peer of another vendor, whose
+   `TypeInformation` Fast DDS 3.x ignores - is matched on the type name alone, and the tool
+   cannot check its definition either. When that definition differs, the reader's `take()`
+   drops the sample or fills the missing member with its default, depending on the payload,
+   without a log line or a lost/rejected count; the statistics are recorded before
+   deserialization, so `--stats` still shows the pair as delivered
+   ([#210](https://github.com/atinfinity/fastdds_transport_viz/issues/210)).
 1. **Do the QoS match at all?** Fast DDS only matches a writer and a reader whose
    request/offer policies agree: reliability (a BEST_EFFORT writer cannot serve a
    RELIABLE reader), durability (the writer must offer at least what the reader
