@@ -4,6 +4,8 @@ Changelog for package ros2transport
 
 Forthcoming
 -----------
+* A REP 2004 quality declaration, ``QUALITY_DECLARATION.md``: Quality Level 3, like
+  ``fastdds_transport_viz`` (#87).
 * ``ros2 transport list --csv`` passes ``--csv`` to the binary: one CSV row per pair
   (#83). ``diff`` does not take it.
 * ``ros2 transport diff BEFORE AFTER``: runs ``transport_viz diff`` with the two documents

@@ -4,6 +4,9 @@ Changelog for package fastdds_transport_viz
 
 Forthcoming
 -----------
+* A REP 2004 quality declaration, ``QUALITY_DECLARATION.md``: Quality Level 3, Linux only
+  (Windows 10 is the declared exception), with the public API that the version numbers follow
+  (#87). ``SECURITY.md`` at the repository root is the vulnerability disclosure policy.
 * Metrics export (#83). ``transport_viz_web`` serves ``/metrics``: the latest document in the
   Prometheus text format, built when it is scraped, for a Grafana dashboard next to the rest
   of the robot. Pair gauges carry ``topic``, the writer and reader node, host and GUID

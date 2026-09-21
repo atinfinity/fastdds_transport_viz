@@ -198,6 +198,16 @@ way and highlights the result. Details in
   visible with `buffer-companion-unmatched`, and its parent pair then shows no traffic of its
   own ([#119](https://github.com/atinfinity/fastdds_transport_viz/issues/119)).
 
+## Quality declaration
+
+Both packages claim [REP 2004](https://www.ros.org/reps/rep-2004.html) **Quality Level 3**,
+with one exception: Linux only, so Windows 10 (a tier 1 platform of REP 2000) is not
+supported. See the quality declarations of
+[`fastdds_transport_viz`](src/fastdds_transport_viz/QUALITY_DECLARATION.md) and
+[`ros2transport`](src/ros2transport/QUALITY_DECLARATION.md) for the version policy and
+public API, change control, testing, dependencies and platforms, and
+[SECURITY.md](SECURITY.md) to report a vulnerability.
+
 ## License
 
 Apache-2.0
