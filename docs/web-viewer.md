@@ -169,7 +169,9 @@ The server takes its own options; every other argument is forwarded to `transpor
 | anything else | forwarded: `--stats`, `--interval S`, `--domain N`, `--all`, `--topic REGEX`, `--timeout S` |
 
 If `transport_viz` exits, the server sends a `status` event (shown as "live: transport_viz
-exited …") and stops; its exit code is 1 if `transport_viz` failed, 0 otherwise. In the Docker environment, `docker compose run
+exited …") and stops; its exit code is 1 if `transport_viz` failed, 0 otherwise. Stopping
+`transport_viz_web` - Ctrl-C, or SIGTERM to the process itself - also stops the
+`transport_viz` it started. In the Docker environment, `docker compose run
 --rm --service-ports dev` publishes port 8765, so `transport_viz_web --bind 0.0.0.0` inside
 the container is reachable from the host browser.
 

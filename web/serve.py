@@ -22,6 +22,7 @@ import http.server
 import json
 import os
 import shutil
+import signal
 import subprocess
 import sys
 import threading
@@ -196,6 +197,14 @@ def main(argv=None):
         server.shutdown()
 
     threading.Thread(target=watch_producer, daemon=True).start()
+
+    # SIGTERM and SIGHUP take the Ctrl-C path on purpose: without this they end the
+    # process outright, the `finally` below never runs, and transport_viz is left behind
+    # as a live DDS participant until its next frame hits the closed pipe (#195).
+    for name in ('SIGTERM', 'SIGHUP'):
+        signum = getattr(signal, name, None)
+        if signum is not None:
+            signal.signal(signum, signal.default_int_handler)
 
     rc = 0
     try:

@@ -2,13 +2,17 @@
 # SPDX-License-Identifier: Apache-2.0
 """web/serve.py with a fake transport_viz: framing, /latest.json, SSE, shutdown on exit."""
 import json
+import os
 import pathlib
 import re
+import signal
 import subprocess
 import sys
 import textwrap
 import time
 import urllib.request
+
+import pytest
 
 REPO = pathlib.Path(__file__).resolve().parents[3]
 SERVE = REPO / 'web' / 'serve.py'
@@ -27,13 +31,44 @@ FAKE = textwrap.dedent("""\
     sys.exit(0)
 """)
 
+# A producer that keeps running and stops writing: the real transport_viz would die of
+# SIGPIPE on its next frame, which is what hid the missing cleanup in #195. It records its
+# pid, and the signal it is asked to stop with, in the files given after the document.
+FAKE_FOREVER = textwrap.dedent("""\
+    #!/usr/bin/env python3
+    import json, os, signal, sys, time
+    assert sys.argv[1:3] == ['--watch', '--json'], sys.argv
+    doc = json.load(open(sys.argv[3]))
+    pid_file, marker = sys.argv[4], sys.argv[5]
 
-def start(tmp_path):
+    def bye(signum, frame):
+        open(marker, 'w').write(str(signum))
+        sys.exit(0)
+
+    signal.signal(signal.SIGTERM, bye)
+    doc['observed_at'] = 'frame-0'
+    print(json.dumps(doc), flush=True)
+    open(pid_file, 'w').write(str(os.getpid()))
+    while True:
+        time.sleep(0.05)
+""")
+
+
+def alive(pid):
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    return True
+
+
+def start(tmp_path, src=FAKE, extra=()):
     fake = tmp_path / 'fake_transport_viz.py'
-    fake.write_text(FAKE)
+    fake.write_text(src)
     fake.chmod(0o755)
     proc = subprocess.Popen(
-        [sys.executable, str(SERVE), '--port', '0', '--transport-viz', str(fake), str(SAMPLE)],
+        [sys.executable, str(SERVE), '--port', '0', '--transport-viz', str(fake),
+         str(SAMPLE), *extra],
         stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     line = proc.stdout.readline()
     m = re.search(r'listening on (http://[^/]+)/', line)
@@ -99,3 +134,36 @@ def test_latest_json(tmp_path):
     finally:
         proc.kill()
         proc.wait()
+
+
+@pytest.mark.parametrize('signame', ['SIGTERM', 'SIGHUP'])
+def test_signal_reaps_transport_viz(tmp_path, signame):
+    # Ctrl-C unwinds into the cleanup; SIGTERM and SIGHUP have to be made to do the same,
+    # or transport_viz outlives the server that started it (#195).
+    signum = getattr(signal, signame, None)
+    if signum is None:
+        pytest.skip(f'{signame} is not available on this platform')
+    pid_file = tmp_path / 'child.pid'
+    marker = tmp_path / 'child.signal'
+    proc, _ = start(tmp_path, src=FAKE_FOREVER, extra=[str(pid_file), str(marker)])
+    child = None
+    try:
+        deadline = time.time() + 10
+        while time.time() < deadline and not pid_file.is_file():
+            time.sleep(0.05)
+        child = int(pid_file.read_text())
+        assert alive(child)
+        proc.send_signal(signum)
+        assert proc.wait(timeout=10) == 0
+        deadline = time.time() + 5
+        while time.time() < deadline and alive(child):
+            time.sleep(0.05)
+        assert not alive(child), f'transport_viz ({child}) outlived transport_viz_web'
+        # reaped with SIGTERM, not killed: the child ran its own shutdown
+        assert marker.read_text() == str(int(signal.SIGTERM))
+    finally:
+        if proc.poll() is None:
+            proc.kill()
+            proc.wait()
+        if child is not None and alive(child):
+            os.kill(child, signal.SIGKILL)

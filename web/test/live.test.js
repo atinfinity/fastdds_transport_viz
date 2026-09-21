@@ -71,15 +71,13 @@ async function startServer(stepFile) {
   });
   return {
     base,
-    // `grace` waits that long for serve.py to exit by itself first: SIGTERM kills it
-    // before its cleanup runs, which orphans the transport_viz it started - and that
-    // orphan holds this process's stderr pipe open, so node would never exit.
-    stop: (grace = 0) => new Promise(done => {
+    // SIGTERM is enough: serve.py reaps the producer it started before it exits (#195),
+    // so nothing is left holding this process's stderr pipe open.
+    stop: () => new Promise(done => {
       const gone = () => { proc.stdout.destroy(); proc.stderr.destroy(); done(); };
       if (proc.exitCode !== null) return gone();
       proc.once('exit', gone);
-      if (grace) setTimeout(() => { if (proc.exitCode === null) proc.kill(); }, grace).unref();
-      else proc.kill();
+      proc.kill();
     }),
   };
 }
@@ -226,8 +224,8 @@ test('live mode: the reconnect banner and the recovery after it', opts, async (t
     await page.close();
     await browser.close();
     await proxy.stop();
-    step('stop');            // the producer exits, serve.py follows; see stop()'s grace
-    await server.stop(3000);
+    step('stop');            // the producer exits and serve.py follows by itself
+    await server.stop();
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
