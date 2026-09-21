@@ -540,23 +540,30 @@
    */
   function keyedPairs(doc, key) {
     const out = [];
+    forEachIdent(doc, key, (t, p, real, ident) => out.push({ ident, key: real, state: pairState(p) }));
+    out.sort((a, b) => compareKeys(a.ident, b.ident));
+    return out;
+  }
+
+  /** Call fn(topic, pair, key, ident) for every pair of `doc`, ident as keyedPairs() makes it. */
+  function forEachIdent(doc, key, fn) {
     for (const t of doc.topics) {
       const byNode = new Map();
-      for (const ep of [...t.writers, ...t.readers]) {
-        if (ep.node) { if (!byNode.has(ep.node)) byNode.set(ep.node, []); byNode.get(ep.node).push(ep.guid); }
+      if (key === 'node') {
+        for (const ep of [...t.writers, ...t.readers]) {
+          if (ep.node) { if (!byNode.has(ep.node)) byNode.set(ep.node, []); byNode.get(ep.node).push(ep.guid); }
+        }
+        for (const guids of byNode.values()) guids.sort(byteOrder);
       }
-      for (const guids of byNode.values()) guids.sort(byteOrder);
       const identity = (guid, node) => node ? `${node}#${byNode.get(node).indexOf(guid)}` : `guid:${guid}`;
       for (const p of t.pairs) {
         const real = pairKey(t, p);
         const ident = key === 'node'
           ? { topic: t.topic, writer_guid: identity(p.writer_guid, real.writer_node), reader_guid: identity(p.reader_guid, real.reader_node) }
           : real;
-        out.push({ ident, key: real, state: pairState(p) });
+        fn(t, p, real, ident);
       }
     }
-    out.sort((a, b) => compareKeys(a.ident, b.ident));
-    return out;
   }
 
   /**
@@ -686,5 +693,5 @@
   }
 
   return { TRANSPORTS, INTERNAL_TOPICS, UNKNOWN_NODE_NAME, isFoldedBufferCompanion, isInternalTopic, normalizeDocument, buildModel, isDiscoveryServer, isDiscoveryClient, serverNodeId, clientParticipants, serversOf, discoveryText, filterRegex, visiblePairs, visibleNodesModel, bundle, humanBytes, humanSeconds, measuredText, latencyText, rateText, rateTitle, lossText, topicLatencyText, topicLossText, groupKeyOf, groupTypeOf, groupPairsByTopic, compareCells, escapeHtml, codeListHtml, shmText, participantShmText, datasharingText, typeHashText, statsText,
-    pairKey, keyId, pairState, sameState, diffDocuments, changeText, changesSummary, decorations, holdChanges, heldDecorations, markedPairs, pruneNodes };
+    pairKey, keyId, pairState, sameState, forEachIdent, diffDocuments, changeText, changesSummary, decorations, holdChanges, heldDecorations, markedPairs, pruneNodes };
 });

@@ -135,17 +135,19 @@ jobs:
           # Easy Mode (ROS2_EASY_MODE) needs Fast DDS 3.2+: the two scenarios that the
           # jazzy image skips, on the lyrical image, plus hostnet_noipc_shm (rclcpp there
           # creates no endpoint on the tool's rmw participant, #51) and the split IPC
-          # scenarios (#101, #106, #110, #118).
+          # scenarios (#101, #106, #110, #118). record_flip records a transport flip for
+          # replay in the viewer (#82) on every image.
           - arch: x86_64
             distro: lyrical
-            scenarios: easy_mode_shm easy_mode_tcp hostnet_noipc_shm hostnet_split_shm hostnet_split_shm_visible hostnet_split_shm_shared_port hostnet_split_stats hostnet_split_datasharing hostnet_split_datasharing_udp intra_process
+            scenarios: easy_mode_shm easy_mode_tcp hostnet_noipc_shm hostnet_split_shm hostnet_split_shm_visible hostnet_split_shm_shared_port hostnet_split_stats hostnet_split_datasharing hostnet_split_datasharing_udp intra_process record_flip
           # Humble (Fast DDS 2.6) has no 7000+ port, but its pid-based SHM ports are
           # numbered per IPC namespace too, so the split shows as a port collision; the
           # visible and UDPv4-only variants skip there. intra_process runs its non-statistics
-          # half here: naming an intra-process pair needs no statistics module (#201).
+          # half here: naming an intra-process pair needs no statistics module (#201), and
+          # record_flip records without --stats.
           - arch: x86_64
             distro: humble
-            scenarios: hostnet_split_shm hostnet_noipc_shm hostnet_split_datasharing intra_process
+            scenarios: hostnet_split_shm hostnet_noipc_shm hostnet_split_datasharing intra_process record_flip
     env:
       ROS_DISTRO: ${{ matrix.distro }}
     steps:
@@ -160,7 +162,9 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: integration-json-${{ matrix.arch }}-${{ matrix.distro }}
-          path: /tmp/transport_viz_*.json
+          path: |
+            /tmp/transport_viz_*.json
+            /tmp/transport_viz_*.jsonl
           if-no-files-found: ignore
 
   coverage:

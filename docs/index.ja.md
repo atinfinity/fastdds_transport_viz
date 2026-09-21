@@ -56,7 +56,8 @@ shared memory: /dev/shm 371 MB used of 16.7 GB (16.3 GB free) | Fast DDS 6.36 MB
   (`LOSS`)、ホスト名とプロセス id、zero-copy data-sharing の
   証明を取り、予測と食い違う実測は警告します。
 - **複数のフロントエンド。** 色付きの表、`--watch` (変化を強調するライブ表示)、スキーマ付きの
-  `--json`、`ros2 transport` コマンド、web viewer (グラフと表、`transport_viz_web` によるライブ更新)。
+  `--json`、`ros2 transport` コマンド、web viewer (グラフと表、`transport_viz_web` によるライブ更新、
+  `transport_viz_web --record` で録画したもののタイムライン再生)。
 - **絞り込み。** `--topic` / `--node` の正規表現フィルタ、使われたコードの説明を出す `--explain`、
   そのコードを解消するには何を変えるかを出す `--advise`、全コードを一覧する `ros2 transport codes`。
 - **環境の共有メモリ。** `/dev/shm` の容量、そこにある Fast DDS のセグメント・ポート・data-sharing
@@ -128,7 +129,7 @@ ros2 transport codes
 - [仕組み](how-it-works.md) — 判定ルール、理由コード、ホストとアドレス、実行場所、watch モード
 - [実測 transport (`--stats`)](statistics.md) — statistics トピック、有効化、10 インスタンスの落とし穴
 - [Data-sharing (zero-copy)](data-sharing.md) — ROS 2 トピックが既定で `SHM` になる理由と data-sharing の有効化
-- [Web viewer](web-viewer.md) — `--json` 出力のグラフ表示とトピックごとにまとめた表、ライブモード (`transport_viz_web`)、JSON スキーマ
+- [Web viewer](web-viewer.md) — `--json` 出力のグラフ表示とトピックごとにまとめた表、ライブモード (`transport_viz_web`)、録画と再生 (`--record`)、JSON スキーマ
 - [Architecture](architecture.md) (英語) — コンポーネント、1 回の実行の流れ、データモデル、Fast DDS 2.14/3.x の互換層、拡張ポイント
 - [開発・検証・テスト](development.md) (英語) — Docker 環境、パッケージ構成、検証ノード、マルチコンテナのシナリオ、テスト、検証結果、ロードマップ
 

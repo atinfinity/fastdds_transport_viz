@@ -22,6 +22,9 @@ Then load the document in one of three ways:
 - `index.html?src=<URL>` fetches the document (only when the page is served over HTTP,
   e.g. `python3 -m http.server` in `web/`; browsers block `fetch` from `file://`)
 
+The same three ways open a recording, a JSON Lines file of several documents (`.jsonl`,
+see [Recording and replaying](#recording-and-replaying)).
+
 The page starts with `web/sample/sample.json`, a real capture of talker/listener nodes
 plus the bounded verification nodes with statistics enabled.
 
@@ -166,6 +169,7 @@ The server takes its own options; every other argument is forwarded to `transpor
 | `--port N` | default `8765`, `0` picks a free port |
 | `--transport-viz PATH` | executable to run (default: next to the script, then `$PATH`) |
 | `--verbose` | log requests and received documents |
+| `--record FILE` | also write every line `transport_viz` prints - one document each - to `FILE`, for [replay](#recording-and-replaying) (overwrites `FILE`; the server exits before starting `transport_viz` if it cannot write it) |
 | anything else | forwarded: `--stats`, `--interval S`, `--domain N`, `--all`, `--topic REGEX`, `--timeout S` |
 
 If `transport_viz` exits, the server sends a `status` event (shown as "live: transport_viz
@@ -180,6 +184,74 @@ so any other consumer can read the same stream. The `changes` object of those do
 also what `transport_viz diff --json before.json after.json` emits (see
 [how-it-works.md](how-it-works.md#comparing-two-snapshots)); the viewer highlights it in
 both cases ([Comparing two documents](#comparing-two-documents)).
+
+## Recording and replaying
+
+A transient problem - a pair that falls back to UDPv4 for ten seconds while a node
+restarts - is gone before anyone opens the viewer. Record the live stream and replay it
+afterwards ([#82](https://github.com/atinfinity/fastdds_transport_viz/issues/82)):
+
+```
+ros2 run fastdds_transport_viz transport_viz_web --stats --interval 1 --record rec.jsonl
+# or, without the server:
+ros2 run fastdds_transport_viz transport_viz --watch --json --stats --interval 1 > rec.jsonl
+```
+
+Both write the same file: one `transport_viz --json` document (a *frame*) per line, each
+line written and flushed as soon as it arrives, so a recording cut short by Ctrl-C or a
+crash still replays up to its last complete line. The format is JSON Lines of the existing
+schema; nothing new is added to the documents.
+
+Open the file like any document: **Open JSON…**, drag & drop, or
+`index.html?src=rec.jsonl`, with `&frame=N` (1-based) to open at frame N. The viewer
+decides by content, not by name: a file with two or more documents is a recording, one
+with a single document is shown as that document. Lines that are not documents (a
+`[ros2run]` message caught in a redirect, a line cut off at the end) are skipped and
+counted in the timeline (`2 lines skipped (not a document)`).
+
+A timeline bar appears under the toolbar:
+
+| Control | Does |
+|---|---|
+| slider | picks a frame; frames sit at their `observed_at` when every one parses and none goes backwards, else evenly |
+| ticks above the slider | frames whose `changes` has an added, removed or changed pair |
+| `◀` / `▶`, or the ← / → keys | previous / next frame |
+| `◀ change` / `change ▶` | previous / next frame with a tick |
+| `i / N` and the time | the frame on screen and its `observed_at`; the page title ends with `#i`, and a page opened with `?src=` keeps `&frame=i` in its address |
+| match by | how a pair is followed from frame to frame, the `--key` of `transport_viz diff`: `node` (default) keeps following a pair whose node restarted with new GUIDs, `guid` starts a new one |
+
+Each frame is shown the way a live frame is: the pairs its own `changes` added, removed or
+changed are marked (a frame carries the difference to the frame before it), the filters,
+selection and zoom stay as they are, and the selection follows its pair - or, for an
+arrow, its writer and reader nodes - to the next frame. A selected pair that is missing
+from a frame reads "not in this frame".
+
+The card of a selected pair gets charts over the whole recording, with a line at the frame
+on screen; click a chart to jump to the frame nearest to that point:
+
+- a strip colored by transport, blank where the pair is missing;
+- `delivered/s`, the pair's `delivered_per_s` in each frame;
+- latency, the mean of each frame's own interval (the documents hold a mean over the
+  whole observation, so the chart takes the difference of two frames);
+- lost packets per interval, from the cumulative `lost_packets`.
+
+The last three need `--stats`; a recording without it has the strip only. An arrow's card
+has the strip of every pair it bundles.
+
+**Compare with…** during a replay leaves the replay and compares the frame on screen
+(`rec #k`) with the chosen file. Wherever a single document is expected - the after
+document of **Compare with…**, `?diff=`, or a `?src=` fetched for a comparison - a
+recording stands for its last document.
+
+The file is read in 8 MB chunks and never held whole: the viewer keeps the byte range of
+each frame and a few numbers per pair and frame, shows the first frame (or the `&frame=`
+one) as soon as it has been read with "loading x / y MB" next to the timeline, and parses a
+frame again when it is shown. A 60-frame recording of the 2400-pair `medium` scale
+document (5.5 MB per frame, 332 MB) shows its first frame in 0.6-0.8 s, finishes reading
+in 1.4-1.6 s and moves between frames in 33 ms, with about 45 MB of JavaScript heap
+([development.md](development.md#scale-results)). At that size an hour at
+`--interval 1` is about 20 GB: record the minutes around the problem, or raise
+`--interval`, rather than a whole day.
 
 ## Large documents
 

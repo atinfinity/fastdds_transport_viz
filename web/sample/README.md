@@ -33,6 +33,15 @@ is not enough to capture one -- a client that exits takes its endpoints with it,
 keeps calling in a loop. Open `index.html?src=sample/services.json` to see the `SERVICE` and
 `ACTION` rows in the viewer.
 
+`recording.jsonl` is `scripts/integration_test.sh record_flip` on Jazzy, taken for
+[#82](https://github.com/atinfinity/fastdds_transport_viz/issues/82): the file
+`transport_viz_web --record --stats --interval 1 --topic '^/chatter$'` wrote while a
+talker was restarted with a UDPv4-only profile after 10 s and back to the default 10 s
+later. Its 25 frames show `/chatter` go SHM -> UDPv4 -> SHM; frames 5 and 15, taken while
+the talker was down, have no `/chatter` pair, so frames 5, 6, 15 and 16 carry changes. It
+is the recording `web/test/replay.test.js` and the replay browser tests use. Open
+`index.html?src=sample/recording.jsonl` to replay it in the viewer.
+
 `diff_before.json` / `diff_after.json` are a hand-made pair for `transport_viz diff` (a
 profile change with every node restarted in between, one raw DDS pair untouched) and
 `diff.json` is what the binary prints for `transport_viz diff --all --json` on them;

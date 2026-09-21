@@ -22,6 +22,9 @@ open web/index.html            # macOS。あるいはファイルをダブルク
 - `index.html?src=<URL>` で文書を取得 (ページを HTTP で配信しているときだけ。例えば `web/` で
   `python3 -m http.server`。ブラウザは `file://` からの `fetch` を禁止しています)
 
+同じ 3 通りで録画 (複数の文書を並べた JSON Lines ファイル、`.jsonl`。
+[録画と再生](#録画と再生) 参照) も開けます。
+
 ページは最初に `web/sample/sample.json` を表示します。talker/listener ノードと、statistics を
 有効にした bounded 検証ノードの実際のキャプチャです。
 
@@ -152,6 +155,7 @@ ros2 run fastdds_transport_viz transport_viz_web --stats --interval 1
 | `--port N` | 既定 `8765`。`0` で空きポートを選ぶ |
 | `--transport-viz PATH` | 実行するバイナリ (既定: スクリプトの隣、次に `$PATH`) |
 | `--verbose` | リクエストと受信した文書をログに出す |
+| `--record FILE` | `transport_viz` が出力する行 (1 行に 1 文書) をすべて `FILE` にも書き、[再生](#録画と再生)に使えるようにする (`FILE` は上書き。書けないときは `transport_viz` を起動する前に終了する) |
 | それ以外 | 転送: `--stats`、`--interval S`、`--domain N`、`--all`、`--topic REGEX`、`--timeout S` |
 
 `transport_viz` が終了するとサーバーは `status` イベントを送り (「live: transport_viz exited …」と
@@ -166,6 +170,68 @@ ros2 run fastdds_transport_viz transport_viz_web --stats --interval 1
 `transport_viz diff --json before.json after.json` が出すものと同じです
 ([how-it-works.ja.md](how-it-works.ja.md#2-つのスナップショットの比較) 参照)。viewer はまだそれを
 どちらの場合も強調表示します ([2 つの文書の比較](#2-つの文書の比較))。
+
+## 録画と再生
+
+一時的な問題 (ノードの再起動中に 10 秒だけ UDPv4 に落ちるペアなど) は、誰かが viewer を開く前に
+消えてしまいます。ライブのストリームを録画しておき、あとで再生できます
+([#82](https://github.com/atinfinity/fastdds_transport_viz/issues/82))。
+
+```
+ros2 run fastdds_transport_viz transport_viz_web --stats --interval 1 --record rec.jsonl
+# サーバーなしなら:
+ros2 run fastdds_transport_viz transport_viz --watch --json --stats --interval 1 > rec.jsonl
+```
+
+どちらも同じファイルを書きます。1 行に 1 つの `transport_viz --json` 文書 (*フレーム*) で、
+各行は届いた時点で書き出して flush するので、Ctrl-C やクラッシュで途切れた録画も最後の完全な
+行まで再生できます。形式は既存スキーマの JSON Lines で、文書に新しいものは何も加えません。
+
+ファイルは普通の文書と同じく **Open JSON…**、ドラッグ & ドロップ、`index.html?src=rec.jsonl`
+で開きます。`&frame=N` (1 始まり) を付けるとフレーム N から開きます。viewer は名前ではなく中身で
+判断します。文書が 2 つ以上あるファイルは録画、1 つだけのファイルはその文書として表示します。
+文書でない行 (リダイレクトに紛れた `[ros2run]` のメッセージ、末尾で切れた行) は読み飛ばし、
+タイムラインに件数を出します (`2 lines skipped (not a document)`)。
+
+ツールバーの下にタイムラインが出ます。
+
+| 操作 | 動作 |
+|---|---|
+| スライダー | フレームを選ぶ。すべての `observed_at` が解釈でき、逆戻りしていなければその時刻の位置に、そうでなければ等間隔に並ぶ |
+| スライダー上の目盛り | `changes` に追加・削除・変化したペアがあるフレーム |
+| `◀` / `▶`、または ← / → キー | 前 / 次のフレーム |
+| `◀ change` / `change ▶` | 目盛りのある前 / 次のフレーム |
+| `i / N` と時刻 | 表示中のフレームとその `observed_at`。ページタイトルの末尾は `#i` になり、`?src=` で開いたページはアドレスに `&frame=i` を保つ |
+| match by | フレーム間でペアを追う方法。`transport_viz diff` の `--key` と同じで、`node` (既定) はノードが新しい GUID で再起動しても同じペアとして追い、`guid` は別のペアとして始める |
+
+各フレームはライブのフレームと同じように表示します。そのフレーム自身の `changes` が追加・削除・
+変化させたペアに印が付き (フレームは直前のフレームとの差分を持っています)、フィルタ、選択、
+ズームはそのまま、選択は次のフレームでも同じペアを (矢印なら writer と reader のノードを) 追います。
+選択中のペアがそのフレームにないときは "not in this frame" と表示します。
+
+選択したペアのカードには録画全体のチャートが付き、表示中のフレームに縦線が引かれます。チャートを
+クリックすると、その位置にいちばん近いフレームに移ります。
+
+- 帯: transport ごとに色分けし、ペアがないところは空白;
+- `delivered/s`: 各フレームのペアの `delivered_per_s`;
+- latency: 各フレーム自身の区間の平均 (文書は観測全体の平均を持つので、2 つのフレームの差から出す);
+- lost packets: 区間ごとの損失。累積の `lost_packets` の差。
+
+後ろ 3 つには `--stats` が必要で、`--stats` なしの録画は帯だけになります。矢印のカードには、
+その矢印に束ねたすべてのペアの帯が付きます。
+
+再生中の **Compare with…** は再生を終え、表示中のフレーム (`rec #k`) と選んだファイルを
+比較します。単一の文書を期待するところ (**Compare with…** の after 文書、`?diff=`、比較のために
+取得する `?src=`) では、録画は最後の文書として扱います。
+
+ファイルは 8 MB ずつ読み、全体を保持しません。viewer が持つのは各フレームのバイト範囲と、
+ペアとフレームごとのいくつかの数値だけです。最初のフレーム (または `&frame=` のフレーム) は
+読み終えた時点で表示し、タイムラインの横に "loading x / y MB" を出します。フレームは表示する
+ときにもう一度パースします。2400 ペアの `medium` スケール文書 60 フレーム (1 フレーム 5.5 MB、
+332 MB) の録画では、最初のフレームが 0.6-0.8 秒で出て、1.4-1.6 秒で読み終わり、フレームの移動は
+33 ms、JavaScript ヒープは約 45 MB でした ([development.md](development.md#scale-results))。
+この規模で `--interval 1` なら 1 時間で約 20 GB になります。丸 1 日ではなく、問題の前後数分を
+録画するか `--interval` を大きくしてください。
 
 ## 大きな文書
 

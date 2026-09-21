@@ -13,10 +13,10 @@
   <div class="meta" id="shm"></div>
   <div class="live" id="live" hidden><span class="dot"></span><span id="live-text">live</span> <button class="btn" id="live-pause">Pause</button></div>
   <div class="actions">
-    <label class="btn">Open JSON… <input type="file" id="file" accept=".json,application/json" hidden></label>
-    <label class="btn" title="Compare the loaded document with a second one (as transport_viz diff)">Compare with… <input type="file" id="file-diff" accept=".json,application/json" hidden></label>
+    <label class="btn">Open JSON… <input type="file" id="file" accept=".json,.jsonl,application/json" hidden></label>
+    <label class="btn" title="Compare the loaded document with a second one (as transport_viz diff)">Compare with… <input type="file" id="file-diff" accept=".json,.jsonl,application/json" hidden></label>
     <button class="btn" id="load-sample">Load sample</button>
-    <span class="hint">or drop a <code>transport_viz --json</code> file anywhere</span>
+    <span class="hint">or drop a <code>transport_viz --json</code> file or a recording anywhere</span>
   </div>
 </header>
 
@@ -44,6 +44,17 @@
   <div class="group legend" id="legend"></div>
 </div>
 
+<div class="timeline" id="timeline" hidden>
+  <button class="btn" id="tl-prev-change" title="Previous frame with changes">◀ change</button>
+  <button class="btn" id="tl-prev" title="Previous frame (←)">◀</button>
+  <button class="btn" id="tl-next" title="Next frame (→)">▶</button>
+  <button class="btn" id="tl-next-change" title="Next frame with changes">change ▶</button>
+  <div class="track"><svg id="tl-ticks"></svg><input type="range" id="tl-slider" min="0" max="0" step="1" value="0" aria-label="frame"></div>
+  <span id="tl-label"></span>
+  <label title="How a pair is followed from frame to frame, as transport_viz diff --key">match by <select id="tl-key"><option value="node">node</option><option value="guid">guid</option></select></label>
+  <span class="muted" id="tl-status"></span>
+</div>
+
 <main>
   <section id="graph-view" class="view">
     <svg id="graph"></svg>
@@ -59,11 +70,12 @@
   </aside>
 </main>
 
-<div id="drop-overlay" hidden>Drop the JSON file to load it</div>
+<div id="drop-overlay" hidden>Drop the JSON or JSON Lines file to load it</div>
 
 <script src="vendor/d3.v7.min.js"></script>
 <script src="sample/sample.js"></script>
 <script src="model.js"></script>
+<script src="replay.js"></script>
 <script src="scene.js"></script>
 <script src="app.js"></script>
 </body>

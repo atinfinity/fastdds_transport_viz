@@ -167,3 +167,32 @@ def test_signal_reaps_transport_viz(tmp_path, signame):
             proc.wait()
         if child is not None and alive(child):
             os.kill(child, signal.SIGKILL)
+
+
+def test_record_writes_every_line_as_it_came(tmp_path):
+    # --record keeps what `transport_viz --watch --json > FILE` would have: every line,
+    # the unparsable one included, in order (#82)
+    rec = tmp_path / 'rec.jsonl'
+    proc, _ = start(tmp_path, extra=['--record', str(rec)])
+    try:
+        assert proc.wait(timeout=10) == 0
+        stderr = proc.stderr.read()
+    finally:
+        if proc.poll() is None:
+            proc.kill()
+    assert f'recording to {rec}' in stderr
+    lines = rec.read_text().splitlines()
+    assert len(lines) == 4, lines
+    observed = [json.loads(line)['observed_at'] for line in lines[:3]]
+    assert observed == ['frame-0', 'frame-1', 'frame-2']
+    assert lines[3] == 'garbage that is not json'
+
+
+def test_record_to_an_unwritable_path_fails_before_starting(tmp_path):
+    proc = subprocess.run(
+        [sys.executable, str(SERVE), '--port', '0', '--transport-viz', '/bin/false',
+         '--record', str(tmp_path / 'missing' / 'rec.jsonl')],
+        capture_output=True, text=True, timeout=10)
+    assert proc.returncode == 1
+    assert 'cannot write the recording' in proc.stderr
+    assert 'listening' not in proc.stdout
