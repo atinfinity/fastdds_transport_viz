@@ -480,6 +480,23 @@ std::set<std::string> own_participant_prefixes(int domain)
   return prefixes;
 }
 
+// Hand the observer the destinations every discovered reader receives on, and answer how many
+// pairs could show a packet at all - both from the one snapshot passed in, so the two numbers
+// never come from two different pictures. An RTPS_SENT instance only counts as a measured pair
+// packet against these destinations (#179, #196), so with none set nothing counts and
+// measured_instances reads 0. That is why every path that reads settle_status() or
+// StatsObserver::snapshot() calls this first: before #200 the settle rule of a --quiet one-shot
+// was the only caller, which left --quiet 0, --watch and --timeout below the settle floor
+// counting nothing at all.
+size_t refresh_reader_destinations(
+  fastdds_transport_viz::StatsObserver & stats, const std::vector<Endpoint> & endpoints,
+  const std::set<std::string> & own_prefixes)
+{
+  stats.set_reader_destinations(
+    fastdds_transport_viz::reader_destinations(endpoints, own_prefixes));
+  return fastdds_transport_viz::count_measurable_pairs(endpoints, own_prefixes);
+}
+
 Snapshot collect(
   fastdds_transport_viz::DiscoveryObserver & observer,
   fastdds_transport_viz::RosGraphResolver & resolver,
@@ -490,8 +507,17 @@ Snapshot collect(
 {
   const auto & prof = profiler();
   const auto collect_start = prof.now();
+  if (names != nullptr) {names->poll();}
+  // The raw discovery snapshot is taken before the counters are drained (#200): the drain
+  // judges its RTPS_SENT instances against the readers of this snapshot, so a frame - or a
+  // one-shot whose wait never refreshed them - measures against the picture it prints.
+  std::vector<Endpoint> endpoints = observer.snapshot();
+  std::set<std::string> own_prefixes = own_participant_prefixes(domain);
   fastdds_transport_viz::StatsData stats_data;
   if (stats != nullptr) {
+    // #201: how many pairs could show a packet at all. 0 means every delivery in the system
+    // is intra-process.
+    const size_t measurable = refresh_reader_destinations(*stats, endpoints, own_prefixes);
     const auto t = prof.now();
     stats_data = stats->snapshot();
     prof.emit(
@@ -504,8 +530,8 @@ Snapshot collect(
     stats_data.local_addresses = local_ip_addresses();
     stats_data.settled = settled_at_s >= 0.0;
     stats_data.settled_at_s = settled_at_s;
+    stats_data.measurable_pairs = measurable;
   }
-  if (names != nullptr) {names->poll();}
   auto t_resolve = prof.now();
   // The rmw graph only changes with the endpoints and the ros_discovery_info samples, so a
   // quiet graph is not queried again (#135).
@@ -515,7 +541,6 @@ Snapshot collect(
       std::chrono::steady_clock::now() - observer.last_event()).count());
   prof.emit("resolve", t_resolve, {{"refreshed", static_cast<uint64_t>(refreshed)}});
 
-  std::vector<Endpoint> endpoints = observer.snapshot();
   // Was discovery still running when the wait ended (#74 saw one-shot runs print a fraction
   // of a large system)? Judged on the raw snapshot, before any filter drops an endpoint the
   // nodes did announce.
@@ -550,13 +575,6 @@ Snapshot collect(
   }
   fastdds_transport_viz::ShmScanInput shm_in;   // SHM ports of every endpoint, filtered or not
   const auto local_host = observer.local_host_id();
-  std::set<std::string> own_prefixes = own_participant_prefixes(domain);
-  // #201: how many pairs could show a packet at all, from the same raw snapshot the settle
-  // rule used. 0 means every delivery in the system is intra-process.
-  if (stats != nullptr) {
-    stats_data.measurable_pairs =
-      fastdds_transport_viz::count_measurable_pairs(endpoints, own_prefixes);
-  }
   std::set<std::string> other_host_prefixes;
   // SHM ports per participant with our host id, from every endpoint (ros_discovery_info
   // is the only one announcing the 7000+ port on Jazzy and newer), and those announced by
@@ -1125,11 +1143,8 @@ int main(int argc, char ** argv)
         if (observer.event_count() != reader_destinations_event_count) {
           reader_destinations_event_count = observer.event_count();
           if (own_prefixes.empty()) {own_prefixes = own_participant_prefixes(domain);}
-          const auto snapshot = observer.snapshot();
-          stats->set_reader_destinations(
-            fastdds_transport_viz::reader_destinations(snapshot, own_prefixes));
           measurable_pairs =
-            fastdds_transport_viz::count_measurable_pairs(snapshot, own_prefixes);
+            refresh_reader_destinations(*stats, observer.snapshot(), own_prefixes);
         }
         const auto settle = stats->settle_status();
         if (settle.measured_instances != measured_instances) {
@@ -1151,13 +1166,14 @@ int main(int argc, char ** argv)
     // #168: the cap was hit with RTPS_SENT writers still to hear from, which is the state the
     // settle rule was meant to end - say which, so a longer --timeout is an informed choice.
     if (o.stats && stopped_on == "timeout" && !o.watch) {
-      const auto settle = stats->settle_status();
       // #179: ... or with every writer heard from and still no instance towards a reader.
       // Recomputed here rather than taken from the loop, which never runs below --timeout 5
-      // (#201): with nothing measurable there is no RTPS_SENT entry to miss.
+      // (#201) nor at --quiet 0 (#200): with nothing measurable there is no RTPS_SENT entry
+      // to miss, and with the destinations unset nothing would ever be measured.
       if (own_prefixes.empty()) {own_prefixes = own_participant_prefixes(domain);}
-      const bool measurable = fastdds_transport_viz::count_measurable_pairs(
-        observer.snapshot(), own_prefixes) > 0;
+      const bool measurable =
+        refresh_reader_destinations(*stats, observer.snapshot(), own_prefixes) > 0;
+      const auto settle = stats->settle_status();
       const bool unmeasured =
         measurable && settle.announced > 0 && settle.measured_instances == 0;
       if (!settle.unheard.empty() || unmeasured) {

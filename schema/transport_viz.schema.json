@@ -803,7 +803,7 @@
         "measured_instances": {
           "type": "integer",
           "minimum": 0,
-          "description": "RTPS_SENT instances whose counter moved since their first sample and whose destination is one a discovered reader receives on - its unicast (kind, port) or a multicast group it announces (#179, #196). These are the pairs' measured packets; the metatraffic and own-port instances that move first are not counted, and a run that counted them settled in 8 s with nothing measured. What the settle rule of a --stats one-shot waits to stop growing, alongside writers_heard. Cumulative over the run, recomputed for every --watch frame. Optional; documents written before #179 do not carry it."
+          "description": "RTPS_SENT instances whose counter moved since their first sample and whose destination is one a discovered reader receives on - its unicast (kind, port) or a multicast group it announces (#179, #196). These are the pairs' measured packets; the metatraffic and own-port instances that move first are not counted, and a run that counted them settled in 8 s with nothing measured. What the settle rule of a --stats one-shot waits to stop growing, alongside writers_heard. Cumulative over the run, recomputed for every --watch frame. Optional; documents written before #179 do not carry it, and one written by a --watch or --quiet 0 run before #200 reads 0 although its pairs were measured (the destinations were only set by the settle rule those runs skip)."
         },
         "measurable_pairs": {
           "type": "integer",

@@ -3,6 +3,7 @@
 """--stats: nodes started with FASTDDS_STATISTICS => measured SHM traffic and host names."""
 import json
 import os
+import signal
 import subprocess
 import sys
 import time
@@ -12,7 +13,8 @@ from _common import (  # noqa: E402
     Base, description, node_action, skip_without_statistics, topic, transport_viz_json,
     udpv4_only_env)
 
-from ament_index_python.packages import get_package_share_directory  # noqa: E402
+from ament_index_python.packages import (  # noqa: E402
+    get_package_prefix, get_package_share_directory)
 import launch_testing  # noqa: E402
 
 STATS_ENV = {
@@ -208,6 +210,62 @@ class TestStats(Base):
         self.assertNotIn('not heard from', out.stderr)
         # and every pair with a delivery proof carries a measured packet
         self.assertEqual(stats['pairs_delivered_unmeasured'], 0, stats)
+
+    def test_quiet_zero_one_shot_measures_its_pairs(self):
+        """
+        A --quiet 0 one-shot counts its measured instances like any other run (#200).
+
+        The refresh that hands the drain the reader destinations an RTPS_SENT instance is
+        judged against used to live inside the settle rule, which --quiet 0 skips: the run
+        reported 0 measured instances and warned that nothing reached a discovered reader,
+        however many packets its pairs carried. Every other launch test runs --quiet 0.
+        """
+        cmd = ['ros2', 'run', 'fastdds_transport_viz', 'transport_viz', '--json', '--stats',
+               '--timeout', '10', '--quiet', '0']
+        out = subprocess.run(cmd, check=True, capture_output=True, text=True, timeout=60)
+        doc = json.loads(out.stdout)
+        stats = doc['stats']
+        self.assertEqual(doc['discovery']['stopped_on'], 'timeout', doc['discovery'])
+        self.assertGreater(stats['measurable_pairs'], 0, stats)
+        self.assertGreater(stats['measured_instances'], 0, stats)
+        # the warning of #179 is about a system where nothing was measured, not about this one
+        self.assertNotIn('no measured RTPS_SENT', out.stderr)
+
+    def test_watch_frames_measure_their_pairs(self):
+        """
+        Every --watch --stats frame counts its measured instances (#200).
+
+        A watch runs no settle rule, so before #200 nothing ever handed it the destinations and
+        every frame read 0 while its pairs carried hundreds of packets. The count is cumulative
+        over the run and the first frame is drawn after the 5 s counter window, so each frame
+        has to be above zero.
+        """
+        # the binary itself, not `ros2 run`: SIGINT has to reach the watch loop
+        binary = os.path.join(get_package_prefix('fastdds_transport_viz'), 'lib',
+                              'fastdds_transport_viz', 'transport_viz')
+        proc = subprocess.Popen(
+            [binary, '--watch', '--json', '--stats', '--interval', '1'],
+            stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)
+        frames = []
+        try:
+            deadline = time.monotonic() + 60
+            for line in proc.stdout:     # one compact document per line (JSON Lines)
+                if line.startswith('{'):
+                    frames.append(json.loads(line))
+                if len(frames) >= 3 or time.monotonic() > deadline:
+                    break
+        finally:
+            proc.send_signal(signal.SIGINT)   # rclcpp's handler ends the watch loop
+            try:
+                proc.communicate(timeout=20)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                proc.communicate()
+        self.assertGreaterEqual(len(frames), 3, frames)
+        for index, doc in enumerate(frames):
+            stats = doc['stats']
+            self.assertGreater(stats['measurable_pairs'], 0, (index, stats))
+            self.assertGreater(stats['measured_instances'], 0, (index, stats))
 
 
 @launch_testing.post_shutdown_test()
