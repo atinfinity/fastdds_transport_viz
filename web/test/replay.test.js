@@ -97,6 +97,17 @@ test('addFrame: a pair gone for a while comes back in the same series', () => {
   assert.equal(s.hz[40], 10);
 });
 
+test('addFrame: a pair gone for good reads absent to the end, past its first allocation', () => {
+  const rec = R.createRecording();
+  R.addFrame(rec, frame(0), 0, 1);
+  for (let i = 1; i < 40; ++i) R.addFrame(rec, { ...frame(i), topics: [] }, 0, 1);
+  const s = [...rec.series.values()][0];
+  assert.ok(s.hz.length >= 40);
+  assert.deepEqual(R.transportRuns(s, 40).map(r => [r.from, r.to, r.transport]), [[0, 1, 'SHM'], [1, 40, null]]);
+  assert.ok(Number.isNaN(s.hz[39]));
+  assert.ok(Number.isNaN(R.frameLatency(s, 40)[39]));
+});
+
 test('frameLatency: the mean of each interval from the cumulative mean', () => {
   // 10 samples at 1 ms, then 10 more at 3 ms (cumulative mean 2 ms), then none
   const rec = record([frame(0, { mean: 0.001, samples: 10 }), frame(1, { mean: 0.002, samples: 20 }), frame(2, { mean: 0.002, samples: 20 })]);
@@ -156,6 +167,62 @@ test('frameX: by time when it parses and goes forward, else by index', () => {
   rec.observedAt[1] = 'frame-1';
   assert.deepEqual([...R.frameX(rec)], [0, 0.5, 1]);
   assert.equal(R.nearestFrame(R.frameX(record([frame(0), frame(1), frame(4)])), 0.3), 1);
+});
+
+test('trackId: new, duplicate, gaps and restarts of the SSE ids', () => {
+  const t = R.streamIds();
+  const kinds = [57, 58, 58, 61, 62, 2, 3, 5, NaN].map(id => R.trackId(t, id));
+  assert.deepEqual(kinds, ['new', 'new', 'duplicate', 'new', 'new', 'restart', 'new', 'new', 'new']);
+  // 59 and 60 skipped, 4 skipped; nothing before 57 or before the restart at 2
+  assert.equal(t.skipped, 3);
+  assert.equal(t.restarts, 1);
+  assert.equal(t.last, 5, 'an event without an id leaves the last id');
+});
+
+test('dropCount: a tenth of the frames at a time, the newest always kept', () => {
+  assert.equal(R.dropCount([10, 10, 10], 30), 0);
+  assert.equal(R.dropCount(new Array(20).fill(10), 199), 2);   // one tenth
+  assert.equal(R.dropCount(new Array(20).fill(10), 150), 6);   // tenths until it fits: 2 + 2 + 2
+  assert.equal(R.dropCount([10, 10, 500], 100), 2, 'a frame over the bound alone stays');
+  assert.equal(R.dropCount([10], 0), 0);
+});
+
+test('dropFrames: series shift in place and match a recording of the kept frames', () => {
+  const docs = [];
+  for (let i = 0; i < 30; ++i) {
+    const d = frame(i, { transport: i % 7 < 3 ? 'SHM' : 'UDPv4', hz: i, samples: 10 * (i + 1), lost: i, writer: i < 5 ? 'w0' : 'w1',
+      changes: i % 4 ? null : { added_pairs: [{}], removed_pairs: [], changed_pairs: [] } });
+    if (i >= 5) d.topics.push({ ...frame(i).topics[0], topic: '/other', dds_topic: 'rt/other' });
+    docs.push(d);
+  }
+  for (const n of [1, 3, 5, 12]) {
+    const rec = record(docs, 'guid');
+    R.dropFrames(rec, n);
+    const want = record(docs.slice(n), 'guid');
+    assert.equal(rec.frames, want.frames);
+    assert.deepEqual(rec.observedAt, want.observedAt);
+    assert.deepEqual(rec.changed, want.changed);
+    assert.deepEqual([...rec.series.keys()].sort(), [...want.series.keys()].sort(), `n=${n}: w0 goes once its frames are gone`);
+    for (const [id, s] of want.series) {
+      const got = rec.series.get(id);
+      const f = rec.frames;
+      assert.deepEqual(R.transportRuns(got, f), R.transportRuns(s, f), `${id} n=${n}`);
+      assert.deepEqual([...got.hz.subarray(0, f)], [...s.hz.subarray(0, f)]);
+      assert.deepEqual([...R.frameLatency(got, f)], [...R.frameLatency(s, f)]);
+      assert.deepEqual([...R.frameLoss(got, f)], [...R.frameLoss(s, f)]);
+      assert.ok(Number.isNaN(got.hz[f]) && got.transport[f] === 0, 'the freed tail is reset');
+    }
+    // the next frame lands where a fresh recording puts it
+    R.addFrame(rec, docs[29], 0, 1);
+    R.addFrame(want, docs[29], 0, 1);
+    for (const [id, s] of want.series) assert.deepEqual(R.transportRuns(rec.series.get(id), rec.frames), R.transportRuns(s, want.frames));
+  }
+});
+
+test('shiftIndex: a dropped frame on screen moves to the oldest kept one', () => {
+  assert.deepEqual(R.shiftIndex(10, 3), { index: 7, dropped: false });
+  assert.deepEqual(R.shiftIndex(3, 3), { index: 0, dropped: false });
+  assert.deepEqual(R.shiftIndex(2, 3), { index: 0, dropped: true });
 });
 
 test('the shipped recording replays: several frames, the flip is in the series', () => {

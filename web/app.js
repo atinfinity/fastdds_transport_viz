@@ -15,9 +15,9 @@
     humanBytes, measuredText, latencyText, rateText, rateTitle, lossText, groupPairsByTopic, compareCells, escapeHtml, codeListHtml, shmText, participantShmText, datasharingText, typeHashText, statsText, clientParticipants, discoveryText,
     pairKey, keyId, diffDocuments, changeText, changesSummary, decorations, holdChanges, heldDecorations, humanSeconds } = globalThis.TransportVizModel;
   const { L, markOf, visibleScene, sceneEdges, edgeLabel, layout, edgeCurve, edgePathD, edgeMidpoint } = globalThis.TransportVizScene;
-  // recordings (#82): a JSON Lines file of documents, replayed frame by frame
+  // recordings (#82): a JSON Lines file of documents, replayed frame by frame; the live history (#218)
   const { lineSplitter, parseFrame, createRecording, addFrame, identsOf, frameLatency, frameLoss, hasValues,
-    transportRuns, nextChange, frameX, nearestFrame } = globalThis.TransportVizReplay;
+    transportRuns, nextChange, frameX, nearestFrame, streamIds, trackId, dropCount, dropFrames, shiftIndex } = globalThis.TransportVizReplay;
   const COLORS = {
     UDPv4: 'var(--c-udpv4)', UDPv6: 'var(--c-udpv6)', TCPv4: 'var(--c-tcp)', TCPv6: 'var(--c-tcp)',
     SHM: 'var(--c-shm)', DATA_SHARING: 'var(--c-ds)', NONE: 'var(--c-none)',
@@ -510,36 +510,203 @@
 
   // ---------------------------------------------------------------- live mode (serve.py / transport_viz_web)
 
-  const live = { es: null, paused: false, pending: null, updates: 0 };
+  /**
+   * Live mode keeps the frames it receives (#218): each one's text as a Blob, a frame of the
+   * replay machinery's recording, so the timeline, the charts and Save recording work while
+   * the stream goes on. The kept bytes are bounded by ?history=<MB> (default HISTORY_MB);
+   * 0 keeps none, and Pause then holds the newest frame back as before. `following`: the
+   * newest frame is shown as it arrives; a move on the timeline or Pause stops on a frame
+   * while the frames keep coming, `live ▶|` / End / Resume go back to the newest.
+   */
+  const HISTORY_MB = 512;
+  const live = {
+    es: null, limit: HISTORY_MB * (1 << 20),
+    following: true,
+    pending: null,          // the newest frame while paused without a history
+    blobs: [], bytes: 0,    // the kept frames' text, frame i of replay.rec in blobs[i]
+    ids: streamIds(), received: 0, newest: '',
+    trimmed: false,         // the oldest frames were dropped to stay within the bound
+    shownDropped: false,    // ... and the frame on screen was one of them
+    scanning: false,        // the kept frames are being read into a new recording (Match by)
+    conn: 'connecting', message: '',   // connecting | reconnecting | ended (with its message) | ''
+  };
 
-  function liveStatus(cls, text) {
+  /** The header: what the stream does and which frame is on screen. */
+  function liveHeader() {
+    const rec = replay.live ? replay.rec : null;
+    const viewing = rec && rec.frames ? `viewing #${replay.index + 1} of ${rec.frames}` : '';
+    let text;
+    if (live.conn === 'connecting') text = 'live: connecting…';
+    else if (live.conn === 'reconnecting') text = 'live: connection lost, reconnecting…';
+    else if (live.conn === 'ended') text = `live: ${live.message}${!live.following && viewing ? ` · ${viewing}` : ''}`;
+    else if (live.following) text = `live: updated ${live.newest} (#${live.received})`;
+    else if (viewing) text = `live: ${viewing} (newest ${live.newest})`;
+    else text = `live: paused (newest ${live.newest || '–'})`;
+    const cls = live.conn || (live.following ? '' : 'paused');
     const el = d3.select('#live').attr('hidden', null).attr('class', `live ${cls}`);
     el.select('#live-text').text(text);
+    d3.select('#live-pause').text(live.following ? 'Pause' : 'Resume');
   }
 
-  function connectLive() {
+  function connectLive(params) {
+    const mb = params.get('history');
+    if (mb !== null && Number.isFinite(Number(mb)) && Number(mb) >= 0) live.limit = Number(mb) * (1 << 20);
     live.es = new EventSource('events');
-    liveStatus('connecting', 'live: connecting…');
+    liveHeader();
     live.es.addEventListener('document', (e) => {
-      let doc;
-      try { doc = JSON.parse(e.data); } catch (err) { console.error('live: bad document', err); return; }
-      live.updates++;
-      if (live.paused) { live.pending = doc; liveStatus('paused', `live: paused (${live.updates} updates, newest ${doc.observed_at})`); return; }
-      setDocument(doc, 'live', true, { live: true });
-      liveStatus('', `live: updated ${doc.observed_at} (#${live.updates})`);
+      if (live.conn !== 'ended') live.conn = '';
+      // serve.py numbers its documents: the latest one sent again on a reconnect is known
+      if (trackId(live.ids, e.lastEventId === '' ? NaN : Number(e.lastEventId)) === 'duplicate') { liveHeader(); return; }
+      const doc = parseFrame(e.data);
+      if (!doc) { console.error('live: not a transport_viz --json document', e.data.slice(0, 200)); liveHeader(); return; }
+      live.received++;
+      live.newest = String(doc.observed_at || '');
+      if (live.limit > 0) appendFrame(doc, e.data);
+      else if (live.following) setDocument(doc, 'live', true, { live: true });
+      else live.pending = doc;
+      liveHeader();
     });
     live.es.addEventListener('status', (e) => {
       const st = JSON.parse(e.data);
-      liveStatus('ended', `live: ${st.message || st.state}`);
+      live.conn = 'ended';
+      live.message = st.message || st.state;
       live.es.close();
+      liveHeader();
     });
-    live.es.onerror = () => { if (live.es.readyState !== EventSource.CLOSED) liveStatus('reconnecting', 'live: connection lost, reconnecting…'); };
-    d3.select('#live-pause').on('click', function () {
-      live.paused = !live.paused;
-      this.textContent = live.paused ? 'Resume' : 'Pause';
-      if (!live.paused && live.pending) { setDocument(live.pending, 'live', true, { live: true }); live.pending = null; }
-      liveStatus(live.paused ? 'paused' : '', live.paused ? 'live: paused' : 'live: resumed');
+    live.es.onerror = () => {
+      if (live.es.readyState === EventSource.CLOSED) return;
+      live.conn = 'reconnecting';
+      liveHeader();
+    };
+    d3.select('#live-pause').on('click', () => { if (live.following) pauseLive(); else resumeLive(); });
+  }
+
+  /** Keep a received frame: shown at once while following, else the timeline and charts grow. */
+  function appendFrame(doc, text) {
+    const blob = new Blob([text]);
+    live.blobs.push(blob);
+    live.bytes += blob.size;
+    if (!replay.live) { startHistory(); return; }   // it reads the kept frames, this one too
+    if (live.scanning) return;                      // the scan reaches it
+    addFrame(replay.rec, doc, 0, blob.size);
+    trimHistory();
+    replay.xs = frameX(replay.rec);
+    if (live.following) showNewest(doc);
+    else {
+      renderTimeline();
+      if (state.scene && replaying()) renderPanel(state.scene);   // the charts gain a frame
+    }
+  }
+
+  /** The history's recording, from the frames kept so far (none but the first, or all after another load). */
+  function startHistory() {
+    stopReplay();
+    Object.assign(replay, { live: true, name: 'live', rec: createRecording(state.key), xs: new Float64Array(0) });
+    rescanLive();
+  }
+
+  /**
+   * Read every kept frame into a recording keyed by state.key (the start, Match by): the
+   * frames that arrive meanwhile are read after them, the bound waits until the end.
+   */
+  async function rescanLive() {
+    const token = ++replay.token;
+    replay.showToken++;
+    live.scanning = true;
+    renderTimeline();
+    const rec = createRecording(state.key);
+    for (let j = 0; j < live.blobs.length; ++j) {
+      const blob = live.blobs[j];
+      const doc = parseFrame(await blob.text());
+      if (token !== replay.token) return;
+      addFrame(rec, doc, 0, blob.size);
+    }
+    live.scanning = false;
+    replay.rec = rec;
+    trimHistory();
+    replay.xs = frameX(rec);
+    if (live.following) { resumeLive(); return; }
+    replay.index = Math.min(replay.index, rec.frames - 1);
+    replay.shown = -1;
+    showFrame(replay.index);
+    if (!replaying()) renderTimeline();
+  }
+
+  /** Drop the oldest frames over the bound; a dropped frame on screen moves to the oldest kept one. */
+  function trimHistory() {
+    if (live.bytes <= live.limit) return;
+    const n = dropCount(live.blobs.map(b => b.size), live.limit);
+    if (!n) return;
+    dropFrames(replay.rec, n);
+    for (const b of live.blobs.splice(0, n)) live.bytes -= b.size;
+    live.trimmed = true;
+    const want = shiftIndex(replay.index, n);
+    const shown = replay.shown >= 0 ? shiftIndex(replay.shown, n) : { dropped: true };
+    replay.showToken++;   // a frame being read has another index now
+    replay.index = want.index;
+    replay.shown = shown.dropped ? -1 : shown.index;
+    if (live.following) return;   // the newest frame is shown next
+    if (want.dropped) live.shownDropped = true;
+    if (replay.shown !== replay.index) showFrame(replay.index);
+  }
+
+  /** The newest frame, which just arrived, on screen with the live hold of its changes. */
+  function showNewest(doc) {
+    const rec = replay.rec;
+    const oldIdents = replay.idents;
+    const newIdents = identsOf(doc, rec.key);
+    replay.showToken++;   // a frame still being read is not wanted any more
+    Object.assign(replay, { index: rec.frames - 1, shown: rec.frames - 1, idents: newIdents });
+    setDocument(doc, 'live', true, {
+      live: true,
+      reselect: oldIdents ? (sel, oldModel, model) => followSelection(sel, oldModel, model, oldIdents, newIdents) : undefined,
     });
+    renderTimeline();
+  }
+
+  /** Stop on the frame shown; the frames keep coming (Pause, a move on the timeline). */
+  function pauseLive() {
+    live.following = false;
+    live.shownDropped = false;
+    liveHeader();
+  }
+
+  /** Back to the newest frame and follow it (Resume, live ▶|, End). */
+  function resumeLive() {
+    live.following = true;
+    live.shownDropped = false;
+    clearTimeout(replay.timer);
+    liveHeader();
+    if (!replay.live) {   // no history: the frame held back by Pause
+      if (live.pending) { setDocument(live.pending, 'live', true, { live: true }); live.pending = null; }
+      return;
+    }
+    const n = replay.rec.frames;
+    if (live.scanning || !n) return;   // the scan shows the newest frame when it ends
+    // the hold starts over from the newest frame; its predecessor names the removed pairs
+    const token = ++replay.showToken;
+    state.hold = null;
+    state.previousLive = null;
+    Promise.all([n >= 2 ? live.blobs[n - 2].text() : null, live.blobs[n - 1].text()]).then(([before, text]) => {
+      if (token !== replay.showToken) return;
+      state.previousLive = before ? parseFrame(before) : null;
+      showNewest(parseFrame(text));
+    });
+  }
+
+  /** Save recording: the kept frames as JSON Lines, like --record (#218). */
+  function saveRecording() {
+    if (!live.blobs.length) return;
+    const parts = [];
+    for (const b of live.blobs) parts.push(b, '\n');
+    const first = replay.rec && replay.rec.observedAt.length ? replay.rec.observedAt[0] : 'live';
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob(parts, { type: 'application/x-ndjson' }));
+    a.download = `transport_viz-${first.replace(/[^0-9A-Za-z._-]/g, '-')}.jsonl`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 60000);
   }
 
   // ---------------------------------------------------------------- replay (#82)
@@ -552,6 +719,7 @@
   const CHART_W = 1000;   // viewBox width of the charts, stretched to the panel
   const replay = {
     blob: null, name: '', fromUrl: false,
+    live: false,      // the live history (#218): frame i's text is live.blobs[i], not a range of `blob`
     rec: null,        // createRecording(): frames, their byte ranges and the series
     index: 0,         // the frame the timeline points at
     shown: -1,        // the frame on screen
@@ -587,7 +755,8 @@
     replay.token++;
     replay.showToken++;
     clearTimeout(replay.timer);
-    Object.assign(replay, { blob: null, rec: null, xs: null, idents: null, shown: -1, index: 0, loading: false, skipped: 0, timer: null });
+    Object.assign(replay, { live: false, blob: null, rec: null, xs: null, idents: null, shown: -1, index: 0, loading: false, skipped: 0, timer: null });
+    live.scanning = false;
     timeline.hidden = true;
   }
 
@@ -670,8 +839,8 @@
     renderTimeline();
     if (i === replay.shown) return;
     const token = ++replay.showToken;
-    const blob = replay.blob;
-    blob.slice(rec.starts[i], rec.ends[i]).text().then((text) => {
+    const frame = replay.live ? live.blobs[i] : replay.blob.slice(rec.starts[i], rec.ends[i]);
+    frame.text().then((text) => {
       if (token !== replay.showToken) return;
       const doc = parseFrame(text);
       if (doc) display(doc, i);
@@ -727,6 +896,7 @@
 
   function renderTimeline() {
     const rec = replay.rec;
+    if (replay.live) liveHeader();
     timeline.hidden = !replaying();
     if (timeline.hidden) return;
     const n = rec.frames;
@@ -739,9 +909,19 @@
     d3.select('#tl-prev-change').property('disabled', nextChange(rec, i, -1) < 0);
     d3.select('#tl-next-change').property('disabled', nextChange(rec, i, 1) < 0);
     d3.select('#tl-key').property('value', rec.key);
+    d3.select('#tl-live').attr('hidden', replay.live ? null : true).property('disabled', live.following);
+    d3.select('#tl-save').attr('hidden', replay.live ? null : true);
     const status = [];
     if (replay.loading) status.push(`loading ${mb(replay.bytesRead)} / ${mb(replay.blob.size)} MB`);
     if (replay.skipped) status.push(`${replay.skipped} line${replay.skipped === 1 ? '' : 's'} skipped (not a document)`);
+    if (replay.live) {
+      const k = live.ids.skipped;
+      if (k) status.push(`${k} frame${k === 1 ? '' : 's'} skipped by the stream`);
+      if (live.ids.restarts) status.push('stream restarted');
+      if (live.trimmed) status.push(`history: ${+(live.limit / (1 << 20)).toFixed(3)} MB, oldest dropped`);
+      if (live.shownDropped) status.push('the frame on screen was dropped');
+      if (live.scanning) status.push('reading the kept frames…');
+    }
     d3.select('#tl-status').text(status.join(' · '));
     // a tick above the slider for every frame whose `changes` is not empty
     const ticks = [];
@@ -793,8 +973,13 @@
         line('lost packets', frameLoss(s, n), v => String(v)) : '') + '</div>';
   }
 
-  const step = d => showFrame(Math.max(0, Math.min(replay.rec.frames - 1, replay.index + d)));
-  const jumpChange = (dir) => { const k = nextChange(replay.rec, replay.index, dir); if (k >= 0) showFrame(k); };
+  /** A move on the timeline: in live mode it stops following the newest frame (#218). */
+  function goTo(i) {
+    if (replay.live) pauseLive();
+    showFrame(i);
+  }
+  const step = d => goTo(Math.max(0, Math.min(replay.rec.frames - 1, replay.index + d)));
+  const jumpChange = (dir) => { const k = nextChange(replay.rec, replay.index, dir); if (k >= 0) goTo(k); };
   d3.select('#tl-prev').on('click', () => step(-1));
   d3.select('#tl-next').on('click', () => step(1));
   d3.select('#tl-prev-change').on('click', () => jumpChange(-1));
@@ -804,26 +989,37 @@
     const i = Number(slider.value);
     d3.select('#tl-label').text(frameLabel(i));
     clearTimeout(replay.timer);
-    replay.timer = setTimeout(() => showFrame(i), SLIDER_DEBOUNCE_MS);
+    replay.timer = setTimeout(() => goTo(i), SLIDER_DEBOUNCE_MS);
   });
-  slider.addEventListener('change', () => showFrame(Number(slider.value)));
+  slider.addEventListener('change', () => goTo(Number(slider.value)));
+  d3.select('#tl-live').on('click', () => resumeLive());
+  d3.select('#tl-save').on('click', () => saveRecording());
   document.addEventListener('keydown', (ev) => {
-    if (!replaying() || ev.altKey || ev.ctrlKey || ev.metaKey || (ev.key !== 'ArrowLeft' && ev.key !== 'ArrowRight')) return;
+    const key = ev.key;
+    if (!replaying() || ev.altKey || ev.ctrlKey || ev.metaKey) return;
+    if (key !== 'ArrowLeft' && key !== 'ArrowRight' && !(key === 'End' && replay.live)) return;
     const t = ev.target;
     if (t && /^(INPUT|SELECT|TEXTAREA)$/.test(t.tagName)) return;   // the slider moves itself
     ev.preventDefault();
-    step(ev.key === 'ArrowLeft' ? -1 : 1);
+    if (key === 'End') resumeLive();
+    else step(key === 'ArrowLeft' ? -1 : 1);
   });
   document.getElementById('panel').addEventListener('click', (ev) => {
     const chart = ev.target.closest && ev.target.closest('.replay-charts svg');
     if (!chart || !replaying()) return;
     const r = chart.getBoundingClientRect();
-    showFrame(nearestFrame(replay.xs, (ev.clientX - r.left) / r.width));
+    goTo(nearestFrame(replay.xs, (ev.clientX - r.left) / r.width));
   });
   // Match by: the series are keyed like transport_viz diff --key, so a change reads the file again
   d3.select('#tl-key').on('change', function () {
     if (!replaying()) return;
     state.key = this.value;
+    if (replay.live) {   // the kept frames are read again, the ones arriving meanwhile after them
+      replay.idents = state.doc ? identsOf(state.doc, state.key) : null;
+      if (state.selection && state.selection.kind === 'pair' && state.selection.id === null) state.selection = null;
+      rescanLive();
+      return;
+    }
     const { blob, name, fromUrl, index } = replay;
     replay.token++;
     replay.showToken++;
@@ -916,7 +1112,7 @@
   render();
   const params = new URLSearchParams(location.search);
   if (params.get('key') === 'guid') state.key = 'guid';
-  if (params.get('live')) connectLive();
+  if (params.get('live')) connectLive(params);
   else if (params.get('src') && params.get('diff')) loadDiffUrls(params.get('src'), params.get('diff'));
   else if (params.get('src')) loadUrl(params.get('src'), Number(params.get('frame')) || 1);
   else loadSample();

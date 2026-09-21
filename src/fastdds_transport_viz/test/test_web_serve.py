@@ -89,6 +89,8 @@ def test_latest_and_events_then_shutdown(tmp_path):
                 line = raw.decode().rstrip('\n')
                 if line.startswith('retry: '):
                     retry = int(line[7:])
+                elif line.startswith('id: '):
+                    event['id'] = int(line[4:])
                 elif line.startswith('event: '):
                     event['event'] = line[7:]
                 elif line.startswith('data: '):
@@ -107,6 +109,12 @@ def test_latest_and_events_then_shutdown(tmp_path):
         assert docs[-1]['observed_at'] == 'frame-2'
         assert events[-1]['data']['state'] == 'ended'
         assert 'exited with code 0' in events[-1]['data']['message']
+        # every document carries its number in the stream, the unparsable line has none;
+        # the viewer drops a repeated id and counts the gaps as skipped frames (#218)
+        ids = [e['id'] for e in events if e['event'] == 'document']
+        assert ids == sorted(set(ids)), events
+        assert ids[-1] == 3, ids
+        assert 'id' not in events[-1], events
         # producer finished => server shuts down by itself
         assert proc.wait(timeout=10) == 0
     finally:

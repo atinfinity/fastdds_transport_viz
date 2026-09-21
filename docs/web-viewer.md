@@ -147,7 +147,8 @@ ros2 run fastdds_transport_viz transport_viz_web --stats --interval 1
 Open the printed URL: `/` redirects to `index.html?live=1`, which connects to `/events`
 and re-renders on every document while keeping the selection, filters and zoom (the
 layout is deterministic, so nothing jumps). The header shows the live state and the
-time of the last update; **Pause** stops applying frames until **Resume**. `/latest.json`
+time of the last update; the frames received so far stay in the page
+([Live history](#live-history)). `/latest.json`
 always returns the most recent document (usable with `?src=/latest.json`; `?live=1` takes
 precedence when both are given).
 
@@ -157,6 +158,51 @@ screen, and the browser retries once a second (the stream asks for it with `retr
 the browser's own default would be three). The server sends the latest document to every
 new connection, so the banner clears as soon as one is listening again, without waiting
 for the next `--interval`.
+
+### Live history
+
+The viewer keeps every frame it receives
+([#218](https://github.com/atinfinity/fastdds_transport_viz/issues/218)), so the pair that
+flipped to UDPv4 a minute ago can still be looked at. From the second frame on, the
+[timeline of a replay](#recording-and-replaying) sits under the toolbar and follows the
+newest frame, and the charts of a selected pair's card cover the kept frames, growing with
+each one.
+
+- A move on the timeline - `◀` / `▶`, the slider, `◀ change` / `change ▶`, a click on a
+  chart - stops on that frame. The frames keep coming and join the timeline, the screen
+  stays, and the header reads `live: viewing #k of N (newest …)`. **Pause** stops on the
+  frame shown the same way.
+- `live ▶|`, the End key or **Resume** go back to the newest frame and follow it again.
+- The newest frame's changes stay marked for three frames, as on the CLI; a past frame
+  shows its own `changes` only, as in a replay.
+- **Save recording** downloads the kept frames as `transport_viz-<first observed_at>.jsonl`,
+  the JSON Lines of `--record`, to open later or send to someone.
+- **match by** reads the kept frames again with the other key; frames arriving meanwhile
+  are added after them.
+
+The history lives in the page: each frame's text is kept as a Blob and parsed again when
+it is shown. It starts when the page is opened and ends when the page is closed or
+reloaded; for the time before, or without a browser open, run the server with
+[`--record`](#recording-and-replaying). `?history=<MB>` bounds it (default 512; `0` keeps
+no history, and **Pause** then holds the newest frame back until **Resume**). Over the
+bound the oldest tenth of the frames is dropped at once and the timeline reads
+`history: 512 MB, oldest dropped`; a past frame on screen that is dropped gives way to the
+oldest kept frame, still paused, with `the frame on screen was dropped`.
+With the 2400-pair `medium` document at `--interval 1` (about 5.7 MB per frame as the
+stream sends it) the default keeps 90 frames, a minute and a half; a frame costs the page
+17 ms while it follows and 12 ms while it is paused, the drop of the oldest nine took
+14 ms together with the frame that caused it, the JavaScript heap stayed at 38-49 MB (the
+frames' text is in the browser's Blob store, not the heap), and **match by** read the 90
+kept frames again in 0.8 s ([development.md](development.md#scale-results)). Raise the
+bound for a longer look back, lower it on a small machine.
+
+Every `document` event carries `id:`, its number in the server's stream. The server sends a
+client only the newest document, so a browser that falls behind (a busy tab, a slow link)
+misses some; the timeline counts them (`3 frames skipped by the stream`). The document
+sent again on a reconnect has an id the page already has and is not added twice. An id
+that goes down means the server was restarted: the history carries on and the timeline
+adds `stream restarted`. When `transport_viz` exits, the kept frames stay and can still be
+scrubbed.
 
 ![live mode](images/web-viewer-live.jpg)
 
@@ -189,7 +235,9 @@ both cases ([Comparing two documents](#comparing-two-documents)).
 
 A transient problem - a pair that falls back to UDPv4 for ten seconds while a node
 restarts - is gone before anyone opens the viewer. Record the live stream and replay it
-afterwards ([#82](https://github.com/atinfinity/fastdds_transport_viz/issues/82)):
+afterwards ([#82](https://github.com/atinfinity/fastdds_transport_viz/issues/82)); a viewer
+that was already open in live mode has the frames itself and can save them
+([Live history](#live-history)):
 
 ```
 ros2 run fastdds_transport_viz transport_viz_web --stats --interval 1 --record rec.jsonl
