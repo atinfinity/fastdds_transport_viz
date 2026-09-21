@@ -90,3 +90,81 @@ def test_datasharing_fixture_uses_every_segment_visibility_value():
             assert e['datasharing_segment_visibility'] == 'visible', e['guid']
         if e['datasharing_segment_visibility'] == 'unprobed':
             assert e['qos']['data_sharing'] == 'OFF', e['guid']
+
+
+def _resolve(node, schema):
+    """Follow a local `$ref` to the node it names."""
+    for _ in range(20):
+        if not (isinstance(node, dict) and '$ref' in node):
+            break
+        target = schema
+        for part in node['$ref'].lstrip('#/').split('/'):
+            target = target[part]
+        node = target
+    return node
+
+
+def _branches(node, schema):
+    """
+    Return the node and every allOf/anyOf/oneOf branch under it.
+
+    A key any one of them declares is declared. They are unioned instead of checked one by one
+    because `additionalProperties` and `allOf` do not compose in JSON Schema itself:
+    changes.changed_pairs[] carries `from` and `to` in one branch and the pair key in the
+    other, and neither branch alone sees both.
+    """
+    node = _resolve(node, schema)
+    if not isinstance(node, dict):
+        return []
+    out = [node]
+    for keyword in ('allOf', 'anyOf', 'oneOf'):
+        for branch in node.get(keyword, []):
+            out += _branches(branch, schema)
+    return out
+
+
+def undeclared_keys(doc, node, schema, path):
+    """
+    Return the keys of `doc` that no property of `node` declares (#199).
+
+    A node that declares no properties at all is a free-form object (`stats.physical`,
+    `stats.data_count`, ...) and has nothing to violate; one whose `additionalProperties` is a
+    schema has its values walked against that schema.
+    """
+    found = []
+    branches = _branches(node, schema)
+    if isinstance(doc, dict):
+        properties, additional = {}, None
+        for branch in branches:
+            properties.update(branch.get('properties', {}))
+            if additional is None:
+                additional = branch.get('additionalProperties')
+        for key, value in doc.items():
+            if key in properties:
+                found += undeclared_keys(value, properties[key], schema, f'{path}.{key}')
+            elif isinstance(additional, dict):
+                found += undeclared_keys(value, additional, schema, f'{path}.*')
+            elif properties:
+                found.append(f'{path}.{key}')
+    elif isinstance(doc, list):
+        items = next((b['items'] for b in branches if 'items' in b), None)
+        if items is not None:
+            for entry in doc:
+                found += undeclared_keys(entry, items, schema, f'{path}[]')
+    return found
+
+
+@pytest.mark.parametrize('sample', SAMPLES, ids=[s.name for s in SAMPLES])
+def test_sample_carries_no_key_the_schema_leaves_undeclared(sample):
+    """
+    Every key the tool writes has to be declared (#199).
+
+    `stats.measured_instances` was rendered by --json and parsed back by diff since #179 while
+    the schema never named it, and nothing failed: $defs.stats takes additional properties, so
+    validation cannot tell a field the schema documents from one it forgot. The schema stays
+    permissive on purpose - a document from a newer tool must not be rejected by an older
+    schema - which is why the completeness of the declarations is a test here rather than
+    `additionalProperties: false` there.
+    """
+    schema = load(SCHEMA)
+    assert undeclared_keys(load(sample), schema, schema, sample.name) == []

@@ -238,7 +238,17 @@ colcon test && colcon test-result --verbose
   restarted listener is no change under the node key and a removed + added pair under the
   GUID key; a second listener is an added pair under both).
 - `test_json_schema` / `test_json_schema_live.py`: sample and live `--json` output against
-  `schema/transport_viz.schema.json`.
+  `schema/transport_viz.schema.json`. Every key `render_json.cpp` writes has to be declared
+  there: `stats.measured_instances` was rendered and parsed back for a whole issue's worth of
+  work while the schema never named it
+  ([#199](https://github.com/atinfinity/fastdds_transport_viz/issues/199)), and nothing
+  failed, because `$defs.stats` takes additional properties and validation cannot tell a field
+  the schema documents from one it forgot. The schema stays permissive on purpose - a document
+  written by a newer tool must not be rejected by an older schema - so the completeness of the
+  declarations is a test (`test_sample_carries_no_key_the_schema_leaves_undeclared`, which
+  walks each shipped document against the schema and reports keys no property declares)
+  rather than `additionalProperties: false`. A new field in the JSON output therefore comes
+  with its declaration in the same pull request.
 - `test_web_serve` (pytest, fake `transport_viz`) / `test_web_live.py` (real one): the live
   server's SSE stream, `/latest.json` and shutdown behaviour.
 - `ros2transport/test/test_cli.py` (pytest, fake `transport_viz`): argument translation of
