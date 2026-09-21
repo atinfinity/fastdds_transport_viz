@@ -49,9 +49,11 @@
   <button class="btn" id="tl-prev" title="Previous frame (←)">◀</button>
   <button class="btn" id="tl-next" title="Next frame (→)">▶</button>
   <button class="btn" id="tl-next-change" title="Next frame with changes">change ▶</button>
+  <button class="btn" id="tl-live" title="Back to the newest frame and follow it (End)" hidden>live ▶|</button>
   <div class="track"><svg id="tl-ticks"></svg><input type="range" id="tl-slider" min="0" max="0" step="1" value="0" aria-label="frame"></div>
   <span id="tl-label"></span>
   <label title="How a pair is followed from frame to frame, as transport_viz diff --key">match by <select id="tl-key"><option value="node">node</option><option value="guid">guid</option></select></label>
+  <button class="btn" id="tl-save" title="Download the kept frames as JSON Lines, like --record" hidden>Save recording</button>
   <span class="muted" id="tl-status"></span>
 </div>
 

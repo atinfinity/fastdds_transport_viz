@@ -11,7 +11,10 @@ the latest document, and serves:
                     share/fastdds_transport_viz/web when installed)
   /latest.json   -> the most recent document
   /events        -> Server-Sent Events: a retry interval, the latest document on
-                    connect, then every new document ("document" events); a
+                    connect, then every new document ("document" events, each
+                    with ``id:`` its number in this server's stream: a client
+                    that fell behind receives only the newest, and the viewer's
+                    live history counts the skipped ones by the gaps, #218); a
                     "status" event when the stream ends
 
 With ``--record FILE`` every line transport_viz prints is also written to FILE as it
@@ -120,8 +123,9 @@ def make_handler(web_dir, stream, verbose):
             self.end_headers()
             self.wfile.write(body)
 
-        def sse(self, event, data):
-            self.wfile.write(f'event: {event}\ndata: {json.dumps(data)}\n\n'.encode())
+        def sse(self, event, data, event_id=None):
+            head = f'id: {event_id}\n' if event_id is not None else ''
+            self.wfile.write(f'{head}event: {event}\ndata: {json.dumps(data)}\n\n'.encode())
             self.wfile.flush()
 
         def serve_events(self):
@@ -141,7 +145,10 @@ def make_handler(web_dir, stream, verbose):
                     seq, latest, ended = stream.wait(seen, timeout=15)
                     if seq != seen and latest is not None:
                         seen = seq
-                        self.sse('document', latest)
+                        # the id is the document's number in this server's stream: the
+                        # viewer's history counts the documents a slow client skipped
+                        # by its gaps, and a restarted server by its going down (#218)
+                        self.sse('document', latest, seq)
                     elif ended is None:
                         self.wfile.write(b': keep-alive\n\n')   # comment line keeps proxies awake
                         self.wfile.flush()

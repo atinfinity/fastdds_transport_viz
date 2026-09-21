@@ -4,6 +4,17 @@ Changelog for package fastdds_transport_viz
 
 Forthcoming
 -----------
+* The web viewer's live mode keeps the frames it receives (#218). From the second frame on,
+  the replay timeline follows the newest frame and the charts of a selected pair cover the
+  kept frames. A move on the timeline stops on that frame while the frames keep coming
+  (``live: viewing #k of N``), ``live ▶|`` / End / **Resume** follow the newest frame again,
+  and **Save recording** downloads the kept frames as JSON Lines. The history lives in the
+  page, bounded by ``?history=<MB>`` (default 512, ``0`` keeps none); over the bound the
+  oldest tenth is dropped at once. ``transport_viz_web`` numbers its ``document`` events
+  with SSE ``id:``, so the viewer counts the frames a slow page skipped, does not add the
+  document sent again on a reconnect, and tells a restarted server. The series of a pair
+  that leaves a recording for good now reads absent to the end (it read undefined past its
+  first allocation, which the charts drew as values).
 * The web viewer replays recordings (#82). ``transport_viz_web --record FILE`` writes every
   document of the live stream to ``FILE`` as it arrives - the same JSON Lines that
   ``transport_viz --watch --json > FILE`` prints - and the viewer opens such a file (Open,

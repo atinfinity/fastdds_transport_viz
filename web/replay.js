@@ -89,11 +89,12 @@
    * 'guid'): with 'node' a restarted node's new pair continues the series of the old one.
    */
   function createRecording(key = 'node') {
-    return { key, frames: 0, starts: [], ends: [], observedAt: [], changed: [], series: new Map(), capacity: 0 };
+    return { key, frames: 0, starts: [], ends: [], observedAt: [], changed: [], series: new Map(), capacity: 16 };
   }
 
+  // every series is rec.capacity long, so a pair gone for good reads absent (0 / NaN) to the end
   function newSeries(rec) {
-    const n = Math.max(rec.capacity, 16);
+    const n = rec.capacity;
     return {
       transport: new Uint8Array(n),
       guids: new Uint32Array(n),   // hash of the pair's real GUIDs: counters restart with them
@@ -105,16 +106,16 @@
     };
   }
 
-  function ensureCapacity(rec, s) {
-    if (s.transport.length > rec.frames) return;
-    let n = Math.max(16, s.transport.length * 2);
-    while (n <= rec.frames) n *= 2;   // a pair back after a long absence
-    s.transport = grow(s.transport, n);
-    s.guids = grow(s.guids, n);
-    s.hz = grow(s.hz, n, NaN);
-    s.latencyMean = grow(s.latencyMean, n, NaN);
-    s.latencySamples = grow(s.latencySamples, n, NaN);
-    s.lost = grow(s.lost, n, NaN);
+  function growAll(rec, n) {
+    rec.capacity = n;
+    for (const s of rec.series.values()) {
+      s.transport = grow(s.transport, n);
+      s.guids = grow(s.guids, n);
+      s.hz = grow(s.hz, n, NaN);
+      s.latencyMean = grow(s.latencyMean, n, NaN);
+      s.latencySamples = grow(s.latencySamples, n, NaN);
+      s.lost = grow(s.lost, n, NaN);
+    }
   }
 
   const num = v => (typeof v === 'number' && Number.isFinite(v) ? v : NaN);
@@ -127,12 +128,11 @@
     rec.observedAt.push(String(doc.observed_at || ''));
     const c = doc.changes;
     rec.changed.push(!!(c && ((c.added_pairs || []).length || (c.removed_pairs || []).length || (c.changed_pairs || []).length)));
-    rec.capacity = Math.max(rec.capacity, i + 1);
+    if (i >= rec.capacity) growAll(rec, rec.capacity * 2);
     forEachIdent(doc, rec.key, (t, p, real, ident) => {
       const id = keyId(ident);
       let s = rec.series.get(id);
       if (!s) { s = newSeries(rec); rec.series.set(id, s); }
-      ensureCapacity(rec, s);
       s.transport[i] = transportCode(p.transport);
       s.guids[i] = hash32(keyId(real));
       const m = p.measured;
@@ -237,6 +237,78 @@
     return best;
   }
 
+  // ------------------------------------------------------------ live history (#218)
+
+  /**
+   * The SSE ids of a live stream (serve.py numbers its documents from 1): trackId(t, id)
+   * says what a document event is. 'duplicate' = the id already seen (the latest document
+   * sent again on a reconnect), 'restart' = a lower id (a restarted server numbers from 1
+   * again), else 'new'; `skipped` counts the documents the stream left out between two new
+   * ids (serve.py sends a slow client only the newest). The first id, and the first after a
+   * restart, count nothing: the documents before them were before the page listened. An
+   * event without an id (NaN) is new and counts nothing.
+   */
+  function streamIds() {
+    return { last: NaN, skipped: 0, restarts: 0 };
+  }
+
+  function trackId(t, id) {
+    if (!Number.isFinite(id)) return 'new';
+    if (!Number.isFinite(t.last)) { t.last = id; return 'new'; }
+    if (id === t.last) return 'duplicate';
+    if (id < t.last) { t.last = id; t.restarts++; return 'restart'; }
+    t.skipped += id - t.last - 1;
+    t.last = id;
+    return 'new';
+  }
+
+  /**
+   * How many of the oldest frames to drop so the kept bytes fit `limit`: a tenth of the
+   * frames at a time (at least one), so a full history is compacted once per tenth rather
+   * than once per frame; the newest frame always stays. `sizes` are the frames' bytes.
+   */
+  function dropCount(sizes, limit) {
+    let bytes = 0;
+    for (const b of sizes) bytes += b;
+    let n = 0;
+    while (bytes > limit && n < sizes.length - 1) {
+      const step = Math.min(sizes.length - 1 - n, Math.max(1, Math.ceil((sizes.length - n) / 10)));
+      for (let k = n; k < n + step; ++k) bytes -= sizes[k];
+      n += step;
+    }
+    return n;
+  }
+
+  /**
+   * Drop the oldest n frames: the per-frame arrays shift, every series moves down in
+   * place (copyWithin, no rescan of the documents) and its freed tail is reset; a series
+   * whose pair is in none of the kept frames goes.
+   */
+  function dropFrames(rec, n) {
+    n = Math.min(n, rec.frames);
+    if (n <= 0) return;
+    const old = rec.frames;
+    const left = old - n;
+    for (const a of [rec.starts, rec.ends, rec.observedAt, rec.changed]) a.splice(0, n);
+    for (const [id, s] of rec.series) {
+      for (const k of ['transport', 'guids', 'hz', 'latencyMean', 'latencySamples', 'lost']) {
+        s[k].copyWithin(0, n, old);
+        s[k].fill(k === 'transport' || k === 'guids' ? 0 : NaN, left, old);
+      }
+      if (!s.transport.subarray(0, left).some(Boolean)) rec.series.delete(id);
+    }
+    rec.frames = left;
+  }
+
+  /**
+   * The frame index `i` after the oldest n frames were dropped: {index, dropped}, where a
+   * dropped frame moves to the oldest kept one.
+   */
+  function shiftIndex(i, n) {
+    return i < n ? { index: 0, dropped: true } : { index: i - n, dropped: false };
+  }
+
   return { lineSplitter, parseFrame, createRecording, addFrame, identsOf, frameLatency, frameLoss, hasValues,
-    transportRuns, nextChange, frameX, nearestFrame, transportCode, transportOf };
+    transportRuns, nextChange, frameX, nearestFrame, transportCode, transportOf,
+    streamIds, trackId, dropCount, dropFrames, shiftIndex };
 });
