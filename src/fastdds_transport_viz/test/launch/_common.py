@@ -3,6 +3,7 @@
 """Shared helpers for the launch_testing integration tests."""
 import json
 import os
+import signal
 import subprocess
 import time
 import unittest
@@ -13,6 +14,41 @@ import launch_ros.actions
 import launch_testing.actions
 
 
+def exit_status(returncode):
+    """
+    Say how a process ended, naming the signal that killed it.
+
+    `ros2 run` exits with its child's return code, which for a child killed by signal N
+    is -N, so the caller sees 256 - N (245 for SIGSEGV); a direct child reports -N.
+    """
+    signum = -returncode if returncode < 0 else 256 - returncode if returncode > 128 else 0
+    try:
+        name = signal.Signals(signum).name
+    except ValueError:
+        return f'exit status {returncode}'
+    return f'exit status {returncode}: killed by {name}'
+
+
+def run_tool(cmd, timeout, env=None, tail_lines=60):
+    """
+    Run cmd and return the CompletedProcess; fail with its stderr if it fails.
+
+    subprocess.run(check=True) raises CalledProcessError, whose message leaves out what
+    was captured, so a crash on CI left nothing to go on (#215). This names the signal
+    and shows the tail of stderr and stdout instead.
+    """
+    p = subprocess.run(cmd, capture_output=True, text=True, env=env, timeout=timeout)
+    if p.returncode != 0:
+        def tail(text):
+            lines = text.splitlines()[-tail_lines:]
+            return '\n'.join(lines) if lines else '(empty)'
+        raise AssertionError(
+            f'{" ".join(cmd)}: {exit_status(p.returncode)}\n'
+            f'--- stderr (last {tail_lines} lines) ---\n{tail(p.stderr)}\n'
+            f'--- stdout (last {tail_lines} lines) ---\n{tail(p.stdout)}')
+    return p
+
+
 def transport_viz_json(extra_args=(), timeout=6.0, env=None):
     """Run transport_viz --json and return the parsed document."""
     cmd = ['ros2', 'run', 'fastdds_transport_viz', 'transport_viz',
@@ -20,9 +56,7 @@ def transport_viz_json(extra_args=(), timeout=6.0, env=None):
     full_env = dict(os.environ)
     if env:
         full_env.update(env)
-    out = subprocess.run(cmd, check=True, capture_output=True, text=True, env=full_env,
-                         timeout=timeout + 30).stdout
-    return json.loads(out)
+    return json.loads(run_tool(cmd, timeout=timeout + 30, env=full_env).stdout)
 
 
 def topic(doc, name):

@@ -10,7 +10,7 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(__file__))
-from _common import Base, description, node_action  # noqa: E402
+from _common import Base, description, node_action, run_tool  # noqa: E402
 
 import launch_testing  # noqa: E402
 
@@ -50,11 +50,10 @@ class TestShm(Base):
         self.assertEqual(writer['datasharing_segment_visibility'], 'unprobed', writer)
 
     def test_table_footer(self):
-        import subprocess
-        out = subprocess.run(
+        out = run_tool(
             ['ros2', 'run', 'fastdds_transport_viz', 'transport_viz',
              '--timeout', '3', '--quiet', '0'],
-            check=True, capture_output=True, text=True, timeout=30).stdout
+            timeout=30).stdout
         self.assertIn('shared memory: /dev/shm', out)
         self.assertIn('segment(s)', out)
 

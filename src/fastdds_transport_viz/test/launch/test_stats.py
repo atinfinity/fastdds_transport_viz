@@ -10,8 +10,8 @@ import time
 
 sys.path.insert(0, os.path.dirname(__file__))
 from _common import (  # noqa: E402
-    Base, description, node_action, skip_without_statistics, topic, transport_viz_json,
-    udpv4_only_env)
+    Base, description, node_action, run_tool, skip_without_statistics, topic,
+    transport_viz_json, udpv4_only_env)
 
 from ament_index_python.packages import (  # noqa: E402
     get_package_prefix, get_package_share_directory)
@@ -196,7 +196,7 @@ class TestStats(Base):
         """
         cmd = ['ros2', 'run', 'fastdds_transport_viz', 'transport_viz', '--json', '--stats']
         start = time.monotonic()
-        out = subprocess.run(cmd, check=True, capture_output=True, text=True, timeout=60)
+        out = run_tool(cmd, timeout=60)
         wall = time.monotonic() - start
         doc = json.loads(out.stdout)
         stats = doc['stats']
@@ -222,7 +222,7 @@ class TestStats(Base):
         """
         cmd = ['ros2', 'run', 'fastdds_transport_viz', 'transport_viz', '--json', '--stats',
                '--timeout', '10', '--quiet', '0']
-        out = subprocess.run(cmd, check=True, capture_output=True, text=True, timeout=60)
+        out = run_tool(cmd, timeout=60)
         doc = json.loads(out.stdout)
         stats = doc['stats']
         self.assertEqual(doc['discovery']['stopped_on'], 'timeout', doc['discovery'])
