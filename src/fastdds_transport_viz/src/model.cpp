@@ -38,6 +38,25 @@ std::string to_string(Confidence confidence)
   return confidence == Confidence::Certain ? "certain" : "likely";
 }
 
+std::string to_string(TopicKind kind)
+{
+  switch (kind) {
+    case TopicKind::Topic: return "topic";
+    case TopicKind::Service: return "service";
+    case TopicKind::Action: return "action";
+    default: return "other";
+  }
+}
+
+std::string to_string(GroupDirection direction)
+{
+  switch (direction) {
+    case GroupDirection::ToServer: return "to_server";
+    case GroupDirection::ToClient: return "to_client";
+    default: return "";
+  }
+}
+
 std::string to_string(DataSharingKind kind)
 {
   switch (kind) {

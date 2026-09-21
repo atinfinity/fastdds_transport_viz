@@ -3203,3 +3203,329 @@ TEST(StatisticsLateJoinWindow, FollowsEveryWriterMatch)
   EXPECT_TRUE(statistics_late_join_window_open(false, 0.0));
   EXPECT_TRUE(statistics_late_join_window_open(false, 60.0));
 }
+
+// ---- service and action grouping (#84) --------------------------------------
+
+namespace
+{
+
+/// One endpoint of a service or action member topic, in a participant of its own.
+Endpoint member_ep(
+  bool writer, const std::string & dds_topic, const std::string & dds_type, uint8_t participant)
+{
+  Endpoint e = make(writer, HOST_A, {udp4("10.0.0.1"), shm()});
+  e.dds_topic = dds_topic;
+  e.dds_type = dds_type;
+  const RosName ros = demangle_topic(dds_topic);
+  e.ros_topic = ros.kind == RosEntityKind::NotRos ? "" : ros.name;
+  e.ros_type = demangle_type(dds_type);
+  in_process(e, participant, participant);
+  return e;
+}
+
+constexpr char kSrvReq[] = "example_interfaces::srv::dds_::AddTwoInts_Request_";
+constexpr char kSrvRes[] = "example_interfaces::srv::dds_::AddTwoInts_Response_";
+
+/// The eight endpoints of one service call: the client in participant 2, the server in 1.
+std::vector<Endpoint> service_endpoints(uint8_t client = 2, uint8_t server = 1)
+{
+  return {
+    member_ep(true, "rq/add_two_intsRequest", kSrvReq, client),
+    member_ep(false, "rq/add_two_intsRequest", kSrvReq, server),
+    member_ep(true, "rr/add_two_intsReply", kSrvRes, server),
+    member_ep(false, "rr/add_two_intsReply", kSrvRes, client),
+  };
+}
+
+/// The client side alone, for a second caller of a service somebody else offers.
+std::vector<Endpoint> service_client_endpoints(uint8_t client)
+{
+  return {
+    member_ep(true, "rq/add_two_intsRequest", kSrvReq, client),
+    member_ep(false, "rr/add_two_intsReply", kSrvRes, client),
+  };
+}
+
+/// The sixteen endpoints of one action: three services and two topics, client 2, server 1.
+std::vector<Endpoint> action_endpoints(const std::string & action = "fibonacci")
+{
+  const std::string a = "example_interfaces::action::dds_::Fibonacci_";
+  const std::string rq = "rq/" + action + "/_action/";
+  const std::string rr = "rr/" + action + "/_action/";
+  const std::string rt = "rt/" + action + "/_action/";
+  std::vector<Endpoint> out;
+  using Str = const std::string &;
+  const auto service = [&](Str suffix, Str req, Str res) {
+      out.push_back(member_ep(true, rq + suffix + "Request", req, 2));
+      out.push_back(member_ep(false, rq + suffix + "Request", req, 1));
+      out.push_back(member_ep(true, rr + suffix + "Reply", res, 1));
+      out.push_back(member_ep(false, rr + suffix + "Reply", res, 2));
+    };
+  service("send_goal", a + "SendGoal_Request_", a + "SendGoal_Response_");
+  service(
+    "cancel_goal", "action_msgs::srv::dds_::CancelGoal_Request_",
+    "action_msgs::srv::dds_::CancelGoal_Response_");
+  service("get_result", a + "GetResult_Request_", a + "GetResult_Response_");
+  out.push_back(member_ep(true, rt + "feedback", a + "FeedbackMessage_", 1));
+  out.push_back(member_ep(false, rt + "feedback", a + "FeedbackMessage_", 2));
+  out.push_back(member_ep(true, rt + "status", "action_msgs::msg::dds_::GoalStatusArray_", 1));
+  out.push_back(member_ep(false, rt + "status", "action_msgs::msg::dds_::GoalStatusArray_", 2));
+  return out;
+}
+
+const TopicSummary & topic_by_dds(
+  const std::vector<TopicSummary> & topics, const std::string & dds)
+{
+  for (const auto & t : topics) {
+    if (t.dds_topic == dds) {
+      return t;
+    }
+  }
+  throw std::runtime_error("no topic " + dds);
+}
+
+}  // namespace
+
+TEST(Grouping, RequestAndReplyAreOneServiceInBothDirections)
+{
+  const auto endpoints = service_endpoints();
+  const auto topics = summarize(endpoints);
+  ASSERT_EQ(topics.size(), 2u);
+  const auto & req = topic_by_dds(topics, "rq/add_two_intsRequest");
+  const auto & res = topic_by_dds(topics, "rr/add_two_intsReply");
+  EXPECT_EQ(req.kind, TopicKind::Service);
+  EXPECT_EQ(res.kind, TopicKind::Service);
+  EXPECT_EQ(req.group, "/add_two_ints");
+  EXPECT_EQ(res.group, "/add_two_ints");
+  EXPECT_EQ(req.direction, GroupDirection::ToServer);
+  EXPECT_EQ(res.direction, GroupDirection::ToClient);
+  EXPECT_EQ(member_label(req), "request");
+  EXPECT_EQ(member_label(res), "reply");
+}
+
+TEST(DisplayRows, AServiceCallIsOneRowWithOneMemberPairEachWay)
+{
+  const auto endpoints = service_endpoints();
+  const auto topics = summarize(endpoints);
+  const auto rows = display_rows(topics);
+  ASSERT_EQ(rows.size(), 1u);
+  const auto & row = rows[0];
+  EXPECT_EQ(row.kind, TopicKind::Service);
+  EXPECT_EQ(row.name, "/add_two_ints");
+  // the display type is the common stem: "_Request" / "_Response" are what the rmw added
+  EXPECT_EQ(row.type, "example_interfaces/srv/AddTwoInts");
+  EXPECT_EQ(row.to_server.size(), 1u);
+  EXPECT_EQ(row.to_client.size(), 1u);
+  EXPECT_EQ(row.members.size(), 2u);
+  EXPECT_TRUE(row.unpaired_members.empty());
+  ASSERT_NE(row.client, nullptr);
+  ASSERT_NE(row.server, nullptr);
+  EXPECT_EQ(row.requester, row.client->participant_guid_prefix);
+  EXPECT_EQ(row.replier, row.server->participant_guid_prefix);
+  // the client writes the request and reads the reply
+  EXPECT_EQ(row.to_server[0].second->writer->participant_guid_prefix, row.requester);
+  EXPECT_EQ(row.to_client[0].second->reader->participant_guid_prefix, row.requester);
+}
+
+TEST(DisplayRows, AnActionIsOneRowWithThreePairsToTheServerAndFiveBack)
+{
+  const auto endpoints = action_endpoints();
+  const auto topics = summarize(endpoints);
+  ASSERT_EQ(topics.size(), 8u);
+  for (const auto & t : topics) {
+    EXPECT_EQ(t.kind, TopicKind::Action) << t.dds_topic;
+    EXPECT_EQ(t.group, "/fibonacci") << t.dds_topic;
+  }
+  const auto rows = display_rows(topics);
+  ASSERT_EQ(rows.size(), 1u);
+  const auto & row = rows[0];
+  EXPECT_EQ(row.kind, TopicKind::Action);
+  EXPECT_EQ(row.name, "/fibonacci");
+  // cancel_goal and status carry action_msgs types every action shares: they would print
+  // boilerplate, so the row is named after send_goal, get_result and feedback alone
+  EXPECT_EQ(row.type, "example_interfaces/action/Fibonacci");
+  EXPECT_EQ(row.to_server.size(), 3u);
+  EXPECT_EQ(row.to_client.size(), 5u);
+  EXPECT_EQ(row.members.size(), 8u);
+  EXPECT_EQ(member_label(topic_by_dds(topics, "rt/fibonacci/_action/feedback")), "feedback");
+  EXPECT_EQ(
+    member_label(topic_by_dds(topics, "rq/fibonacci/_action/send_goalRequest")), "send_goal");
+}
+
+TEST(DisplayRows, EveryClientOfOneServiceGetsItsOwnRow)
+{
+  auto endpoints = service_endpoints(2, 1);
+  for (auto & e : service_client_endpoints(3)) {
+    endpoints.push_back(e);
+  }
+  const auto topics = summarize(endpoints);
+  const auto rows = display_rows(topics);
+  // two clients, one server: two rows that differ only in the requester, never one row
+  // carrying both -- the table has no node column to tell them apart afterwards
+  ASSERT_EQ(rows.size(), 2u);
+  EXPECT_EQ(rows[0].name, "/add_two_ints");
+  EXPECT_EQ(rows[1].name, "/add_two_ints");
+  EXPECT_NE(rows[0].requester, rows[1].requester);
+  EXPECT_EQ(rows[0].replier, rows[1].replier);
+  for (const auto & row : rows) {
+    EXPECT_EQ(row.to_server.size(), 1u);
+    EXPECT_EQ(row.to_client.size(), 1u);
+  }
+}
+
+TEST(DisplayRows, AServiceNobodyCallsStillGetsARow)
+{
+  // what every node's own parameter services look like: the server, and no client at all
+  const std::vector<Endpoint> endpoints = {
+    member_ep(false, "rq/talker/get_parametersRequest", kSrvReq, 1),
+    member_ep(true, "rr/talker/get_parametersReply", kSrvRes, 1),
+  };
+  const auto topics = summarize(endpoints);
+  const auto rows = display_rows(topics);
+  ASSERT_EQ(rows.size(), 1u);
+  const auto & row = rows[0];
+  EXPECT_EQ(row.name, "/talker/get_parameters");
+  EXPECT_TRUE(row.to_server.empty());
+  EXPECT_TRUE(row.to_client.empty());
+  EXPECT_EQ(row.client, nullptr);
+  ASSERT_NE(row.server, nullptr);
+  EXPECT_EQ(row.unpaired_members.size(), 2u);
+  EXPECT_EQ(row.unpaired_endpoints.size(), 2u);
+  EXPECT_EQ(row.type, "example_interfaces/srv/AddTwoInts");
+}
+
+TEST(DisplayRows, NoEndpointAndNoPairOfAGroupIsLeftWithoutARow)
+{
+  auto endpoints = service_endpoints(2, 1);
+  for (auto & e : service_client_endpoints(3)) {
+    endpoints.push_back(e);
+  }
+  // a client of a service nobody offers, and a service nobody calls
+  endpoints.push_back(member_ep(true, "rq/lonelyRequest", kSrvReq, 4));
+  endpoints.push_back(member_ep(false, "rr/lonelyReply", kSrvRes, 4));
+  endpoints.push_back(member_ep(false, "rq/offeredRequest", kSrvReq, 5));
+  endpoints.push_back(member_ep(true, "rr/offeredReply", kSrvRes, 5));
+  const auto topics = summarize(endpoints);
+  std::set<const Endpoint *> seen;
+  std::set<const Pair *> pairs;
+  size_t placements = 0;
+  for (const auto & row : display_rows(topics)) {
+    for (const auto * dir : {&row.to_server, &row.to_client}) {
+      for (const auto & m : *dir) {
+        ++placements;
+        pairs.insert(m.second);
+        seen.insert(m.second->writer);
+        seen.insert(m.second->reader);
+      }
+    }
+    for (const auto * e : row.unpaired_endpoints) {
+      seen.insert(e);
+    }
+  }
+  // nothing vanishes: a row for every endpoint, paired or not. A server shared by two
+  // clients is in both their rows -- but each of its pairs is in one row and one only, so
+  // no traffic is counted twice either.
+  EXPECT_EQ(seen.size(), endpoints.size());
+  size_t total_pairs = 0;
+  for (const auto & t : topics) {
+    total_pairs += t.pairs.size();
+  }
+  EXPECT_EQ(pairs.size(), total_pairs);
+  EXPECT_EQ(placements, total_pairs);
+}
+
+TEST(ActionMember, TheNameAloneNeverMakesAnAction)
+{
+  // "/_action/" is not reserved, and every one of these reached the wire when measured
+  const auto kind_of = [](const std::vector<Endpoint> & endpoints, const std::string & dds) {
+      return topic_by_dds(summarize(endpoints), dds).kind;
+    };
+
+  // a service under an action's namespace whose last segment is not one of the five
+  const std::string bar = "rq/foo/_action/barRequest";
+  EXPECT_EQ(kind_of({member_ep(false, bar, kSrvReq, 1)}, bar), TopicKind::Service);
+
+  // byte-for-byte an action's goal service, carrying somebody else's type
+  const std::string twin = "rq/fibonacci2/_action/send_goalRequest";
+  EXPECT_EQ(kind_of({member_ep(false, twin, kSrvReq, 1)}, twin), TopicKind::Service);
+
+  // no action name in front of the separator
+  const std::string headless = "rq/_action/send_goalRequest";
+  EXPECT_EQ(kind_of({member_ep(false, headless, kSrvReq, 1)}, headless), TopicKind::Service);
+
+  // the separator without a member behind it
+  EXPECT_EQ(
+    kind_of({member_ep(false, "rq/foo/_actionRequest", kSrvReq, 1)}, "rq/foo/_actionRequest"),
+    TopicKind::Service);
+}
+
+TEST(ActionMember, StatusAndFeedbackAloneCannotEstablishAnAction)
+{
+  // `ros2 action list` reports "/baz" for exactly this, two bare publishers. cancel_goal and
+  // status are action_msgs types anyone can publish, and feedback here is not an action type,
+  // so nothing in the set names an action: plain topics.
+  const std::vector<Endpoint> endpoints = {
+    member_ep(true, "rt/baz/_action/status", "action_msgs::msg::dds_::GoalStatusArray_", 1),
+    member_ep(true, "rt/baz/_action/feedback", "std_msgs::msg::dds_::String_", 1),
+  };
+  const auto topics = summarize(endpoints);
+  EXPECT_EQ(topic_by_dds(topics, "rt/baz/_action/status").kind, TopicKind::Topic);
+  EXPECT_EQ(topic_by_dds(topics, "rt/baz/_action/feedback").kind, TopicKind::Topic);
+}
+
+TEST(ActionMember, OneWrongTypeDisqualifiesTheWholeAction)
+{
+  auto endpoints = action_endpoints();
+  for (auto & e : endpoints) {
+    if (e.dds_topic == "rt/fibonacci/_action/status") {
+      e.dds_type = "std_msgs::msg::dds_::String_";
+      e.ros_type = demangle_type(e.dds_type);
+    }
+  }
+  const auto topics = summarize(endpoints);
+  // the six service topics fall back to services, the two plain topics to topics: never a
+  // half-recognised action, whose row would claim more than the wire proved
+  for (const auto & t : topics) {
+    EXPECT_NE(t.kind, TopicKind::Action) << t.dds_topic;
+  }
+  EXPECT_EQ(topic_by_dds(topics, "rt/fibonacci/_action/status").kind, TopicKind::Topic);
+  EXPECT_EQ(
+    topic_by_dds(topics, "rq/fibonacci/_action/send_goalRequest").kind, TopicKind::Service);
+}
+
+TEST(ActionMember, TheActionNameEndsAtTheLastSeparator)
+{
+  const auto endpoints = action_endpoints("a/_action/b");
+  const auto topics = summarize(endpoints);
+  for (const auto & t : topics) {
+    EXPECT_EQ(t.kind, TopicKind::Action) << t.dds_topic;
+    EXPECT_EQ(t.group, "/a/_action/b") << t.dds_topic;
+  }
+}
+
+TEST(ActionMember, ParsesTheFiveMembersAndNothingElse)
+{
+  const std::string a = "example_interfaces::action::dds_::Fibonacci_";
+  const auto m = parse_action_member(
+    "rq/fibonacci/_action/send_goalRequest", a + "SendGoal_Request_");
+  EXPECT_TRUE(m.matched);
+  EXPECT_TRUE(m.type_ok);
+  EXPECT_EQ(m.action, "/fibonacci");
+  EXPECT_EQ(m.suffix, "send_goal");
+  EXPECT_EQ(m.action_type, "example_interfaces/action/Fibonacci");
+
+  // cancel_goal and status match and type-check, but name no action of their own
+  const auto c = parse_action_member(
+    "rq/fibonacci/_action/cancel_goalRequest", "action_msgs::srv::dds_::CancelGoal_Request_");
+  EXPECT_TRUE(c.matched);
+  EXPECT_TRUE(c.type_ok);
+  EXPECT_TRUE(c.action_type.empty());
+
+  // a request where a reply belongs
+  const auto swapped =
+    parse_action_member("rq/fibonacci/_action/send_goalRequest", a + "SendGoal_Response_");
+  EXPECT_TRUE(swapped.matched);
+  EXPECT_FALSE(swapped.type_ok);
+
+  EXPECT_FALSE(parse_action_member("rt/chatter", "std_msgs::msg::dds_::String_").matched);
+}

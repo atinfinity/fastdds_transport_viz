@@ -15,6 +15,7 @@
 
 #include <nlohmann/json.hpp>
 
+#include "fastdds_transport_viz/decision.hpp"
 #include "fastdds_transport_viz/ros_names.hpp"
 
 namespace fastdds_transport_viz
@@ -54,6 +55,29 @@ Confidence confidence(const std::string & s)
   if (s == "certain") {return Confidence::Certain;}
   if (s == "likely") {return Confidence::Likely;}
   throw ParseError("unknown confidence '" + s + "'");
+}
+
+/// #84. Unlike the transport and confidence above, an unknown spelling is not fatal: the
+/// three keys are optional, a reader that does not recognise a future value falls back to
+/// re-deriving the classification from the DDS name and type, and a document from a later
+/// version still loads.
+TopicKind topic_kind(const std::string & s, bool & known)
+{
+  if (s == "topic") {return TopicKind::Topic;}
+  if (s == "service") {return TopicKind::Service;}
+  if (s == "action") {return TopicKind::Action;}
+  if (s == "other") {return TopicKind::Other;}
+  known = false;
+  return TopicKind::Other;
+}
+
+GroupDirection group_direction(const std::string & s, bool & known)
+{
+  if (s.empty()) {return GroupDirection::None;}
+  if (s == "to_server") {return GroupDirection::ToServer;}
+  if (s == "to_client") {return GroupDirection::ToClient;}
+  known = false;
+  return GroupDirection::None;
 }
 
 DataSharingKind data_sharing(const std::string & s)
@@ -433,6 +457,9 @@ Snapshot snapshot(const json & doc)
     }
   }
   size_t i = 0;
+  // #84: kind/group/direction are optional, so a document written before they existed (or by
+  // a later version that spells them differently) is classified from its own DDS names here.
+  bool classified = true;
   for (const auto & tj : topics) {
     const std::string where = "topic " + tj.value("topic", std::string("?"));
     TopicSummary t;
@@ -455,6 +482,18 @@ Snapshot snapshot(const json & doc)
     }
     for (size_t r : refs[i].readers) {
       t.readers.push_back(&snap.endpoints[r]);
+    }
+    if (!t.writers.empty()) {
+      t.dds_type = t.writers.front()->dds_type;
+    } else if (!t.readers.empty()) {
+      t.dds_type = t.readers.front()->dds_type;
+    }
+    if (tj.contains("kind") && tj.contains("direction")) {
+      t.kind = topic_kind(tj["kind"].get<std::string>(), classified);
+      t.direction = group_direction(tj["direction"].get<std::string>(), classified);
+      t.group = tj.value("group", std::string());
+    } else {
+      classified = false;
     }
     for (const auto & pj : at(tj, "pairs", where)) {
       try {
@@ -487,6 +526,9 @@ Snapshot snapshot(const json & doc)
     }
     snap.topics.push_back(std::move(t));
     ++i;
+  }
+  if (!classified) {
+    classify_topics(snap.topics);
   }
   try {
     snap.stats = stats(at(doc, "stats", root));

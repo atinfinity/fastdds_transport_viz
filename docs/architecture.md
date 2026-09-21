@@ -178,6 +178,8 @@ classDiagram
         writers, readers
         vector~Pair~ pairs
         unmatched_reasons
+        TopicKind kind
+        group, GroupDirection direction
     }
     class Pair {
         writer, reader → Endpoint
@@ -209,6 +211,11 @@ classDiagram
   compares to decide "same host".
 - `TopicSummary::pairs` hold pointers into `Snapshot::endpoints`, so a copied snapshot
   must rebuild its topics (the watch loop does this for ghost rows).
+- `TopicSummary::kind` / `group` / `direction` say which service or action a DDS topic
+  belongs to and which way it travels (#84). A service or an action is **not** a model
+  entity: `topics[]` keeps one entry per DDS topic and the grouping happens at render time
+  in `display_rows()`, so the diff's node-keyed identities (built from per-`TopicSummary`
+  endpoint ordinals) are untouched.
 - `Verdict::reasons` and `warnings` are machine-readable codes. Every code has an English
   description (`explain()`) and a remedy or an explicit none (`remedy()`) in one table in
   `decision.cpp`, which `--explain` / `--advise`, `--list-codes`, `ros2 transport codes`,

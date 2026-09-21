@@ -10,6 +10,7 @@ const path = require('node:path');
 const M = require('../model.js');
 const load = name => JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'sample', name), 'utf8'));
 const sample = load('sample.json');
+const services = load('services.json');   // the #84 service / action capture
 
 const allFilter = () => ({ topic: '', node: '', transports: new Set(M.TRANSPORTS), hideInternal: true });
 
@@ -525,18 +526,67 @@ test('groupPairsByTopic: aggregates come from topics[], never from the visible r
   assert.equal(M.groupPairsByTopic([], [], sample.topics).length, 0);
 });
 
-test('groupPairsByTopic: request and reply topics of a service keep separate headers (#144)', () => {
-  const all = load('sample_all.json');
-  const model = M.buildModel(all);
-  const rows = model.pairs.filter(vp => vp.topic.topic === '/talker/get_parameters');
-  // no pairs on the sample's services: build rows for both dds topics by hand
-  const topics = all.topics.filter(t => t.topic === '/talker/get_parameters');
+// Inverts the #144 rule on purpose: request and reply used to keep one header each, which is
+// exactly the pair of look-alike rows #84 asked to replace with one row per service.
+test('groupPairsByTopic: request and reply topics of a service share one header (#84)', () => {
+  const model = M.buildModel(services);
+  const rows = model.pairs.filter(vp => vp.topic.group === '/add_two_ints');
+  assert.equal(rows.length, 2);                       // one member pair each way
+  const groups = M.groupPairsByTopic(rows, [], services.topics);
+  assert.equal(groups.length, 1);
+  const g = groups[0];
+  assert.equal(g.key, 'service|/add_two_ints');
+  assert.deepEqual([g.name, g.kind], ['/add_two_ints', 'service']);
+  assert.equal(g.topic.type, 'example_interfaces/srv/AddTwoInts');
+  assert.deepEqual([g.pubs, g.subs], [1, 1]);         // member pairs to the server, to the client
+  assert.deepEqual(g.pairs, rows);
+});
+
+test('groupPairsByTopic: the eight topics of an action are one header, 3 out and 5 back (#84)', () => {
+  const model = M.buildModel(services);
+  const rows = model.pairs.filter(vp => vp.topic.group === '/fibonacci');
+  assert.equal(rows.length, 8);
+  const groups = M.groupPairsByTopic(rows, [], services.topics);
+  assert.equal(groups.length, 1);
+  const g = groups[0];
+  assert.equal(g.key, 'action|/fibonacci');
+  assert.deepEqual([g.name, g.kind], ['/fibonacci', 'action']);
+  // cancel_goal and status carry action_msgs types every action shares: the header names
+  // the action itself, from send_goal / get_result / feedback alone
+  assert.equal(g.topic.type, 'example_interfaces/action/Fibonacci');
+  assert.deepEqual([g.pubs, g.subs], [3, 5]);
+});
+
+test('groupPairsByTopic: a service nobody calls still gets one header, both reasons on it (#84)', () => {
+  const topics = services.topics.filter(t => t.group === '/talker/get_parameters');
   assert.equal(topics.length, 2);
   const fake = topics.map((t, i) => ({ id: `x${i}`, topic: t }));
-  const groups = M.groupPairsByTopic([...rows, ...fake], [], all.topics);
-  assert.equal(groups.length, 2);
-  assert.deepEqual(groups.map(g => g.key).sort(), topics.map(t => t.dds_topic).sort());
-  assert.deepEqual(groups.map(g => g.reasons).sort(), ['no-matching-reader', 'no-matching-writer']);
+  const groups = M.groupPairsByTopic(fake, [], services.topics);
+  assert.equal(groups.length, 1);
+  assert.equal(groups[0].key, 'service|/talker/get_parameters');
+  assert.deepEqual(groups[0].reasons.split(', ').sort(), ['no-matching-reader', 'no-matching-writer']);
+  assert.deepEqual([groups[0].pubs, groups[0].subs], [0, 0]);
+});
+
+test('groupTypeOf: the member tails come off, a disagreement is joined (#84)', () => {
+  const svc = [{ type: 'example_interfaces/srv/AddTwoInts_Request', direction: 'to_server' },
+               { type: 'example_interfaces/srv/AddTwoInts_Response', direction: 'to_client' }];
+  assert.equal(M.groupTypeOf(svc, 'service'), 'example_interfaces/srv/AddTwoInts');
+  // a type that wears no tail is shown whole rather than guessed at
+  assert.equal(M.groupTypeOf([{ type: 'pkg/srv/Odd' }], 'service'), 'pkg/srv/Odd');
+  assert.equal(M.groupTypeOf([{ type: 'a/srv/A_Request' }, { type: 'b/srv/B_Response' }], 'service'), 'a/srv/A|b/srv/B');
+  // an action ignores the boilerplate members entirely
+  assert.equal(M.groupTypeOf([{ type: 'action_msgs/srv/CancelGoal_Request' },
+                              { type: 'action_msgs/msg/GoalStatusArray' },
+                              { type: 'pkg/action/Fib_FeedbackMessage' }], 'action'), 'pkg/action/Fib');
+});
+
+test('groupKeyOf: only a classified service or action has a group key (#84)', () => {
+  assert.equal(M.groupKeyOf({ kind: 'topic', group: '/chatter' }), null);
+  assert.equal(M.groupKeyOf({ kind: 'other', group: '' }), null);
+  assert.equal(M.groupKeyOf({ kind: 'service', group: '' }), null);
+  assert.equal(M.groupKeyOf(undefined), null);
+  assert.equal(M.groupKeyOf({ kind: 'action', group: '/fibonacci' }), 'action|/fibonacci');
 });
 
 test('groupPairsByTopic: ghosts nest under their topic, orphans get a header without aggregates (#144)', () => {

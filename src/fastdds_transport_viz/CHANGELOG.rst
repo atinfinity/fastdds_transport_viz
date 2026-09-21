@@ -4,6 +4,27 @@ Changelog for package fastdds_transport_viz
 
 Forthcoming
 -----------
+* Services and actions are one row each under ``--all``, instead of their raw ``rq/`` /
+  ``rr/`` topics (#84). A service is two DDS topics that both demangle to the same ROS
+  name, so ``--all`` printed two rows with identical text; an action is eight of them, the
+  five ``rcl_action`` members under ``<action>/_action/``. They now collect into one
+  ``SERVICE`` / ``ACTION`` row per client-server pair, named after the service or action
+  and after both sides (participant prefix where the node name is unknown, as service
+  endpoints carry none). The two sides are *directions of travel* rather than request and
+  reply, which is what lets an action fit on one line: ``PUBS`` and ``SUBS`` count the
+  member pairs each way, so a complete service reads ``1``/``1`` and a complete action
+  ``3``/``5``, and ``feedback`` and ``status`` fold in with the replies. Endpoints in no
+  pair keep a half-open row (``- -> /talker``), so an uncalled parameter service stays
+  visible - on a single node that turns 14 rows into 7. ``ACTION`` is claimed only when the
+  names *and* the types agree, because ``/_action/`` is not reserved and a plain service
+  may wear an action's exact DDS names (``ros2 action list`` is itself fooled by a
+  ``feedback`` / ``status`` pair); a group that fails the check falls back to ``SERVICE``
+  or to plain topics. ``<node>/_service_event`` stays a plain topic, being visible in the
+  default view. ``--json`` gains ``kind`` / ``group`` / ``direction`` on each entry of
+  ``topics[]`` (``schema_version`` unchanged, the raw topics still in the document, and a
+  document written before them is classified again when read back), and the web viewer's
+  Table tab groups the same way with a ``SERVICE`` / ``ACTION`` badge; the graph is
+  unchanged. ``web/sample/services.json`` is a capture to try it on.
 * Measured why the Humble type-definition gap cannot be closed, and said so in the
   Limitations (#193). Fast DDS carries an older description of a type than the ROS 2 type
   hash (``TypeIdV1``, ``TypeObjectV1``, ``TypeInformation``), which looked like a way to

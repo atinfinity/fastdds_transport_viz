@@ -113,7 +113,7 @@ ros2 transport codes
 | `--json` | 機械可読な出力 (`schema_version: 1`、`schema/` 参照)。[web viewer](docs/web-viewer.ja.md) で開ける |
 | `--topic REGEX` | 名前が一致するトピックだけ表示する |
 | `--node REGEX` | 完全修飾ノード名が一致するノードが関わるペアだけ表示する (そのノードの未接続エンドポイントも残る) |
-| `--all` | サービス/アクションと ROS 以外の DDS トピックも含める |
+| `--all` | サービス/アクションと ROS 以外の DDS トピックも含める。サービスとアクションは生の `rq/` / `rr/` トピックではなく、クライアントとサーバの組ごとに 1 行の `SERVICE` / `ACTION` 行として表示します |
 | `--watch` | `--interval` 秒ごとに再描画し、追加/変更/削除されたペアを強調する。キー `q p v e a l` (`--json` 時は `changes` オブジェクト付きの JSON Lines) |
 | `--color` | transport と警告の ANSI 色 (`auto` = 端末のときだけ) |
 

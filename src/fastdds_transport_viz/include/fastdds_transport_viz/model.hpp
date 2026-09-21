@@ -195,6 +195,26 @@ enum class Confidence
   Likely,
 };
 
+/// What a DDS topic is, in ROS terms (#84). Services and actions are groups: several DDS
+/// topics carrying one logical exchange, which the renderers collapse into a single row.
+enum class TopicKind
+{
+  Topic,     // rt/<name>, a plain ROS topic
+  Service,   // rq/<name>Request or rr/<name>Reply
+  Action,    // one of the five topics rcl_action creates under <name>/_action/
+  Other,     // not a ROS topic at all (a native DDS participant's own name)
+};
+
+/// Which way a member of a service or action group travels. Request and reply is the DDS
+/// split; direction of travel is what a reader of the table wants, and it is what lets an
+/// action's eight topics fit on one line: feedback and status go the same way as the replies.
+enum class GroupDirection
+{
+  None,       // not a group member
+  ToServer,   // the client writes (a request)
+  ToClient,   // the server writes (a reply, feedback or status)
+};
+
 struct Verdict
 {
   Transport transport{Transport::None};
@@ -295,7 +315,14 @@ struct TopicSummary
   std::string dds_topic;
   std::string display_topic;    // ROS name when available, else DDS name
   std::string display_type;
+  std::string dds_type;         // the first endpoint's, needed to tell an action from a forgery
   bool is_ros_topic{false};
+  // Grouping discriminator (#84): what this topic is, which service or action owns it, and
+  // which way it travels. The topics array keeps one entry per DDS topic; the grouping itself
+  // happens in each renderer.
+  TopicKind kind{TopicKind::Other};
+  std::string group;            // owning service/action ROS name; "" for a plain topic
+  GroupDirection direction{GroupDirection::None};
   std::vector<const Endpoint *> writers;
   std::vector<const Endpoint *> readers;
   std::vector<Pair> pairs;
@@ -613,6 +640,8 @@ struct Snapshot
 std::string to_string(LocatorKind kind);
 std::string to_string(Transport transport);
 std::string to_string(Confidence confidence);
+std::string to_string(TopicKind kind);
+std::string to_string(GroupDirection direction);
 std::string to_string(DataSharingKind kind);
 std::string to_string(KeyMode mode);
 std::string to_string(ShmVisibility visibility);   // "visible" / "not-visible" / "unprobed"

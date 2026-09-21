@@ -21,6 +21,18 @@ no endpoints), every node is a `SUPER_CLIENT` attributed to the server of its ho
 `index.html?src=sample/easy_mode.json` to see the server pills and the dotted
 client edges in the viewer.
 
+`services.json` is `transport_viz --all --json` on Jazzy (no `--stats`), taken for
+[#84](https://github.com/atinfinity/fastdds_transport_viz/issues/84) in one container: a
+`demo_nodes_cpp` talker and listener, `add_two_ints_server` with a persistent rclpy client,
+and an `example_interfaces/action/Fibonacci` action server and client. Of its 97 DDS topics
+86 are service members and 8 are the action's, so it is the document the `kind` / `group` /
+`direction` keys were added for: `/add_two_ints` is one group of two members and
+`/fibonacci` one group of eight, three to the server and five back, while the 42 parameter
+services nobody calls carry `no-matching-reader` / `no-matching-writer`. `ros2 service call`
+is not enough to capture one -- a client that exits takes its endpoints with it, so the rig
+keeps calling in a loop. Open `index.html?src=sample/services.json` to see the `SERVICE` and
+`ACTION` rows in the viewer.
+
 `diff_before.json` / `diff_after.json` are a hand-made pair for `transport_viz diff` (a
 profile change with every node restarted in between, one raw DDS pair untouched) and
 `diff.json` is what the binary prints for `transport_viz diff --all --json` on them;

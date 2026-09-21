@@ -140,7 +140,10 @@
   "topics": [
     {
       "dds_topic": "rt/chatter",
+      "direction": "",
+      "group": "",
       "is_ros_topic": true,
+      "kind": "topic",
       "latency_s": null,
       "lost_packets": null,
       "pairs": [
@@ -352,7 +355,10 @@
     },
     {
       "dds_topic": "rt/cmd_vel",
+      "direction": "",
+      "group": "",
       "is_ros_topic": true,
+      "kind": "topic",
       "latency_s": null,
       "lost_packets": null,
       "pairs": [
@@ -569,7 +575,10 @@
     },
     {
       "dds_topic": "rt/new_topic",
+      "direction": "",
+      "group": "",
       "is_ros_topic": true,
+      "kind": "topic",
       "latency_s": null,
       "lost_packets": null,
       "pairs": [
@@ -706,7 +715,10 @@
     },
     {
       "dds_topic": "raw_topic",
+      "direction": "",
+      "group": "",
       "is_ros_topic": false,
+      "kind": "other",
       "latency_s": null,
       "lost_packets": null,
       "pairs": [

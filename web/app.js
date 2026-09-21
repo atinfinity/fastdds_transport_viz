@@ -234,7 +234,11 @@
   function topicCell(c, row) {
     const g = row.group;
     if (c.key === 'topic') {
-      return `<span class="chevron">${row.collapsed ? '▸' : '▾'}</span><b>${escapeHtml(g.name)}</b>` +
+      // A service's or an action's members share one header, named after the service or the
+      // action rather than after its rq/rr topics (#84); the badge says which it is.
+      const kind = g.kind === 'service' || g.kind === 'action'
+        ? `<span class="badge kind">${g.kind.toUpperCase()}</span> ` : '';
+      return `<span class="chevron">${row.collapsed ? '▸' : '▾'}</span>${kind}<b>${escapeHtml(g.name)}</b>` +
         (row.collapsed ? ` <span class="muted">(${row.count} pair${row.count === 1 ? '' : 's'})</span>` : '');
     }
     if (c.key === 'transport') return g.transports.map(t => `<span class="badge" style="background:${COLORS[t]}">${t}</span>`).join(' ');

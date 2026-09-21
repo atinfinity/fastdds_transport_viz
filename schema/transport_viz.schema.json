@@ -578,6 +578,29 @@
         "is_ros_topic": {
           "type": "boolean"
         },
+        "kind": {
+          "description": "What this DDS topic is in ROS terms (#84). \"service\" is one half of an rq/rr pair, \"action\" one of the five topics rcl_action creates under <name>/_action/ whose DDS type also matches; \"other\" is not a ROS topic at all. Renderers collapse the members of one group into a single row; the topics array keeps an entry per DDS topic.",
+          "type": "string",
+          "enum": [
+            "topic",
+            "service",
+            "action",
+            "other"
+          ]
+        },
+        "group": {
+          "description": "ROS name of the service or action this topic belongs to (#84); empty for a plain topic.",
+          "type": "string"
+        },
+        "direction": {
+          "description": "Which way this member of a service or action travels (#84): \"to_server\" is written by the client (a request), \"to_client\" by the server (a reply, feedback or status). Empty when the topic is not a group member.",
+          "type": "string",
+          "enum": [
+            "to_server",
+            "to_client",
+            ""
+          ]
+        },
         "unmatched_reasons": {
           "type": "array",
           "items": {

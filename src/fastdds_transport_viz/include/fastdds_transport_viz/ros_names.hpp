@@ -37,6 +37,30 @@ RosName demangle_topic(const std::string & dds_topic);
 /// the name does not look like a ROS 2 type.
 std::string demangle_type(const std::string & dds_type);
 
+/// One of the five topics rcl_action creates for an action: librcl_action.so carries exactly
+/// the formats "%s/_action/{send_goal,cancel_goal,get_result,feedback,status}" and nothing
+/// else action-shaped.
+struct ActionMember
+{
+  bool matched{false};       // the name is "<action>/_action/<one of the five>"
+  std::string action;        // "/fibonacci"; never empty when matched
+  std::string suffix;        // "send_goal", "cancel_goal", "get_result", "feedback", "status"
+  bool type_ok{false};       // the DDS type is the one this member has to carry
+  std::string action_type;   // "example_interfaces/action/Fibonacci", from the members that
+                             // name the action; "" for cancel_goal and status, whose
+                             // action_msgs types every action shares
+};
+
+/// Classifies one DDS topic as a member of an action.
+///
+/// "/_action/" is not reserved: a plain service may be called "/fibonacci2/_action/send_goal",
+/// whose DDS names are byte-for-byte an action's goal service, and `ros2 action list` itself
+/// reports "/baz" as an action given two bare publishers on "/baz/_action/{feedback,status}".
+/// So the name only makes a candidate. A caller must require `type_ok` of every member it
+/// found, and at least one member with a non-empty `action_type` -- cancel_goal and status
+/// alone are boilerplate anyone can publish (#84).
+ActionMember parse_action_member(const std::string & dds_topic, const std::string & dds_type);
+
 /// The REP-2011 type hash out of an endpoint's USER_DATA, which the rmw encodes as
 /// "key=value;" pairs under the key "typehash" (Jazzy and later; Humble announces none).
 /// Returns "RIHS01_<64 lowercase hex>" when the key is there and well formed, "" otherwise:

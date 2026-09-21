@@ -167,6 +167,58 @@ and neither does any RMW on Humble or Jazzy
 The decision logic lives in `src/fastdds_transport_viz/src/decision.cpp` as pure
 functions with no DDS dependency, and is covered by `test/test_decision.cpp`.
 
+## Services and actions
+
+`rmw_fastrtps` mangles a ROS name into one of three DDS names: `rt/<topic>` for a topic,
+`rq/<service>Request` and `rr/<service>Reply` for a service. A service is therefore two DDS
+topics, and since both demangle to the same ROS name, `--all` used to print two rows with
+identical text. `rcl_action` builds an action out of five members under `<action>/_action/`
+-- the `send_goal`, `cancel_goal` and `get_result` services and the `feedback` and `status`
+topics -- so an action is eight DDS topics and sixteen endpoints.
+
+`--all` collects them into one row per group per client-server pair
+([#84](https://github.com/atinfinity/fastdds_transport_viz/issues/84)):
+
+```
+TOPIC                                                    TYPE                               PUBS  SUBS  TRANSPORT
+SERVICE /add_two_ints  /caller -> /add_two_ints_server   example_interfaces/srv/AddTwoInts  1     1     SHM -> SHM
+ACTION /fibonacci  /ftv_act_client -> /ftv_act_server    example_interfaces/action/Fibonacci  3   5     SHM -> SHM
+```
+
+The two sides are **directions of travel**, not request and reply: `PUBS` counts the member
+pairs going to the server and `SUBS` those coming back, which is what lets an action fit on
+one line (`feedback` and `status` travel back, like the three replies). A complete service
+reads `1`/`1` and a complete action `3`/`5`, so an incomplete group is readable at a glance.
+The row is keyed on the **participant** of each side rather than the node, because service
+endpoints are absent from `ros_discovery_info` and carry no node name: a side whose name is
+unknown shows its participant prefix instead. Every client of one service gets a row of its
+own, and endpoints in no pair still get a half-open row (`- -> /talker`, `0`/`0`), so an
+uncalled parameter service is visible rather than missing. `TYPE` is the members' type with
+the `_Request` / `_Response` tail taken off; an action takes its type from `send_goal`,
+`get_result` and `feedback` alone, because `cancel_goal` and `status` carry `action_msgs`
+types every action shares. Transports, latency, loss and reason codes are the members'
+aggregated the way a topic's pairs already are, and `-v` names the member each pair belongs
+to.
+
+`ACTION` is claimed only when the **names and the types** agree: the action name is
+everything before the last `/_action/`, the suffix is one of the five members, and every
+member present announces the type `rcl_action` would have given it
+(`<pkg>::action::dds_::<Action>_SendGoal_*`, `action_msgs::srv::dds_::CancelGoal_*`,
+`action_msgs::msg::dds_::GoalStatusArray_`, ...), with at least one member typed
+`::action::`. `/_action/` is not reserved -- a plain service may be named
+`/fibonacci2/_action/send_goal`, and `ros2 action list` is itself fooled by a pair of plain
+`feedback` / `status` topics -- so a group that fails the type check falls back to `SERVICE`
+or to plain topics rather than inventing an action. `<node>/_service_event` stays a plain
+topic: it is an `rt/` topic visible in the default view, and folding it into a group would
+delete a default-view row.
+
+In `--json` each entry of `topics[]` carries `kind` (`topic`, `service`, `action` or
+`other`), `group` (the owning ROS name, `""` for a plain topic) and `direction`
+(`to_server`, `to_client` or `""`); the raw `rq/` / `rr/` topics stay in the document, so
+the table replaces rows and the JSON loses nothing. A document written before these keys
+existed is classified again from its own DDS names when it is read back, so `diff` groups it
+too.
+
 ## Node names and the tool's own footprint
 
 ROS node names are resolved through the rclcpp graph API (endpoint GID → node), so the

@@ -857,3 +857,102 @@ TEST(WatchState, GhostsComeFromTheFrameKeptByMove)
   EXPECT_TRUE(ws.deco.ghosts.empty());
   EXPECT_EQ(ws.deco.marks.count(PairKey{"/chatter", "W1", "R2"}), 1u);
 }
+
+// ---- service and action rows (#84) ------------------------------------------
+
+namespace
+{
+
+Endpoint service_ep(
+  bool writer, const std::string & guid, const std::string & node,
+  const std::string & dds_topic, const std::string & dds_type,
+  const std::string & participant, LocatorKind kind = LocatorKind::SHM, uint32_t port = 7411)
+{
+  Endpoint e = ep(writer, guid, node, kind);
+  e.unicast[0].port = port;
+  e.dds_topic = dds_topic;
+  e.dds_type = dds_type;
+  e.ros_topic = demangle_topic(dds_topic).name;
+  e.ros_type = demangle_type(dds_type);
+  e.participant_guid_prefix = participant;
+  return e;
+}
+
+constexpr char kReq[] = "example_interfaces::srv::dds_::AddTwoInts_Request_";
+constexpr char kRes[] = "example_interfaces::srv::dds_::AddTwoInts_Response_";
+constexpr char kClientPrefix[] = "01.0f.00.00.02.00.2a.02.00.00.00.02";
+constexpr char kServerPrefix[] = "01.0f.00.00.01.00.2a.01.00.00.00.01";
+
+Snapshot service_snapshot()
+{
+  Snapshot s;
+  s.local_host_id = {1, 2, 3, 4};
+  // each participant owns an SHM port of its own, as a live pair does
+  s.endpoints.push_back(
+    service_ep(
+      true, "W1", "/caller", "rq/add_two_intsRequest", kReq, kClientPrefix,
+      LocatorKind::SHM, 7412));
+  s.endpoints.push_back(
+    service_ep(
+      false, "R1", "/add_two_ints_server", "rq/add_two_intsRequest", kReq, kServerPrefix,
+      LocatorKind::SHM, 7411));
+  s.endpoints.push_back(
+    service_ep(
+      true, "W2", "/add_two_ints_server", "rr/add_two_intsReply", kRes, kServerPrefix,
+      LocatorKind::UDPv4));
+  s.endpoints.push_back(
+    service_ep(
+      false, "R2", "/caller", "rr/add_two_intsReply", kRes, kClientPrefix,
+      LocatorKind::UDPv4));
+  s.topics = summarize(s.endpoints);
+  return s;
+}
+
+}  // namespace
+
+TEST(RenderTable, AServiceIsOneRowNamingBothSides)
+{
+  const auto out = render_table(service_snapshot(), RenderOptions{});
+  // #84: not two rows both reading "/add_two_ints", one per rq/rr topic
+  const std::string row = "SERVICE /add_two_ints  /caller -> /add_two_ints_server";
+  EXPECT_NE(out.find(row), std::string::npos) << out;
+  EXPECT_NE(out.find("example_interfaces/srv/AddTwoInts"), std::string::npos) << out;
+  EXPECT_EQ(out.find("_Request"), std::string::npos) << out;
+  EXPECT_EQ(out.find("rq/"), std::string::npos) << out;
+  // what goes out, and what comes back
+  EXPECT_NE(out.find("SHM -> UDPv4"), std::string::npos) << out;
+  std::istringstream in(out);
+  std::string line;
+  size_t rows = 0;
+  while (std::getline(in, line)) {
+    if (line.find("/add_two_ints") != std::string::npos) {
+      ++rows;
+    }
+  }
+  EXPECT_EQ(rows, 1u) << out;
+}
+
+TEST(RenderTable, ServiceMemberPairsAreNamedUnderVerbose)
+{
+  RenderOptions opt;
+  opt.verbose = true;
+  const auto out = render_table(service_snapshot(), opt);
+  EXPECT_NE(out.find("request /caller"), std::string::npos) << out;
+  EXPECT_NE(out.find("reply /add_two_ints_server"), std::string::npos) << out;
+}
+
+TEST(RenderTable, AServiceNobodyCallsKeepsItsRow)
+{
+  Snapshot s;
+  s.local_host_id = {1, 2, 3, 4};
+  s.endpoints.push_back(
+    service_ep(false, "R1", "/talker", "rq/talker/get_parametersRequest", kReq, kServerPrefix));
+  s.endpoints.push_back(
+    service_ep(true, "W1", "/talker", "rr/talker/get_parametersReply", kRes, kServerPrefix));
+  s.topics = summarize(s.endpoints);
+  const auto out = render_table(s, RenderOptions{});
+  // no pair, so no transport either way -- but the row is there, with the caller missing
+  EXPECT_NE(out.find("SERVICE /talker/get_parameters  - -> /talker"), std::string::npos) << out;
+  EXPECT_NE(out.find("- -> -"), std::string::npos) << out;
+  EXPECT_NE(out.find("no-matching-writer"), std::string::npos) << out;
+}

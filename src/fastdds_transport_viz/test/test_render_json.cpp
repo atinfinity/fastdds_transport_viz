@@ -7,7 +7,9 @@
 #include <gtest/gtest.h>
 
 #include <cmath>
+#include <map>
 #include <set>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -732,4 +734,118 @@ TEST(ParseJson, ParticipantsWithUnknownValuesReadAsUnprobed)
   EXPECT_EQ(parsed.participants[0].shm_ports[0].lock, PortLock::Unprobed);
   doc["participants"][0].erase("guid_prefix");
   EXPECT_THROW(parse_json(doc.dump()), ParseError);
+}
+
+// ---- service and action grouping (#84)
+
+namespace
+{
+/// A service endpoint, spelled as rmw_fastrtps announces one.
+Endpoint service_ep(
+  bool writer, const std::string & guid, const std::string & node,
+  const std::string & dds_topic, const std::string & dds_type, const std::string & prefix)
+{
+  Endpoint e = ep(writer, guid, node);
+  e.participant_guid_prefix = prefix;
+  e.dds_topic = dds_topic;
+  e.dds_type = dds_type;
+  e.ros_topic = "/add_two_ints";
+  e.ros_type = dds_type.find("Request") != std::string::npos ?
+    "example_interfaces/srv/AddTwoInts_Request" :
+    "example_interfaces/srv/AddTwoInts_Response";
+  return e;
+}
+
+Snapshot service_snapshot()
+{
+  Snapshot s;
+  s.domain = 3;
+  s.observed_at = "2026-09-06T00:00:00Z";
+  s.local_host_id = {1, 2, 3, 4};
+  const std::string req_type = "example_interfaces::srv::dds_::AddTwoInts_Request_";
+  const std::string res_type = "example_interfaces::srv::dds_::AddTwoInts_Response_";
+  s.endpoints.push_back(
+    service_ep(true, "W1", "/caller", "rq/add_two_intsRequest", req_type, "P1"));
+  s.endpoints.push_back(
+    service_ep(false, "R1", "/server", "rq/add_two_intsRequest", req_type, "P2"));
+  s.endpoints.push_back(
+    service_ep(true, "W2", "/server", "rr/add_two_intsReply", res_type, "P2"));
+  s.endpoints.push_back(
+    service_ep(false, "R2", "/caller", "rr/add_two_intsReply", res_type, "P1"));
+  return s;
+}
+
+const TopicSummary & topic_by_dds(const Snapshot & s, const std::string & dds)
+{
+  for (const auto & t : s.topics) {
+    if (t.dds_topic == dds) {return t;}
+  }
+  throw std::runtime_error("no topic " + dds);
+}
+}  // namespace
+
+TEST(RenderJson, TopicsCarryTheirKindGroupAndDirection)
+{
+  auto s = service_snapshot();
+  s.topics = summarize(s.endpoints);
+  const auto doc = json::parse(render_json(s, RenderOptions{}));
+  std::map<std::string, json> by_dds;
+  for (const auto & t : doc["topics"]) {
+    const std::string dds = t["dds_topic"];
+    by_dds[dds] = t;
+  }
+  ASSERT_EQ(by_dds.size(), 2u);
+  EXPECT_EQ(by_dds["rq/add_two_intsRequest"]["kind"], "service");
+  EXPECT_EQ(by_dds["rq/add_two_intsRequest"]["group"], "/add_two_ints");
+  EXPECT_EQ(by_dds["rq/add_two_intsRequest"]["direction"], "to_server");
+  EXPECT_EQ(by_dds["rr/add_two_intsReply"]["direction"], "to_client");
+  // the raw member topics stay in the document: the table replaces rows, the JSON loses
+  // nothing (#84 Q4)
+  EXPECT_EQ(by_dds["rr/add_two_intsReply"]["topic"], "/add_two_ints");
+}
+
+TEST(ParseJson, RoundTripsTheKindGroupAndDirection)
+{
+  auto s = service_snapshot();
+  s.topics = summarize(s.endpoints);
+  const auto parsed = parse_json(render_json(s, RenderOptions{}));
+  const auto request = topic_by_dds(parsed, "rq/add_two_intsRequest");
+  EXPECT_EQ(request.kind, TopicKind::Service);
+  EXPECT_EQ(request.group, "/add_two_ints");
+  EXPECT_EQ(request.direction, GroupDirection::ToServer);
+  EXPECT_EQ(topic_by_dds(parsed, "rr/add_two_intsReply").direction, GroupDirection::ToClient);
+}
+
+TEST(ParseJson, ADocumentWithoutTheGroupingKeysIsClassifiedAgain)
+{
+  // written before #84: the keys are re-derived from the DDS names, so an old document
+  // still groups in diff
+  auto s = service_snapshot();
+  s.topics = summarize(s.endpoints);
+  auto doc = json::parse(render_json(s, RenderOptions{}));
+  for (auto & t : doc["topics"]) {
+    t.erase("kind");
+    t.erase("group");
+    t.erase("direction");
+  }
+  const auto parsed = parse_json(doc.dump());
+  const auto request = topic_by_dds(parsed, "rq/add_two_intsRequest");
+  EXPECT_EQ(request.kind, TopicKind::Service);
+  EXPECT_EQ(request.group, "/add_two_ints");
+  EXPECT_EQ(request.direction, GroupDirection::ToServer);
+  const auto again = json::parse(render_json(parsed, RenderOptions{}));
+  EXPECT_EQ(again["topics"][0]["kind"], "service");
+}
+
+TEST(ParseJson, AKindOrDirectionThisVersionDoesNotKnowIsDerivedAgain)
+{
+  // a newer document whose spelling this build has never heard of: fall back to the rule
+  // rather than carry a value nothing can render
+  auto s = service_snapshot();
+  s.topics = summarize(s.endpoints);
+  auto doc = json::parse(render_json(s, RenderOptions{}));
+  doc["topics"][0]["kind"] = "later";
+  const auto parsed = parse_json(doc.dump());
+  EXPECT_EQ(topic_by_dds(parsed, "rq/add_two_intsRequest").kind, TopicKind::Service);
+  EXPECT_EQ(topic_by_dds(parsed, "rr/add_two_intsReply").group, "/add_two_ints");
 }

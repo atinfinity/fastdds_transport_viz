@@ -78,6 +78,16 @@ header sorts topics by their aggregate and pairs within a topic by their own val
 packets and bytes carried during the observation, the latency, the delivered samples per
 second (`Hz`, hover for the window) and the loss.
 
+A service or an action taken with `--all` gets one header for the whole group, badged
+`SERVICE` or `ACTION` and named after the service or action rather than its `rq/` / `rr/`
+topics, with every member pair beneath it
+([#84](https://github.com/atinfinity/fastdds_transport_viz/issues/84)). Its writer and
+reader cells count the member pairs each way -- `1`/`1` for a complete service, `3`/`5` for
+a complete action -- and its type is the members' with the `_Request` / `_Response` tail
+taken off. `sample/services.json` is a capture to try it on
+(`index.html?src=sample/services.json`). The graph is unchanged: an edge is an arrow and an
+arrow has a direction, so each member keeps its own.
+
 ![table view](images/web-viewer-table.jpg)
 
 ## Comparing two documents
