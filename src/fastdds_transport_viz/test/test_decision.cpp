@@ -644,6 +644,54 @@ TEST(Decision, TypeHashIsComparedOnlyWhenBothSidesAnnounceOne)
   EXPECT_TRUE(has(decide(w, r).warnings, "type-hash-mismatch"));
 }
 
+/// An XTypes EK_COMPLETE equivalence hash of `digit` repeated (14 bytes, lowercase hex).
+std::string type_information_hash_of(char digit)
+{
+  return std::string(28, digit);
+}
+
+TEST(Decision, TypeInformationMismatchWarnsWhenOneSideAnnouncesNoRosHash)
+{
+  Endpoint w = make(true, HOST_A, {shm(7415)});
+  Endpoint r = make(false, HOST_A, {shm(7413)});
+  w.type_hash = type_hash_of('a');            // the ROS 2 side; the peer is not ROS
+  w.type_information_hash = type_information_hash_of('1');
+  r.type_information_hash = type_information_hash_of('2');
+  const Verdict v = decide(w, r);
+  EXPECT_EQ(v.transport, Transport::SHM);     // as with the REP-2011 hash: the wire carries it
+  EXPECT_EQ(v.confidence, Confidence::Certain);
+  EXPECT_EQ(v.warnings, (std::vector<std::string>{"type-information-mismatch"}));
+}
+
+TEST(Decision, TypeInformationIsComparedOnlyWhenBothSidesAnnounceOne)
+{
+  Endpoint w = make(true, HOST_A, {shm(7415)});
+  Endpoint r = make(false, HOST_A, {shm(7413)});
+  EXPECT_TRUE(decide(w, r).warnings.empty());   // neither announces one (Fast DDS 2.x)
+  w.type_information_hash = type_information_hash_of('1');
+  EXPECT_TRUE(decide(w, r).warnings.empty());   // only the writer does: a 3.x/2.x pair
+  r.type_information_hash = type_information_hash_of('1');
+  EXPECT_TRUE(decide(w, r).warnings.empty());   // the same type
+  r.type_information_hash = type_information_hash_of('2');
+  EXPECT_TRUE(has(decide(w, r).warnings, "type-information-mismatch"));
+}
+
+TEST(Decision, TypeHashOutranksTypeInformationWhereBothSidesAreRos)
+{
+  Endpoint w = make(true, HOST_A, {shm(7415)});
+  Endpoint r = make(false, HOST_A, {shm(7413)});
+  w.type_hash = type_hash_of('a');
+  r.type_hash = type_hash_of('b');
+  w.type_information_hash = type_information_hash_of('1');
+  r.type_information_hash = type_information_hash_of('2');
+  // Both mismatches are real, but the REP-2011 one says it in the user's terms.
+  EXPECT_EQ(decide(w, r).warnings, (std::vector<std::string>{"type-hash-mismatch"}));
+  // Two ROS endpoints of one type: the same REP-2011 hash keeps the pair quiet even if the
+  // TypeInformation were to differ, which is the case the tool cannot act on.
+  r.type_hash = w.type_hash;
+  EXPECT_TRUE(decide(w, r).warnings.empty());
+}
+
 TEST(RosNames, TypeHashFromUserData)
 {
   const std::string hash = "RIHS01_" +

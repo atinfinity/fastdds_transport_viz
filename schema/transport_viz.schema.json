@@ -239,6 +239,10 @@
           "type": "string",
           "description": "the ROS 2 type hash of REP-2011 (\"RIHS01_<64 hex>\") the endpoint announces in its USER_DATA; empty for an endpoint that announces none (ROS 2 Humble, a non-ROS participant) and absent in documents before #85"
         },
+        "type_information_hash": {
+          "type": "string",
+          "description": "the XTypes EK_COMPLETE equivalence hash of the endpoint's TypeInformation, lowercase hex; empty for an endpoint that announces none (Fast DDS 2.x under rmw_fastrtps, a peer that registered no TypeObject) and absent in documents before #206"
+        },
         "buffer_parent_guid": {
           "type": "string",
           "description": "rmw_fastrtps_cpp native-buffer companion (<topic>/_buf_cpu): the guid of the writer or reader of the parent topic whose samples it carries; absent for other endpoints"

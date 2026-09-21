@@ -6,6 +6,7 @@
 #ifndef FASTDDS_TRANSPORT_VIZ__FASTDDS_COMPAT_HPP_
 #define FASTDDS_TRANSPORT_VIZ__FASTDDS_COMPAT_HPP_
 
+#include <cstdint>
 #include <string>
 
 #if __has_include(<fastdds/config.hpp>)
@@ -98,6 +99,31 @@ template<typename D> const auto & disc_liveliness(const D & d) {return d.livelin
 template<typename D> const auto & disc_ownership(const D & d) {return d.ownership;}
 template<typename D> const auto & disc_partition(const D & d) {return d.partition;}
 template<typename D> const auto & disc_user_data(const D & d) {return d.user_data.data_vec();}
+/// The XTypes EK_COMPLETE equivalence hash the endpoint announced in its TypeInformation,
+/// as lowercase hex; empty when it announced none. Two endpoints of the same type name whose
+/// hashes differ describe different types (#206).
+template<typename D> std::string disc_type_information_hash(const D & d)
+{
+  namespace xt = eprosima::fastdds::dds::xtypes;
+  const auto & tip = d.type_information;
+  if (!tip.assigned()) {
+    return {};
+  }
+  const auto & tid = tip.type_information.complete().typeid_with_size().type_id();
+  if (tid._d() != xt::EK_COMPLETE) {
+    return {};                          // TK_NONE: nothing was registered on that side
+  }
+  const auto & hash = tid.equivalence_hash();
+  static const char digits[] = "0123456789abcdef";
+  std::string out;
+  out.reserve(hash.size() * 2);
+  for (const auto byte : hash) {
+    const auto b = static_cast<uint8_t>(byte);
+    out.push_back(digits[b >> 4]);
+    out.push_back(digits[b & 0x0f]);
+  }
+  return out;
+}
 // ... and of a remote participant (3.x ParticipantBuiltinTopicData)
 template<typename D> const auto & disc_participant_prefix(const D & d) {return d.guid.guidPrefix;}
 template<typename D> const auto & disc_participant_properties(const D & d) {return d.properties;}
@@ -126,6 +152,10 @@ template<typename D> const auto & disc_user_data(const D & d)
 {
   return d.m_qos.m_userData.data_vec();
 }
+/// 2.x announces no TypeInformation under rmw_fastrtps: the rmw TypeSupport is not a
+/// DynamicPubSubType, so the TypeObjectFactory stays empty and Humble/Jazzy send neither
+/// TypeIdV1/TypeObjectV1 nor TypeInformation (measured in #193).
+template<typename D> std::string disc_type_information_hash(const D &) {return {};}
 // ... and of a remote participant (2.x ParticipantProxyData)
 template<typename D> const auto & disc_participant_prefix(const D & d) {return d.m_guid.guidPrefix;}
 template<typename D> const auto & disc_participant_properties(const D & d) {return d.m_properties;}

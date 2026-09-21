@@ -150,6 +150,10 @@ struct Endpoint
   // REP-2011 type hash ("RIHS01_<64 hex>") out of the endpoint's USER_DATA, "" when the
   // endpoint announces none: Humble's rmw does not, nor does a non-ROS participant (#85)
   std::string type_hash;
+  // XTypes EK_COMPLETE equivalence hash out of the endpoint's TypeInformation, lowercase
+  // hex, "" when it announces none: Fast DDS 2.x under rmw_fastrtps never does (#193), and
+  // a 3.x peer that registered no TypeObject does not either (#206)
+  std::string type_information_hash;
   std::string node_name;          // fully-qualified ROS node name, may be empty
   std::string host_name;          // from statistics PHYSICAL_DATA, may be empty
   std::string process;            // from statistics PHYSICAL_DATA, may be empty

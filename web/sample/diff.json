@@ -256,6 +256,7 @@
           "ros_topic": "/chatter",
           "ros_type": "std_msgs/msg/String",
           "type_hash": "",
+          "type_information_hash": "",
           "unicast_locators": [
             {
               "address": "127.0.0.1",
@@ -291,6 +292,7 @@
           "ros_topic": "/chatter",
           "ros_type": "std_msgs/msg/String",
           "type_hash": "",
+          "type_information_hash": "",
           "unicast_locators": [
             {
               "address": "",
@@ -338,6 +340,7 @@
           "ros_topic": "/chatter",
           "ros_type": "std_msgs/msg/String",
           "type_hash": "",
+          "type_information_hash": "",
           "unicast_locators": [
             {
               "address": "",
@@ -471,6 +474,7 @@
           "ros_topic": "/cmd_vel",
           "ros_type": "geometry_msgs/msg/Twist",
           "type_hash": "",
+          "type_information_hash": "",
           "unicast_locators": [
             {
               "address": "",
@@ -518,6 +522,7 @@
           "ros_topic": "/cmd_vel",
           "ros_type": "geometry_msgs/msg/Twist",
           "type_hash": "",
+          "type_information_hash": "",
           "unicast_locators": [
             {
               "address": "",
@@ -558,6 +563,7 @@
           "ros_topic": "/cmd_vel",
           "ros_type": "geometry_msgs/msg/Twist",
           "type_hash": "",
+          "type_information_hash": "",
           "unicast_locators": [
             {
               "address": "",
@@ -651,6 +657,7 @@
           "ros_topic": "/new_topic",
           "ros_type": "std_msgs/msg/String",
           "type_hash": "",
+          "type_information_hash": "",
           "unicast_locators": [
             {
               "address": "",
@@ -698,6 +705,7 @@
           "ros_topic": "/new_topic",
           "ros_type": "std_msgs/msg/String",
           "type_hash": "",
+          "type_information_hash": "",
           "unicast_locators": [
             {
               "address": "",
@@ -791,6 +799,7 @@
           "ros_topic": "",
           "ros_type": "",
           "type_hash": "",
+          "type_information_hash": "",
           "unicast_locators": [
             {
               "address": "",
@@ -838,6 +847,7 @@
           "ros_topic": "",
           "ros_type": "",
           "type_hash": "",
+          "type_information_hash": "",
           "unicast_locators": [
             {
               "address": "",

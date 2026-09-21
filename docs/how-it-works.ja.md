@@ -22,6 +22,14 @@ writer → reader の各ペアで transport を選ぶときと同じルールを
    `type-hash-mismatch` が付きます。その先の挙動は Fast DDS のバージョン次第で、2.x はペアを
    マッチさせてその transport でサンプルを配送し、rmw が subscription のコールバック手前で
    捨てます。3.x はそもそもマッチさせません。いずれにせよ subscription には何も届きません。
+   少なくとも片側が ROS 2 の type hash を広告しない場合 (ROS 2 でない Fast DDS ピア、または
+   ROS 2 Humble) は、代わりにエンドポイントが広告する XTypes の `TypeInformation` で同じことを
+   判定します。EK_COMPLETE の equivalence hash が食い違えば、同じ型名で別の型を指しているので、
+   ペアに警告 `type-information-mismatch` が付きます
+   ([#206](https://github.com/atinfinity/fastdds_transport_viz/issues/206))。Fast DDS 2.x は
+   `rmw_fastrtps` 上で `TypeInformation` を広告しないので
+   ([#193](https://github.com/atinfinity/fastdds_transport_viz/issues/193))、これが効くのは
+   3.x のピアだけです。
 1. **そもそも QoS が合うか?** Fast DDS は request/offer のポリシーが合う writer と reader しか
    マッチさせません: reliability (BEST_EFFORT の writer は RELIABLE の reader に提供できない)、
    durability (writer は reader の要求以上を提供する必要がある: VOLATILE < TRANSIENT_LOCAL <
