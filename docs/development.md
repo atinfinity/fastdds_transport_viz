@@ -690,7 +690,7 @@ the Fast DDS 2.14 / 3.x compatibility layer, the repository layout and extension
 
 ## Roadmap
 
-As of 2026-09-13. The [issue tracker](https://github.com/atinfinity/fastdds_transport_viz/issues)
+As of 2026-09-22. The [issue tracker](https://github.com/atinfinity/fastdds_transport_viz/issues)
 is the source of truth; update this list when closing an issue.
 
 Done:
@@ -766,6 +766,19 @@ Done:
   [#83](https://github.com/atinfinity/fastdds_transport_viz/issues/83)
 - REP 2004 quality declarations (Level 3) for both packages and `SECURITY.md` —
   [#87](https://github.com/atinfinity/fastdds_transport_viz/issues/87)
+- `--advise`: the remedy of every reason code —
+  [#76](https://github.com/atinfinity/fastdds_transport_viz/issues/76)
+- CI: Dependabot for the actions, a weekly Rolling run, a coverage job with a Coveralls
+  badge — [#79](https://github.com/atinfinity/fastdds_transport_viz/issues/79),
+  [#80](https://github.com/atinfinity/fastdds_transport_viz/issues/80)
+- Web viewer: browser-level tests, record and replay with a timeline, the live history,
+  Discovery Servers and their clients —
+  [#81](https://github.com/atinfinity/fastdds_transport_viz/issues/81),
+  [#82](https://github.com/atinfinity/fastdds_transport_viz/issues/82),
+  [#218](https://github.com/atinfinity/fastdds_transport_viz/issues/218),
+  [#86](https://github.com/atinfinity/fastdds_transport_viz/issues/86)
+- Release 2.0.0: split IPC namespaces, the `HZ` column, the settle rule, type
+  mismatches, services and actions, `diff`, record/replay, metrics export
 
 Open, by priority (labels `priority/1-high` … `priority/3-low` on the issues):
 
@@ -774,14 +787,12 @@ Open, by priority (labels `priority/1-high` … `priority/3-low` on the issues):
 `priority/2-medium`:
 
 - Distribution: bloom release for Jazzy/Humble/Lyrical — [#50](https://github.com/atinfinity/fastdds_transport_viz/issues/50)
-- `--advise`: what to change to get the intended transport — [#76](https://github.com/atinfinity/fastdds_transport_viz/issues/76)
-- `transport_viz diff`: compare two `--json` snapshots — [#77](https://github.com/atinfinity/fastdds_transport_viz/issues/77)
+- `transport_viz` segfaulted once on Rolling CI — [#215](https://github.com/atinfinity/fastdds_transport_viz/issues/215)
+- Report the Fast DDS 3.6 statistics heartbeat stall upstream — [#157](https://github.com/atinfinity/fastdds_transport_viz/issues/157)
+- Report the per-socket statistics sequence stamping upstream — [#198](https://github.com/atinfinity/fastdds_transport_viz/issues/198)
+
 `priority/3-low`:
 
 - DDS Security (SROS2) — [#49](https://github.com/atinfinity/fastdds_transport_viz/issues/49)
 - Ready-to-run Docker image on GHCR — [#78](https://github.com/atinfinity/fastdds_transport_viz/issues/78)
-- Dependabot for GitHub Actions, weekly scheduled run for Rolling — [#79](https://github.com/atinfinity/fastdds_transport_viz/issues/79)
-- Coverage report and badge from `scripts/coverage.sh` in CI — [#80](https://github.com/atinfinity/fastdds_transport_viz/issues/80)
-- Web viewer: browser-level test of rendering and filters — [#81](https://github.com/atinfinity/fastdds_transport_viz/issues/81)
-- Record and replay `--watch` frames with a timeline in the web viewer — [#82](https://github.com/atinfinity/fastdds_transport_viz/issues/82)
-- Web viewer: keep the live frames in the page, with the timeline, charts and Save recording — [#218](https://github.com/atinfinity/fastdds_transport_viz/issues/218)
+- Report to eProsima: Easy Mode hides endpoints from a host without a node of their type — [#100](https://github.com/atinfinity/fastdds_transport_viz/issues/100)
