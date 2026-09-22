@@ -1,8 +1,17 @@
 Real `transport_viz --json --stats` captures used as the viewer's initial document and as
 schema test fixtures (`sample_all.json` was taken with `--all`). Both were re-captured on
-Jazzy after the `RATE` column was removed ([#137](https://github.com/atinfinity/fastdds_transport_viz/issues/137)),
-so their `throughput_bytes_per_s` are null and their `stats.throughput` is empty, and since
-#113 the binary fills `participants_with_stats` itself: nothing in them is edited by hand.
+Jazzy for [#224](https://github.com/atinfinity/fastdds_transport_viz/issues/224) from the
+rig `scripts/render_examples.sh` uses: a `demo_nodes_cpp` talker, a listener, a UDPv4-only
+listener and the data-sharing `bounded_pub` / `bounded_sub` in one container with
+`FASTDDS_STATISTICS`. They carry the delivered rate the `HZ` column shows
+(`measured.delivered_per_s`, [#143](https://github.com/atinfinity/fastdds_transport_viz/issues/143)),
+the per-participant SHM ports in `participants`
+([#125](https://github.com/atinfinity/fastdds_transport_viz/issues/125)) and the settle
+fields of the one-shot rule (`stats.settled`, `settled_at_s`, `measurable_pairs`,
+`pairs_delivered*`); their `throughput_bytes_per_s` are null and their `stats.throughput` is
+empty because the `RATE` column was removed ([#137](https://github.com/atinfinity/fastdds_transport_viz/issues/137)),
+and since #113 the binary fills `participants_with_stats` itself: nothing in them is edited
+by hand.
 
 `shm_split.json` is `scripts/integration_test.sh hostnet_split_shm` on Jazzy (no `--stats`),
 re-taken for [#125](https://github.com/atinfinity/fastdds_transport_viz/issues/125): a
