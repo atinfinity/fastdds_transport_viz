@@ -32,9 +32,9 @@ jobs:
               - '!**.md'
               - '!mkdocs.yml'
               - '!.github/workflows/docs.yml'
+            # One pattern: with 'every' a file would have to match each line of a list.
             workflows:
-              - '.github/workflows/**'
-              - '.github/actions/**'
+              - '.github/{workflows,actions}/**'
 
   build-and-test:
     name: colcon build & test (ROS 2 ${{ matrix.distro }}, ${{ matrix.arch }}, ${{ matrix.rmw }})
