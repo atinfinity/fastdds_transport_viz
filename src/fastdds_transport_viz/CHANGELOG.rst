@@ -2,6 +2,23 @@
 Changelog for package fastdds_transport_viz
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+2.0.1 (2026-09-22)
+-------------------
+Documentation and CI only; no change to the binary, the JSON document or the web viewer (#224).
+
+* The user and developer docs are brought in line with 2.0.0: broken links and anchors,
+  the landing pages, architecture, how it works, statistics, the web viewer, the Japanese
+  pages, ``CONTRIBUTING.md``, the quality declarations and the issue templates.
+* The README / docs example output, the web viewer screenshots and ``web/sample`` are
+  regenerated with 2.0.0.
+* The scale and verification results move from ``docs/development.md`` to the new
+  ``docs/verification-log.md``; the budget table keeps only the rules, and
+  ``development.md`` gains a release procedure.
+* The type-rule probes behind #193, #206, #210 and #213 are committed under
+  ``tools/probes/`` (ignored by colcon).
+* CI checks the Markdown links offline with lychee (#225) and the workflows with
+  actionlint (#226).
+
 2.0.0 (2026-09-22)
 -------------------
 Breaking changes (the public API is declared in ``QUALITY_DECLARATION.md``):

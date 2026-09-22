@@ -2,6 +2,12 @@
 Changelog for package ros2transport
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+2.0.1 (2026-09-22)
+-------------------
+* ``ros2 transport list --help`` gives the right ``--timeout`` default with ``--stats``
+  (30 s, not 5 s) and describes the ``--stats`` settle rule under ``--quiet`` instead of
+  calling it ignored, as the binary's own ``--help`` does (#224).
+
 2.0.0 (2026-09-22)
 -------------------
 Breaking change: ``ros2 transport list`` exits 1 on an RMW other than ``rmw_fastrtps_cpp`` /
