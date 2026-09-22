@@ -104,12 +104,12 @@ reader を読み続け、最初と最後のサンプルの *差分* を `packets
 が付きます ([#149](https://github.com/atinfinity/fastdds_transport_viz/issues/149))。このセルの他の値:
 `n/a` (writer の participant が statistics を出していない)、`none` (statistics はあるが reader のどの
 locator にもパケットが無い)、`none(delivered)` (同じ状況で `HISTORY_LATENCY` が配送を証明している)。
-同一プロセス内で配送されるペアは、`(unmeasured, delivered)` や `(delivered)` の代わりに
-`(intra-process)` と表示します。パケットを取りこぼしたのではなく、そもそも 1 つも送られていない
+同一プロセス内で配送されるペアは、`none(delivered)` や `<kind> (unmeasured, delivered)` の代わりに
+`none(intra-process)` または `<kind> (intra-process)` (例: `SHM (intra-process)`) と表示します。パケットを取りこぼしたのではなく、そもそも 1 つも送られていない
 からです ([プロセス内のペア](#プロセス内のペア) を参照)。
 statistics が有効な participant とは、その participant 自身が publish した statistics のサンプルをツールが
 受信したものです。この集合が JSON の `stats.participants_with_stats` で、フッタの
-「statistics from N participant(s)」の N です。reader 側の `HISTORY_LATENCY` に出てくるリモートの writer
+`statistics: <S> samples from <N> participant(s)` の `<N>` です。reader 側の `HISTORY_LATENCY` に出てくるリモートの writer
 のように、他の participant のサンプルに名前が載っているだけの participant は数えません。
 
 ## 粒度
@@ -120,7 +120,11 @@ reader のノードのリンクに対するものです。個々のペアを区�
 静穏で、ツールの reader がマッチした `RTPS_SENT` writer (statistics 付きの participant ごとに
 1 つ) のすべてから最初のサンプルが届き、**かつ**発見済み reader が受信する locator 宛てに実測
 パケットを持つ `RTPS_SENT` エントリの数が `--quiet` 秒 (少なくとも 3 秒) 増えなくなるまで、
-または `--timeout` (`--stats` 付きの既定は 30 秒) まで、のどちらか早い方まで続けます。そもそも
+または `--timeout` (`--stats` 付きの既定は 30 秒) まで、のどちらか早い方まで続けます。この規則が
+働くのは、`--quiet` が 0 より大きく `--timeout` が最小の 5 秒の窓より長い一発実行だけです。
+`--quiet 0` では実行は `--timeout` いっぱいまで続き、`--timeout` が 5 秒以下では規則を確かめる前に
+実行が終わるので、どちらの場合も `stats.settled` は false、`discovery.stopped_on` は `timeout` に
+なります。そもそも
 1 つも実測しえない実行は、最小の観測窓が終わった時点で settle します
 ([プロセス内のペア](#プロセス内のペア))。数える
 のは reader 宛てのエントリだけです
@@ -168,14 +172,18 @@ writer や reader 単位のカウンタ (`HISTORY_LATENCY`、`DATA_COUNT`、`RES
 
 同一プロセスの writer と reader は participant の内部で配送され、サンプルが transport に載ることは
 ありません。したがってこのペアで `RTPS_SENT` のカウンタが動くことはありません (ネットワークに渡した
-DATA サブメッセージを数える `DATA_COUNT` も同様です)。一方で `HISTORY_LATENCY` と
-`PUBLICATION_THROUGHPUT` は動きます。配送は証明され時間も測れるが、数えるべきパケットが無いという
+DATA サブメッセージを数える `DATA_COUNT` も同様です)。一方で `HISTORY_LATENCY` は動きます。配送は証明され時間も測れるが、数えるべきパケットが無いという
 ことです。ツールは GUID prefix からこのペアを `intra-process` と名付け
 ([プロセス内配送](how-it-works.ja.md#プロセス内配送-intra-process))、実測が期待される場所では
-data-sharing のペアと同じ扱いにします。`MEASURED` 列は `(intra-process)` と表示し、ペアは
-`stats.pairs_delivered` から外れ、したがって `stats.pairs_delivered_unmeasured`、
-`stats.pairs_delivered_absent`、`rtps-sent-absent`、`stats_watch_coverage` の分母からも外れます。
-ペア単位の警告も付きません。
+data-sharing のペアと同じ扱いにします。配送の証拠があれば `MEASURED` 列は `none(intra-process)`
+または `<kind> (intra-process)` と表示し、ペアは `stats.pairs_delivered` から外れ、したがって
+`stats.pairs_delivered_unmeasured`、`stats.pairs_delivered_absent`、`rtps-sent-absent`、
+`stats_watch_coverage` ([規模の検証](development.md#scale-verification)の `--watch` statistics
+coverage の予算) の分母からも外れます。ペア単位の警告も付きません。
+配送の証拠が無ければ、何も実測されなかった他のペアと同じく `no-traffic-observed` が付きます。
+実測パケットは予測に優先します。観測中に writer の participant が reader の locator 宛てにパケットを
+送っていれば (独自の `<prefix>`、プロセス内配送を無効にしてビルドした Fast DDS、他所の reader と
+共有する multicast グループ)、`intra-process` の理由を外し、カウンタが示すとおりにペアを報告します。
 
 settle 規則は同じ事実を実行ごとに 1 度だけ `stats.measurable_pairs` として数えます。これは、その時点
 までに発見したエンドポイントのうち両端が*別プロセス*にあるペアの数で、ツール自身の participant は
@@ -264,10 +272,13 @@ lost は 1 つも報告されず、`RTPS_SENT` のインスタンスが多いと
 同梱のプロファイルは、カウンタの writer (`HISTORY_LATENCY_TOPIC` 以外のすべてのプロファイル) の
 `heartbeat_period` を、パッケージを Fast DDS 3.x でビルドしたときに 500 ms にして、連続した配送に
 戻します。Fast DDS 2.x ではこの要素の綴りが `heartbeatPeriod` で、パースできないプロファイルは丸ごと
-捨てられるため、インストールされる `statistics.xml` と `datasharing_auto_stats.xml` は CMake が
+捨てられるため、インストールされる `statistics.xml`、`datasharing_auto_stats.xml`、
+`multicast_user_stats.xml` (このファイルに multicast locator 上のユーザー endpoint を結合したもの。
+[#130](https://github.com/atinfinity/fastdds_transport_viz/issues/130) の
+[multicast stamping experiment](development.md#multicast-stamping-experiment) 用) は CMake が
 `config/*.xml.in` からビルド対象の Fast DDS 向けに生成します。観測対象ノードのマシンにインストール
 されたファイルを使ってください。500 ms は100 ms、250 ms、500 ms、1 s のうち、
-medium の規模で `--watch` のカバレッジを 1.0 に保てた最長の値です (1 s では 0.21)。どのディストリでも、
+[規模の検証](development.md#scale-verification)の medium の規模で `--watch` のカバレッジを 1.0 に保てた最長の値です (1 s では 0.21)。どのディストリでも、
 [前の節](#instance-limit)の 2 行で観測対象ノードにこのプロファイルを適用してください。
 
 ## 同梱プロファイルが writer に対して変えているもの {#writer-qos}
@@ -349,7 +360,10 @@ reader からどれだけ頻繁に読み出すかで、そのための 50 ms の
 超えると、送信側の keep-last の履歴が届く前のサンプルを上書きします。
 
 ツールは落としたサンプルを報告します。JSON 文書の `stats.samples_lost` が届かなかった statistics
-サンプルの数で、表の `statistics:` 行にも同じ数が出ます。その損失で実測まで失われたとき (後述) は、
+サンプルの数、`stats.samples_rejected` がツールの reader が拒否したサンプルの数です。表の
+`statistics:` フッタには `N sample(s) lost` が出て、N = `samples_lost` − `samples_lost_latency` +
+`samples_rejected` です。つまり失われたか拒否されたカウンタのサンプルで、latency のサンプルは別項目
+として出します (後述)。その損失で実測まで失われたとき (後述) は、
 文書に警告コード `stats-samples-lost` が付き、ワンショット実行では stderr に 1 行出ます:
 
 ```
@@ -390,8 +404,9 @@ pull モード (`fastdds.push_mode` が false) で生成されるため、周期
 Fast DDS 3.6 (ROS 2 Lyrical) で、ワンショット実行では何も実測できませんでした
 ([#152](https://github.com/atinfinity/fastdds_transport_viz/issues/152))。ツールの reader 側では
 変えられませんが、writer のプロファイルでは変えられます。観測対象のノードを、このパッケージが
-インストールする `config/statistics.xml` (`FASTDDS_DEFAULT_PROFILES_FILE`、古い Fast DDS では
-`FASTRTPS_DEFAULT_PROFILES_FILE`) 付きで起動してください。これらの writer を push モードにし、
+インストールする `config/statistics.xml` (ROS 2 ノードはどのディストリでも
+`FASTRTPS_DEFAULT_PROFILES_FILE`、rmw を通さない Fast DDS 3.x のアプリケーションは
+`FASTDDS_DEFAULT_PROFILES_FILE`。[10 インスタンスの上限](#instance-limit)を参照) 付きで起動してください。これらの writer を push モードにし、
 ハートビート周期を短くします。警告は観測した事実で判定し、Fast DDS のバージョンでは分岐しません。
 また、そもそも実測しえないペア (data-sharing とプロセス内) はこの数に入りません
 ([#201](https://github.com/atinfinity/fastdds_transport_viz/issues/201))。
@@ -412,8 +427,8 @@ participant に reader を持つすべてのペアの `HZ` が下限 (`≥`、[�
 - `FASTDDS_STATISTICS` を必要な別名 (例: `RTPS_SENT_TOPIC;RTPS_LOST_TOPIC`) に絞る。
 
 `--timeout` を延ばしても損失は減りません (より多く集めるだけです)。ただし各インスタンスが 2 回
-サンプリングされる機会は増えます。上の coverage はまさにそれを比べたもので、5 秒時点の実測と
-30 秒時点の実測の比です。
+サンプリングされる機会は増えます。上の coverage はまさにそれを比べたもので、5 秒時点 (40 プロセス) または
+既定のワンショット (20 プロセス) の実測と 30 秒時点の実測の比です。
 
 `stats.samples_lost_at_start` は別に数えられ、警告にはなりません。reader はマッチした時点で、
 writer の keep-last 履歴が既に捨てていたサンプルをすべて「失われた」と通知されますが、これは
@@ -440,6 +455,7 @@ jazzy で最大 1.2 秒、lyrical で最大 3.9 秒あとに届きました。�
 - statistics トピックの型サポート生成コードは同梱しています (Apache-2.0)。ROS ディストリビューション
   はコンパイル済みの型を Fast DDS ライブラリに含めていますが、ヘッダも `fastddsgen` も配布して
   いないためです。`src/fastdds_transport_viz/third_party/fastdds_statistics_types/` (Fast DDS
-  2.14.6、Jazzy) と `.../fastdds_statistics_types_v3/` (Fast DDS 3.2.4 から生成、Lyrical / Rolling で使用) があり、
-  CMake が Fast DDS のメジャーバージョンで選びます。別の Fast DDS を対象にするときは該当ディレクトリ
+  2.14.6、Jazzy)、`.../fastdds_statistics_types_v26/` (Fast DDS 2.6.12、Humble、2.10 未満で使用。
+  2.6 は fastcdr 1.0 の API でシリアライズするため)、`.../fastdds_statistics_types_v3/` (Fast DDS
+  3.2.4 から生成、Lyrical / Rolling で使用) があり、CMake が Fast DDS のバージョンで選びます。別の Fast DDS を対象にするときは該当ディレクトリ
   を差し替えてください。
