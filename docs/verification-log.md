@@ -5,6 +5,35 @@ Dated measurements behind [development.md](development.md): the rows of the
 verifications of the transport rules. New rows are appended at the bottom of each table;
 the how-to (commands, budgets, what each run records) stays in development.md.
 
+## Budget history
+
+The budgets of [Scale verification](development.md#scale-verification) changed while the
+rows below were taken; a row is judged by the rules of its date.
+
+- **`--watch` frame:** the run without `--stats` joined the three runs in [#135](https://github.com/atinfinity/fastdds_transport_viz/issues/135). Before
+  [#177](https://github.com/atinfinity/fastdds_transport_viz/issues/177) the p95 alone was judged at 250 ms (`over: watch_frame_p95_ms` in the older rows):
+  a 60 s run drew 16-22 frames once the settle rule of [#168](https://github.com/atinfinity/fastdds_transport_viz/issues/168) delayed the first one, the
+  p95 of that few is the worst frame, and the host is not still within a harness run (the
+  load's statistics writers work while the tool is matched, so every run heats the host for
+  the next one - `/proc/loadavg` climbed from 3.6 to 24 on 8 CPUs over six back-to-back runs).
+  The median is the frame a user sees; the p95 keeps a stall from hiding. At `large` the load
+  alone takes 6.7 to 7.5 of the 8 cores, so the frame time there says more about the host
+  than about the tool.
+- **`--watch` statistics coverage** replaces the "dropped statistics samples = 0" budget
+  (`stats_dropped_samples` in the older rows, [#147](https://github.com/atinfinity/fastdds_transport_viz/issues/147)): the counters are cumulative and the
+  tool prints `last - first`, so a lost sample costs nothing until it leaves a pair without a
+  measurement, and a run could lose 925130 of 1040228 samples while measuring every pair. The
+  dropped samples are still recorded - growth of `sample_lost` - `sample_lost_latency` +
+  `sample_rejected` after the first `--watch` frame, the higher of the two `--stats` runs,
+  with the late-join losses of the one-shot runs (`sample_lost_at_start`, [#134](https://github.com/atinfinity/fastdds_transport_viz/issues/134))
+  "at start" - and judged by nothing.
+- **`--stats` coverage:** a delivery proof alone counted until [#153](https://github.com/atinfinity/fastdds_transport_viz/issues/153); since then only
+  measured packets do. Until [#168](https://github.com/atinfinity/fastdds_transport_viz/issues/168) the default one-shot was a fixed `--timeout 5`; now it
+  stops once every matched `RTPS_SENT` writer has been heard and the measured entries stop
+  growing for 3 s, at 30 s at the latest. The pairs with a delivery proof but no packet are
+  recorded as `delivered_unmeasured_default` / `_30s`, and how the default run stopped as
+  `default_stopped_on` / `settled_at_s` / `default_wall_s`; judged by nothing.
+
 ## Scale results
 
 
