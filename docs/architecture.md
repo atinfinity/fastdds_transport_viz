@@ -55,8 +55,8 @@ Inside the C++ package the sources are split into two libraries:
 
 | Library | Sources | Depends on |
 |---|---|---|
-| `fastdds_transport_viz_core` | `model.cpp`, `decision.cpp`, `ros_names.cpp`, `shm_info.cpp` | nothing but the C++ standard library and POSIX |
-| `fastdds_transport_viz_lib` | `discovery_observer.cpp`, `ros_discovery_info_observer.cpp`, `ros_graph_resolver.cpp`, `stats_observer.cpp`, `render_table.cpp`, `render_json.cpp`, `render_csv.cpp` | core, rclcpp, Fast DDS, nlohmann_json, the vendored statistics types, the `rosidl_typesupport_fastrtps_cpp` type support of `rmw_dds_common` |
+| `fastdds_transport_viz_core` | `model.cpp`, `decision.cpp`, `ros_names.cpp`, `rmw_check.cpp`, `shm_info.cpp` | nothing but the C++ standard library and POSIX |
+| `fastdds_transport_viz_lib` | `discovery_observer.cpp`, `ros_discovery_info_observer.cpp`, `ros_graph_resolver.cpp`, `stats_observer.cpp`, `render_table.cpp`, `render_json.cpp`, `render_csv.cpp`, `parse_json.cpp` | core, rclcpp, Fast DDS, nlohmann_json, the vendored statistics types, the `rosidl_typesupport_fastrtps_cpp` type support of `rmw_dds_common` |
 
 The split is the point: the decision logic never sees a Fast DDS type, so `test_decision`
 builds endpoints by hand and checks verdicts, statistics overlays and diffs without a DDS
@@ -77,12 +77,17 @@ sequenceDiagram
     M->>D: create participant + listener
     M->>I: add a ros_discovery_info reader to D's participant (Humble: to its own participant without SHM)
     opt --stats
-        M->>S: add statistics readers to D's participant
+        M->>S: add statistics readers to D's participant, start the drain thread
     end
-    loop every 50 ms until --timeout (or --quiet seconds without discovery events)
-        D-->>D: on_data_writer/reader_discovery → Endpoint
-        M->>I: poll() (node names)
-        M->>S: poll() (drain counters)
+    par drain thread (--stats)
+        loop every 50 ms until the observer is destroyed
+            S-->>S: drain() the statistics readers
+        end
+    and main loop
+        loop every 50 ms until --quiet, the settle rule (--stats) or the --timeout cap
+            D-->>D: on_data_writer/reader_discovery → Endpoint
+            M->>I: poll() (node names)
+        end
     end
     M->>C: collect()
     C->>D: snapshot() endpoints
@@ -117,11 +122,20 @@ sequenceDiagram
    writers could not reach the reader.
 3. **Observation loop.** `DiscoveryObserver` records every remote writer and reader as an
    `Endpoint` (GUID, host id, locators, QoS, data-sharing settings) under a mutex.
-   `StatsObserver::poll()` drains the statistics readers every 50 ms: they use
-   `KEEP_LAST 1`, and the tool needs both the first and the last value of every
-   cumulative counter to report a window delta. Without `--stats` the loop stops early
-   after `--quiet` seconds without discovery events; with it the full `--timeout` is used
-   so that counters can accumulate. A silent window is not proof that discovery finished:
+   `StatsObserver` drains its statistics readers on a thread of its own every 50 ms
+   (`kStatsDrainIntervalMs`, [#141](https://github.com/atinfinity/fastdds_transport_viz/issues/141)),
+   not in the main loop: the cumulative counters and `PHYSICAL_DATA` use reliable,
+   transient-local `KEEP_LAST 1` readers, because the tool needs the first and the last value
+   of every counter to report a window delta, while `HISTORY_LATENCY` is a best-effort,
+   volatile reader of depth 100 (`kStatsLatencyHistoryDepth`), because its samples are
+   counted per pair for the `HZ` column ([#143](https://github.com/atinfinity/fastdds_transport_viz/issues/143)).
+   Without `--stats` the loop stops early after `--quiet` seconds without discovery events.
+   With it quiet is not enough: a one-shot run stops on the settle rule (`stats_settled()`,
+   not before 5 s: every matched `RTPS_SENT` writer heard from and the measured instances
+   towards discovered readers unchanged for `max(--quiet, 3)` s,
+   [#168](https://github.com/atinfinity/fastdds_transport_viz/issues/168)), and `--timeout`
+   is only the cap; `--watch --stats` draws its first frame once discovery is quiet and 5 s
+   have passed. A silent window is not proof that discovery finished:
    on a large system it also happens between two batches of announcements. `collect()`
    therefore compares the endpoint gids the live participants announce in
    `ros_discovery_info` with the raw `DiscoveryObserver::snapshot()` (before any view
@@ -141,7 +155,8 @@ sequenceDiagram
    `render_json()` (pretty or JSON Lines), and `render_csv()` (one row per pair, the header
    left out after the first `--watch` frame).
 6. **`--watch`** repeats collect() and rendering every `--interval` seconds. `diff()`
-   compares the `PairState` (transport, confidence, measured transports, warnings) of
+   compares the `PairState` (transport, confidence, measured transports, the predicted and
+   the measured locators, warnings) of
    every pair with the previous frame; the table marks additions and changes for three
    frames and keeps removed pairs as dimmed ghost rows. On a terminal the frame is
    painted into the alternate screen buffer and single keys toggle options.
@@ -161,6 +176,7 @@ classDiagram
         domain, observed_at, observation_seconds
         local_host_id
         vector~Endpoint~ endpoints
+        vector~Participant~ participants
         vector~TopicSummary~ topics
         StatsData stats
         ShmInfo shm
@@ -175,6 +191,12 @@ classDiagram
         EndpointQos qos
         datasharing_history_bytes, datasharing_segment_visibility
         buffer_parent_guid, buffer_companion_guids
+    }
+    class Participant {
+        guid_prefix, host_id, host_name, own
+        shm_ports, shm_visibility
+        discovery_protocol, name, vendor
+        metatraffic_locators, discovery_server
     }
     class TopicSummary {
         display_topic, display_type
@@ -202,6 +224,7 @@ classDiagram
         data_submessages
     }
     Snapshot "1" *-- "*" Endpoint
+    Snapshot "1" *-- "*" Participant
     Snapshot "1" *-- "*" TopicSummary
     TopicSummary "1" *-- "*" Pair
     Pair --> Endpoint : writer / reader
@@ -263,8 +286,9 @@ types). `fastdds_compat.hpp` hides the difference: it detects the version with
 `__has_include(<fastdds/config.hpp>)`, defines `FTV_FASTDDS_3`, the `ftv_rtps` namespace
 alias, `retcode_ok()` and `disc_*` accessors for the discovery info fields; the observer
 selects the callback overrides with `#if FTV_FASTDDS_3`. `CMakeLists.txt` finds `fastdds`
-first and falls back to `fastrtps`, and `package.xml` uses `condition="$ROS_DISTRO == jazzy"`
-for the dependency.
+first and falls back to `fastrtps`, and `package.xml` uses
+`condition="$ROS_DISTRO == humble or $ROS_DISTRO == jazzy"` for the `fastrtps` dependency
+(and the negation for `fastdds`).
 
 The statistics topics need their generated type support, which the ROS distributions do
 not ship as headers. `third_party/fastdds_statistics_types/` (2.14.6),
@@ -292,7 +316,9 @@ keys freely; a breaking change bumps `schema_version`.
 `web/serve.py` (`transport_viz_web`) runs `transport_viz --watch --json` as a subprocess,
 keeps the latest document, serves the static files, `/latest.json` and a Server-Sent
 Events stream at `/events`; the page reconnects to it in `?live=1` mode. `/metrics` turns
-the latest document into the Prometheus text format when it is scraped. Standard library
+the latest document into the Prometheus text format when it is scraped. `--record FILE`
+also writes every document to FILE as JSON Lines, which the viewer replays with a timeline
+(`web/replay.js`, [#82](https://github.com/atinfinity/fastdds_transport_viz/issues/82)). Standard library
 only, so it installs with the package.
 
 ## Repository layout
@@ -300,29 +326,51 @@ only, so it installs with the package.
 ```
 src/ros2transport/
   ros2transport/api/               binary lookup, option mirroring, exec
-  ros2transport/command/, verb/    ros2cli entry points (transport; list, codes)
-  test/                            pytest with a fake binary + launch test
+  ros2transport/command/, verb/    ros2cli entry points (transport; list, codes, diff)
+  test/                            pytest with a fake binary (test_cli.py), flake8/pep257,
+                                   live launch test (test_list_live.py)
 src/fastdds_transport_viz/
   include/fastdds_transport_viz/   model.hpp, decision.hpp, discovery_observer.hpp,
-                                   ros_graph_resolver.hpp, stats_observer.hpp, shm_info.hpp,
-                                   render.hpp, ros_names.hpp, fastdds_compat.hpp, fastdds_util.hpp
-  src/                             implementation + main.cpp
+                                   ros_discovery_info_observer.hpp, ros_graph_resolver.hpp,
+                                   stats_observer.hpp, shm_info.hpp, render.hpp,
+                                   parse_json.hpp (--json document -> Snapshot, for diff),
+                                   rmw_check.hpp (accept rmw_fastrtps_cpp / _dynamic_cpp only),
+                                   ros_names.hpp, fastdds_compat.hpp, fastdds_util.hpp
+  src/                             implementation + main.cpp (also the `transport_viz diff`
+                                   subcommand: parse_json.cpp, diff_snapshots() in decision.cpp)
   src/test_nodes/                  verification nodes (bounded_pub/sub, unbounded_pub/sub, large_array_pub/sub,
                                    scale_load, rate_load)
   config/                          statistics.xml.in, datasharing_auto.xml, datasharing_auto_stats.xml.in,
+                                   multicast_user_stats.xml.in (multicast user endpoints + the
+                                   statistics writers, for the #130 rig),
                                    unicast_discovery.xml (the .in templates are installed without the
                                    suffix, generated for the Fast DDS of the build; the statistics
                                    writer profiles live once in statistics_writers.xml.in, pasted
                                    into every template as FTV_STATS_WRITER_PROFILES)
   third_party/fastdds_statistics_types/     vendored generated statistics types (Fast DDS 2.14)
+  third_party/fastdds_statistics_types_v26/ same for Fast DDS 2.6 (Humble, fastcdr 1.0)
   third_party/fastdds_statistics_types_v3/  same for Fast DDS 3.x
-  test/                            gtest (decision, render, shm_info), pytest (json schema, web serve),
-                                   launch/ (launch tests, _common.py, large_shm_stats.xml.in ->
-                                   share/<pkg>/test/large_shm_stats.xml when BUILD_TESTING)
-web/                               static viewer (index.html, app.js, model.js, scene.js, style.css, vendor/d3),
-                                   serve.py (transport_viz_web), sample/, test/ (Node unit tests)
+  test/                            gtest (decision, render, render_json, render_csv, shm_info,
+                                   rmw_check, observers with real participants), pytest (CLI
+                                   arguments and diff, json schema, installed statistics
+                                   profiles, web serve, scale_measure, multicast stamping
+                                   report, launch helpers), fixtures/ (JSON documents for the
+                                   schema and diff tests), launch/ (launch tests, _common.py,
+                                   large_shm_stats.xml.in -> share/<pkg>/test/large_shm_stats.xml
+                                   when BUILD_TESTING)
+web/                               static viewer (index.html, app.js, model.js, scene.js,
+                                   replay.js (recording timeline, #82), style.css, vendor/d3),
+                                   serve.py (transport_viz_web; --record FILE tees the JSON Lines
+                                   for replay), sample/, test/ (Node unit tests of model, scene
+                                   and replay; browser.test.js / live.test.js drive headless
+                                   Chrome over CDP, cdp.js)
 schema/                            JSON Schema for --json output
-scripts/                           integration_test.sh (Docker scenarios), render_examples.sh, ansi2svg.py
+scripts/                           integration_test.sh (Docker scenarios), render_examples.sh +
+                                   ansi2svg.py (colored output examples), coverage.sh (gcovr line
+                                   coverage), scale_test.sh + scale_measure.py + scale_viewer.js
+                                   (scale verification, #74), multicast_stamping_test.sh +
+                                   multicast_stamping_report.py + whitelist_profile.py (the #130
+                                   multicast stamping rig)
 docker/, compose.yaml              development / verification containers
 docs/, mkdocs.yml                  this site (English source, *.ja.md translations)
 ```
@@ -335,13 +383,15 @@ docs/, mkdocs.yml                  this site (English source, *.ja.md translatio
   and cover it in `test_decision.cpp`. Nothing else needs to change: renderers, JSON,
   `--explain` / `--advise`, the CLI and the web viewer read the table.
 - **A new statistics topic**: add a `Reader` to `StatsObserver` (`create_reader` reuses
-  a topic Fast DDS already created when the observed node is in the same process),
+  a topic Fast DDS already created on the tool's participant: with `FASTDDS_STATISTICS` set
+  in the tool's own environment, Fast DDS creates the statistics topics itself and a second
+  `create_topic()` would fail),
   drain it in `drain()` into a new `StatsData` field, consume the field in
   `apply_stats()`, extend `required_env_value()` and the `config/statistics_writers.xml.in` profile
   (one `data_writer` profile per topic alias lifts the 10-instance limit), and document
   the topic in [statistics.md](statistics.md).
 - **A new output format**: a function `std::string render_x(const Snapshot &, const RenderOptions &)`
-  next to the two existing renderers, plus an option in `main.cpp` and in
+  next to the three existing renderers (table, JSON and CSV), plus an option in `main.cpp` and in
   `ros2transport/api/__init__.py` (the option list is mirrored there by hand; its
   pytest runs the command against a fake binary that records the arguments).
 - **A new table column**: `render_table.cpp` builds header and rows as vectors of cells;
