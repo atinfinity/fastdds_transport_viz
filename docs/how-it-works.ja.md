@@ -2,15 +2,16 @@
 
 > 英語版が正です。この文書は 2026-09-20 時点の英語版に対応しています。
 
-このツールは Fast DDS 2.14 (ROS 2 Jazzy) と 3.x (Lyrical、Rolling) の両方に対してビルドできます。
+このツールは Fast DDS 2.6 (ROS 2 Humble)、2.14 (Jazzy)、3.x (Lyrical、Rolling) に対してビルドできます。
 API の差分は `include/fastdds_transport_viz/fastdds_compat.hpp` に閉じ込めてあり、以下の判定ルールは
-両方で同じです。
+どれでも同じです。Fast DDS 自身の判断がバージョンで異なるところ (規則 0、
+[Fast DDS 2.6](#fast-dds-26-ros-2-humble)) は本文でそう書いています。
 
 `ros2 topic info -v` では transport は分かりません。rmw 層は locator (通信先アドレス) の情報を
 公開しないためです。そこで `transport_viz` は自前の Fast DDS `DomainParticipant` を作り、
 エンドポイントの discovery を観測します。discovery にはリモートの各 writer / reader が
-**広告している locator** (`UDPv4`、`SHM` など) と QoS が含まれます。その情報に、Fast DDS 2.14 が
-writer → reader の各ペアで transport を選ぶときと同じルールを適用します。
+**広告している locator** (`UDPv4`、`SHM` など) と QoS が含まれます。その情報に、Fast DDS が
+writer → reader の各ペアをマッチさせ transport を選ぶときのルールを適用します。
 
 <a id="decision-rules"></a>
 
@@ -58,7 +59,7 @@ writer → reader の各ペアで transport を選ぶときと同じルールを
    警告 `qos-incompatible` が付きます。transport に関係なくデータは流れません。ROS 2 側では
    publisher / subscription の incompatible QoS イベントとして報告される状況です。
 2. **同じホストか?** Fast DDS は、2 つの participant の GUID プレフィックス先頭 4 バイトが等しい
-   とき同じホスト上にあるとみなします。
+   とき同じホスト上にあるとみなします。この文書ではこの 4 バイトを *host id* と呼びます。
 3. 同じホストで、両エンドポイントが data-sharing (zero-copy) を広告し、domain id に共通部分がある
    か少なくとも片方が domain id を広告していない → `DATA_SHARING` (確信度 `likely`。
    [data-sharing.ja.md](data-sharing.ja.md) を参照)。広告された domain id が交わらない場合は次へ。
@@ -99,14 +100,16 @@ domain participant factory の中で直接受け渡すからです (`intraproces
 ヒストリを埋めるものの、セグメント経由で reader に通知することはありません。
 
 ツールはこのペアを GUID prefix だけから判定します。eProsima の prefix は `[0-1]` がベンダ ID
-`01.0f`、`[2-3]` が host id、`[4-5]` が pid の下位バイト、`[6-7]` がプロセス起動時に
+`01.0f`、`[2-3]` がホストから導かれる値 (ベンダ ID と合わせて規則 2 の 4 バイトの host id)、
+`[4-5]` が pid の下位バイト、`[6-7]` がプロセス起動時に
 `std::random_device` が 1 度返す値、`[8-11]` が participant id なので、先頭 8 バイトが一致するのは
 同一プロセスのときだけです。これは `RTPSDomainImpl::should_intraprocess_between()` が比較している
 ものそのものです。ペアは locator から予測される transport (別プロセスなら使ったはずのもの。通常は
 `SHM`) をそのまま保ち、理由コード `intra-process` を持ちます。これは `--stats` の有無にも
-ディストリビューションにもよりません。`MEASURED` 列は `(unmeasured, delivered)` ではなく
-`(intra-process)` と表示します。パケットが取りこぼされたのではなく、そもそも 1 つも送られていない
-からです。両側が data-sharing QoS のペアでは、`datasharing-unverified-by-traffic` の代わりに
+ディストリビューションにもよりません。`--stats` 付きでは `measured=` のセルは `none(delivered)` や
+`(unmeasured, delivered)` ではなく、通常 `none(intra-process)` (観測前にその transport でパケットが
+流れていれば `<transport> (intra-process)`) と表示します。パケットが取りこぼされたのではなく、
+そもそも 1 つも送られていないからです。両側が data-sharing QoS のペアでは、`datasharing-unverified-by-traffic` の代わりに
 `intra-process` が付き、`DATA_COUNT` が 0 でも `certain` には上がりません。ここでの `DATA_COUNT`
 0 は何も意味しないからです。
 
@@ -135,9 +138,14 @@ participant から reader の unicast locator 宛てのパケットを取りこ�
 警告 `rtps-packets-lost`。reader の participant が publish していなければ `- lost`)、
 `resent` は writer が再送した DATA の数 (`RESENT_DATAS`)。どちらも 0 なら `0` です。heartbeat、
 gap、acknack、nackfrag は JSON の `measured.reliability` と web viewer のペアカードに出ます。
-statistics が無ければ 3 つの列とも `-` です。ペア行の `measured=` は観測中に transport が
-実際に運んだ量 (`SHM 148pkt 7.63 MB`。観測前にしか流れていなければ `(idle)`、その間に配送が
-証明されていれば、欠けているのはパケットではなく statistics のサンプルなので `(unmeasured, delivered)`) です。
+statistics が無ければ `LATENCY` と `LOSS` は `-`、`HZ` は空欄です。`--stats` 付きでは、ペア行の
+`measured=` は観測中に transport が実際に運んだ量 (`SHM 148pkt 7.63 MB`。観測前にしか流れて
+いなければ `SHM (idle)`、その間に配送が証明されていれば、欠けているのはパケットではなく statistics の
+サンプルなので `SHM (unmeasured, delivered)`) です。`n/a` は writer の participant が statistics を
+publish していないこと、`none` はその `RTPS_SENT` が reader の locator 宛てのパケットを一度も報告せず
+配送も証明されていないこと、`none(delivered)` はそのようなパケット無しに配送が証明されたこと、
+`none(intra-process)` は [プロセス内配送](#プロセス内配送-intra-process) の場合を表します。
+`--stats` 無しではこのセル自体がありません。
 
 ## 理由コード
 
@@ -216,7 +224,8 @@ ACTION /fibonacci  /ftv_act_client -> /ftv_act_server    example_interfaces/acti
 `/_action/` より前のすべて、接尾辞は 5 つのメンバーのいずれか、そして存在するメンバーが
 すべて `rcl_action` が付けるはずの型 (`<pkg>::action::dds_::<Action>_SendGoal_*`、
 `action_msgs::srv::dds_::CancelGoal_*`、`action_msgs::msg::dds_::GoalStatusArray_` など) を
-announce していて、少なくとも 1 つが `::action::` 型であることが条件です。`/_action/` は
+announce していて、少なくとも 1 つが `::action::` 型であり、`::action::` 型のメンバーがすべて
+同じアクション型を名乗ることが条件です。`/_action/` は
 予約されていません。`/fibonacci2/_action/send_goal` という普通のサービスを作れますし、
 `feedback` / `status` という普通のトピックの組には `ros2 action list` 自身がだまされます。
 そのため型の検査に落ちたグループはアクションを名乗らず、`SERVICE` または普通のトピックに
@@ -255,8 +264,11 @@ GUID で表示し、`--node` には一致せず、`diff` は GUID で対応付�
 
 ## ノードと同じ場所で実行する
 
-ツールは Fast DDS が読む環境をそのまま読み、変更はしません。観測したいノードと同じシェル環境で
-実行してください。`FASTDDS_BUILTIN_TRANSPORTS`、`FASTRTPS_DEFAULT_PROFILES_FILE` (観測用
+ツールは Fast DDS が読む環境をそのまま読み、自分のプロセス内の写し以外は変更しません
+(`FASTDDS_STATISTICS` を外し、`ROS_DISCOVERY_SERVER` があれば `ROS_SUPER_CLIENT` を設定します。
+下記参照)。観測したいノードと同じシェル環境で
+実行してください。`FASTDDS_BUILTIN_TRANSPORTS`、`FASTDDS_DEFAULT_PROFILES_FILE` /
+`FASTRTPS_DEFAULT_PROFILES_FILE` (観測用
 participant もノードと同様に既定の participant プロファイルをここから取ります)、
 `ROS_DISCOVERY_SERVER`、`ROS2_EASY_MODE`、`ROS_AUTOMATIC_DISCOVERY_RANGE`、`ROS_STATIC_PEERS` を揃え、ネットワークと
 IPC の名前空間も同じにします (コンテナなら `network_mode` / `ipc`)。ツールからノードが見えない
@@ -273,7 +285,7 @@ transport ごとの注意点 (いずれも launch テストかマルチコンテ
 - `UDPv6` / `DEFAULTv6` には IPv6 アドレスを持つインターフェースが必要です (Docker の既定ブリッジには
   ありません)。discovery を聞くにはツールも UDPv6 を話す必要があります。
 - `ROS_DISCOVERY_SERVER`: 通常のクライアントは自分に関係するエンドポイントしか教えてもらえない
-  ため (Fast DDS 2.14 と 3.2。Rolling の 3.6 は全部中継します)、この変数が設定されているとツールは
+  ため (Fast DDS 2.14 と 3.2。Lyrical と Rolling の 3.6 は全部中継します)、この変数が設定されているとツールは
   自分を `SUPER_CLIENT` にします (stderr にその旨を出します)。`ROS_SUPER_CLIENT` を明示していれば
   それを尊重します。サーバーは Jazzy では `fastdds discovery -i 0 -l <ip> -p <port>`、
   Lyrical / Rolling では `fastdds discovery -l <ip> -p <port>` です。
@@ -288,8 +300,9 @@ transport ごとの注意点 (いずれも launch テストかマルチコンテ
   どのサーバーを使うかは通信上に *出ません* (Fast DDS がクライアントのサーバー一覧を
   participant データに載せるのは 3.2 以降のオプトイン `fastdds.serialize_optional_qos`
   だけで、ROS 2 ノードでは決して載りません) ので、`discovery_server` は確実な場合にだけ
-  推定します。見つけた `SERVER` がちょうど 1 つならすべてのクライアントはそのクライアント、
-  Easy Mode ではクライアントのサーバーは自ホストの `DiscoveryServerAuto`、それ以外は
+  推定します (`BACKUP` もサーバーとして数えます)。Easy Mode ではクライアントのサーバーは
+  自ホストにただ 1 つの `DiscoveryServerAuto` で、それ以外の推定はしません。Easy Mode でなければ、
+  見つけたサーバーがちょうど 1 つならすべてのクライアントはそのクライアントです。それ以外は
   `null` です。誰も到達できないサーバーは報告できません (そのクライアントは中継されません)。
   Fast DDS 3.6 (Lyrical、Rolling) は通常の `CLIENT` を `SUPER_CLIENT` としてアナウンスします。
   旧来の `fastdds discovery -i N` サーバーは固定 prefix `44.53.<N>.5f.45.50.52.4f.53.49.4d.41`
@@ -320,7 +333,7 @@ transport ごとの注意点 (いずれも launch テストかマルチコンテ
 
 ## Fast DDS 2.6 (ROS 2 Humble)
 
-Humble の Fast DDS 2.6 では 2 点が異なります。
+Humble の Fast DDS 2.6 では 3 点が異なります。
 
 - **statistics が無い。** Humble のバイナリは statistics モジュール無しでビルドされています
   (`config.h` で `FASTDDS_STATISTICS` が無効)。`FASTDDS_STATISTICS` を設定しても観測対象ノードは
@@ -352,12 +365,12 @@ Humble の Fast DDS 2.6 では 2 点が異なります。
 
 ```
 $ ros2 transport list -v --locators --stats --topic '^/(chatter|bounded)$'
-    /talker@host(61) -> /listener_udp@host(49)  UDPv4  414 us  0  measured=UDPv4 9pkt 1.19 kB  ...
-        locators: UDPv4 127.0.0.1:7411 (selected = measured, 9 pkt)
-    /talker@host(61) -> /listener@host(50)      SHM    453 us  0  measured=SHM 10pkt 1.31 kB   ...
-        locators: SHM port 7413 (selected = measured, 10 pkt)
-    /bounded_pub@host(56) -> /bounded_sub@host(55)  DATA_SHARING  195 us  0  ...
-        locators: selected DATA_SHARING (no locator) | measured SHM port 7419 (1 pkt)
+    /bounded_pub@4ab5e6fc4fc4(53) -> /bounded_sub@4ab5e6fc4fc4(54)  DATA_SHARING  167 µs (max 258 µs)  10.0  0  measured=SHM (unmeasured, delivered)  ...
+        locators: selected DATA_SHARING (no locator) | measured SHM port 7419 (0 pkt)
+    /talker@4ab5e6fc4fc4(55) -> /listener_udp@4ab5e6fc4fc4(51)  UDPv4  521 µs (max 1.27 ms)  1.0  0  measured=UDPv4 7pkt 924 B  ...
+        locators: UDPv4 127.0.0.1:7411 (selected = measured, 7 pkt)
+    /talker@4ab5e6fc4fc4(55) -> /listener@4ab5e6fc4fc4(52)      SHM    529 µs (max 974 µs)   1.0  0  measured=SHM 7pkt 924 B    ...
+        locators: SHM port 7415 (selected = measured, 7 pkt)
 ```
 
 `selected` の語は、実測側が隣に並ぶときだけ現れます。SHM locator はアドレスではなく writer が
@@ -449,13 +462,17 @@ shared memory: /dev/shm 396 MB used of 16.7 GB (16.3 GB free) | Fast DDS 63.4 MB
 - `shm-nearly-full` は使用率 90 % 以上、または空きが 16 MiB 未満で警告します。
 
 `/dev/shm` が無い環境 (macOS) では行自体を省きます。JSON では同じデータが `shm` オブジェクト
-になり (`missing_ports` はここにロックファイルの無いアナウンス済みポート、`unknown_ports` は
-ロックを調べられなかったポート)、`--watch` ではフレームごとに更新されます。
+になり (`missing_ports` はここで生きたプロセスが保持していないアナウンス済みポート - ロック
+ファイルが無い、ロックが空いている (stale)、読めない - またはツール自身のポート番号、`unknown_ports` は
+そのうちロックが空いているか調べられなかったポートで、participant を `not-visible` ではなく
+`unprobed` にします)、`--watch` ではフレームごとに更新されます。
 
 可視性の判定の根拠は participant ごとに文書の `participants` 配列に出ます
 ([#125](https://github.com/atinfinity/fastdds_transport_viz/issues/125))。発見した participant
 1 つにつき 1 要素で、`guid_prefix`、`host_id`、`host`、`host_name`、`own` (ツール自身のプロセスの
-participant)、`shm_visibility` (`visible`、`not-visible`、`unprobed`)、そして `shm_ports` に
+participant)、`discovery_protocol`、`name`、`vendor`、`metatraffic_locators`、`discovery_server`
+([ノードと同じ場所で実行する](#ノードと同じ場所で実行する) の `ROS_DISCOVERY_SERVER` を参照)、
+`shm_visibility` (`visible`、`not-visible`、`unprobed`)、そして `shm_ports` に
 ツールのホスト上でアナウンスされた SHM ポートと、ツールの IPC 名前空間から調べたロックの状態
 (`held`、`own`、`absent` = ロックファイルが無い、`stale` = 誰も持っていないロック、`unknown` =
 読めない、`unprobed` = `/dev/shm` が無いか別ホスト)、`announced_by` (その番号をアナウンスする
@@ -537,7 +554,7 @@ statistics をネットワークスタック経由で送ります ([#106](https:
 | 印 | 意味 |
 |---|---|
 | `+` (緑) | ペアが現れた |
-| `~` (黄) | transport、確信度、実測 transport、警告のいずれかが変わった |
+| `~` (黄) | transport、確信度、実測 transport、選ばれた locator、実測 locator、警告のいずれかが変わった |
 | `-` (薄い) | ペアが消えた。行は薄い表示で残る |
 
 どの印も変化から 3 フレーム残り、その後は通常の行に戻ります (消えたペアの行は削除)。

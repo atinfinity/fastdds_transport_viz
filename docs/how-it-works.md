@@ -1,14 +1,15 @@
 # How it works
 
-The tool builds against Fast DDS 2.14 (ROS 2 Jazzy) and 3.x (Lyrical, Rolling); the
-API differences live in `include/fastdds_transport_viz/fastdds_compat.hpp`. The decision
-rules below are the same in both.
+The tool builds against Fast DDS 2.6 (ROS 2 Humble), 2.14 (Jazzy) and 3.x (Lyrical,
+Rolling); the API differences live in `include/fastdds_transport_viz/fastdds_compat.hpp`.
+The decision rules below are the same for all of them; where Fast DDS itself decides
+differently by version (rule 0, [Fast DDS 2.6](#fast-dds-26-ros-2-humble)), the text says so.
 
 `ros2 topic info -v` cannot tell you the transport: the rmw layer exposes no locator
 information. `transport_viz` therefore creates its own Fast DDS `DomainParticipant` and
 listens to endpoint discovery, which carries every remote writer's/reader's **announced
-locators** (`UDPv4`, `SHM`, ...) and QoS. It then applies the same rules Fast DDS 2.14 uses
-to select a transport for each writer → reader pair.
+locators** (`UDPv4`, `SHM`, ...) and QoS. It then applies the rules Fast DDS uses to match
+each writer → reader pair and select its transport.
 
 ## Decision rules
 
@@ -60,7 +61,8 @@ to select a transport for each writer → reader pair.
    warning `qos-incompatible`: no data flows, whatever the transports. ROS 2 reports the
    same situation as an incompatible QoS event on the publisher / subscription.
 2. **Same host?** Fast DDS considers two participants to be on the same host when the
-   first 4 bytes of their GUID prefixes are equal.
+   first 4 bytes of their GUID prefixes are equal; this document calls those 4 bytes the
+   *host id*.
 3. Same host and both endpoints announce data-sharing (zero-copy), and their domain ids
    intersect or at least one side announces none → `DATA_SHARING` (confidence `likely`,
    see [data-sharing.md](data-sharing.md)). Announced but disjoint domain ids fall through.
@@ -103,14 +105,17 @@ default, which `rmw_fastrtps` does not change). It also beats data-sharing -
 its shared history and never notifies the reader through the segment.
 
 The tool recognises such a pair from the GUID prefixes alone. An eProsima prefix is
-`[0-1]` the vendor id `01.0f`, `[2-3]` the host id, `[4-5]` the low bytes of the pid,
+`[0-1]` the vendor id `01.0f`, `[2-3]` a value derived from the host (with the vendor id,
+the 4-byte host id of rule 2), `[4-5]` the low bytes of the pid,
 `[6-7]` a value `std::random_device` gives the process once and `[8-11]` the participant
 id, so two endpoints share their first 8 bytes exactly when they are in one process - which
 is what `RTPSDomainImpl::should_intraprocess_between()` compares. The pair keeps the
 transport the locators predict (what it *would* use from another process, usually `SHM`)
-and carries the reason `intra-process`, on every run and every distribution. In the
-`MEASURED` column it reads `(intra-process)` rather than `(unmeasured, delivered)`: no
-packet is missing, none was ever sent. A pair with data-sharing QoS on both sides gets
+and carries the reason `intra-process`, on every run and every distribution. With
+`--stats` its `measured=` cell normally reads `none(intra-process)` (`<transport>
+(intra-process)` when the transport carried packets before the observation) rather than
+`none(delivered)` or `(unmeasured, delivered)`: no packet is missing, none was ever sent.
+A pair with data-sharing QoS on both sides gets
 `intra-process` in place of `datasharing-unverified-by-traffic` and no `certain` upgrade
 from a silent `DATA_COUNT`, because a `DATA_COUNT` of 0 says nothing here.
 
@@ -144,10 +149,16 @@ locators (`RTPS_LOST`, sequence-number gaps, per participant pair, see
 reader's participant does not publish it), `resent` the DATA submessages the writer sent again
 (`RESENT_DATAS`); `0` when nothing was lost or resent. Heartbeats, gaps, acknacks and
 nackfrags are in the JSON `measured.reliability` object and the web viewer's pair card.
-Without statistics the three columns show `-`. The `measured=` cell of a pair row gives what
-the transport actually carried during the observation (`SHM 148pkt 7.63 MB`, or `(idle)`
-when packets flowed only before the observation; `(unmeasured, delivered)` when deliveries
-were proven meanwhile, so the statistics samples rather than the packets are missing).
+Without statistics `LATENCY` and `LOSS` show `-` and `HZ` is blank. With `--stats` the
+`measured=` cell of a pair row gives what the transport actually carried during the
+observation (`SHM 148pkt 7.63 MB`, or `SHM (idle)` when packets flowed only before the
+observation; `SHM (unmeasured, delivered)` when deliveries were proven meanwhile, so the
+statistics samples rather than the packets are missing). `n/a` means the writer's
+participant publishes no statistics, `none` that its `RTPS_SENT` never reported a packet
+to the reader's locators and no delivery was proven, `none(delivered)` that deliveries
+were proven without any such packet, and `none(intra-process)` is the case of
+[Intra-process delivery](#intra-process-delivery).
+Without `--stats` the cell is absent.
 
 ## Reason codes
 
@@ -233,7 +244,8 @@ everything before the last `/_action/`, the suffix is one of the five members, a
 member present announces the type `rcl_action` would have given it
 (`<pkg>::action::dds_::<Action>_SendGoal_*`, `action_msgs::srv::dds_::CancelGoal_*`,
 `action_msgs::msg::dds_::GoalStatusArray_`, ...), with at least one member typed
-`::action::`. `/_action/` is not reserved -- a plain service may be named
+`::action::`, and every member typed `::action::` naming the same action type. `/_action/`
+is not reserved -- a plain service may be named
 `/fibonacci2/_action/send_goal`, and `ros2 action list` is itself fooled by a pair of plain
 `feedback` / `status` topics -- so a group that fails the type check falls back to `SERVICE`
 or to plain topics rather than inventing an action. `<node>/_service_event` stays a plain
@@ -274,10 +286,13 @@ read as empty as well ([#112](https://github.com/atinfinity/fastdds_transport_vi
 
 ## Run it where the nodes run
 
-The tool reads the same environment Fast DDS reads and never modifies it: run it in the
+The tool reads the same environment Fast DDS reads and changes nothing in it but its own
+process's copy (it drops `FASTDDS_STATISTICS` and, under `ROS_DISCOVERY_SERVER`, sets
+`ROS_SUPER_CLIENT`, see below): run it in the
 same shell environment as the nodes you observe — same `FASTDDS_BUILTIN_TRANSPORTS`,
-`FASTRTPS_DEFAULT_PROFILES_FILE` (the observer participant takes the default participant
-profile from it, like the nodes), `ROS_DISCOVERY_SERVER`, `ROS2_EASY_MODE`, `ROS_AUTOMATIC_DISCOVERY_RANGE`,
+`FASTDDS_DEFAULT_PROFILES_FILE` / `FASTRTPS_DEFAULT_PROFILES_FILE` (the observer
+participant takes the default participant profile from it, like the nodes),
+`ROS_DISCOVERY_SERVER`, `ROS2_EASY_MODE`, `ROS_AUTOMATIC_DISCOVERY_RANGE`,
 `ROS_STATIC_PEERS`, and the same network and IPC namespace (for containers:
 `network_mode` / `ipc`). If the tool cannot see the nodes, `ros2 topic list` in that
 environment will not either. For hosts on a network without multicast see
@@ -293,8 +308,8 @@ see [development.md](development.md#verification-results)):
 - `UDPv6` / `DEFAULTv6` need an interface with an IPv6 address (Docker's default bridge
   has none); the tool must speak UDPv6 as well to hear the discovery traffic.
 - `ROS_DISCOVERY_SERVER`: a plain client only learns about the endpoints it matches
-  (Fast DDS 2.14 and 3.2; 3.6 in Rolling relays everything), so the tool makes itself a
-  `SUPER_CLIENT` when the variable is set (a message on stderr says so). An explicit
+  (Fast DDS 2.14 and 3.2; 3.6 in Lyrical and Rolling relays everything), so the tool makes
+  itself a `SUPER_CLIENT` when the variable is set (a message on stderr says so). An explicit
   `ROS_SUPER_CLIENT` is respected. The server is `fastdds discovery -i 0 -l <ip> -p <port>`
   on Jazzy and `fastdds discovery -l <ip> -p <port>` on Lyrical / Rolling.
   The server itself is a participant without endpoints, so it has no row in the table, but
@@ -308,9 +323,10 @@ see [development.md](development.md#verification-results)):
   participants each serves. Which server a client uses is *not* on the wire (Fast DDS
   puts a client's server list into its participant data only with the opt-in
   `fastdds.serialize_optional_qos` property of 3.2+, never for ROS 2 nodes), so
-  `discovery_server` is inferred and only where it is certain: with exactly one `SERVER`
-  discovered every client is its client; under Easy Mode a client's server is the
-  `DiscoveryServerAuto` of its own host; otherwise it is `null`. A server nobody reaches
+  `discovery_server` is inferred and only where it is certain (a `BACKUP` counts as a
+  server): under Easy Mode a client's server is the one `DiscoveryServerAuto` of its own
+  host, and nothing else is inferred; otherwise, with exactly one server discovered every
+  client is its client; in all other cases it is `null`. A server nobody reaches
   cannot be reported: its clients are never relayed. Fast DDS 3.6 (Lyrical, Rolling)
   announces a plain `CLIENT` as `SUPER_CLIENT`. A legacy `fastdds discovery -i N` server
   carries the fixed prefix `44.53.<N>.5f.45.50.52.4f.53.49.4d.41`, so its `host_id` is
@@ -343,7 +359,7 @@ see [development.md](development.md#verification-results)):
 
 ## Fast DDS 2.6 (ROS 2 Humble)
 
-Two things differ on Humble's Fast DDS 2.6:
+Three things differ on Humble's Fast DDS 2.6:
 
 - **No statistics.** The Humble binary is built without the statistics module
   (`FASTDDS_STATISTICS` off in `config.h`), so the observed nodes cannot publish
@@ -378,12 +394,12 @@ packets:
 
 ```
 $ ros2 transport list -v --locators --stats --topic '^/(chatter|bounded)$'
-    /talker@host(61) -> /listener_udp@host(49)  UDPv4  414 us  0  measured=UDPv4 9pkt 1.19 kB  ...
-        locators: UDPv4 127.0.0.1:7411 (selected = measured, 9 pkt)
-    /talker@host(61) -> /listener@host(50)      SHM    453 us  0  measured=SHM 10pkt 1.31 kB   ...
-        locators: SHM port 7413 (selected = measured, 10 pkt)
-    /bounded_pub@host(56) -> /bounded_sub@host(55)  DATA_SHARING  195 us  0  ...
-        locators: selected DATA_SHARING (no locator) | measured SHM port 7419 (1 pkt)
+    /bounded_pub@4ab5e6fc4fc4(53) -> /bounded_sub@4ab5e6fc4fc4(54)  DATA_SHARING  167 µs (max 258 µs)  10.0  0  measured=SHM (unmeasured, delivered)  ...
+        locators: selected DATA_SHARING (no locator) | measured SHM port 7419 (0 pkt)
+    /talker@4ab5e6fc4fc4(55) -> /listener_udp@4ab5e6fc4fc4(51)  UDPv4  521 µs (max 1.27 ms)  1.0  0  measured=UDPv4 7pkt 924 B  ...
+        locators: UDPv4 127.0.0.1:7411 (selected = measured, 7 pkt)
+    /talker@4ab5e6fc4fc4(55) -> /listener@4ab5e6fc4fc4(52)      SHM    529 µs (max 974 µs)   1.0  0  measured=SHM 7pkt 924 B    ...
+        locators: SHM port 7415 (selected = measured, 7 pkt)
 ```
 
 The word `selected` appears only where a measured side is printed next to it. An SHM
@@ -483,14 +499,19 @@ shared memory: /dev/shm 396 MB used of 16.7 GB (16.3 GB free) | Fast DDS 63.4 MB
 - `shm-nearly-full` warns at 90 % usage or less than 16 MiB free.
 
 The line is omitted where there is no `/dev/shm` (macOS). In JSON the same data is the
-`shm` object (with `missing_ports`, the announced ports without a lock file here, and
-`unknown_ports`, those whose lock could not be probed); `--watch` refreshes it every frame.
+`shm` object (with `missing_ports`, the announced ports that no living process holds
+here - no lock file, a free (stale) lock, an unreadable one - or that are the tool's own
+port numbers, and `unknown_ports`, those of them whose lock is free or could not be
+probed, which leave the participant `unprobed` rather than `not-visible`); `--watch`
+refreshes it every frame.
 
 The per-participant evidence behind the visibility verdicts is the `participants` array
 of the document ([#125](https://github.com/atinfinity/fastdds_transport_viz/issues/125)):
 one entry per discovered participant with `guid_prefix`, `host_id`, `host`, `host_name`,
-`own` (a participant of the tool's process), `shm_visibility` (`visible`, `not-visible`,
-`unprobed`) and `shm_ports`, its announced SHM ports on the tool's host with the lock as
+`own` (a participant of the tool's process), `discovery_protocol`, `name`, `vendor`,
+`metatraffic_locators` and `discovery_server` (see `ROS_DISCOVERY_SERVER` under
+[Run it where the nodes run](#run-it-where-the-nodes-run)), `shm_visibility` (`visible`,
+`not-visible`, `unprobed`) and `shm_ports`, its announced SHM ports on the tool's host with the lock as
 probed from the tool's IPC namespace (`held`, `own`, `absent` - no lock file, `stale` - a
 free lock, `unknown` - unreadable, `unprobed` - no `/dev/shm` or another host),
 `announced_by` (how many participants announce that number) and `proof` (whether a held
@@ -577,7 +598,7 @@ width, and highlights what changed since the previously rendered frame:
 | Mark | Meaning |
 |---|---|
 | `+` (green) | pair appeared |
-| `~` (yellow) | transport, confidence, measured transport or warnings changed |
+| `~` (yellow) | transport, confidence, measured transport, selected locator, measured locators or warnings changed |
 | `-` (dim) | pair disappeared; the row is kept as a dimmed ghost |
 
 Every mark stays for three frames after the change, then the row returns to normal
