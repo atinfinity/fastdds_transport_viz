@@ -189,6 +189,15 @@ ros2 transport codes
   表示されたままで、そのとき親のペアには自身のトラフィックが見えません
   ([#119](https://github.com/atinfinity/fastdds_transport_viz/issues/119))。
 
+## 品質宣言
+
+両パッケージとも [REP 2004](https://www.ros.org/reps/rep-2004.html) の **Quality Level 3** を
+宣言しています。例外は 1 つで、Linux 専用のため REP 2000 の tier 1 である Windows 10 には対応して
+いません。バージョンポリシーと公開 API、変更管理、テスト、依存、プラットフォームは
+[`fastdds_transport_viz`](src/fastdds_transport_viz/QUALITY_DECLARATION.md) と
+[`ros2transport`](src/ros2transport/QUALITY_DECLARATION.md) の品質宣言 (英語) を、脆弱性の
+報告は [SECURITY.md](SECURITY.md) を参照してください。
+
 ## ライセンス
 
 Apache-2.0

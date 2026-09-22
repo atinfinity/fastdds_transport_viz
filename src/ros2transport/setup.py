@@ -1,3 +1,6 @@
+# Copyright 2026 atinfinity
+# SPDX-License-Identifier: Apache-2.0
+
 from setuptools import find_packages
 from setuptools import setup
 

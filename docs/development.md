@@ -640,6 +640,18 @@ The one-shot pair counts below the total are the `--quiet 1` stops described abo
 | 2026-09-22 | live history in the web viewer ([#218](https://github.com/atinfinity/fastdds_transport_viz/issues/218)): the SSE `id:` test in `test_web_serve.py`, the stream-id / bound / compaction unit tests, the live browser tests, a 100-frame `medium` stream in headless Chrome | arm64 | — (a stand-in producer; no Fast DDS involved) | `node --test "web/test/*.test.js"` 109 tests, three runs in a row (5 unit tests in `replay.test.js`, 1 new and 2 reworked tests with 10 subtests in `live.test.js`). The `medium` stream: 17 ms per frame following, 12 ms paused, 90 frames in 512 MB, a nine-frame drop in 14 ms, 38-49 MB heap, **match by** over the kept frames in 0.8 s | `web/test/replay.test.js`, `web/test/live.test.js`, `src/fastdds_transport_viz/test/test_web_serve.py` |
 | 2026-09-22 | metrics export ([#83](https://github.com/atinfinity/fastdds_transport_viz/issues/83)): `/metrics` tests in `test_web_serve.py`, `test_render_csv`, the `--csv` tests in `test_cli_args.py` and `ros2transport`'s `test_cli.py`; a live `demo_nodes_cpp` talker / listener with `FASTDDS_STATISTICS`; the `medium` document through `metrics_text()` | arm64 | 2.14.6 (`ros:jazzy`) | 617 tests, 0 failures (the new and touched tests plus the linters). Live: `--csv` and `ros2 transport list --csv` print the header and the `/chatter` and `/rosout` rows, `--watch --csv` prints the header once, `/metrics` has the pair, measured, latency, warning, lost / resent and `shm_*` series with the host name and the startup line names it. `medium`: 24 413 series, 7.5 MB, 47 ms median | `src/fastdds_transport_viz/test/test_web_serve.py`, `src/fastdds_transport_viz/test/test_render_csv.cpp`, `src/fastdds_transport_viz/test/test_cli_args.py` |
 
+## Quality declaration
+
+Both packages declare REP 2004 Quality Level 3 (Linux only, so with an exception for
+Windows 10): [`fastdds_transport_viz`](https://github.com/atinfinity/fastdds_transport_viz/blob/main/src/fastdds_transport_viz/QUALITY_DECLARATION.md),
+[`ros2transport`](https://github.com/atinfinity/fastdds_transport_viz/blob/main/src/ros2transport/QUALITY_DECLARATION.md), and the
+[security policy](https://github.com/atinfinity/fastdds_transport_viz/blob/main/SECURITY.md)
+([#87](https://github.com/atinfinity/fastdds_transport_viz/issues/87)). They state facts about
+this repository, so keep them true: update them in the same pull request when a change
+touches what they declare - the public API or its versioning, a runtime dependency in
+`package.xml`, the supported distributions or platforms (the CI matrix), the required checks
+or the security policy.
+
 ## Documentation site
 
 `mkdocs.yml` builds this documentation with Material for MkDocs and `mkdocs-static-i18n`
@@ -752,6 +764,8 @@ Done:
 - Metrics export: `/metrics` in the Prometheus text format from `transport_viz_web`, and
   `--csv` (one row per pair) —
   [#83](https://github.com/atinfinity/fastdds_transport_viz/issues/83)
+- REP 2004 quality declarations (Level 3) for both packages and `SECURITY.md` —
+  [#87](https://github.com/atinfinity/fastdds_transport_viz/issues/87)
 
 Open, by priority (labels `priority/1-high` … `priority/3-low` on the issues):
 
@@ -771,4 +785,3 @@ Open, by priority (labels `priority/1-high` … `priority/3-low` on the issues):
 - Web viewer: browser-level test of rendering and filters — [#81](https://github.com/atinfinity/fastdds_transport_viz/issues/81)
 - Record and replay `--watch` frames with a timeline in the web viewer — [#82](https://github.com/atinfinity/fastdds_transport_viz/issues/82)
 - Web viewer: keep the live frames in the page, with the timeline, charts and Save recording — [#218](https://github.com/atinfinity/fastdds_transport_viz/issues/218)
-- `QUALITY_DECLARATION.md` (REP 2004) for both packages — [#87](https://github.com/atinfinity/fastdds_transport_viz/issues/87)
