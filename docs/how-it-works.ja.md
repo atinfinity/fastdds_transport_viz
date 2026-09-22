@@ -276,7 +276,7 @@ IPC の名前空間も同じにします (コンテナなら `network_mode` / `i
 [development.md](development.md#two-physical-hosts) (英語) を参照してください。
 
 transport ごとの注意点 (いずれも launch テストかマルチコンテナのシナリオで確認済み。
-[development.md](development.md#verification-results) を参照):
+[verification-log.md](verification-log.md#verification-results) を参照):
 
 - `FASTDDS_BUILTIN_TRANSPORTS=LARGE_DATA` は SHM と並んで TCPv4 を広告します。同一ホストでは
   SHM が選ばれ (`both-shm-locators`)、ホスト間では `TCPv4` (`common-tcpv4-locator`) になり、

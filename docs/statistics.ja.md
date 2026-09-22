@@ -38,7 +38,7 @@ source timestamp の直近 5 秒で、フレームには開始からの平均で
 [reader の QoS](#reader-の-qos) を参照) で決まり、ペアあたり 1000 サンプル/秒を 0.1 % 以内で
 数えます。2 プロセス間の SHM、intraprocess、data-sharing の各ペアで 10、100、1000 Hz を Jazzy と
 Lyrical で検証しました (`scripts/integration_test.sh rate_stats`、許容 ±3 %、
-[development.md](development.md#verification-results) を参照)。このトピックのサンプルがツールに届く
+[verification-log.md](verification-log.md#verification-results) を参照)。このトピックのサンプルがツールに届く
 途中で失われたときは、レートは下限になり `≥120` と表示します (`delivered_per_s_lower_bound: true`)。
 ペアの `HISTORY_LATENCY` を publish する statistics writer は reader 側の participant のもので、
 その participant の全ペアのサンプルを 1 本のシーケンスで番号付けするため、抜けは participant には
@@ -306,7 +306,7 @@ Jazzy (2.x には `heartbeat_period` を付けない、上の節を参照) で�
 報告されました。reader が要求する前に keep-last 10 がインスタンスのサンプルを上書きするためです。
 500 ms heartbeat の Lyrical では pull mode でも全ペアを計測でき、ツールの CPU は 3 分の 1 減りました
 (0.7 コアが 0.49 に) が、バージョンで分岐を増やすより両ディストリで同じ配信機構を取りました。
-数値は [development.md](development.md#verification-results) にあります。
+数値は [verification-log.md](verification-log.md#verification-results) にあります。
 
 ## reader の QoS
 
@@ -344,7 +344,7 @@ reader の読み出しは observer が持つスレッドが 50 ms ごとに行�
 ## 大規模なシステム
 
 Docker の 8 CPU の VM で Jazzy (Fast DDS 2.14.6) を使い、すべてのノードで statistics を有効にし、
-ツールをノードと同じ場所で動かして測りました (詳細は [development.md](development.md#scale-results))。
+ツールをノードと同じ場所で動かして測りました (詳細は [verification-log.md](verification-log.md#scale-results))。
 
 - **約 10 プロセス、500 ペアまで**は取りこぼしが無く、5 秒ですべてのペアが実測され、既定の `--stats` ワンショットはその数秒後に終わります。
 - **20 プロセス、2400 ペア**では既定の `--stats` ワンショットが 17〜23 秒で settle し、ペアの 95〜100 % が実測され、ワンショットの表には全ペアが出ます。5 秒の観測では 1 つも実測できませんでした ([#168](https://github.com/atinfinity/fastdds_transport_viz/issues/168): statistics writer はツールの reader へ履歴をプロセスごとに順番に渡します)。

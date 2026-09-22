@@ -142,7 +142,8 @@ way and highlights the result. Details in
 - [Data-sharing (zero-copy)](docs/data-sharing.md) — why ROS 2 topics show `SHM` by default and how to enable data-sharing
 - [Web viewer](docs/web-viewer.md) — graph view and a topic-grouped table of `--json` output in the browser, live mode (`transport_viz_web`) and its history, recording and replay (`--record`), Prometheus `/metrics`, JSON schema
 - [Architecture](docs/architecture.md) — components, the flow of one run, data model, Fast DDS 2.14/3.x layer, extension points
-- [Development, verification and tests](docs/development.md) — Docker environment, packages, verification nodes, multi-container scenarios, tests, verification results, roadmap
+- [Development, verification and tests](docs/development.md) — Docker environment, packages, verification nodes, multi-container scenarios, tests, scale harness, roadmap
+- [Verification log](docs/verification-log.md) — dated scale results and verification runs
 
 ## Limitations
 
@@ -167,7 +168,7 @@ way and highlights the result. Details in
   in for it — measured on 2026-09-21, no Humble endpoint announces a `TypeIdentifier`, a
   `TypeObject` or a `TypeInformation` either, because `rmw_fastrtps` registers no type in
   the `TypeObjectFactory` those are filled from (Fast DDS 2.14, and so Jazzy, announces
-  them just as little; see `docs/development.md`). On Humble, rebuild and reinstall every node
+  them just as little; see `docs/verification-log.md`). On Humble, rebuild and reinstall every node
   against the same version of the message package, and, if a machine with Jazzy or later is
   available, run the same graph there, where the tool does report the mismatch.
 - **A prediction is a model.** The verdicts encode Fast DDS's selection rules; some

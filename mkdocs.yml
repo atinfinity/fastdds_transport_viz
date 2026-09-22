@@ -34,6 +34,7 @@ nav:
   - Developer guide:
     - Architecture: architecture.md
     - Development, verification and tests: development.md
+    - Verification log: verification-log.md
 
 # Broken links and anchors are warnings, so `mkdocs build --strict` (docs.yml) fails on them.
 # Pages outside docs/ and the GitHub rendering are checked by lychee in the same workflow.
@@ -69,6 +70,7 @@ plugins:
             Developer guide: 開発者ガイド
             Architecture: Architecture (英語)
             Development, verification and tests: 開発・検証・テスト (英語)
+            Verification log: 検証ログ (英語)
 
 markdown_extensions:
   - admonition

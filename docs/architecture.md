@@ -400,4 +400,4 @@ docs/, mkdocs.yml                  this site (English source, *.ja.md translatio
 - **Another verification scenario**: a launch test in `test/launch/` (helpers in
   `_common.py`) for one-host cases, or a service in `compose.yaml` plus an `assert`
   branch in `scripts/integration_test.sh` for multi-container ones; record the outcome in
-  the verification table of [development.md](development.md#verification-results).
+  the verification table of [verification-log.md](verification-log.md#verification-results).

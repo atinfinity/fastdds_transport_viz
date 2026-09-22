@@ -299,7 +299,7 @@ environment will not either. For hosts on a network without multicast see
 [development.md](development.md#two-physical-hosts).
 
 Transport-specific notes (all covered by launch tests or the multi-container scenarios,
-see [development.md](development.md#verification-results)):
+see [verification-log.md](verification-log.md#verification-results)):
 
 - `FASTDDS_BUILTIN_TRANSPORTS=LARGE_DATA` announces TCPv4 next to SHM; on one host SHM
   still wins (`both-shm-locators`), between hosts the verdict is `TCPv4`
