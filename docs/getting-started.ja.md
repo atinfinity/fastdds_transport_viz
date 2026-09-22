@@ -41,7 +41,65 @@ source install/setup.bash
 シェルでは毎回 `source install/setup.bash` が必要で、これが `ros2 transport` コマンドも
 登録します。
 
-### Docker (代替)
+### Docker: ビルド済みイメージ (GHCR) {#docker-prebuilt-image-ghcr}
+
+2.1.0 以降の各リリースは、そのまま動くイメージとして x86_64 と arm64 向けに公開されます:
+
+| タグ | 内容 |
+|---|---|
+| `ghcr.io/atinfinity/fastdds_transport_viz:jazzy` (`:latest`) | ROS 2 Jazzy 上の最新リリース |
+| `ghcr.io/atinfinity/fastdds_transport_viz:humble`, `:lyrical` | Humble / Lyrical 上の最新リリース |
+| `ghcr.io/atinfinity/fastdds_transport_viz:<X.Y.Z>-<distro>` | 特定のリリース (例: `2.1.0-jazzy`) |
+
+イメージは `ros:<distro>-ros-core` に両パッケージ (と例で使う `demo_nodes_cpp`) を入れた
+もので、コマンドを指定しなければ `ros2 transport list` を実行します。Docker ホスト上の
+ノードを観測するには、ホストのネットワーク名前空間と IPC 名前空間で、ノードと同じ
+ディストリビューションのタグを使って実行します:
+
+```
+docker run --rm --net host --ipc host ghcr.io/atinfinity/fastdds_transport_viz:jazzy \
+    ros2 transport list -v
+```
+
+`--net host` が無いとコンテナからはホスト上の何も発見できません。`--ipc host` が無いと
+コンテナは自分専用の `/dev/shm` を持ちます。ペアの予測は出ますが、共有メモリの行は
+`!shm-not-visible` を報告し、ホストではなくコンテナの `/dev/shm` を表示します。これが
+動くのは Linux の Docker ホストだけです。Docker Desktop (macOS、Windows) のホスト
+ネットワークはその VM のもので、ノードが動いているマシンのものではありません。
+
+コンテナはまっさらな環境で起動するので、ノードが発見と RMW のために設定しているものは
+`-e` で渡します。違いがあるとノードが見えなくなったり予測が変わったりします:
+
+- `ROS_DOMAIN_ID`
+- `RMW_IMPLEMENTATION` (イメージでは `rmw_fastrtps_cpp`。`rmw_fastrtps_dynamic_cpp` も
+  入っています)
+- `ROS_AUTOMATIC_DISCOVERY_RANGE` と `ROS_STATIC_PEERS` (Jazzy 以降)、
+  `ROS_LOCALHOST_ONLY` (Humble)
+- `ROS_DISCOVERY_SERVER`、`ROS2_EASY_MODE`
+- `FASTDDS_DEFAULT_PROFILES_FILE` / `FASTRTPS_DEFAULT_PROFILES_FILE`。ファイルは同じパスに
+  マウントします (`-v /path/profiles.xml:/path/profiles.xml:ro`)
+
+[5 章](#5-ブラウザで見る) の web viewer は、ホストの `http://127.0.0.1:8765/` で開けます (コンテナは
+ホストのネットワーク上にあるので、既定の `127.0.0.1` はホストのものです):
+
+```
+docker run --rm -it --net host --ipc host ghcr.io/atinfinity/fastdds_transport_viz:jazzy \
+    ros2 run fastdds_transport_viz transport_viz_web --stats --interval 1
+```
+
+コンテナ内のツールは root で動くため、その participant がホストの `/dev/shm` に作る SHM
+ファイルは root の所有になります。止めるときは Ctrl-C を使います (そのための `-it`)。
+コンテナを kill すると (`docker kill`、またはタイムアウトした `docker stop`)、残った
+セグメントが `!shm-stale-files` として表示され、一般ユーザーには削除できません。同じ
+ディストリビューションのイメージで削除してください。Humble と Jazzy (Fast DDS 2.x) の
+`fastdds shm clean` が扱うのは `fastrtps_*` のファイルだけで、Lyrical (3.x) のものは
+`fastdds_*` のファイルだけです:
+
+```
+docker run --rm --ipc host ghcr.io/atinfinity/fastdds_transport_viz:jazzy fastdds shm clean
+```
+
+### Docker: 開発用イメージ
 
 リポジトリには `compose.yaml` があり、開発用イメージ (`ros:jazzy`、または
 `ROS_DISTRO=humble` / `lyrical` / `rolling`)、`/ws` にマウントしたリポジトリ、ホストの共有メモリが

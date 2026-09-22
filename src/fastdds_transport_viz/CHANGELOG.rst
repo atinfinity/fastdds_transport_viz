@@ -2,6 +2,18 @@
 Changelog for package fastdds_transport_viz
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* A ready-to-run image on GHCR (#78): ``ghcr.io/atinfinity/fastdds_transport_viz`` with
+  ``:<X.Y.Z>-<distro>``, ``:<distro>`` (Humble, Jazzy, Lyrical) and ``:latest`` (Jazzy),
+  for x86_64 and arm64. It is the new ``release`` stage of ``docker/Dockerfile``
+  (``ros:<distro>-ros-core`` with both packages in ``/opt/fastdds_transport_viz``, default
+  command ``ros2 transport list``), built at every release tag by
+  ``.github/workflows/release.yml`` and pushed only after ``scripts/image_smoke_test.sh``
+  passed on every distribution and architecture. CI builds and smoke-tests it on Jazzy
+  whenever ``docker/`` changes. ``docs/getting-started.md`` shows how to run it
+  (``--net host --ipc host``, the environment to pass on, the web viewer).
+
 2.0.1 (2026-09-22)
 -------------------
 Documentation and CI only; no change to the binary, the JSON document or the web viewer (#224).

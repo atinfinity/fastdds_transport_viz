@@ -34,6 +34,24 @@ Every compose service takes `RMW_IMPLEMENTATION` from the host shell (default
 --rm dev bash` gives a shell whose `colcon test` runs the whole suite on the dynamic RMW,
 and the same prefix on `scripts/integration_test.sh` switches the observed nodes.
 
+The published image ([getting-started](getting-started.md#docker-prebuilt-image-ghcr),
+[#78](https://github.com/atinfinity/fastdds_transport_viz/issues/78)) is the `release` stage
+of the same Dockerfile, not the `dev` image: the packages built without tests into
+`/opt/fastdds_transport_viz` on `ros:<distro>-ros-core`, with the apt packages of their
+`exec` dependencies as resolved by rosdep. Build and check it locally with
+
+```
+docker build --target release --build-arg ROS_DISTRO=jazzy -t ftv-release:jazzy -f docker/Dockerfile .
+scripts/image_smoke_test.sh ftv-release:jazzy
+```
+
+The smoke test is the gate of `release.yml` (and of the `release image` job in CI): the
+default command, SHM predicted and, except on Humble, measured with `--stats` between a
+talker and a listener in other containers of the image, and `transport_viz_web`. Every
+container runs with `--net host --ipc host`, as the docs tell users to; a container on a
+Docker bridge brings `docker0` up or down, which changes the Fast DDS host id of the nodes
+started around it, so they stop taking each other's SHM locators.
+
 Try it in that shell:
 
 ```
@@ -581,7 +599,7 @@ the Fast DDS 2.14 / 3.x compatibility layer, the repository layout and extension
 
 ## Release procedure
 
-Both packages are released together under one version; 1.1.0 and 2.0.0 were made this way.
+Both packages are released together under one version; 1.1.0, 2.0.0 and 2.0.1 were made this way.
 
 1. Check that the CHANGELOGs are complete: go through `git log vX.Y.Z..main` (the last tag)
    and add a `Forthcoming` entry for every user-visible change that lacks one, in
@@ -600,6 +618,14 @@ Both packages are released together under one version; 1.1.0 and 2.0.0 were made
    `git push origin vX.Y.Z`.
 8. `gh release create vX.Y.Z --title vX.Y.Z --notes-file <notes> --latest`, with a short
    summary followed by the CHANGELOG section as the notes.
+9. The tag starts [`release.yml`](https://github.com/atinfinity/fastdds_transport_viz/actions/workflows/release.yml)
+   (#78): check that it passed and that the
+   [package](https://github.com/atinfinity/fastdds_transport_viz/pkgs/container/fastdds_transport_viz)
+   has `X.Y.Z-<distro>` for every distribution, and `<distro>` / `latest` on the new
+   digests. A failed run publishes nothing; re-run it after the fix with
+   `gh workflow run release.yml -f tag=vX.Y.Z` (the same command rebuilds a release on
+   updated base images). The first run creates the package as private: make it public once
+   in its settings (Package settings → Change visibility).
 
 Releasing into the ROS build farm with `bloom-release` is not done yet
 ([#50](https://github.com/atinfinity/fastdds_transport_viz/issues/50)).

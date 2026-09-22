@@ -82,6 +82,10 @@ ros2 transport list -v --explain
 ツールは観測したいノードと同じ環境 (環境変数、XML プロファイル、ネットワーク/IPC 名前空間)
 で実行してください。
 
+Linux ホストでは、2.1.0 以降のリリースを GHCR のイメージからビルドせずに実行することも
+できます (`:humble`、`:jazzy`、`:lyrical`。[はじめに](getting-started.ja.md#docker-prebuilt-image-ghcr) を参照):
+`docker run --rm --net host --ipc host ghcr.io/atinfinity/fastdds_transport_viz:jazzy ros2 transport list -v`。
+
 ## 使い方
 
 ```
