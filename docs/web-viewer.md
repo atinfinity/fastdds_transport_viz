@@ -4,7 +4,8 @@
 ROS nodes are boxes, and every writer → reader pair is an arrow colored by transport.
 It is a static page (plain HTML/JS plus a vendored copy of d3) — no build step, no
 server, and it works offline from `file://`. (`model.js` holds the document model and
-formatting, `scene.js` the layout and edge geometry, `app.js` the rendering.)
+formatting, `scene.js` the layout and edge geometry, `replay.js` the reading of recordings
+and their timeline, `app.js` the rendering.)
 
 ![graph view](images/web-viewer-graph.jpg)
 

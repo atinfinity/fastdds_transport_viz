@@ -1,6 +1,6 @@
 # はじめに
 
-> 英語版が正です。この文書は 2026-09-17 時点の英語版に対応しています。
+> 英語版が正です。この文書は 2026-09-22 時点の英語版に対応しています。
 
 このページでは、素の ROS 2 環境から、最初の `ros2 transport list`、statistics、web viewer
 までを通します。動作環境は Linux です。ツールは Fast DDS を観測するので、観測対象のノードは
@@ -30,7 +30,7 @@ Kilted は 1.0.0 までの対応で、2026 年 12 月に EOL を迎えるため 
 ```
 mkdir -p ~/ws/src && cd ~/ws
 git clone https://github.com/atinfinity/fastdds_transport_viz.git src/fastdds_transport_viz
-source /opt/ros/jazzy/setup.bash              # または humble / lyrical / rolling
+source /opt/ros/jazzy/setup.bash              # or humble / lyrical / rolling
 rosdep install --from-paths src --ignore-src -y
 colcon build --symlink-install
 source install/setup.bash
@@ -91,7 +91,7 @@ Reason codes:
 
 ```
 FASTDDS_BUILTIN_TRANSPORTS=UDPv4 ros2 run demo_nodes_cpp listener &
-ros2 transport list -v                 # 2 つ目のペア: UDPv4, reader-no-shm-locator
+ros2 transport list -v                 # second pair: UDPv4, reader-no-shm-locator
 ```
 
 ここまで、観測対象のノードには何も要求していません。判定はどの Fast DDS participant も
@@ -193,7 +193,7 @@ participant: unset FASTDDS_BUILTIN_TRANSPORTS ...`)。`ros2 transport codes` は
 | `!shm-not-visible` | ノードが別の `/dev/shm` (別コンテナまたは別ホスト) を使っている。共有メモリの行はツールの環境だけを表す。 |
 | `NONE` のペアに `!shm-ipc-namespace-split` | 2 つのノードのホスト id は同じだが `/dev/shm` が別 (ホストネットワークで IPC 名前空間が別) なので、Fast DDS が SHM や data-sharing を選んでも受信側には何も届かない。両方のコンテナに `ipc: host` を付けるか、片側の SHM (と data-sharing) を無効にする (`--advise` で対処を表示できる)。 |
 | `!shm-stale-files` | クラッシュしたプロセスがセグメントを残している。`fastdds shm clean` で削除できる。 |
-| 実際にはあるペアが表に出ない、または `warning: discovery was still in progress (...)` | ノードが endpoint を announce し終える前に観測が終わっている。観測は discovery イベントが `--quiet` 秒間ないと終わるが、大規模なシステムでは announce の合間にも無音になる。メッセージが示す値で取り直す (`--quiet 3 --timeout 10` から。`--stats` 付きなら `--quiet 3 --timeout 60`)。`--json` では `discovery.complete` が `false` になり、その文書は差分比較には使えない。 |
+| 実際にはあるペアが表に出ない、または `warning: discovery was still in progress (...)` | ノードが endpoint を announce し終える前に観測が終わっている。観測は discovery イベントが `--quiet` 秒間ないと終わるが、大規模なシステムでは announce の合間にも無音になる。メッセージが示す値で取り直す (`--quiet 3 --timeout 10` から。`--stats` 付きなら `--quiet 3 --timeout 60`)。`--json` では `discovery.complete` が `false` になり、その文書は diff にかける価値がない。 |
 | ツール自身がノードとして出る | 出ないはずです。自身のノード `/_transport_viz_<pid>` と participant は除外されます。出た場合は `--json` 出力を添えて issue を立ててください。 |
 
 次は判定ルールを知る [仕組み](how-it-works.ja.md)、ツールを変更するなら

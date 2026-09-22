@@ -2,7 +2,7 @@
 
 [English](README.md) | 日本語
 
-> 英語版が正です。この文書は 2026-09-20 時点の英語版に対応しています。
+> 英語版が正です。この文書は 2026-09-22 時点の英語版に対応しています。
 
 [![CI](https://github.com/atinfinity/fastdds_transport_viz/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/atinfinity/fastdds_transport_viz/actions/workflows/ci.yml)
 [![Coverage](https://coveralls.io/repos/github/atinfinity/fastdds_transport_viz/badge.svg?branch=main)](https://coveralls.io/github/atinfinity/fastdds_transport_viz?branch=main)
@@ -109,14 +109,14 @@ ros2 transport codes
 |---|---|
 | `-v` | 各トピックの下に writer → reader のペアを展開する |
 | `--explain` | 使われている理由コードの凡例を末尾に付ける |
-| `--locators` | ツールが選んだ locator と、実際にパケットを運んだ locator を ペアごとに 1 行追加する (`-v` を暗黙に有効化。`--json` では無視され、JSON は常に同じ情報を持つ) |
+| `--locators` | ツールが選んだ locator と、実際にパケットを運んだ locator をペアごとに 1 行追加する (`-v` を暗黙に有効化。`--json` では無視され、JSON は常に同じ情報を持つ) |
 | `--advise` | ペアごとに、対処のある理由コードについて `fix <code>: …` 行を追加し、凡例の各コードの下にも対処を出す (`-v` と `--explain` を暗黙に有効化。`--json` では無視され、JSON は常に `reason_code_remedies` を持つ) |
 | `--stats` | 実測の transport、遅延、欠落も表示する (観測対象ノードに `FASTDDS_STATISTICS` が必要。[docs/statistics.ja.md](docs/statistics.ja.md)) |
 | `--json` | 機械可読な出力 (`schema_version: 1`、`schema/` 参照)。[web viewer](docs/web-viewer.ja.md) で開ける |
 | `--csv` | writer → reader ペアごとに 1 行の CSV (RFC 4180 の引用、改行は LF、先頭に見出し行。JSON で null の値は空セル、リストは `;` で連結)。表計算ソフトや pandas 向け。`--json` とは排他で、`diff` では使えない。`--watch` では見出しを 1 回だけ出し、各フレームが行を追加する (フレームは `observed_at` で区別できる) |
 | `--topic REGEX` | 名前が一致するトピックだけ表示する |
 | `--node REGEX` | 完全修飾ノード名が一致するノードが関わるペアだけ表示する (そのノードの未接続エンドポイントも残る) |
-| `--all` | サービス/アクションと ROS 以外の DDS トピックも含める。サービスとアクションは生の `rq/` / `rr/` トピックではなく、クライアントとサーバの組ごとに 1 行の `SERVICE` / `ACTION` 行として表示します |
+| `--all` | サービス/アクションと ROS 以外の DDS トピックも含める。サービスとアクションは生の `rq/` / `rr/` トピックではなく、クライアントとサーバの組ごとに 1 行の `SERVICE` / `ACTION` 行として表示する |
 | `--watch` | `--interval` 秒ごとに再描画し、追加/変更/削除されたペアを強調する。キー `q p v e a l f` (`--json` 時は `changes` オブジェクト付きの JSON Lines) |
 | `--color` | transport と警告の ANSI 色 (`auto` = 端末のときだけ) |
 
@@ -150,9 +150,8 @@ ros2 transport codes
 - **Linux 専用。** macOS には `/dev/shm` が無く、Docker Desktop からホスト上のノードは観測できません。
 - **ノードと同じ場所で実行する必要があります。** 同じドメイン、同じ環境変数と XML プロファイル、
   同じネットワーク/IPC 名前空間。`ROS_AUTOMATIC_DISCOVERY_RANGE=OFF` では何も見えません。
-- **type hash には ROS 2 Jazzy 以降が必要です。** 型 *名* が違う writer と reader は、どの
-  ディストリビューションでも `NONE` と `type-name-mismatch` で表示されます。例外は Fast DDS 3.x
-  (Lyrical 以降) で両方が一致する XTypes の `TypeInformation` を広告する場合で、Fast DDS は型名に
+- **type hash には ROS 2 Jazzy 以降が必要です。** 型 *名* が違う writer と reader は `NONE` と
+  `type-name-mismatch` で表示されます。例外は Fast DDS 3.x (Lyrical 以降) で両方が一致する XTypes の `TypeInformation` を広告する場合で、Fast DDS は型名に
   かかわらずマッチさせ、ペアには `type-names-differ-same-type` が付きます
   ([#213](https://github.com/atinfinity/fastdds_transport_viz/issues/213))。同じメッセージ定義の
   別バージョンを見分けるのは ROS 2 の type hash (REP-2011) ですが、これを広告するのは Jazzy 以降の
@@ -182,12 +181,13 @@ ros2 transport codes
   (ノード名を読む SHM 無しの participant `fastdds_transport_viz_names`) 追加します。いずれも
   出力からは除外されます。
 - **共有メモリの分断。** ホスト id が同じで IPC 名前空間が別のノード同士 (`ipc: host` の無い
-  `network_mode: host`) でも Fast DDS は SHM を選び、その間のメッセージはすべて失われます。ツールが
-  見分けられる場合、つまり 2 つが同じ SHM ポート番号を広告している (`shm-port-collision`。コンテナに
-  ノードが 1 つずつの典型的な構成) か、ツールが片方と同じ IPC 名前空間にいる場合、ペアは `NONE` と
-  `shm-ipc-namespace-split` になります。それ以外では `SHM` のままで、手がかりは共有メモリ行の
-  `shm-not-visible` だけです
-  ([#101](https://github.com/atinfinity/fastdds_transport_viz/issues/101))。
+  `network_mode: host`) でも互いの間で SHM または data-sharing を選び、その間のメッセージはすべて
+  失われます。ツールが見分けられる場合、つまり 2 つが同じ SHM ポート番号を広告している
+  (`shm-port-collision`。コンテナにノードが 1 つずつの典型的な構成) か、ツールが片方と同じ IPC
+  名前空間にいる (2 つの SHM ポートや data-sharing セグメントが片方しか見えない) 場合、ペアは `NONE` と
+  `shm-ipc-namespace-split` になります。それ以外では `SHM` または `DATA_SHARING` のままで、手がかりは
+  共有メモリ行の `shm-not-visible` だけです
+  ([#101](https://github.com/atinfinity/fastdds_transport_viz/issues/101)、[#110](https://github.com/atinfinity/fastdds_transport_viz/issues/110))。
 - **native buffer のコンパニオン。** Lyrical 以降の `rmw_fastrtps_cpp` は、上限の無い `uint8[]`
   フィールドを持つ型のサンプルをコンパニオントピック `<topic>/_buf_cpu` で送ります。ツールは
   コンパニオンのカウンタを親のペアに加算し (`buffer-companion-folded`)、コンパニオンのトピックは

@@ -1,10 +1,12 @@
 # Web viewer
 
-> 英語版が正です。この文書は 2026-09-21 時点の英語版に対応しています。
+> 英語版が正です。この文書は 2026-09-22 時点の英語版に対応しています。
 
 `web/index.html` は `transport_viz --json` の文書をグラフとして描画します。ホストが列、ROS ノードが
 箱、writer → reader の各ペアが transport ごとに色分けされた矢印です。静的ページ (素の HTML/JS と
-同梱の d3) なので、ビルドもサーバーも不要で、`file://` からオフラインで動きます。
+同梱の d3) なので、ビルドもサーバーも不要で、`file://` からオフラインで動きます。(`model.js` が文書の
+モデルと書式、`scene.js` がレイアウトと矢印の形状、`replay.js` が録画の読み込みとそのタイムライン、
+`app.js` が描画を受け持ちます。)
 
 ![graph view](images/web-viewer-graph.jpg)
 
@@ -43,7 +45,7 @@ open web/index.html            # macOS。あるいはファイルをダブルク
 | 赤い縁 | 警告が 1 つ以上ある (例: `measured-transport-mismatch`) |
 
 矢印をクリックすると側面パネルにそのペアの一覧が出ます。transport、確信度、実測トラフィック、
-理由コードとその説明・対処 (文書の `reason_code_descriptions` / `reason_code_remedies` から)、両エンドポイントの locator、QoS
+理由コードとその説明・対処 (文書の `reason_code_descriptions` / `reason_code_remedies` から)、locator、QoS
 (reliability、durability、data-sharing、設定されていれば deadline、liveliness、ownership、
 partition)、`data-sharing` 行 (writer の履歴のサイズと、エンドポイントの data-sharing セグメントが
 ツールの `/dev/shm` にあるか、[#163](https://github.com/atinfinity/fastdds_transport_viz/issues/163))、そして文書に `participants` があればエンドポイントごとの
@@ -174,7 +176,7 @@ viewer は受信したフレームをすべて保持します
 履歴はページの中にあります。各フレームのテキストを Blob として持ち、表示するときに解析し直します。
 ページを開いた時点から始まり、閉じるか再読み込みすると消えます。それより前の時間や、ブラウザを
 開いていない間のためには、サーバーを [`--record`](#録画と再生) 付きで動かしてください。
-`?history=<MB>` で上限を決めます (既定 512。`0` で履歴を持たず、**Pause** はそれまでどおり
+`?history=<MB>` で上限を決めます (既定 512。`0` で履歴を持たず、その場合 **Pause** は
 **Resume** まで最新フレームの反映を止めます)。`/` は `index.html?live=1` にリダイレクトされ
 クエリは捨てられるので、パラメータはそのアドレスに付けてください:
 `http://127.0.0.1:8765/index.html?live=1&history=1024`。上限を超えると最も古い 1 割のフレームをまとめて
@@ -218,8 +220,8 @@ viewer は受信したフレームをすべて保持します
 `transport_viz --watch --json` 自体は 1 行に 1 つのコンパクトな文書 (JSON Lines) を出力するので、
 他のプログラムからも同じストリームを読めます。その文書の `changes` オブジェクトは
 `transport_viz diff --json before.json after.json` が出すものと同じです
-([how-it-works.ja.md](how-it-works.ja.md#2-つのスナップショットの比較) 参照)。viewer はまだそれを
-どちらの場合も強調表示します ([2 つの文書の比較](#2-つの文書の比較))。
+([how-it-works.ja.md](how-it-works.ja.md#2-つのスナップショットの比較) 参照)。viewer は
+どちらの場合もそれを強調表示します ([2 つの文書の比較](#2-つの文書の比較))。
 
 ### Prometheus メトリクス
 
