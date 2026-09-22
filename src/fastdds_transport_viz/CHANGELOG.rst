@@ -1,12 +1,106 @@
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Changelog for package fastdds_transport_viz
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+2.0.0 (2026-09-22)
+-------------------
+Breaking changes (the public API is declared in ``QUALITY_DECLARATION.md``):
+
+* ``stats.lost[]`` keys are renamed and the direction is corrected (#122):
+  ``receiver_participant_guid_prefix`` / ``from_locator`` become
+  ``src_participant_guid_prefix`` / ``dst_locator``, with the new
+  ``reporter_participant_guid_prefix``, and ``lost_packets`` is ``null`` when the reader's
+  participant publishes no ``RTPS_LOST``. Documents with the old keys still load.
+* ``measured.throughput_bytes_per_s`` and ``topics[].throughput_bytes_per_s`` are always
+  ``null`` and ``stats.throughput`` is ``{}`` (#137): ``PUBLICATION_THROUGHPUT`` is not a
+  rate, and the tool no longer subscribes to it. The table's ``RATE`` column is replaced
+  by ``HZ`` (#143).
+* ``type-name-mismatch`` is a reason on a ``NONE`` pair instead of a topic-level
+  ``unmatched_reasons`` entry (#85), and where both endpoints announce an XTypes
+  ``TypeInformation`` (Lyrical and later) the type names are no longer compared at all
+  (#213).
+* An endpoint whose node name is unknown has an empty name instead of
+  ``_NODE_NAMESPACE_UNKNOWN_/_NODE_NAME_UNKNOWN_`` (#112).
+* The tool, and ``ros2 transport list``, exit 1 on an RMW other than
+  ``rmw_fastrtps_cpp`` / ``rmw_fastrtps_dynamic_cpp`` instead of running (#72).
+
+Changes:
+
 * A REP 2004 quality declaration, ``QUALITY_DECLARATION.md``: Quality Level 3, Linux only
   (Windows 10 is the declared exception), with the public API that the version numbers follow
   (#87). ``SECURITY.md`` at the repository root is the vulnerability disclosure policy.
+* ``transport_viz_web`` stops its ``transport_viz`` child when it is sent SIGTERM or SIGHUP
+  (#195), as it did on Ctrl-C: the default disposition used to end the server outright and
+  leave the child running as a live DDS participant until its next frame hit the closed
+  pipe. The server exits 0 and prints nothing.
+* Every endpoint in ``--json`` carries ``type_information_hash``, the XTypes ``EK_COMPLETE``
+  equivalence hash it announces (``""`` without one, as on Fast DDS 2.x), which the
+  ``type-information-mismatch`` rule of #213 compares (#206). Declared in the schema;
+  ``schema_version`` stays 1.
+* Discovery Servers and their clients (#86). Every live participant has an entry in
+  ``participants[]``, servers included, with ``discovery_protocol``, ``name``, ``vendor``
+  and ``metatraffic_locators``; ``discovery_server`` names the server a client is inferred
+  to use (the single SERVER in view, or in Easy Mode the auto-started server of the same
+  host id; ``null`` otherwise, since a client's server list is not on the wire).
+  ``discovery{}`` records how the tool joined (``observer_protocol``,
+  ``discovery_servers``, ``easy_mode``). The verbose table footer lists the servers and how
+  many participants each serves; the web viewer draws a server as a pill and links its
+  clients with a dotted edge. ``web/sample/easy_mode.json`` is a capture. Additive.
+* The web viewer renders on demand (#136): the model is built once per document, a
+  selection only toggles classes, and the two filter inputs are debounced by 100 ms. On
+  the large scale document the first render takes 53 ms instead of 156 ms.
+* The web viewer's Table tab groups the pairs under a collapsible header row per topic
+  (#144), with the topic aggregates of ``topics[]`` (endpoint counts, latency, loss,
+  resends, unmatched reasons) that never reached the viewer before, and Collapse all /
+  Expand all. Numeric columns sort numerically, missing values last.
+* ``--stats`` one-shot runs stop on a settle rule instead of a fixed 5 s window (#168,
+  #179, #200). A run ends once discovery is quiet, every ``RTPS_SENT`` writer the readers
+  matched has been heard from and the number of ``RTPS_SENT`` entries measured towards a
+  discovered reader has stopped growing for ``max(--quiet, 3 s)``; never before 5 s, and
+  ``--timeout`` (default 30 s with ``--stats``) is the cap, where one stderr line names what
+  is still missing. At 20 processes the fixed window had measured no pair at all on Jazzy
+  and Lyrical; the rule measures all of them. ``--json`` gains ``stats.writers_announced``,
+  ``writers_heard``, ``settled``, ``settled_at_s`` and ``measured_instances`` and
+  ``discovery.stopped_on`` ``"settled"``; ``measured_instances`` is the same in a one-shot,
+  under ``--quiet 0`` and in ``--watch``. Additive.
+* Shipped statistics profiles (``config/statistics.xml``,
+  ``config/datasharing_auto_stats.xml``): the statistics writers send on
+  ``FastDDSStatisticsFlowControllerDefault`` like Fast DDS's built-in QoS (#154), the
+  counter writers get a 500 ms heartbeat period on Fast DDS 3.x, where they otherwise
+  deliver almost only on the 3 s periodic heartbeat (#152), and the ``HISTORY_LATENCY``
+  writer keeps the last 100 samples instead of 10, which a starved CPU overran at 1000 Hz
+  (#170). The files are generated by CMake for the Fast DDS of the build from one writer
+  fragment, ``config/statistics_writers.xml.in`` (#159). ``fastdds.push_mode=false`` stays
+  out on purpose: pull mode delivers no latency proof in 60 s on Jazzy.
+* A pair with proven deliveries whose locators carried no packet during the observation
+  reads ``(unmeasured, delivered)`` with ``delivered-without-measured-traffic`` instead of
+  ``(idle)`` (#149): the link is not idle, the statistics samples did not arrive.
+  ``(idle)`` stays for pairs without a proof. JSON and ``diff`` are unchanged.
+* Incomplete discovery is reported (#133). A one-shot run ends after ``--quiet`` seconds
+  without discovery events, and a large system falls silent between two batches of
+  announcements, so the table could look normal while short of pairs. The tool compares
+  the endpoints the live participants announce in ``ros_discovery_info`` with what it
+  discovered: ``--json`` always carries ``discovery{}`` (``complete``, ``stopped_on``,
+  ``events``, ``endpoints``, ``announced_not_discovered``), and an incomplete view prints
+  one stderr line naming a longer ``--quiet`` / ``--timeout``. Defaults and exit codes are
+  unchanged; ``diff`` ignores the field.
+* Lost statistics samples are reported (#134): the document-level warning
+  ``stats-samples-lost``, the table's ``statistics:`` footer, one stderr line in a one-shot
+  run and ``stats.samples_lost`` / ``samples_rejected`` / ``samples_lost_at_start`` in
+  ``--json``. What is lost while the statistics writers are still matching (5 s after each
+  match) is the normal start-up burst, counted apart and never warned about.
+* Fast DDS 3.x Easy Mode (``ROS2_EASY_MODE``) and its ``P2P`` builtin transport are
+  verified on Kilted 3.2.4 and Lyrical 3.6.2 (launch test, ``easy_mode_shm`` /
+  ``easy_mode_tcp`` scenarios, a CI entry) (#71). The ``fastdds discovery auto`` CLI that
+  Fast DDS runs for every participant in Easy Mode reports on stdout, which landed in
+  front of the ``--json`` document; the tool now routes it to stderr and says that it
+  observes through this host's Discovery Server.
+* Verified on large systems (#74): Nav2 + TurtleBot3 and a synthetic ``scale_load`` ladder
+  up to 40 processes and 4000 pairs, with fixed budgets in ``scripts/scale_test.sh`` (the
+  medium rung fails the script when a budget fails, #167) and ``FTV_PROFILE=1`` per-phase
+  timings on stderr. Two fixes came out of it: the ``--quiet`` window counts only once
+  something has been discovered (a busy host printed an empty table), and a Ctrl-C during
+  a slow graph query no longer aborts the process.
 * Metrics export (#83). ``transport_viz_web`` serves ``/metrics``: the latest document in the
   Prometheus text format, built when it is scraped, for a Grafana dashboard next to the rest
   of the robot. Pair gauges carry ``topic``, the writer and reader node, host and GUID

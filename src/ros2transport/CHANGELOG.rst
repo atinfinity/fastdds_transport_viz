@@ -2,8 +2,11 @@
 Changelog for package ros2transport
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+2.0.0 (2026-09-22)
+-------------------
+Breaking change: ``ros2 transport list`` exits 1 on an RMW other than ``rmw_fastrtps_cpp`` /
+``rmw_fastrtps_dynamic_cpp`` instead of running the binary (#72).
+
 * A REP 2004 quality declaration, ``QUALITY_DECLARATION.md``: Quality Level 3, like
   ``fastdds_transport_viz`` (#87).
 * ``ros2 transport list --csv`` passes ``--csv`` to the binary: one CSV row per pair
