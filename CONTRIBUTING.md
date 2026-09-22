@@ -12,8 +12,13 @@ reproduce a transport/verdict issue. Usage questions not covered by the
 
 ## Development environment
 
-See [docs/development.md](docs/development.md) for the full picture (Docker environment,
-packages, verification nodes, multi-container scenarios, existing tests). The short version:
+See [docs/development.md](docs/development.md) for the full picture: the
+[Docker environment](docs/development.md#docker-environment),
+[multi-container scenarios](docs/development.md#multi-container-scenarios),
+[verification nodes](docs/development.md#verification-nodes),
+[tests](docs/development.md#tests) and
+[continuous integration](docs/development.md#continuous-integration); the package layout is
+in [docs/architecture.md](docs/architecture.md#repository-layout). The short version:
 
 ```
 docker compose build
