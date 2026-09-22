@@ -549,7 +549,7 @@ listener が現れ、UDP の listener が消えた直後の 1 フレーム:
 
 watch 中のキー: `q` 終了、
 `p` 一時停止/再開 (停止中の変化は再開時に強調)、`v` ペア行の切り替え、`e` 理由コード凡例の
-切り替え、`a` `--all` の切り替え。stdin と stdout の両方が端末でない限り、フレームを順に出力します
+切り替え、`a` `--all` の切り替え、`l` `--locators` の切り替え、`f` `--advise` (対処) の切り替え。stdin と stdout の両方が端末でない限り、フレームを順に出力します
 (`--color always` でなければエスケープシーケンス無し)。`--json` では各フレームが 1 つの JSON Lines 文書になり、`changes` オブジェクト
 (`added_pairs`、`removed_pairs`、`from`/`to` 付きの `changed_pairs`) が加わります。
 

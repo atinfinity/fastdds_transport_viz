@@ -16,12 +16,12 @@ Source and issues: [github.com/atinfinity/fastdds_transport_viz](https://github.
 
 ```
 $ ros2 transport list -v --stats --topic '^/(chatter|bounded)$'
-TOPIC     TYPE                 PUBS  SUBS  TRANSPORT         LATENCY  LOSS  REASON
-/bounded  std_msgs/msg/Int32   1     1     DATA_SHARING x1   119 µs   0     same-host-guid,datasharing-qos-enabled-both,datasharing-domain-ids-match,datasharing-confirmed-no-data-submessages
-    /bounded_pub@36d321fbf863(174) -> /bounded_sub@36d321fbf863(184)  DATA_SHARING  119 µs (max 164 µs)  0  measured=SHM (idle)  same-host-guid,datasharing-qos-enabled-both,datasharing-domain-ids-match,datasharing-confirmed-no-data-submessages
-/chatter  std_msgs/msg/String  1     2     UDPv4 x1, SHM x1  168 µs   0     same-host-guid,datasharing-disabled-writer,reader-no-shm-locator,common-udpv4-locator,measured-udpv4-traffic,both-shm-locators,measured-shm-traffic
-    /talker@36d321fbf863(175) -> /listener_udp@36d321fbf863(176)  UDPv4  164 µs (max 233 µs)  0  measured=UDPv4 10pkt 1.31 kB  same-host-guid,datasharing-disabled-writer,reader-no-shm-locator,common-udpv4-locator,measured-udpv4-traffic
-    /talker@36d321fbf863(175) -> /listener@36d321fbf863(177)      SHM    168 µs (max 250 µs)  0  measured=SHM 9pkt 1.19 kB     same-host-guid,datasharing-disabled-writer,both-shm-locators,measured-shm-traffic
+TOPIC     TYPE                 PUBS  SUBS  TRANSPORT         LATENCY  HZ  LOSS  REASON
+/bounded  std_msgs/msg/Int32   1     1     DATA_SHARING x1   119 µs       0     same-host-guid,datasharing-qos-enabled-both,datasharing-domain-ids-match,datasharing-confirmed-no-data-submessages
+    /bounded_pub@36d321fbf863(174) -> /bounded_sub@36d321fbf863(184)  DATA_SHARING  119 µs (max 164 µs)  10.0  0  measured=SHM (idle)  same-host-guid,datasharing-qos-enabled-both,datasharing-domain-ids-match,datasharing-confirmed-no-data-submessages
+/chatter  std_msgs/msg/String  1     2     UDPv4 x1, SHM x1  168 µs       0     same-host-guid,datasharing-disabled-writer,reader-no-shm-locator,common-udpv4-locator,measured-udpv4-traffic,both-shm-locators,measured-shm-traffic
+    /talker@36d321fbf863(175) -> /listener_udp@36d321fbf863(176)  UDPv4  164 µs (max 233 µs)  1.0   0  measured=UDPv4 10pkt 1.31 kB  same-host-guid,datasharing-disabled-writer,reader-no-shm-locator,common-udpv4-locator,measured-udpv4-traffic
+    /talker@36d321fbf863(175) -> /listener@36d321fbf863(177)      SHM    168 µs (max 250 µs)  1.0   0  measured=SHM 9pkt 1.19 kB     same-host-guid,datasharing-disabled-writer,both-shm-locators,measured-shm-traffic
 
 statistics: 644 samples from 6 participant(s)
 
@@ -52,13 +52,16 @@ The same run opened in the [web viewer](web-viewer.md) (table view):
   shown as `NONE` with the policy that breaks them.
 - **Measurement with `--stats`.** The Fast DDS statistics module supplies the packets and
   bytes that actually flowed per locator, the write-to-notification
-  latency (`LATENCY`), lost and resent packets (`LOSS`), host names and process ids, and
+  latency (`LATENCY`), the delivered samples per second of each pair (`HZ`), lost and
+  resent packets (`LOSS`), host names and process ids, and
   the proof of zero-copy data-sharing; a measurement that contradicts the
   prediction is flagged.
 - **Several front-ends.** A table with colors, `--watch` (live terminal view that marks
   what changed), `--json` with a published schema, the `ros2 transport` command, and a
-  web viewer (graph and table, live updates through `transport_viz_web`, and
-  recordings made with `transport_viz_web --record` replayed on a timeline).
+  web viewer (graph and table, live updates through `transport_viz_web` with a timeline of
+  the frames received so far, and recordings made with `transport_viz_web --record`
+  replayed on the same timeline). `transport_viz_web` also serves the latest document as
+  Prometheus metrics on `/metrics`.
 - **Focus.** `--topic` / `--node` regex filters, `--explain` for the codes in use,
   `--advise` for what to change to get past them, `ros2 transport codes` for all of them.
 - **Shared memory of the environment.** Capacity of `/dev/shm`, the Fast DDS segments,
@@ -113,7 +116,7 @@ ros2 transport codes
 | `--topic REGEX` | only topics whose name matches |
 | `--node REGEX` | only pairs involving a node whose full name matches (its unpaired endpoints stay visible) |
 | `--all` | include services/actions and non-ROS DDS topics; each service or action is one `SERVICE` / `ACTION` row per client-server pair rather than its raw `rq/` / `rr/` topics |
-| `--watch` | re-render every `--interval` seconds, highlighting added/changed/removed pairs; keys `q p v e a l` (with `--json`: JSON Lines with a `changes` object) |
+| `--watch` | re-render every `--interval` seconds, highlighting added/changed/removed pairs; keys `q p v e a l f` (with `--json`: JSON Lines with a `changes` object) |
 | `--color` | ANSI colors for transports and warnings (`auto` = only on a terminal) |
 
 `ros2 transport diff BEFORE.json AFTER.json` compares two saved `--json` documents (change
@@ -133,7 +136,7 @@ way and highlights the result. Details in
 - [How it works](how-it-works.md) — decision rules, reason codes, hosts and addresses, where to run it, watch mode
 - [Measured transports (`--stats`)](statistics.md) — statistics topics, enabling them, the 10-instance pitfall
 - [Data-sharing (zero-copy)](data-sharing.md) — why ROS 2 topics show `SHM` by default and how to enable data-sharing
-- [Web viewer](web-viewer.md) — graph view and a topic-grouped table of `--json` output in the browser, live mode (`transport_viz_web`), recording and replay (`--record`), JSON schema
+- [Web viewer](web-viewer.md) — graph view and a topic-grouped table of `--json` output in the browser, live mode (`transport_viz_web`) and its history, recording and replay (`--record`), Prometheus `/metrics`, JSON schema
 - [Architecture](architecture.md) — components, the flow of one run, data model, Fast DDS 2.14/3.x layer, extension points
 - [Development, verification and tests](development.md) — Docker environment, packages, verification nodes, multi-container scenarios, tests, verification results, roadmap
 
@@ -172,12 +175,15 @@ way and highlights the result. Details in
 - **Not a benchmark.** `LATENCY` is Fast DDS's own `HISTORY_LATENCY` statistic
   (write-to-notification between the two histories), sampled during a short observation; it
   does not replace a load test or an end-to-end measurement, and across hosts it includes
-  the clock offset. There is no publish rate at all: `PUBLICATION_THROUGHPUT` looked like one
-  but is not ([#137](https://github.com/atinfinity/fastdds_transport_viz/issues/137)).
+  the clock offset. `HZ` counts the samples that reached each reader
+  ([#143](https://github.com/atinfinity/fastdds_transport_viz/issues/143)); there is no
+  writer-side publish rate: `PUBLICATION_THROUGHPUT` looked like one but is not
+  ([#137](https://github.com/atinfinity/fastdds_transport_viz/issues/137)).
 - **DDS Security (SROS2) is not supported** and untested: the tool's participants carry no
   security configuration, so participants inside a secure enclave are not discovered.
-- **Footprint.** The tool adds two participants of its own to the domain (filtered from
-  the output).
+- **Footprint.** The tool adds two participants of its own to the domain, three on Humble
+  (`fastdds_transport_viz_names`, a participant without SHM that reads the node names); all
+  are filtered from the output.
 - **Split shared memory.** Nodes with the same host id in different IPC namespaces
   (`network_mode: host` without `ipc: host`) still select SHM or data-sharing between each
   other and lose every message. The pair is `NONE` with `shm-ipc-namespace-split` when the
@@ -192,6 +198,16 @@ way and highlights the result. Details in
   the companion topic only with `--all`; a companion it cannot link to its parent stays
   visible with `buffer-companion-unmatched`, and its parent pair then shows no traffic of its
   own ([#119](https://github.com/atinfinity/fastdds_transport_viz/issues/119)).
+
+## Quality declaration
+
+Both packages claim [REP 2004](https://www.ros.org/reps/rep-2004.html) **Quality Level 3**,
+with one exception: Linux only, so Windows 10 (a tier 1 platform of REP 2000) is not
+supported. See the quality declarations of
+[`fastdds_transport_viz`](https://github.com/atinfinity/fastdds_transport_viz/blob/main/src/fastdds_transport_viz/QUALITY_DECLARATION.md) and
+[`ros2transport`](https://github.com/atinfinity/fastdds_transport_viz/blob/main/src/ros2transport/QUALITY_DECLARATION.md) for the version policy and
+public API, change control, testing, dependencies and platforms, and
+[SECURITY.md](https://github.com/atinfinity/fastdds_transport_viz/blob/main/SECURITY.md) to report a vulnerability.
 
 ## License
 

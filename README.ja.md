@@ -61,7 +61,9 @@ shared memory: /dev/shm 371 MB used of 16.7 GB (16.3 GB free) | Fast DDS 6.36 MB
   サンプル数 (`HZ`)、欠落と再送 (`LOSS`)、ホスト名とプロセス id、zero-copy data-sharing の
   証明を取り、予測と食い違う実測は警告します。
 - **複数のフロントエンド。** 色付きの表、`--watch` (変化を強調するライブ表示)、スキーマ付きの
-  `--json`、`ros2 transport` コマンド、web viewer (グラフと表、`transport_viz_web` によるライブ更新)。
+  `--json`、`ros2 transport` コマンド、web viewer (グラフと表、`transport_viz_web` によるライブ更新と
+  受信済みフレームのタイムライン、`transport_viz_web --record` で録画したものの同じタイムラインでの
+  再生)。`transport_viz_web` は最新の文書を Prometheus メトリクスとして `/metrics` でも提供します。
 - **絞り込み。** `--topic` / `--node` の正規表現フィルタ、使われたコードの説明を出す `--explain`、
   そのコードを解消するには何を変えるかを出す `--advise`、全コードを一覧する `ros2 transport codes`。
 - **環境の共有メモリ。** `/dev/shm` の容量、そこにある Fast DDS のセグメント・ポート・data-sharing
@@ -115,7 +117,7 @@ ros2 transport codes
 | `--topic REGEX` | 名前が一致するトピックだけ表示する |
 | `--node REGEX` | 完全修飾ノード名が一致するノードが関わるペアだけ表示する (そのノードの未接続エンドポイントも残る) |
 | `--all` | サービス/アクションと ROS 以外の DDS トピックも含める。サービスとアクションは生の `rq/` / `rr/` トピックではなく、クライアントとサーバの組ごとに 1 行の `SERVICE` / `ACTION` 行として表示します |
-| `--watch` | `--interval` 秒ごとに再描画し、追加/変更/削除されたペアを強調する。キー `q p v e a l` (`--json` 時は `changes` オブジェクト付きの JSON Lines) |
+| `--watch` | `--interval` 秒ごとに再描画し、追加/変更/削除されたペアを強調する。キー `q p v e a l f` (`--json` 時は `changes` オブジェクト付きの JSON Lines) |
 | `--color` | transport と警告の ANSI 色 (`auto` = 端末のときだけ) |
 
 `ros2 transport diff BEFORE.json AFTER.json` は保存した 2 つの `--json` 文書を比較します
@@ -134,7 +136,7 @@ ros2 transport codes
 - [仕組み](docs/how-it-works.ja.md) — 判定ルール、理由コード、ホストとアドレス、実行場所、watch モード
 - [実測 transport (`--stats`)](docs/statistics.ja.md) — statistics トピック、有効化、10 インスタンスの落とし穴
 - [Data-sharing (zero-copy)](docs/data-sharing.ja.md) — ROS 2 トピックが既定で `SHM` になる理由と data-sharing の有効化
-- [Web viewer](docs/web-viewer.ja.md) — `--json` 出力のグラフ表示とトピックごとにまとめた表、ライブモード (`transport_viz_web`)、JSON スキーマ
+- [Web viewer](docs/web-viewer.ja.md) — `--json` 出力のグラフ表示とトピックごとにまとめた表、ライブモード (`transport_viz_web`) とその履歴、録画と再生 (`--record`)、Prometheus の `/metrics`、JSON スキーマ
 - [Architecture](docs/architecture.md) (英語) — コンポーネント、1 回の実行の流れ、データモデル、Fast DDS 2.14/3.x の互換層、拡張ポイント
 - [開発・検証・テスト](docs/development.md) (英語) — Docker 環境、パッケージ構成、検証ノード、マルチコンテナのシナリオ、テスト、検証結果、ロードマップ
 
@@ -170,11 +172,15 @@ ros2 transport codes
 - **ベンチマークではありません。** `LATENCY` は Fast DDS 自身の statistics
   (`HISTORY_LATENCY`: 2 つの履歴間の write-to-notification) を短い観測の間にサンプリングした値で、
   負荷試験やエンドツーエンドの測定の代わりにはなりません。ホスト間では遅延にクロックのずれが
-  含まれます。publish レートは一切出しません。`PUBLICATION_THROUGHPUT` はレートに見えて
-  レートではないためです ([#137](https://github.com/atinfinity/fastdds_transport_viz/issues/137))。
+  含まれます。`HZ` は各 reader に届いたサンプルを数えたものです
+  ([#143](https://github.com/atinfinity/fastdds_transport_viz/issues/143))。writer 側の publish
+  レートは出しません。`PUBLICATION_THROUGHPUT` はレートに見えてレートではないためです
+  ([#137](https://github.com/atinfinity/fastdds_transport_viz/issues/137))。
 - **DDS Security (SROS2) は未対応** で未検証です。ツールの participant にはセキュリティ設定が無いので、
   secure enclave 内の participant は発見できません。
-- **ツール自身の痕跡。** ツールはドメインに自身の participant を 2 つ追加します (出力からは除外)。
+- **ツール自身の痕跡。** ツールはドメインに自身の participant を 2 つ、Humble では 3 つ
+  (ノード名を読む SHM 無しの participant `fastdds_transport_viz_names`) 追加します。いずれも
+  出力からは除外されます。
 - **共有メモリの分断。** ホスト id が同じで IPC 名前空間が別のノード同士 (`ipc: host` の無い
   `network_mode: host`) でも Fast DDS は SHM を選び、その間のメッセージはすべて失われます。ツールが
   見分けられる場合、つまり 2 つが同じ SHM ポート番号を広告している (`shm-port-collision`。コンテナに
