@@ -15,6 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       code: ${{ steps.filter.outputs.code }}
+      workflows: ${{ steps.filter.outputs.workflows }}
     steps:
       - uses: actions/checkout@v7
       - id: filter
@@ -31,6 +32,9 @@ jobs:
               - '!**.md'
               - '!mkdocs.yml'
               - '!.github/workflows/docs.yml'
+            # One pattern: with 'every' a file would have to match each line of a list.
+            workflows:
+              - '.github/{workflows,actions}/**'
 
   build-and-test:
     name: colcon build & test (ROS 2 ${{ matrix.distro }}, ${{ matrix.arch }}, ${{ matrix.rmw }})
@@ -251,9 +255,26 @@ jobs:
   # was skipped (a skipped matrix job reports an unexpanded name, so the per-distro /
   # per-arch names cannot be required directly). Rolling is continue-on-error and does
   # not count.
+  # Every workflow (and the local composite action they use), with shellcheck on the run:
+  # scripts (preinstalled on the runner). Pinned by hand: Dependabot does not follow a
+  # binary downloaded by a script, so bump ACTIONLINT_VERSION when a release matters.
+  actionlint:
+    name: actionlint
+    needs: changes
+    if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.workflows == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      ACTIONLINT_VERSION: 1.7.12
+    steps:
+      - uses: actions/checkout@v7
+      - run: |
+          bash <(curl -sSfL "https://raw.githubusercontent.com/rhysd/actionlint/v${ACTIONLINT_VERSION}/scripts/download-actionlint.bash") "$ACTIONLINT_VERSION"
+          ./actionlint -color
+
   ci-result:
     name: CI result
-    needs: [changes, build-and-test, integration, coverage, web-unit-tests]
+    needs: [changes, build-and-test, integration, coverage, web-unit-tests, actionlint]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -262,7 +283,9 @@ jobs:
           echo "integration: ${{ needs.integration.result }}"
           echo "coverage: ${{ needs.coverage.result }}"
           echo "web-unit-tests: ${{ needs.web-unit-tests.result }}"
+          echo "actionlint: ${{ needs.actionlint.result }}"
           case "${{ needs.build-and-test.result }}" in success|skipped) ;; *) exit 1 ;; esac
           case "${{ needs.integration.result }}" in success|skipped) ;; *) exit 1 ;; esac
           case "${{ needs.coverage.result }}" in success|skipped) ;; *) exit 1 ;; esac
           case "${{ needs.web-unit-tests.result }}" in success|skipped) ;; *) exit 1 ;; esac
+          case "${{ needs.actionlint.result }}" in success|skipped) ;; *) exit 1 ;; esac
