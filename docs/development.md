@@ -695,6 +695,9 @@ Done:
   [#86](https://github.com/atinfinity/fastdds_transport_viz/issues/86)
 - Release 2.0.0: split IPC namespaces, the `HZ` column, the settle rule, type
   mismatches, services and actions, `diff`, record/replay, metrics export
+- Release 2.0.1: documentation brought in line with 2.0.0, the verification log, the
+  release procedure, link and workflow checks in CI —
+  [#224](https://github.com/atinfinity/fastdds_transport_viz/issues/224)
 
 Open, by priority (labels `priority/1-high` … `priority/3-low` on the issues):
 
