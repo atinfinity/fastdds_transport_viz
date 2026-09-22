@@ -111,11 +111,12 @@ that observation the pair is not idle, its `RTPS_SENT` samples did not arrive: i
 the cell: `n/a` (the writer's participant publishes no statistics), `none` (statistics, but
 no packet to any locator of the reader) and `none(delivered)` (the same, while
 `HISTORY_LATENCY` proved delivery). A pair delivered inside one process reads
-`(intra-process)` in place of `(unmeasured, delivered)` / `(delivered)`, because no packet
-is missing - none was ever sent (see [Intra-process pairs](#intra-process-pairs)).
+`none(intra-process)` or `<kind> (intra-process)` (for example `SHM (intra-process)`) in place
+of `none(delivered)` / `<kind> (unmeasured, delivered)`, because no packet is missing - none
+was ever sent (see [Intra-process pairs](#intra-process-pairs)).
 A participant has statistics when the tool received a statistics sample it published:
-that set is `stats.participants_with_stats` in the JSON and the N of the footer's
-"statistics from N participant(s)". A participant only named in another one's sample, such
+that set is `stats.participants_with_stats` in the JSON and the `<N>` of the footer's
+`statistics: <S> samples from <N> participant(s)`. A participant only named in another one's sample, such
 as the remote writer of a reader's `HISTORY_LATENCY` report, does not count.
 
 ## Granularity
@@ -127,7 +128,11 @@ and goes on until discovery has been quiet for `--quiet` seconds, every `RTPS_SE
 (one per participant with statistics) the tool's reader matched has delivered a first sample,
 *and* the number of `RTPS_SENT` entries with measured packets towards a locator a discovered
 reader receives on has stopped growing for `--quiet` seconds (at least 3 s) - or until
-`--timeout` (default 30 s with `--stats`), whichever comes first. A run in which *no* pair can
+`--timeout` (default 30 s with `--stats`), whichever comes first. The rule applies to a
+one-shot run with `--quiet` above 0 and a `--timeout` longer than the 5 s minimum window: at
+`--quiet 0` the run lasts the whole `--timeout`, and a `--timeout` of 5 s or less ends it
+before the rule is checked, so in both cases `stats.settled` is false and
+`discovery.stopped_on` reads `timeout`. A run in which *no* pair can
 ever be measured settles as soon as the minimum window is over: see
 [Intra-process pairs](#intra-process-pairs). Only reader-bound entries
 count ([#179](https://github.com/atinfinity/fastdds_transport_viz/issues/179)): the entries
@@ -177,14 +182,20 @@ the samples of types with an unbounded `uint8[]` field; see
 
 A writer and a reader of one process are served inside the participant and never put a
 sample on a transport, so no `RTPS_SENT` counter can ever move for the pair (nor
-`DATA_COUNT`, which counts DATA submessages handed to the network). `HISTORY_LATENCY` and
-`PUBLICATION_THROUGHPUT` do move: the delivery is proven and timed, the packets are not
-there to be counted. The tool names the pair `intra-process` from the GUID prefixes (see
+`DATA_COUNT`, which counts DATA submessages handed to the network). `HISTORY_LATENCY` does
+move: the delivery is proven and timed, the packets are not there to be counted. The tool names the pair `intra-process` from the GUID prefixes (see
 [Intra-process delivery](how-it-works.md#intra-process-delivery)) and treats it like a
-data-sharing pair everywhere a measurement is expected: the `MEASURED` column reads
-`(intra-process)`, the pair is left out of `stats.pairs_delivered` and therefore out of
-`stats.pairs_delivered_unmeasured`, `stats.pairs_delivered_absent`, `rtps-sent-absent` and
-the `stats_watch_coverage` denominator, and it raises no warning of its own.
+data-sharing pair everywhere a measurement is expected: with a delivery proof the `MEASURED`
+column reads `none(intra-process)` or `<kind> (intra-process)`, the pair is left out of
+`stats.pairs_delivered` and therefore out of `stats.pairs_delivered_unmeasured`,
+`stats.pairs_delivered_absent`, `rtps-sent-absent` and the denominator of
+`stats_watch_coverage` (the `--watch` statistics coverage budget of the
+[scale verification](development.md#scale-verification)), and it raises no warning of its own.
+Without a delivery proof it gets `no-traffic-observed`, like any pair with nothing measured.
+Measured packets override the prediction: when the writer's participant sent packets to the
+reader's locators during the observation (a custom `<prefix>`, a Fast DDS built with
+intra-process delivery off, or a multicast group shared with readers elsewhere), the
+`intra-process` reason is dropped and the pair is reported from what the counters show.
 
 The settle rule counts the same fact once per run as `stats.measurable_pairs`: the pairs
 whose two ends are in *different* processes, over the endpoints discovered so far and
@@ -280,12 +291,16 @@ affected). A reader cannot ask for heartbeats, so the tool cannot fix this on it
 The shipped profiles set `heartbeat_period` to 500 ms on the counter writers (every profile
 but `HISTORY_LATENCY_TOPIC`) when the package is built with Fast DDS 3.x, which restores
 continuous delivery. Fast DDS 2.x spells the element `heartbeatPeriod` and drops a whole
-profile it cannot parse, so CMake generates the installed `statistics.xml` and
-`datasharing_auto_stats.xml` from `config/*.xml.in` for the Fast DDS of the build (the writer
+profile it cannot parse, so CMake generates the installed `statistics.xml`,
+`datasharing_auto_stats.xml` and `multicast_user_stats.xml` (this file merged with user
+endpoints on a multicast locator, for the
+[multicast stamping experiment](development.md#multicast-stamping-experiment) of
+[#130](https://github.com/atinfinity/fastdds_transport_viz/issues/130)) from
+`config/*.xml.in` for the Fast DDS of the build (the writer
 profiles themselves live once in `config/statistics_writers.xml.in`): use the
 installed files, on the machine of the observed nodes. 500 ms is the longest of 100 ms,
-250 ms, 500 ms and 1 s that kept the `--watch` coverage at 1.0 on the medium rung (1 s reads
-0.21). Use the profile on the observed nodes of every distro, with the two lines of
+250 ms, 500 ms and 1 s that kept the `--watch` coverage at 1.0 on the medium rung of the
+[scale verification](development.md#scale-verification) (1 s reads 0.21). Use the profile on the observed nodes of every distro, with the two lines of
 [the previous section](#pitfall-the-10-instance-limit).
 
 ## What the shipped profiles change on the writers
@@ -364,7 +379,10 @@ often the tool takes from its readers, which is what the 50 ms drain above is fo
 the writers' keep-last history overwrites samples before they arrive.
 
 The tool says what it lost. `stats.samples_lost` in the JSON document counts the statistics
-samples that never reached it and the table's `statistics:` line repeats the number. When the
+samples that never reached it and `stats.samples_rejected` those its readers refused. The
+table's `statistics:` footer shows `N sample(s) lost` with N = `samples_lost` −
+`samples_lost_latency` + `samples_rejected`: the counter samples lost or refused, the latency
+samples being named apart (below). When the
 loss also cost a measurement (below), the document carries the warning code
 `stats-samples-lost` and a one-shot run adds one line on stderr:
 
@@ -408,9 +426,10 @@ while nothing is reported lost. It shows worst on Fast DDS 3.6 (ROS 2 Lyrical), 
 one-shot run measured nothing at all
 ([#152](https://github.com/atinfinity/fastdds_transport_viz/issues/152)). The tool's readers
 cannot change that; the writers' profile can. Start the observed nodes with the installed
-`config/statistics.xml` of this package (`FASTDDS_DEFAULT_PROFILES_FILE`, or
-`FASTRTPS_DEFAULT_PROFILES_FILE` on older Fast DDS), which puts those writers in push mode and
-shortens their heartbeat period. The warning judges what it observes, not the Fast DDS
+`config/statistics.xml` of this package (`FASTRTPS_DEFAULT_PROFILES_FILE` for ROS 2 nodes on
+every distro, `FASTDDS_DEFAULT_PROFILES_FILE` for a Fast DDS 3.x application that does not go
+through the rmw; see [the 10-instance limit](#pitfall-the-10-instance-limit)), which puts those
+writers in push mode and shortens their heartbeat period. The warning judges what it observes, not the Fast DDS
 version, and pairs that can never be measured - data-sharing and intra-process - are not
 counted in it
 ([#201](https://github.com/atinfinity/fastdds_transport_viz/issues/201)).
@@ -433,7 +452,8 @@ pair. Narrow the view instead:
 
 A longer `--timeout` does not reduce the loss - it collects more of it - but it does give every
 instance more chances to be sampled twice, which is exactly what the coverage figures above
-compare: what the default one-shot measured against what is measured at 30 s.
+compare: what was measured at 5 s (at 40 processes) or by the default one-shot (at 20
+processes) against what is measured at 30 s.
 
 `stats.samples_lost_at_start` is counted apart and never warns. Every reader is told about the
 samples a writer's keep-last history had already dropped when it matched, which says nothing
@@ -464,6 +484,7 @@ never the losses that keep coming after it.
   because the ROS distributions ship the compiled types in the Fast DDS library but
   neither their headers nor `fastddsgen`:
   `src/fastdds_transport_viz/third_party/fastdds_statistics_types/` (Fast DDS 2.14.6,
-  Jazzy) and `.../fastdds_statistics_types_v3/` (generated from Fast DDS 3.2.4, used on Lyrical / Rolling);
-  CMake picks one by the Fast DDS major version. Replace the matching directory when
-  targeting another Fast DDS version.
+  Jazzy), `.../fastdds_statistics_types_v26/` (Fast DDS 2.6.12, Humble, used below 2.10:
+  2.6 serializes with the fastcdr 1.0 API) and `.../fastdds_statistics_types_v3/` (generated
+  from Fast DDS 3.2.4, used on Lyrical / Rolling); CMake picks one by the Fast DDS version.
+  Replace the matching directory when targeting another Fast DDS version.
