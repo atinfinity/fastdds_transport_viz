@@ -2,6 +2,11 @@
 Changelog for package ros2transport
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+2.1.0 (2026-09-22)
+-------------------
+* No change to the package; released with ``fastdds_transport_viz`` 2.1.0, whose image on
+  GHCR includes it (#78).
+
 2.0.1 (2026-09-22)
 -------------------
 * ``ros2 transport list --help`` gives the right ``--timeout`` default with ``--stats``
