@@ -36,7 +36,7 @@ open web/index.html            # macOS。あるいはファイルをダブルク
 | 箱 | ROS ノード (statistics があれば名前の下に `process id`)。赤い `+N unmatched` は相手のいないトピック |
 | 矢印 | 2 ノード間の同じ transport・同じ確信度の writer → reader ペアを束ねたもの。ラベルはペア数 |
 | 丸い箱 | Discovery Server (`SERVER` / `BACKUP` の participant。アナウンスされた名前、なければ `Discovery Server`、下に最初の locator)。そのホストの列に出ます ([#86](https://github.com/atinfinity/fastdds_transport_viz/issues/86)) |
-| `CLIENT` タグ | participant が `CLIENT` / `SUPER_CLIENT` とアナウンスしたノード。文書がどのサーバーか判定できた場合はラベルのない灰色の点線がサーバーへ伸びます ([how-it-works.ja.md](how-it-works.ja.md) 参照)。transport の凡例の外で、束ねられません |
+| `CLIENT` タグ | participant が `CLIENT` / `SUPER_CLIENT` とアナウンスしたノード。文書がどのサーバーか判定できた場合はラベルのない灰色の点線がサーバーへ伸びます ([how-it-works.ja.md](how-it-works.ja.md#ノードと同じ場所で実行する) 参照)。transport の凡例の外で、束ねられません |
 | 色 | UDPv4 青 · UDPv6 水色 · TCP 紫 · SHM 緑 · DATA_SHARING 橙 · NONE 灰 (凡例はツールバー) |
 | 破線 | 確信度 `likely` |
 | 赤い縁 | 警告が 1 つ以上ある (例: `measured-transport-mismatch`) |
@@ -61,7 +61,7 @@ prefix と metatraffic locator、そのサーバーが、サーバーならそ�
 `stats.warnings` に従うので、印の無い `N lost` は害の無かった損失です ([statistics.ja.md](statistics.ja.md#大規模なシステム) 参照)。
 
 ヘッダの 2 行目は `transport_viz` が動いた環境の共有メモリの要約です (文書の `shm`
-オブジェクト。[how-it-works.md](how-it-works.md#環境の共有メモリ) 参照): `/dev/shm` の容量、
+オブジェクト。[how-it-works.ja.md](how-it-works.ja.md#環境の共有メモリ) 参照): `/dev/shm` の容量、
 Fast DDS が置いているもの、stale なファイル、`shm-*` の警告。
 
 **Table** タブは CLI の `--verbose` と同じ形です: トピックごとの見出し行の下にペア行が並びます。

@@ -68,7 +68,7 @@ data-sharing の writer は履歴を `/dev/shm` の `fast_datasharing_<writer �
 JSON の `datasharing_history_bytes` と web viewer のエンドポイント詳細に出します。data-sharing の
 エンドポイントのセグメント (writer の履歴、reader の通知ファイル) がそもそもそこにあるかは
 `datasharing_segment_visibility` です ([#163](https://github.com/atinfinity/fastdds_transport_viz/issues/163))。環境の共有メモリの
-行はこうした履歴をすべて数えます ([how-it-works.md](how-it-works.md#環境の共有メモリ) 参照)。
+行はこうした履歴をすべて数えます ([how-it-works.ja.md](how-it-works.ja.md#環境の共有メモリ) 参照)。
 Fast DDS は writer が kill されてもこのファイルを消さないので、終了した writer の履歴は
 `fastdds shm clean` を実行するまで *unmatched* として現れます。data-sharing の reader は通知セグメント
 `fast_datasharing_<reader の GUID>` を作り、これは `datasharing_notifications` として数えます。writer の

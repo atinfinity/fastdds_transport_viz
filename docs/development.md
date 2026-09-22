@@ -658,12 +658,21 @@ or the security policy.
 (English at `/`, Japanese at `/ja/` from the `*.ja.md` files, English fallback for
 untranslated pages). `.github/workflows/docs.yml` runs `mkdocs build --strict` on pull
 requests and deploys to GitHub Pages on pushes to `main`, in both cases only when `docs/**`,
-`README*.md`, `mkdocs.yml` or the workflow itself changed (the aggregate `Docs result`
-check passes otherwise). Locally:
+any `*.md` file, `mkdocs.yml` or the workflow itself changed (the aggregate `Docs result`
+check passes otherwise). Broken links and anchors fail the build: `mkdocs.yml` sets its
+`validation` checks to `warn`, and `--strict` turns warnings into errors. The same workflow
+runs [lychee](https://github.com/lycheeverse/lychee) offline over every Markdown file of
+the repository, which covers the files outside `docs/` and the links as GitHub renders them.
+The two differ on one point: on the site a Japanese page's link to `x.md` goes to `x.ja.md`,
+on GitHub it does not, so a Japanese page links `x.ja.md` directly. The English-only pages
+(architecture, development) are also served under `/ja/`, where their links go to the
+Japanese pages; an anchor they use there needs an `<a id="...">` in the `.ja.md` file (see
+how-it-works.ja.md). Locally:
 
 ```
 pip install -r docs/requirements.txt
 mkdocs serve          # http://127.0.0.1:8000/
+docker run --rm -v "$PWD":/w -w /w lycheeverse/lychee --offline --include-fragments --exclude-path build './**/*.md'
 ```
 
 ## Colored output examples

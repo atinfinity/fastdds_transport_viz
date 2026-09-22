@@ -37,7 +37,7 @@ the tool's own `HISTORY_LATENCY` reader can hold between two drains (100 per ins
 50 ms, see [Reader QoS](#reader-qos)): 1000 samples/s per pair are counted to within 0.1 %,
 verified for SHM between two processes, intraprocess and data-sharing pairs at 10, 100 and
 1000 Hz on Jazzy and Lyrical (`scripts/integration_test.sh rate_stats`, tolerance ±3 %, see
-[development.md](development.md#verification-log)). When samples of that topic were lost on
+[development.md](development.md#verification-results)). When samples of that topic were lost on
 the way to the tool, the rate is a lower bound and is printed as `≥120`
 (`delivered_per_s_lower_bound: true`). The statistics writer that publishes a pair's
 `HISTORY_LATENCY` belongs to the reader's participant and numbers the samples of all its pairs

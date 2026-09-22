@@ -35,6 +35,14 @@ nav:
     - Architecture: architecture.md
     - Development, verification and tests: development.md
 
+# Broken links and anchors are warnings, so `mkdocs build --strict` (docs.yml) fails on them.
+# Pages outside docs/ and the GitHub rendering are checked by lychee in the same workflow.
+validation:
+  omitted_files: warn
+  absolute_links: warn
+  unrecognized_links: warn
+  anchors: warn
+
 plugins:
   - search
   - i18n:
