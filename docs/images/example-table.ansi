@@ -1,11 +1,10 @@
-TOPIC     TYPE                 PUBS  SUBS  TRANSPORT         LATENCY  LOSS  REASON
-/bounded  std_msgs/msg/Int32   1     1     [33mDATA_SHARING[0m x1   188 µs   0     same-host-guid,datasharing-qos-enabled-both,datasharing-domain-ids-match,datasharing-confirmed-no-data-submessages
-    /bounded_pub@d3c3f5facf1f(197) -> /bounded_sub@d3c3f5facf1f(215)  [33mDATA_SHARING[0m  188 µs (max 351 µs)  0  measured=SHM (idle)  same-host-guid,datasharing-qos-enabled-both,datasharing-domain-ids-match,datasharing-confirmed-no-data-submessages
-/chatter  std_msgs/msg/String  1     2     [34mUDPv4[0m x1, [32mSHM[0m x1  432 µs   0     same-host-guid,datasharing-disabled-writer,reader-no-shm-locator,common-udpv4-locator,measured-udpv4-traffic,both-shm-locators,measured-shm-traffic
-    /talker@d3c3f5facf1f(187) -> /listener_udp@d3c3f5facf1f(186)  [34mUDPv4[0m  395 µs (max 448 µs)  0  measured=UDPv4 7pkt 924 B  same-host-guid,datasharing-disabled-writer,reader-no-shm-locator,common-udpv4-locator,measured-udpv4-traffic
-    /talker@d3c3f5facf1f(187) -> /listener@d3c3f5facf1f(192)      [32mSHM[0m    432 µs (max 493 µs)  0  measured=SHM 7pkt 924 B    same-host-guid,datasharing-disabled-writer,both-shm-locators,measured-shm-traffic
+TOPIC     TYPE                 PUBS  SUBS  TRANSPORT         LATENCY  HZ  LOSS  REASON
+/bounded  std_msgs/msg/Int32   1     1     [33mDATA_SHARING[0m x1   108 µs       0     same-host-guid,datasharing-qos-enabled-both,datasharing-domain-ids-match,datasharing-confirmed-no-data-submessages
+    /bounded_pub@ba8b86aa803d(688) -> /bounded_sub@ba8b86aa803d(690)  [33mDATA_SHARING[0m  108 µs (max 155 µs)  10.0  0  measured=SHM (unmeasured, delivered)  same-host-guid,datasharing-qos-enabled-both,datasharing-domain-ids-match,datasharing-confirmed-no-data-submessages
+/chatter  std_msgs/msg/String  1     2     [34mUDPv4[0m x1, [32mSHM[0m x1  217 µs       0     same-host-guid,datasharing-disabled-writer,reader-no-shm-locator,common-udpv4-locator,measured-udpv4-traffic,both-shm-locators,measured-shm-traffic
+    /talker@ba8b86aa803d(691) -> /listener_udp@ba8b86aa803d(689)  [34mUDPv4[0m  185 µs (max 239 µs)  1.0  0  measured=UDPv4 9pkt 1.19 kB  same-host-guid,datasharing-disabled-writer,reader-no-shm-locator,common-udpv4-locator,measured-udpv4-traffic
+    /talker@ba8b86aa803d(691) -> /listener@ba8b86aa803d(692)      [32mSHM[0m    217 µs (max 254 µs)  1.0  0  measured=SHM 10pkt 1.31 kB   same-host-guid,datasharing-disabled-writer,both-shm-locators,measured-shm-traffic
 
-statistics: 431 samples from 5 participant(s)
+statistics: 448 samples from 5 participant(s)
 
-[1mshared memory: [0m/dev/shm 6.20 MB used of 4.16 GB (4.15 GB free) | Fast DDS 6.10 MB in 10 segment(s) (4 stale), 11 port(s), 1 data-sharing history, 1 data-sharing notification(s)
-  [31m!shm-stale-files[0m: 4 file(s) without a living owner, run 'fastdds shm clean'
+[1mshared memory: [0m/dev/shm 37.4 MB used of 16.7 GB (16.6 GB free) | Fast DDS 3.90 MB in 6 segment(s), 11 port(s), 1 data-sharing history, 1 data-sharing notification(s)

@@ -27,11 +27,14 @@ def add_list_arguments(parser):
         help='DDS domain id (default: $ROS_DOMAIN_ID or 0)')
     parser.add_argument(
         '--timeout', type=float, metavar='SEC',
-        help='max time to wait for discovery (default: 3, 5 with --stats)')
+        help='max time to wait for discovery (default: 3, 30 with --stats)')
     parser.add_argument(
         '--quiet', type=float, metavar='SEC',
         help='stop early after this many seconds without discovery events '
-             '(default: 1; ignored with --stats)')
+             '(default: 1; with --stats also once every participant with statistics has '
+             'been heard from and the traffic entries measured towards a discovered reader '
+             'stop growing for max(--quiet, 3) s, never before 5 s; --watch --stats draws '
+             'its first frame once discovery is quiet and 5 s have passed)')
     parser.add_argument(
         '--topic', metavar='REGEX',
         help='only show topics whose (ROS) name matches the regex')

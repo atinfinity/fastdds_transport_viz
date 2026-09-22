@@ -102,7 +102,7 @@ namespace
 struct Options
 {
   int domain{-1};             // -1 => ROS_DOMAIN_ID / 0
-  double timeout{-1.0};       // seconds to wait for discovery (-1: 3, or 20 with --stats)
+  double timeout{-1.0};       // seconds to wait for discovery (-1: 3, or 30 with --stats)
   bool stats{false};
   double quiet{1.0};          // stop early after this many silent seconds
   bool json{false};
