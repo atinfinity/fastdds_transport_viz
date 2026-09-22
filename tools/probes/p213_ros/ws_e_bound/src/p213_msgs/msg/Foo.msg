@@ -1,0 +1,3 @@
+int32 FOO=1
+int32 x 5
+string<=64 s
