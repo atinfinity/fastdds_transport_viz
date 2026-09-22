@@ -37,7 +37,7 @@ the tool's own `HISTORY_LATENCY` reader can hold between two drains (100 per ins
 50 ms, see [Reader QoS](#reader-qos)): 1000 samples/s per pair are counted to within 0.1 %,
 verified for SHM between two processes, intraprocess and data-sharing pairs at 10, 100 and
 1000 Hz on Jazzy and Lyrical (`scripts/integration_test.sh rate_stats`, tolerance ±3 %, see
-[development.md](development.md#verification-results)). When samples of that topic were lost on
+[verification-log.md](verification-log.md#verification-results)). When samples of that topic were lost on
 the way to the tool, the rate is a lower bound and is printed as `≥120`
 (`delivered_per_s_lower_bound: true`). The statistics writer that publishes a pair's
 `HISTORY_LATENCY` belongs to the reader's participant and numbers the samples of all its pairs
@@ -327,7 +327,7 @@ samples were reported lost per run - keep-last 10 overwrites an instance's sampl
 the reader gets to ask for them; on Lyrical, with the 500 ms heartbeat, pull mode measured
 every pair and cost the tool a third less CPU (0.49 instead of 0.7 cores), but one delivery
 mechanism for both distros was preferred over a second version split. The numbers are in
-[development.md](development.md#verification-results).
+[verification-log.md](verification-log.md#verification-results).
 
 ## Reader QoS
 
@@ -367,7 +367,7 @@ the time between two takes, so the cadence matters more than the depth.
 ## Large systems
 
 Measured on an 8-CPU Docker VM with Jazzy (Fast DDS 2.14.6), statistics on every node, the
-tool next to the nodes (details: [development.md](development.md#scale-results)):
+tool next to the nodes (details: [verification-log.md](verification-log.md#scale-results)):
 
 - **Up to about 10 processes and 500 pairs** everything keeps up: every pair is measured within 5 s, and the default `--stats` one-shot ends a few seconds after that.
 - **At 20 processes and 2400 pairs** the default `--stats` one-shot settles after 17-23 s and measures 95-100 % of the pairs, and the one-shot table shows all of them. A 5 s run measured none ([#168](https://github.com/atinfinity/fastdds_transport_viz/issues/168): the statistics writers hand their history to the tool's readers one process at a time), and before [#141](https://github.com/atinfinity/fastdds_transport_viz/issues/141) a quarter of the pairs had no measurement and the table showed one.

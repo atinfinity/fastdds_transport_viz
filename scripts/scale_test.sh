@@ -17,7 +17,7 @@
 # with FASTDDS_STATISTICS. transport_viz runs inside the load container (`docker compose exec`)
 # with FTV_PROFILE=1; scripts/scale_measure.py drives it, checks the budgets and writes
 # build/<distro>/scale/<label>.json (plus <label>.viz.json for the web viewer and
-# <label>.table-v.txt), then prints the Markdown row for docs/development.md "Scale results".
+# <label>.table-v.txt), then prints the Markdown row for docs/verification-log.md "Scale results".
 set -euo pipefail
 cd "$(dirname "$0")/.."
 

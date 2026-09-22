@@ -186,7 +186,7 @@ viewer は受信したフレームをすべて保持します
 上限で 90 フレーム (1 分半) を保持します。1 フレームにかかる時間は追従中 17 ms、一時停止中 12 ms、
 最も古い 9 フレームの破棄はそれを引き起こしたフレームと合わせて 14 ms でした。JavaScript ヒープは
 38-49 MB のままで (フレームのテキストはヒープではなくブラウザの Blob ストアにあります)、**match by**
-による 90 フレームの読み直しは 0.8 秒でした ([development.md](development.md#scale-results))。
+による 90 フレームの読み直しは 0.8 秒でした ([verification-log.md](verification-log.md#scale-results))。
 もっと遡りたいときは上限を上げ、小さなマシンでは下げてください。
 
 `document` イベントにはそれぞれ `id:` (サーバーのストリーム内での番号) が付きます。サーバーは
@@ -326,7 +326,7 @@ ros2 run fastdds_transport_viz transport_viz --watch --json --stats --interval 1
 読み終えた時点で表示し、タイムラインの横に "loading x / y MB" を出します。フレームは表示する
 ときにもう一度パースします。2400 ペアの `medium` スケール文書 60 フレーム (1 フレーム 5.5 MB、
 332 MB) の録画では、最初のフレームが 0.6-0.8 秒で出て、1.4-1.6 秒で読み終わり、フレームの移動は
-33 ms、JavaScript ヒープは約 45 MB でした ([development.md](development.md#scale-results))。
+33 ms、JavaScript ヒープは約 45 MB でした ([verification-log.md](verification-log.md#scale-results))。
 この規模で `--interval 1` なら 1 時間で約 20 GB になります。丸 1 日ではなく、問題の前後数分を
 録画するか `--interval` を大きくしてください。
 
@@ -334,7 +334,7 @@ ros2 run fastdds_transport_viz transport_viz --watch --json --stats --interval 1
 
 スケール検証の文書を Apple M3 上のヘッドレス Chrome で開き、
 [#136](https://github.com/atinfinity/fastdds_transport_viz/issues/136) の後に測りました (詳細は
-[development.md](development.md#scale-results))。
+[verification-log.md](verification-log.md#scale-results))。
 
 | 文書 | 初回描画 | トピックのフィルタ / ノードのフィルタ / その解除 | 選択 / 選択解除 |
 |---|---|---|---|

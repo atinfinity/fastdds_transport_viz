@@ -201,7 +201,7 @@ stream sends it) the default keeps 90 frames, a minute and a half; a frame costs
 17 ms while it follows and 12 ms while it is paused, the drop of the oldest nine took
 14 ms together with the frame that caused it, the JavaScript heap stayed at 38-49 MB (the
 frames' text is in the browser's Blob store, not the heap), and **match by** read the 90
-kept frames again in 0.8 s ([development.md](development.md#scale-results)). Raise the
+kept frames again in 0.8 s ([verification-log.md](verification-log.md#scale-results)). Raise the
 bound for a longer look back, lower it on a small machine.
 
 Every `document` event carries `id:`, its number in the server's stream. The server sends a
@@ -351,7 +351,7 @@ one) as soon as it has been read with "loading x / y MB" next to the timeline, a
 frame again when it is shown. A 60-frame recording of the 2400-pair `medium` scale
 document (5.5 MB per frame, 332 MB) shows its first frame in 0.6-0.8 s, finishes reading
 in 1.4-1.6 s and moves between frames in 33 ms, with about 45 MB of JavaScript heap
-([development.md](development.md#scale-results)). At that size an hour at
+([verification-log.md](verification-log.md#scale-results)). At that size an hour at
 `--interval 1` is about 20 GB: record the minutes around the problem, or raise
 `--interval`, rather than a whole day.
 
@@ -359,7 +359,7 @@ in 1.4-1.6 s and moves between frames in 33 ms, with about 45 MB of JavaScript h
 
 Measured in headless Chrome on an Apple M3 with documents of the scale verification, after
 [#136](https://github.com/atinfinity/fastdds_transport_viz/issues/136) (details:
-[development.md](development.md#scale-results)):
+[verification-log.md](verification-log.md#scale-results)):
 
 | Document | First render | Topic filter / node filter / clearing it | Select / deselect |
 |---|---|---|---|

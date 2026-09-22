@@ -169,7 +169,7 @@ void attribute_discovery_servers(std::vector<Participant> & participants, bool e
 /// The one stderr line an incomplete observation earns (#133), or "" when the view was
 /// complete or could not be judged. `quiet`, `timeout` and `stats` are the settings this run
 /// used: the advice is always longer than they are, and never below what a large system
-/// needed in docs/development.md "Scale results". With --stats only --timeout is advised,
+/// needed in docs/verification-log.md "Scale results". With --stats only --timeout is advised,
 /// because the quiet window is disabled there. Pure function.
 std::string incomplete_discovery_warning(
   const DiscoveryStatus & status, double quiet, double timeout, bool stats);
