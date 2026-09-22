@@ -27,7 +27,7 @@ body:
     id: os-arch
     attributes:
       label: OS / architecture
-      description: e.g. "Ubuntu 24.04, x86_64", "Docker (ros:jazzy image), arm64 host", "macOS via RoboStack"
+      description: e.g. "Ubuntu 24.04, x86_64", "Docker (ros:jazzy image), arm64 host"
       placeholder: Ubuntu 24.04, x86_64
     validations:
       required: true

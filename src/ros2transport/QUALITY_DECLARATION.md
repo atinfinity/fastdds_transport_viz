@@ -41,7 +41,7 @@ Not guaranteed, as for `fastdds_transport_viz`: one `main` branch serves every d
 ## Change Control Process [2]
 
 `ros2transport` lives in the same repository and follows the same process as `fastdds_transport_viz`: see its [Change Control Process](../fastdds_transport_viz/QUALITY_DECLARATION.md#change-control-process-2).
-All changes go through pull requests against `main`, whose required checks build and test this package on every distribution in CI.
+All changes go through pull requests against `main`, whose required checks build and test this package on Humble, Jazzy and Lyrical in CI; Rolling is built and tested too but, being `continue-on-error`, does not block a pull request (the weekly Rolling workflow reports its breakages).
 
 ## Documentation [3]
 
