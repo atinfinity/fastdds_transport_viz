@@ -599,7 +599,7 @@ the Fast DDS 2.14 / 3.x compatibility layer, the repository layout and extension
 
 ## Release procedure
 
-Both packages are released together under one version; 1.1.0, 2.0.0 and 2.0.1 were made this way.
+Both packages are released together under one version; 1.1.0, 2.0.0, 2.0.1 and 2.1.0 were made this way.
 
 1. Check that the CHANGELOGs are complete: go through `git log vX.Y.Z..main` (the last tag)
    and add a `Forthcoming` entry for every user-visible change that lacks one, in
@@ -724,6 +724,10 @@ Done:
 - Release 2.0.1: documentation brought in line with 2.0.0, the verification log, the
   release procedure, link and workflow checks in CI —
   [#224](https://github.com/atinfinity/fastdds_transport_viz/issues/224)
+- Ready-to-run Docker image on GHCR for Humble, Jazzy and Lyrical (amd64, arm64), built and
+  smoke-tested at every release tag —
+  [#78](https://github.com/atinfinity/fastdds_transport_viz/issues/78)
+- Release 2.1.0: the first release published as a container image
 
 Open, by priority (labels `priority/1-high` … `priority/3-low` on the issues):
 
@@ -739,5 +743,4 @@ Open, by priority (labels `priority/1-high` … `priority/3-low` on the issues):
 `priority/3-low`:
 
 - DDS Security (SROS2) — [#49](https://github.com/atinfinity/fastdds_transport_viz/issues/49)
-- Ready-to-run Docker image on GHCR — [#78](https://github.com/atinfinity/fastdds_transport_viz/issues/78)
 - Report to eProsima: Easy Mode hides endpoints from a host without a node of their type — [#100](https://github.com/atinfinity/fastdds_transport_viz/issues/100)

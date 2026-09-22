@@ -2,8 +2,8 @@
 Changelog for package fastdds_transport_viz
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+2.1.0 (2026-09-22)
+-------------------
 * A ready-to-run image on GHCR (#78): ``ghcr.io/atinfinity/fastdds_transport_viz`` with
   ``:<X.Y.Z>-<distro>``, ``:<distro>`` (Humble, Jazzy, Lyrical) and ``:latest`` (Jazzy),
   for x86_64 and arm64. It is the new ``release`` stage of ``docker/Dockerfile``
