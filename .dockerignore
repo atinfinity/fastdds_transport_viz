@@ -1,0 +1,8 @@
+# Build context of docker/Dockerfile: the stages copy docker/, src/ and web/ only. Keeping
+# the per-distro colcon trees (build/, several GB) and the git history out of the context
+# makes every image build start fast.
+.git
+build
+install
+log
+**/__pycache__
