@@ -579,6 +579,31 @@ and architecture.md) has no translation.
 See [architecture.md](architecture.md): components, the flow of one run, the data model,
 the Fast DDS 2.14 / 3.x compatibility layer, the repository layout and extension points.
 
+## Release procedure
+
+Both packages are released together under one version; 1.1.0 and 2.0.0 were made this way.
+
+1. Check that the CHANGELOGs are complete: go through `git log vX.Y.Z..main` (the last tag)
+   and add a `Forthcoming` entry for every user-visible change that lacks one, in
+   `src/fastdds_transport_viz/CHANGELOG.rst` and `src/ros2transport/CHANGELOG.rst`.
+2. Choose the version by the `semver` rules of the
+   [quality declaration](https://github.com/atinfinity/fastdds_transport_viz/blob/main/src/fastdds_transport_viz/QUALITY_DECLARATION.md#api-stability-policy-1iv)
+   (a breaking change to the declared public API is a major release), and list the breaking
+   changes at the top of the new section.
+3. On a `release/X.Y.Z` branch, set the version in both `package.xml` files and in
+   `src/ros2transport/setup.py`.
+4. In both CHANGELOGs, turn `Forthcoming` into `X.Y.Z (YYYY-MM-DD)`.
+5. Update the [Roadmap](#roadmap) below: the Done entries, the Open list and its "As of" date.
+6. Open the pull request and merge it once CI is green.
+7. Tag the merge commit and push the tag:
+   `git tag -a vX.Y.Z -m "fastdds_transport_viz X.Y.Z" <merge commit>` and
+   `git push origin vX.Y.Z`.
+8. `gh release create vX.Y.Z --title vX.Y.Z --notes-file <notes> --latest`, with a short
+   summary followed by the CHANGELOG section as the notes.
+
+Releasing into the ROS build farm with `bloom-release` is not done yet
+([#50](https://github.com/atinfinity/fastdds_transport_viz/issues/50)).
+
 ## Roadmap
 
 As of 2026-09-22. The [issue tracker](https://github.com/atinfinity/fastdds_transport_viz/issues)

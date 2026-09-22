@@ -132,7 +132,7 @@ ros2 transport codes
 - [Data-sharing (zero-copy)](data-sharing.ja.md) — ROS 2 トピックが既定で `SHM` になる理由と data-sharing の有効化
 - [Web viewer](web-viewer.ja.md) — `--json` 出力のグラフ表示とトピックごとにまとめた表、ライブモード (`transport_viz_web`) とその履歴、録画と再生 (`--record`)、Prometheus の `/metrics`、JSON スキーマ
 - [Architecture](architecture.md) (英語) — コンポーネント、1 回の実行の流れ、データモデル、Fast DDS 2.14/3.x の互換層、拡張ポイント
-- [開発・検証・テスト](development.md) (英語) — Docker 環境、パッケージ構成、検証ノード、マルチコンテナのシナリオ、テスト、規模の検証の手順、ロードマップ
+- [開発・検証・テスト](development.md) (英語) — Docker 環境、パッケージ構成、検証ノード、マルチコンテナのシナリオ、テスト、規模の検証の手順、リリース手順、ロードマップ
 - [検証ログ](verification-log.md) (英語) — 日付つきの規模の検証結果と検証の記録
 
 ## 制限事項

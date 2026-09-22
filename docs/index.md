@@ -137,7 +137,7 @@ way and highlights the result. Details in
 - [Data-sharing (zero-copy)](data-sharing.md) — why ROS 2 topics show `SHM` by default and how to enable data-sharing
 - [Web viewer](web-viewer.md) — graph view and a topic-grouped table of `--json` output in the browser, live mode (`transport_viz_web`) and its history, recording and replay (`--record`), Prometheus `/metrics`, JSON schema
 - [Architecture](architecture.md) — components, the flow of one run, data model, Fast DDS 2.14/3.x layer, extension points
-- [Development, verification and tests](development.md) — Docker environment, packages, verification nodes, multi-container scenarios, tests, scale harness, roadmap
+- [Development, verification and tests](development.md) — Docker environment, packages, verification nodes, multi-container scenarios, tests, scale harness, release procedure, roadmap
 - [Verification log](verification-log.md) — dated scale results and verification runs
 
 ## Limitations
