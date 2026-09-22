@@ -1,0 +1,187 @@
+name: Release image
+
+# The ready-to-run image on GHCR (#78): ghcr.io/atinfinity/fastdds_transport_viz with
+# :<X.Y.Z>-<distro> and :<distro> per distribution, and :latest = Jazzy, each for amd64 and
+# arm64. Built from the `release` stage of docker/Dockerfile at a release tag, on a pushed
+# v* tag or by hand for an existing tag (a rebuild on base image updates, or a retry).
+# Tags from before 2.1.0 have no `release` stage and fail to build.
+#
+# Nothing is pushed before the smoke test (scripts/image_smoke_test.sh) passed for every
+# distribution on both architectures: `build` builds and tests without pushing, `push`
+# rebuilds from its layer cache and pushes by digest, `manifest` puts the tags on the two
+# digests of each distribution. :<distro> and :latest move only for the newest v* tag, so a
+# rebuild of an older release leaves them alone.
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag to build (vX.Y.Z)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-image-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+env:
+  IMAGE: ghcr.io/${{ github.repository }}
+
+jobs:
+  resolve:
+    name: resolve the tag
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+      version: ${{ steps.tag.outputs.version }}
+      newest: ${{ steps.tag.outputs.newest }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - id: tag
+        env:
+          TAG: ${{ inputs.tag || github.ref_name }}
+        run: |
+          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::'$TAG' is not a release tag (vX.Y.Z)"; exit 1
+          fi
+          if ! git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
+            echo "::error::tag $TAG does not exist"; exit 1
+          fi
+          newest="$(git tag -l 'v*' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -1)"
+          {
+            echo "tag=$TAG"
+            echo "version=${TAG#v}"
+            echo "newest=$([[ "$TAG" == "$newest" ]] && echo true || echo false)"
+          } >> "$GITHUB_OUTPUT"
+          echo "$TAG (newest release tag: $newest)"
+
+  build:
+    name: build & smoke test (${{ matrix.distro }}, ${{ matrix.arch }})
+    needs: resolve
+    runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        distro: [humble, jazzy, lyrical]
+        arch: [amd64, arm64]
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: refs/tags/${{ needs.resolve.outputs.tag }}
+      - uses: docker/setup-buildx-action@v4
+      - name: Build
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: docker/Dockerfile
+          target: release
+          platforms: linux/${{ matrix.arch }}
+          build-args: |
+            ROS_DISTRO=${{ matrix.distro }}
+            VERSION=${{ needs.resolve.outputs.version }}
+          tags: fastdds_transport_viz:smoke
+          load: true
+          cache-to: type=gha,scope=release-${{ matrix.distro }}-${{ matrix.arch }},mode=max
+      - name: Smoke test
+        run: scripts/image_smoke_test.sh fastdds_transport_viz:smoke
+
+  push:
+    name: push by digest (${{ matrix.distro }}, ${{ matrix.arch }})
+    needs: [resolve, build]
+    runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        distro: [humble, jazzy, lyrical]
+        arch: [amd64, arm64]
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: refs/tags/${{ needs.resolve.outputs.tag }}
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      # The layers of the tested build, from its cache: no new apt upgrade in between.
+      - name: Push
+        id: push
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: docker/Dockerfile
+          target: release
+          platforms: linux/${{ matrix.arch }}
+          build-args: |
+            ROS_DISTRO=${{ matrix.distro }}
+            VERSION=${{ needs.resolve.outputs.version }}
+          cache-from: type=gha,scope=release-${{ matrix.distro }}-${{ matrix.arch }}
+          outputs: type=image,name=${{ env.IMAGE }},push-by-digest=true,name-canonical=true,push=true
+          provenance: false
+      - name: Record the digest
+        env:
+          DIGEST: ${{ steps.push.outputs.digest }}
+        run: |
+          mkdir -p digests
+          touch "digests/${DIGEST#sha256:}"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: digest-${{ matrix.distro }}-${{ matrix.arch }}
+          path: digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  manifest:
+    name: tag (${{ matrix.distro }})
+    needs: [resolve, push]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        distro: [humble, jazzy, lyrical]
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: digest-${{ matrix.distro }}-*
+          path: digests
+          merge-multiple: true
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Create the multi-arch tags
+        env:
+          DISTRO: ${{ matrix.distro }}
+          VERSION: ${{ needs.resolve.outputs.version }}
+          NEWEST: ${{ needs.resolve.outputs.newest }}
+        run: |
+          tags=(-t "$IMAGE:$VERSION-$DISTRO")
+          if [[ "$NEWEST" == true ]]; then
+            tags+=(-t "$IMAGE:$DISTRO")
+            if [[ "$DISTRO" == jazzy ]]; then tags+=(-t "$IMAGE:latest"); fi
+          fi
+          sources=()
+          for d in digests/*; do sources+=("$IMAGE@sha256:$(basename "$d")"); done
+          [[ ${#sources[@]} -eq 2 ]] || { echo "::error::expected 2 digests, got ${#sources[@]}"; exit 1; }
+          docker buildx imagetools create "${tags[@]}" "${sources[@]}"
+          docker buildx imagetools inspect "$IMAGE:$VERSION-$DISTRO"
+          for t in "${tags[@]}"; do [[ "$t" == -t ]] || echo "- $t"; done >> "$GITHUB_STEP_SUMMARY"
