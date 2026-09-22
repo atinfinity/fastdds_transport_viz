@@ -30,7 +30,25 @@ unbounded な型で writer の作成が失敗します。
 ## 確信度
 
 両エンドポイントが data-sharing を広告し、domain id に共通部分があれば (または少なくとも片方が
-domain id を広告していなければ)、判定は `likely` (`DATA_SHARING?`) です。`--stats` を付けると次の 2 通りで `certain` になります。
+domain id を広告していなければ)、判定は `likely` (`DATA_SHARING?`) です。ただし例外が 2 つあります。
+
+- writer と reader が別々の IPC 名前空間にある場合
+  ([#110](https://github.com/atinfinity/fastdds_transport_viz/issues/110)): Fast DDS は QoS だけで
+  両者をペアにしますが、reader は writer の履歴を開けず、何も届きません。ツールがそれを判別できる
+  とき (両方が SHM を持ち [IPC 名前空間の分断](how-it-works.ja.md#ipc-名前空間の分断) の SHM の
+  証拠がある場合、または 2 つの data-sharing セグメントの片方だけがツールの `/dev/shm` にある場合。
+  `datasharing-reader-segment-not-visible` / `datasharing-writer-segment-not-visible`) は、判定は
+  `NONE` (`certain`) で警告 `shm-ipc-namespace-split` が付き、`--stats` でも変わりません (配送の
+  証明があれば `shm-ipc-namespace-split-but-delivered` が加わります)。
+- writer と reader が同じプロセスにある場合
+  ([#201](https://github.com/atinfinity/fastdds_transport_viz/issues/201)): Fast DDS はサンプルを
+  data-sharing セグメント経由ではなくプロセス内で受け渡すので、理由は
+  `datasharing-unverified-by-traffic` ではなく `intra-process` になり、判定は `certain` になりません。
+  パケットも `DATA_COUNT` もセグメント経由の配送も無いので、確かめようがないためです。writer の
+  participant から reader へのパケットが実測されたときだけ `intra-process` の理由が外れ、以下の
+  規則が適用されます。
+
+それ以外では、`--stats` を付けると次の 2 通りで `certain` になります。
 
 - `HISTORY_LATENCY` が配送を証明し、かつ reader の locator にパケットが 1 つも届いていない
   (`datasharing-confirmed-no-traffic`)。
