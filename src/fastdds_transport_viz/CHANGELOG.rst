@@ -90,8 +90,8 @@ Changes:
   ``--json``. What is lost while the statistics writers are still matching (5 s after each
   match) is the normal start-up burst, counted apart and never warned about.
 * Fast DDS 3.x Easy Mode (``ROS2_EASY_MODE``) and its ``P2P`` builtin transport are
-  verified on Kilted 3.2.4 and Lyrical 3.6.2 (launch test, ``easy_mode_shm`` /
-  ``easy_mode_tcp`` scenarios, a CI entry) (#71). The ``fastdds discovery auto`` CLI that
+  verified on Lyrical 3.6.2 (launch test, ``easy_mode_shm`` / ``easy_mode_tcp`` scenarios,
+  a CI entry) and by hand on Kilted 3.2.4 (#71). The ``fastdds discovery auto`` CLI that
   Fast DDS runs for every participant in Easy Mode reports on stdout, which landed in
   front of the ``--json`` document; the tool now routes it to stderr and says that it
   observes through this host's Discovery Server.
@@ -214,9 +214,9 @@ Changes:
   at the 5 s minimum window rather than burning ``--timeout`` and then warning that no
   ``RTPS_SENT`` entry towards a reader was measured. A publisher-only system settles the
   same way. ``stats.measurable_pairs`` is additive in ``--json``; ``schema_version``
-  stays 1. The ``rtps-sent-absent`` remedy no longer blames Fast DDS 3.6 alone: the
-  statistics writers are in pull mode on every version, so ``config/statistics.xml`` is
-  the answer everywhere.
+  stays 1. The ``rtps-sent-absent`` remedy no longer blames Fast DDS 3.6 alone: Fast DDS's
+  built-in statistics writers are in pull mode on every version, so ``config/statistics.xml``
+  is the answer everywhere.
 * A multicast-only pair now lets a ``--stats`` one-shot settle (#196): the settle rule
   counted ``RTPS_SENT`` instances towards a discovered reader's *unicast* port only, while
   the measurement attributes packets to any locator the reader receives on, so a run whose
@@ -298,8 +298,9 @@ Changes:
   altogether -- the same limit the tool already warns about on the writer side. Instances
   and ``max_samples`` are now unlimited and only ``max_samples_per_instance`` is bounded,
   because a total cap would refuse samples once enough instances exist and a refusal is
-  counted as ``samples_rejected``. At 20 processes and 2400 pairs this takes the statistics
-  coverage from 0.947 to 1.0 and the one-shot table from one measured pair to all 2400.
+  counted as ``samples_rejected``. At 20 processes and 2400 pairs this takes the 5 s
+  statistics coverage of a one-shot run from 0.947 (the build just before this change) to 1.0
+  and the one-shot table from one measured pair to all 2400.
   ``HISTORY_LATENCY`` also goes best-effort and volatile: it is by far the loudest topic,
   nothing it carries is cumulative, it is the only one that never reads ``first``, and
   receiving it reliably costs more than it is worth -- measured at the same size, its
@@ -320,13 +321,16 @@ Changes:
 * Losing a ``HISTORY_LATENCY`` sample and losing a counter sample are no longer one number
   (#141). The latency reader is best-effort by design -- that is what lets the tool keep up
   -- so it reports every sequence gap in the loudest topic there is, and ``samples_lost``
-  therefore grew by orders of magnitude in the very change that took the statistics coverage
-  at 20 processes from 0.74 to 1.0: the tool measures every pair and says louder than ever
+  therefore grew by orders of magnitude in the very change that took the 5 s statistics
+  coverage at 20 processes to 1.0 (from 0.74 in the #74 measurement, before #137, and from
+  0.947 just before this change): the tool measures every pair and says louder than ever
   that it cannot keep up. ``stats.samples_lost_latency`` now counts that part apart -- as a
   part of ``samples_lost``, so nothing about the existing field changes -- and the
   ``stats-samples-lost`` warning, the one stderr line, the table's ``statistics:`` footer,
-  the web viewer's meta bar and the scale harness's ``stats_dropped_samples`` budget all
-  judge ``samples_lost`` without it and name the latency losses separately. The two are not
+  the web viewer's meta bar and the scale harness's dropped-samples count all judge
+  ``samples_lost`` without it and name the latency losses separately (the count is
+  record-only: ``stats_watch_coverage`` replaced its ``stats_dropped_samples`` budget,
+  #147). The two are not
   the same failure: a counter is read as ``last - first`` over the observation window, so
   losing a counter sample shortens the window that difference covers and, when it leaves an
   instance with fewer than two samples in it, costs the entity its measurement, while a
@@ -384,7 +388,7 @@ Changes:
   no delivery while the data flowed. The tool links each companion to its parent (same
   participant, kind and type, several candidates told apart by the entity key) and adds the
   companion's per-entity counters (delivered samples, DATA_COUNT, resends, heartbeats, gaps,
-  acknacks, nackfrags, throughput, latency) to the parent pair, which gets
+  acknacks, nackfrags, latency) to the parent pair, which gets
   ``buffer-companion-folded``. The companion topic keeps its own numbers with
   ``buffer-companion`` and is shown only with ``--all`` (and with "hide ROS internal
   topics" off in the web viewer) when all its endpoints are linked; an unlinked one stays

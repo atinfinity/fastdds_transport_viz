@@ -31,14 +31,30 @@ colcon test && colcon test-result --verbose
 `ament_lint_auto` (cpplint, uncrustify, flake8, pep257, ...) is wired into the normal
 `colcon test` run — there's no separate lint step or command to remember.
 
+The web viewer has its own tests, unit tests under Node and headless-browser tests (Node >= 22
+and Chrome), and the documentation site is built strictly; both run from the repository root:
+
+```
+node --test "web/test/*.test.js"
+mkdocs build --strict
+```
+
+A change that alters behavior updates the documentation (`README*.md`, `docs/*.md`, `--help`
+text) and `CHANGELOG.rst` in the same pull request, with the Japanese pages (`*.ja.md`) kept in
+step with the English ones.
+
 ## Branches and pull requests
 
 - Branch names follow `feature/<issue-number>-<slug>` for work tied to an issue, or
   `docs/<slug>` for docs-only changes.
 - Open the PR against `main`; the [PR template](.github/PULL_REQUEST_TEMPLATE.md) will be
   applied automatically.
-- CI (`.github/workflows/ci.yml`) builds and tests against Humble, Jazzy, Lyrical and Rolling
-  and is required to pass before merging.
+- Two aggregate checks are required to pass before merging: `CI result` of
+  `.github/workflows/ci.yml` (`colcon build` and `colcon test` against Humble, Jazzy, Lyrical
+  and Rolling, a coverage build and the web viewer tests) and `Docs result` of
+  `.github/workflows/docs.yml` (`mkdocs build --strict` and an offline link check of every
+  Markdown file with lychee). Rolling runs with `continue-on-error`: a Rolling failure does
+  not block a pull request, and the weekly `.github/workflows/rolling.yml` run reports it.
 
 ## License
 

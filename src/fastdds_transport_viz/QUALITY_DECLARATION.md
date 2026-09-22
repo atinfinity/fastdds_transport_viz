@@ -28,7 +28,7 @@ The public API of this package is what a user or a script relies on:
 - the `--json` document, as specified by the JSON Schema in [`schema/`](../../schema/) and versioned by its `schema_version` field;
 - the `--csv` columns;
 - the `transport_viz_web` command line and HTTP endpoints: its options, `/events`, `/latest.json`, the series names and labels of `/metrics`, and the JSON Lines format written by `--record`;
-- the URL parameters of the web viewer (`?src=`, `?live=1`, `?history=`, `&frame=`).
+- the URL parameters of the web viewer (`?src=`, `&diff=`, `&frame=`, `?live=1`, `?history=`, `&key=guid`).
 
 Not part of the public API, and free to change in any release:
 
@@ -74,14 +74,16 @@ Not required at Level 3. The project has one maintainer, and pull requests are n
 
 ### Continuous Integration [2.iv]
 
-Every pull request runs [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml), and its `CI result` and `Docs result` checks are required before merging:
+Every pull request runs [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) and [`.github/workflows/docs.yml`](../../.github/workflows/docs.yml), whose aggregate checks `CI result` and `Docs result` are required before merging.
+`CI result` covers:
 
-- `colcon build` and `colcon test` on Humble, Jazzy, Lyrical and Rolling (x86_64), Jazzy and Lyrical on arm64, and the released distributions again with `rmw_fastrtps_dynamic_cpp`;
+- `colcon build` and `colcon test` on Humble, Jazzy, Lyrical and Rolling (x86_64), Jazzy and Lyrical on arm64, and the released distributions again with `rmw_fastrtps_dynamic_cpp`; Rolling runs with `continue-on-error` and does not block a pull request;
 - a coverage build (Jazzy, x86_64) reported to [Coveralls](https://coveralls.io/github/atinfinity/fastdds_transport_viz);
-- the web viewer's unit and headless-browser tests (Node);
-- `mkdocs build --strict` of the documentation site.
+- the web viewer's unit and headless-browser tests (Node).
 
-Merges to `main` also run the multi-container integration scenarios (`scripts/integration_test.sh`) on x86_64 and arm64, and [`.github/workflows/rolling.yml`](../../.github/workflows/rolling.yml) builds and tests Rolling every week on both architectures, opening an issue when it breaks.
+`Docs result` covers `mkdocs build --strict` of the documentation site and an offline link check of every Markdown file (lychee).
+
+Merges to `main` also run the multi-container integration scenarios (`scripts/integration_test.sh`) on x86_64 and arm64, and [`.github/workflows/rolling.yml`](../../.github/workflows/rolling.yml) builds and tests Rolling every week on both architectures, opening an issue when it breaks; that is where a Rolling breakage is reported.
 
 ### Documentation Policy [2.v]
 
@@ -120,7 +122,7 @@ No centralized list of Level 3 packages exists, and the claim has not been throu
 
 Level 3 has no testing requirement. The package has, all run by `colcon test` in CI:
 
-- gtest unit tests of the decision logic, the renderers, the statistics and discovery observers and the shared-memory inspection, which build endpoints by hand without a DDS participant;
+- gtest unit tests of the decision logic and the renderers, which build endpoints by hand without a DDS participant; of the shared-memory inspection, against a fake `/dev/shm` directory; and of the statistics, discovery and `ros_discovery_info` observers, with real Fast DDS participants on private domains;
 - `launch_testing` tests that start real ROS 2 nodes in one host and check the predicted and measured transports (SHM, UDPv4, UDPv6, TCPv4 for large data, data-sharing, Discovery Server, Easy Mode, type mismatches, services and actions, `--watch`, `--json` against the schema, `transport_viz_web`), under `rmw_fastrtps_cpp` and `rmw_fastrtps_dynamic_cpp`;
 - pytest tests of the command line and of `transport_viz_web`;
 - the linters of `ament_lint_common` (cpplint, uncrustify, cppcheck, flake8, pep257, lint_cmake, xmllint), with `ament_copyright` disabled as explained above.

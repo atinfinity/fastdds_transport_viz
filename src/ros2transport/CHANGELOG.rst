@@ -5,7 +5,9 @@ Changelog for package ros2transport
 2.0.0 (2026-09-22)
 -------------------
 Breaking change: ``ros2 transport list`` exits 1 on an RMW other than ``rmw_fastrtps_cpp`` /
-``rmw_fastrtps_dynamic_cpp`` instead of running the binary (#72).
+``rmw_fastrtps_dynamic_cpp`` instead of running (#72). When ``RMW_IMPLEMENTATION`` names
+another middleware it prints the binary's message under a ``ros2 transport:`` prefix before
+spawning the binary; otherwise the binary checks the RMW itself.
 
 * A REP 2004 quality declaration, ``QUALITY_DECLARATION.md``: Quality Level 3, like
   ``fastdds_transport_viz`` (#87).
@@ -14,8 +16,6 @@ Breaking change: ``ros2 transport list`` exits 1 on an RMW other than ``rmw_fast
 * ``ros2 transport diff BEFORE AFTER``: runs ``transport_viz diff`` with the two documents
   and the ``--key``, ``--changes-only`` and view/rendering options; a missing input file is
   reported before the binary is started (#77).
-* ``ros2 transport list`` exits 1 with the same message as the binary when
-  ``RMW_IMPLEMENTATION`` names another middleware, before spawning it.
 * ``rmw_fastrtps_dynamic_cpp`` is supported like ``rmw_fastrtps_cpp`` (#73); the live
   test follows ``RMW_IMPLEMENTATION`` instead of pinning ``rmw_fastrtps_cpp``.
 * Pass ``--advise`` through to ``transport_viz``; ``ros2 transport codes`` prints the
