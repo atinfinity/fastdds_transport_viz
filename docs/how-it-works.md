@@ -590,7 +590,7 @@ One frame, right after a new listener appeared and the UDP listener went away:
 
 Keys while watching: `q` quit, `p` pause/resume (changes made while paused are
 highlighted on resume), `v` toggle pair rows, `e` toggle the reason-code legend, `a` toggle
-`--all`. Unless both stdin and stdout are a terminal the frames are printed one after
+`--all`, `l` toggle `--locators`, `f` toggle `--advise` (the fixes). Unless both stdin and stdout are a terminal the frames are printed one after
 another (without escape sequences, unless `--color always`); with `--json` every frame is one JSON Lines document that additionally
 carries a `changes` object (`added_pairs`, `removed_pairs`, `changed_pairs` with
 `from`/`to`).

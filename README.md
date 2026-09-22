@@ -63,7 +63,10 @@ The same run opened in the [web viewer](docs/web-viewer.md) (table view):
   prediction is flagged.
 - **Several front-ends.** A table with colors, `--watch` (live terminal view that marks
   what changed), `--json` with a published schema, the `ros2 transport` command, and a
-  web viewer (graph and table, live updates through `transport_viz_web`).
+  web viewer (graph and table, live updates through `transport_viz_web` with a timeline of
+  the frames received so far, and recordings made with `transport_viz_web --record`
+  replayed on the same timeline). `transport_viz_web` also serves the latest document as
+  Prometheus metrics on `/metrics`.
 - **Focus.** `--topic` / `--node` regex filters, `--explain` for the codes in use,
   `--advise` for what to change to get past them, `ros2 transport codes` for all of them.
 - **Shared memory of the environment.** Capacity of `/dev/shm`, the Fast DDS segments,
@@ -118,7 +121,7 @@ ros2 transport codes
 | `--topic REGEX` | only topics whose name matches |
 | `--node REGEX` | only pairs involving a node whose full name matches (its unpaired endpoints stay visible) |
 | `--all` | include services/actions and non-ROS DDS topics; each service or action is one `SERVICE` / `ACTION` row per client-server pair rather than its raw `rq/` / `rr/` topics |
-| `--watch` | re-render every `--interval` seconds, highlighting added/changed/removed pairs; keys `q p v e a l` (with `--json`: JSON Lines with a `changes` object) |
+| `--watch` | re-render every `--interval` seconds, highlighting added/changed/removed pairs; keys `q p v e a l f` (with `--json`: JSON Lines with a `changes` object) |
 | `--color` | ANSI colors for transports and warnings (`auto` = only on a terminal) |
 
 `ros2 transport diff BEFORE.json AFTER.json` compares two saved `--json` documents (change
@@ -138,7 +141,7 @@ way and highlights the result. Details in
 - [How it works](docs/how-it-works.md) — decision rules, reason codes, hosts and addresses, where to run it, watch mode
 - [Measured transports (`--stats`)](docs/statistics.md) — statistics topics, enabling them, the 10-instance pitfall
 - [Data-sharing (zero-copy)](docs/data-sharing.md) — why ROS 2 topics show `SHM` by default and how to enable data-sharing
-- [Web viewer](docs/web-viewer.md) — graph view and a topic-grouped table of `--json` output in the browser, live mode (`transport_viz_web`), JSON schema
+- [Web viewer](docs/web-viewer.md) — graph view and a topic-grouped table of `--json` output in the browser, live mode (`transport_viz_web`) and its history, recording and replay (`--record`), Prometheus `/metrics`, JSON schema
 - [Architecture](docs/architecture.md) — components, the flow of one run, data model, Fast DDS 2.14/3.x layer, extension points
 - [Development, verification and tests](docs/development.md) — Docker environment, packages, verification nodes, multi-container scenarios, tests, verification results, roadmap
 
@@ -177,12 +180,15 @@ way and highlights the result. Details in
 - **Not a benchmark.** `LATENCY` is Fast DDS's own `HISTORY_LATENCY` statistic
   (write-to-notification between the two histories), sampled during a short observation; it
   does not replace a load test or an end-to-end measurement, and across hosts it includes
-  the clock offset. There is no publish rate at all: `PUBLICATION_THROUGHPUT` looked like one
-  but is not ([#137](https://github.com/atinfinity/fastdds_transport_viz/issues/137)).
+  the clock offset. `HZ` counts the samples that reached each reader
+  ([#143](https://github.com/atinfinity/fastdds_transport_viz/issues/143)); there is no
+  writer-side publish rate: `PUBLICATION_THROUGHPUT` looked like one but is not
+  ([#137](https://github.com/atinfinity/fastdds_transport_viz/issues/137)).
 - **DDS Security (SROS2) is not supported** and untested: the tool's participants carry no
   security configuration, so participants inside a secure enclave are not discovered.
-- **Footprint.** The tool adds two participants of its own to the domain (filtered from
-  the output).
+- **Footprint.** The tool adds two participants of its own to the domain, three on Humble
+  (`fastdds_transport_viz_names`, a participant without SHM that reads the node names); all
+  are filtered from the output.
 - **Split shared memory.** Nodes with the same host id in different IPC namespaces
   (`network_mode: host` without `ipc: host`) still select SHM or data-sharing between each
   other and lose every message. The pair is `NONE` with `shm-ipc-namespace-split` when the

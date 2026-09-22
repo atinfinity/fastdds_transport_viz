@@ -43,7 +43,7 @@ it also registers the `ros2 transport` command.
 ### Docker (alternative)
 
 The repository ships a `compose.yaml` with a development image (`ros:jazzy`, or
-`ROS_DISTRO=lyrical` / `rolling`), the repository mounted at `/ws`, and `ipc: host` so that
+`ROS_DISTRO=humble` / `lyrical` / `rolling`), the repository mounted at `/ws`, and `ipc: host` so that
 the tool sees the host's shared memory:
 
 ```
@@ -132,7 +132,7 @@ ros2 transport list --watch --stats --interval 2
 
 re-observes every two seconds and marks what changed since the previous frame (`+`
 appeared, `~` changed, `-` disappeared). Keys: `q` quit, `p` pause, `v` pairs, `e`
-legend, `a` all topics.
+legend, `a` all topics, `l` locators, `f` fixes (`--advise`).
 
 ## 5. See it in the browser
 
@@ -145,12 +145,26 @@ Open the URL: hosts are columns, nodes are boxes, pairs are arrows colored by tr
 updated live. `ros2 transport list --json > snapshot.json` produces a document that
 the same page (`web/index.html`) can open offline. See [web-viewer.md](web-viewer.md).
 
+The server listens on `127.0.0.1` only. In the Docker environment, start the shell with the
+viewer's port published and listen on every address inside the container, so that the
+browser on the host reaches it:
+
+```
+docker compose run --rm --service-ports dev bash
+ros2 run fastdds_transport_viz transport_viz_web --bind 0.0.0.0 --stats --interval 1
+```
+
+The same `--bind 0.0.0.0` lets a laptop look at a robot.
+
 ## 6. Command reference
 
 ```
 ros2 transport list [--domain N] [--timeout S] [--quiet S] [--topic REGEX] [--node REGEX]
                     [--all] [-v] [--explain] [--locators] [--advise] [--stats] [--json | --csv]
                     [--color auto|always|never] [--watch [--interval S]]
+ros2 transport diff BEFORE.json AFTER.json [--key node|guid] [--changes-only] [--json]
+                    [--topic REGEX] [--node REGEX] [--all] [-v] [--explain] [--locators]
+                    [--advise] [--color auto|always|never]
 ros2 transport codes
 ```
 
@@ -159,6 +173,10 @@ can be run directly as `ros2 run fastdds_transport_viz transport_viz` with the s
 plus `--list-codes`. Exit codes: 0 on success, 2 on a usage error, and 1 when the RMW is
 neither `rmw_fastrtps_cpp` nor `rmw_fastrtps_dynamic_cpp` (the message names it) or, from
 `ros2 transport`, when the binary cannot be found or started.
+
+`ros2 transport diff` compares two saved `--json` documents without observing anything
+([how-it-works.md](how-it-works.md#comparing-two-snapshots)). Its exit codes follow
+`diff(1)`: 0 without changes, 1 when something changed, 2 on an error.
 
 ## First checks when something is off
 

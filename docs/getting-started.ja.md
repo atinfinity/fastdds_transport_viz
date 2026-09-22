@@ -44,7 +44,7 @@ source install/setup.bash
 ### Docker (代替)
 
 リポジトリには `compose.yaml` があり、開発用イメージ (`ros:jazzy`、または
-`ROS_DISTRO=lyrical` / `rolling`)、`/ws` にマウントしたリポジトリ、ホストの共有メモリが
+`ROS_DISTRO=humble` / `lyrical` / `rolling`)、`/ws` にマウントしたリポジトリ、ホストの共有メモリが
 ツールから見えるようにする `ipc: host` を定義しています:
 
 ```
@@ -130,7 +130,7 @@ ros2 transport list --watch --stats --interval 2
 ```
 
 2 秒ごとに再観測し、前のフレームからの変化に印を付けます (`+` 現れた、`~` 変わった、`-`
-消えた)。キー: `q` 終了、`p` 一時停止、`v` ペア表示、`e` 凡例、`a` 全トピック。
+消えた)。キー: `q` 終了、`p` 一時停止、`v` ペア表示、`e` 凡例、`a` 全トピック、`l` locator、`f` 対処 (`--advise`)。
 
 ## 5. ブラウザで見る
 
@@ -144,12 +144,25 @@ URL を開くと、ホストが列、ノードが箱、ペアが transport ご�
 ページ (`web/index.html`) でオフラインでも開けます。[web-viewer.ja.md](web-viewer.ja.md) を
 参照してください。
 
+サーバは `127.0.0.1` でだけ待ち受けます。Docker 環境では、viewer のポートを公開してシェルを起動し、
+コンテナ内ではすべてのアドレスで待ち受けると、ホストのブラウザから届きます:
+
+```
+docker compose run --rm --service-ports dev bash
+ros2 run fastdds_transport_viz transport_viz_web --bind 0.0.0.0 --stats --interval 1
+```
+
+同じ `--bind 0.0.0.0` で、ノート PC からロボットを見ることもできます。
+
 ## 6. コマンドリファレンス
 
 ```
 ros2 transport list [--domain N] [--timeout S] [--quiet S] [--topic REGEX] [--node REGEX]
                     [--all] [-v] [--explain] [--locators] [--advise] [--stats] [--json | --csv]
                     [--color auto|always|never] [--watch [--interval S]]
+ros2 transport diff BEFORE.json AFTER.json [--key node|guid] [--changes-only] [--json]
+                    [--topic REGEX] [--node REGEX] [--all] [-v] [--explain] [--locators]
+                    [--advise] [--color auto|always|never]
 ros2 transport codes
 ```
 
@@ -157,6 +170,10 @@ ros2 transport codes
 バイナリは `ros2 run fastdds_transport_viz transport_viz` で直接実行でき、同じオプションに
 加えて `--list-codes` があります。終了コード: 成功 0、使い方の誤り 2、RMW が `rmw_fastrtps_cpp` でも
 `rmw_fastrtps_dynamic_cpp` でもないとき (メッセージに RMW 名が出る) と、バイナリが見つからない・起動できないときの `ros2 transport` は 1。
+
+`ros2 transport diff` は保存済みの 2 つの `--json` 文書を、何も観測せずに比較します
+([how-it-works.ja.md](how-it-works.ja.md#2-つのスナップショットの比較))。終了コードは `diff(1)` と同じで、
+変化なし 0、変化あり 1、エラー 2 です。
 
 ## うまくいかないときの最初の確認
 
