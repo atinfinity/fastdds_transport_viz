@@ -36,7 +36,7 @@ plus the bounded verification nodes with statistics enabled.
 | Box | a ROS node (`process id` below the name when statistics are available); a red `+N unmatched` marks topics without a peer |
 | Arrow | writer → reader pairs between two nodes with the same transport and confidence, bundled; the label is the number of pairs |
 | Pill | a Discovery Server (`SERVER` / `BACKUP` participant; the announced name, `Discovery Server` when it has none, its first locator below), in its host's column ([#86](https://github.com/atinfinity/fastdds_transport_viz/issues/86)) |
-| `CLIENT` tag | a node whose participant announced itself `CLIENT` / `SUPER_CLIENT`; a dotted grey line without a label leads to its server when the document could tell which one (see [how-it-works.md](how-it-works.md#environment)); it is outside the transport legend and never bundled |
+| `CLIENT` tag | a node whose participant announced itself `CLIENT` / `SUPER_CLIENT`; a dotted grey line without a label leads to its server when the document could tell which one (see [how-it-works.md](how-it-works.md#run-it-where-the-nodes-run)); it is outside the transport legend and never bundled |
 | Color | UDPv4 blue · UDPv6 cyan · TCP purple · SHM green · DATA_SHARING orange · NONE grey (legend in the toolbar) |
 | Dashed | confidence `likely` |
 | Red halo | at least one warning, e.g. `measured-transport-mismatch` |

@@ -12,6 +12,8 @@ API の差分は `include/fastdds_transport_viz/fastdds_compat.hpp` に閉じ込
 **広告している locator** (`UDPv4`、`SHM` など) と QoS が含まれます。その情報に、Fast DDS 2.14 が
 writer → reader の各ペアで transport を選ぶときと同じルールを適用します。
 
+<a id="decision-rules"></a>
+
 ## 判定ルール
 
 0. **Fast DDS は 2 つを同じ型とみなすか?** 判定の仕方は 2 通りあります
@@ -248,6 +250,8 @@ discovery データから同一ホストのエンドポイントの SHM 以外�
 名前は読めません。そのようなエンドポイントのノード名は生の DDS エンドポイントと同じく空になり、表は
 GUID で表示し、`--node` には一致せず、`diff` は GUID で対応付け、web viewer は participant を表示します。
 以前のバージョンが書いた JSON の不明ノード名も空として読みます ([#112](https://github.com/atinfinity/fastdds_transport_viz/issues/112))。
+
+<a id="run-it-where-the-nodes-run"></a>
 
 ## ノードと同じ場所で実行する
 

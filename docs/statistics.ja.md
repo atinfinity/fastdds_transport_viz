@@ -38,7 +38,7 @@ source timestamp の直近 5 秒で、フレームには開始からの平均で
 [reader の QoS](#reader-の-qos) を参照) で決まり、ペアあたり 1000 サンプル/秒を 0.1 % 以内で
 数えます。2 プロセス間の SHM、intraprocess、data-sharing の各ペアで 10、100、1000 Hz を Jazzy と
 Lyrical で検証しました (`scripts/integration_test.sh rate_stats`、許容 ±3 %、
-[development.md](development.md#verification-log) を参照)。このトピックのサンプルがツールに届く
+[development.md](development.md#verification-results) を参照)。このトピックのサンプルがツールに届く
 途中で失われたときは、レートは下限になり `≥120` と表示します (`delivered_per_s_lower_bound: true`)。
 ペアの `HISTORY_LATENCY` を publish する statistics writer は reader 側の participant のもので、
 その participant の全ペアのサンプルを 1 本のシーケンスで番号付けするため、抜けは participant には
@@ -398,7 +398,7 @@ Fast DDS 3.6 (ROS 2 Lyrical) で、ワンショット実行では何も実測で
 
 `stats.samples_lost_latency` は別に数えます。`stats.samples_lost` の**内数**であって並ぶ数では
 なく、これを警告の対象にするものはありません。`HISTORY_LATENCY` は設計として best-effort で
-受け取る ([Reader QoS](#reader-qos)) ため、その reader は最も賑やかなトピックのシーケンスの
+受け取る ([Reader QoS](#reader-の-qos)) ため、その reader は最も賑やかなトピックのシーケンスの
 抜けをすべて報告します。40 プロセスでは 60 秒の実行で 170 万〜190 万に達します。これらは独立した
 観測値で、ツールはそれを平均と最大に畳むので、落ちても出ている数値が粗くなるだけで、加えて落とした
 participant に reader を持つすべてのペアの `HZ` が下限 (`≥`、[前述](#hz-列-1-秒あたりに届いたサンプル数)) になります。表では
