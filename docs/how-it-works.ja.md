@@ -1,6 +1,6 @@
 # 仕組み
 
-> 英語版が正です。この文書は 2026-09-20 時点の英語版に対応しています。
+> 英語版が正です。この文書は 2026-09-22 時点の英語版に対応しています。
 
 このツールは Fast DDS 2.6 (ROS 2 Humble)、2.14 (Jazzy)、3.x (Lyrical、Rolling) に対してビルドできます。
 API の差分は `include/fastdds_transport_viz/fastdds_compat.hpp` に閉じ込めてあり、以下の判定ルールは
@@ -105,8 +105,8 @@ domain participant factory の中で直接受け渡すからです (`intraproces
 `std::random_device` が 1 度返す値、`[8-11]` が participant id なので、先頭 8 バイトが一致するのは
 同一プロセスのときだけです。これは `RTPSDomainImpl::should_intraprocess_between()` が比較している
 ものそのものです。ペアは locator から予測される transport (別プロセスなら使ったはずのもの。通常は
-`SHM`) をそのまま保ち、理由コード `intra-process` を持ちます。これは `--stats` の有無にも
-ディストリビューションにもよりません。`--stats` 付きでは `measured=` のセルは `none(delivered)` や
+`SHM`) をそのまま保ち、理由コード `intra-process` を持ちます。これはどの実行でも、どの
+ディストリビューションでも同じです。`--stats` 付きでは `measured=` のセルは `none(delivered)` や
 `(unmeasured, delivered)` ではなく、通常 `none(intra-process)` (観測前にその transport でパケットが
 流れていれば `<transport> (intra-process)`) と表示します。パケットが取りこぼされたのではなく、
 そもそも 1 つも送られていないからです。両側が data-sharing QoS のペアでは、`datasharing-unverified-by-traffic` の代わりに
@@ -224,7 +224,7 @@ ACTION /fibonacci  /ftv_act_client -> /ftv_act_server    example_interfaces/acti
 `/_action/` より前のすべて、接尾辞は 5 つのメンバーのいずれか、そして存在するメンバーが
 すべて `rcl_action` が付けるはずの型 (`<pkg>::action::dds_::<Action>_SendGoal_*`、
 `action_msgs::srv::dds_::CancelGoal_*`、`action_msgs::msg::dds_::GoalStatusArray_` など) を
-announce していて、少なくとも 1 つが `::action::` 型であり、`::action::` 型のメンバーがすべて
+広告していて、少なくとも 1 つが `::action::` 型であり、`::action::` 型のメンバーがすべて
 同じアクション型を名乗ることが条件です。`/_action/` は
 予約されていません。`/fibonacci2/_action/send_goal` という普通のサービスを作れますし、
 `feedback` / `status` という普通のトピックの組には `ros2 action list` 自身がだまされます。

@@ -1,6 +1,6 @@
 # Data-sharing (zero-copy) 配送
 
-> 英語版が正です。この文書は 2026-09-17 時点の英語版に対応しています。
+> 英語版が正です。この文書は 2026-09-22 時点の英語版に対応しています。
 
 writer と reader が同じホストにあり、型が bounded (サイズ上限あり) なら、Fast DDS はすべての
 transport を迂回できます。reader が writer の履歴を直接マップする data-sharing 配送です。
@@ -33,7 +33,7 @@ unbounded な型で writer の作成が失敗します。
 domain id を広告していなければ)、判定は `likely` (`DATA_SHARING?`) です。ただし例外が 2 つあります。
 
 - writer と reader が別々の IPC 名前空間にある場合
-  ([#110](https://github.com/atinfinity/fastdds_transport_viz/issues/110)): Fast DDS は QoS だけで
+  ([#110](https://github.com/atinfinity/fastdds_transport_viz/issues/110)): Fast DDS はそれでも QoS だけで
   両者をペアにしますが、reader は writer の履歴を開けず、何も届きません。ツールがそれを判別できる
   とき (両方が SHM を持ち [IPC 名前空間の分断](how-it-works.ja.md#ipc-名前空間の分断) の SHM の
   証拠がある場合、または 2 つの data-sharing セグメントの片方だけがツールの `/dev/shm` にある場合。

@@ -1,6 +1,6 @@
 # fastdds_transport_viz
 
-> 英語版が正です。この文書は 2026-09-20 時点の英語版に対応しています。
+> 英語版が正です。この文書は 2026-09-22 時点の英語版に対応しています。
 
 **ROS 2 の各トピックが Fast DDS のどの transport で通信しているか** — UDPv4、UDPv6、TCP、
 共有メモリ (SHM)、zero-copy の data-sharing — を、**その理由とともに**表示します。
@@ -35,7 +35,7 @@ shared memory: /dev/shm 371 MB used of 16.7 GB (16.3 GB free) | Fast DDS 6.36 MB
 
 ![colored table](images/example-table.svg)
 
-同じ実行結果を [web viewer](web-viewer.md) で開いたところ (テーブルビュー):
+同じ実行結果を [web viewer](web-viewer.ja.md) で開いたところ (テーブルビュー):
 
 ![table view](images/web-viewer-table.jpg)
 
@@ -104,14 +104,14 @@ ros2 transport codes
 |---|---|
 | `-v` | 各トピックの下に writer → reader のペアを展開する |
 | `--explain` | 使われている理由コードの凡例を末尾に付ける |
-| `--locators` | ツールが選んだ locator と、実際にパケットを運んだ locator を ペアごとに 1 行追加する (`-v` を暗黙に有効化。`--json` では無視され、JSON は常に同じ情報を持つ) |
+| `--locators` | ツールが選んだ locator と、実際にパケットを運んだ locator をペアごとに 1 行追加する (`-v` を暗黙に有効化。`--json` では無視され、JSON は常に同じ情報を持つ) |
 | `--advise` | ペアごとに、対処のある理由コードについて `fix <code>: …` 行を追加し、凡例の各コードの下にも対処を出す (`-v` と `--explain` を暗黙に有効化。`--json` では無視され、JSON は常に `reason_code_remedies` を持つ) |
-| `--stats` | 実測の transport、遅延、欠落も表示する (観測対象ノードに `FASTDDS_STATISTICS` が必要。[実測 transport](statistics.md)) |
-| `--json` | 機械可読な出力 (`schema_version: 1`)。[web viewer](web-viewer.md) で開ける |
+| `--stats` | 実測の transport、遅延、欠落も表示する (観測対象ノードに `FASTDDS_STATISTICS` が必要。[実測 transport](statistics.ja.md)) |
+| `--json` | 機械可読な出力 (`schema_version: 1`)。[web viewer](web-viewer.ja.md) で開ける |
 | `--csv` | writer → reader ペアごとに 1 行の CSV (RFC 4180 の引用、改行は LF、先頭に見出し行。JSON で null の値は空セル、リストは `;` で連結)。表計算ソフトや pandas 向け。`--json` とは排他で、`diff` では使えない。`--watch` では見出しを 1 回だけ出し、各フレームが行を追加する (フレームは `observed_at` で区別できる) |
 | `--topic REGEX` | 名前が一致するトピックだけ表示する |
 | `--node REGEX` | 完全修飾ノード名が一致するノードが関わるペアだけ表示する (そのノードの未接続エンドポイントも残る) |
-| `--all` | サービス/アクションと ROS 以外の DDS トピックも含める。サービスとアクションは生の `rq/` / `rr/` トピックではなく、クライアントとサーバの組ごとに 1 行の `SERVICE` / `ACTION` 行として表示します |
+| `--all` | サービス/アクションと ROS 以外の DDS トピックも含める。サービスとアクションは生の `rq/` / `rr/` トピックではなく、クライアントとサーバの組ごとに 1 行の `SERVICE` / `ACTION` 行として表示する |
 | `--watch` | `--interval` 秒ごとに再描画し、追加/変更/削除されたペアを強調する。キー `q p v e a l f` (`--json` 時は `changes` オブジェクト付きの JSON Lines) |
 | `--color` | transport と警告の ANSI 色 (`auto` = 端末のときだけ) |
 
@@ -127,11 +127,11 @@ ros2 transport codes
 
 ## ドキュメント
 
-- [はじめに](getting-started.md) — ビルド (ネイティブ / Docker)、最初の実行、`--stats`、watch モード、web viewer、最初の確認事項
-- [仕組み](how-it-works.md) — 判定ルール、理由コード、ホストとアドレス、実行場所、watch モード
-- [実測 transport (`--stats`)](statistics.md) — statistics トピック、有効化、10 インスタンスの落とし穴
-- [Data-sharing (zero-copy)](data-sharing.md) — ROS 2 トピックが既定で `SHM` になる理由と data-sharing の有効化
-- [Web viewer](web-viewer.md) — `--json` 出力のグラフ表示とトピックごとにまとめた表、ライブモード (`transport_viz_web`) とその履歴、録画と再生 (`--record`)、Prometheus の `/metrics`、JSON スキーマ
+- [はじめに](getting-started.ja.md) — ビルド (ネイティブ / Docker)、最初の実行、`--stats`、watch モード、web viewer、最初の確認事項
+- [仕組み](how-it-works.ja.md) — 判定ルール、理由コード、ホストとアドレス、実行場所、watch モード
+- [実測 transport (`--stats`)](statistics.ja.md) — statistics トピック、有効化、10 インスタンスの落とし穴
+- [Data-sharing (zero-copy)](data-sharing.ja.md) — ROS 2 トピックが既定で `SHM` になる理由と data-sharing の有効化
+- [Web viewer](web-viewer.ja.md) — `--json` 出力のグラフ表示とトピックごとにまとめた表、ライブモード (`transport_viz_web`) とその履歴、録画と再生 (`--record`)、Prometheus の `/metrics`、JSON スキーマ
 - [Architecture](architecture.md) (英語) — コンポーネント、1 回の実行の流れ、データモデル、Fast DDS 2.14/3.x の互換層、拡張ポイント
 - [開発・検証・テスト](development.md) (英語) — Docker 環境、パッケージ構成、検証ノード、マルチコンテナのシナリオ、テスト、検証結果、ロードマップ
 
@@ -145,9 +145,8 @@ ros2 transport codes
 - **Linux 専用。** macOS には `/dev/shm` が無く、Docker Desktop からホスト上のノードは観測できません。
 - **ノードと同じ場所で実行する必要があります。** 同じドメイン、同じ環境変数と XML プロファイル、
   同じネットワーク/IPC 名前空間。`ROS_AUTOMATIC_DISCOVERY_RANGE=OFF` では何も見えません。
-- **type hash には ROS 2 Jazzy 以降が必要です。** 型 *名* が違う writer と reader は、どの
-  ディストリビューションでも `NONE` と `type-name-mismatch` で表示されます。例外は Fast DDS 3.x
-  (Lyrical 以降) で両方が一致する XTypes の `TypeInformation` を広告する場合で、Fast DDS は型名に
+- **type hash には ROS 2 Jazzy 以降が必要です。** 型 *名* が違う writer と reader は `NONE` と
+  `type-name-mismatch` で表示されます。例外は Fast DDS 3.x (Lyrical 以降) で両方が一致する XTypes の `TypeInformation` を広告する場合で、Fast DDS は型名に
   かかわらずマッチさせ、ペアには `type-names-differ-same-type` が付きます
   ([#213](https://github.com/atinfinity/fastdds_transport_viz/issues/213))。同じメッセージ定義の
   別バージョンを見分けるのは ROS 2 の type hash (REP-2011) ですが、これを広告するのは Jazzy 以降の

@@ -1,6 +1,6 @@
 # 実測 transport (`--stats`)
 
-> 英語版が正です。この文書は 2026-09-20 時点の英語版に対応しています。
+> 英語版が正です。この文書は 2026-09-22 時点の英語版に対応しています。
 
 discovery のデータは「こうなる*はず*」を教えてくれます。`--stats` を付けると、ツールは
 [Fast DDS statistics モジュール](https://fast-dds.docs.eprosima.com/en/2.14.x/fastdds/statistics/statistics.html)
@@ -9,7 +9,7 @@ discovery のデータは「こうなる*はず*」を教えてくれます。`-
 | トピック | 用途 |
 |---|---|
 | `_fastdds_statistics_rtps_sent` | 各 participant が各宛先 locator に送った RTPS パケット数/バイト数。reader が広告した locator と突き合わせ、実際にパケットを運んだ locator の種類 (`measured=SHM 47pkt`) と locator そのもの (`--locators`、JSON の `measured.locators[]`) を得ます。種類が予測と食い違えば `!measured-transport-mismatch`、種類は合っていても予測が選んだ locator に何も流れていなければ `!measured-locator-mismatch` を付けます。 |
-| `_fastdds_statistics_history2history_latency` (LATENCY 列: write-to-notification 遅延の平均と最大、JSON の `measured.latency_s` とトピックの `latency_s`。ホスト間ではクロックのずれを含む。HZ 列: 届いたサンプル 1 つにつき 1 サンプルをペアごとに数えたレート、JSON の `measured.delivered_per_s`、[後述](#hz-列-1-秒あたりに届いたサンプル数)) | writer のサンプルが特定の reader に届いたことの証明。RTPS の痕跡を残さない zero-copy data-sharing の確認に使います。 |
+| `_fastdds_statistics_history2history_latency` | writer → reader の各ペアの write-to-notification 遅延。`LATENCY` として表示し (観測期間中の平均と最大。JSON の `measured.latency_s`、トピックの `latency_s` は最も遅いペアの値)、届いたレート `HZ` (届いたサンプル 1 つにつき 1 サンプルをペアごとに数える。JSON の `measured.delivered_per_s`、[後述](#hz-列-1-秒あたりに届いたサンプル数)) にもなり、さらに存在するだけで、サンプルがその reader に届いたことの証明になります (RTPS の痕跡を残さない zero-copy data-sharing の確認に使います)。ホスト間ではクロックのずれを含みます。 |
 | `_fastdds_statistics_physical_data` | participant ごとのホスト名、ユーザー、プロセス id。`local` / `host:<id>` の代わりに表示します。 |
 | `_fastdds_statistics_rtps_lost` | participant が取りこぼした RTPS パケット数 (シーケンス番号の欠落)。送信側 participant と、送信側が宛先にした自分の locator ごとに数えます。受信側 participant が publish するので、ペアの取りこぼしは reader の participant が writer の participant から reader の unicast locator 宛てに受け損ねたと報告した数です。`LOSS` 列の `lost` と警告 `rtps-packets-lost` になります (対象範囲は [RTPS_LOST](#rtps_lost) を参照)。 |
 | `_fastdds_statistics_resent_datas`、`_fastdds_statistics_heartbeat_count`、`_fastdds_statistics_gap_count` | writer ごとの再送 DATA、HEARTBEAT、GAP の数。`resent` は `LOSS` 列のもう一方で、3 つとも JSON の `measured.reliability` に入ります。 |
@@ -50,7 +50,7 @@ lost sample として報告しないからです。
 `_fastdds_statistics_publication_throughput` は引き続き購読しません ([#137](https://github.com/atinfinity/fastdds_transport_viz/issues/137))。この統計値は
 レートに見えますがレートではありません。Fast DDS は `write()` ごとに 1 サンプルを publish し、その値は
 *そのサンプルの* payload を、同じ writer の前回の `write()` からの間隔で割ったもので、writer が 1 回の
-書き込み間隔でどれだけ速かったかを示すだけです。`measured.throughput_bytes_per_s`、
+書き込み間隔でどれだけ速かったかを示すだけで、トピックが 1 秒あたりにどれだけ運ぶかは決して示しません。`measured.throughput_bytes_per_s`、
 `topics[].throughput_bytes_per_s`、`stats.throughput` は、以前に書かれた文書が検証を通り続けるように
 JSON に残し、それぞれ `null`、`null`、`{}` に固定しています。
 
@@ -141,8 +141,8 @@ settle せず `--timeout` まで待って警告を出していました。ここ
 ([#168](https://github.com/atinfinity/fastdds_transport_viz/issues/168))。transient-local の
 カウンタ writer は後から参加した reader に履歴をまとめて渡し、それはプロセスごとに順番に、間に
 最大 2 秒ほどの間を置いて起こるので、100 ペアずつの 20 プロセスでは最後の writer からの最初の
-サンプルが 16〜20 秒後に届き、エントリは約 25 秒まで増え続け、5 秒の観測ではペアの一部しか、
-あるいは 1 つも実測できませんでした。`--json` ではこの規則が `stats.writers_announced` (マッチした
+サンプルが 16〜20 秒後に届き、エントリは約 25 秒まで増え続け、5 秒の観測では、ある実行ではペアの
+一部しか実測できず、次の実行では 1 つも実測できませんでした。`--json` ではこの規則が `stats.writers_announced` (マッチした
 `RTPS_SENT` writer 数)、`stats.writers_heard`、`stats.measured_instances` (reader 宛てに
 実測できたエントリ数)、`stats.measurable_pairs` (両端が別プロセスにあるペア数)、
 `stats.settled`、`stats.settled_at_s` (先に `--timeout` に達した場合は
@@ -276,8 +276,9 @@ lost は 1 つも報告されず、`RTPS_SENT` のインスタンスが多いと
 `multicast_user_stats.xml` (このファイルに multicast locator 上のユーザー endpoint を結合したもの。
 [#130](https://github.com/atinfinity/fastdds_transport_viz/issues/130) の
 [multicast stamping experiment](development.md#multicast-stamping-experiment) 用) は CMake が
-`config/*.xml.in` からビルド対象の Fast DDS 向けに生成します。観測対象ノードのマシンにインストール
-されたファイルを使ってください。500 ms は100 ms、250 ms、500 ms、1 s のうち、
+`config/*.xml.in` からビルド対象の Fast DDS 向けに生成します (writer のプロファイル自体は
+`config/statistics_writers.xml.in` の 1 か所にだけあります)。観測対象ノードのマシンにインストール
+されたファイルを使ってください。500 ms は 100 ms、250 ms、500 ms、1 s のうち、
 [規模の検証](development.md#scale-verification)の medium の規模で `--watch` のカバレッジを 1.0 に保てた最長の値です (1 s では 0.21)。どのディストリでも、
 [前の節](#instance-limit)の 2 行で観測対象ノードにこのプロファイルを適用してください。
 
@@ -347,7 +348,7 @@ Docker の 8 CPU の VM で Jazzy (Fast DDS 2.14.6) を使い、すべてのノ�
 
 - **約 10 プロセス、500 ペアまで**は取りこぼしが無く、5 秒ですべてのペアが実測され、既定の `--stats` ワンショットはその数秒後に終わります。
 - **20 プロセス、2400 ペア**では既定の `--stats` ワンショットが 17〜23 秒で settle し、ペアの 95〜100 % が実測され、ワンショットの表には全ペアが出ます。5 秒の観測では 1 つも実測できませんでした ([#168](https://github.com/atinfinity/fastdds_transport_viz/issues/168): statistics writer はツールの reader へ履歴をプロセスごとに順番に渡します)。
-  [#141](https://github.com/atinfinity/fastdds_transport_viz/issues/141) より前は 4 分の 1 のペアが 5 秒後も未実測で、表に出るのは 1 ペアだけでした。
+  [#141](https://github.com/atinfinity/fastdds_transport_viz/issues/141) より前は 4 分の 1 のペアが未実測で、表に出るのは 1 ペアだけでした。
 - **40 プロセス、5600 ペア**でも大半から全部のペアが実測されます。同じビルドの 3 回の実行で 5 秒
   時点の coverage は 0.62 / 0.97 / 1.0 でした。#141 より前は 3 回とも 0.0 です。このばらつきは
   ツールではなくホスト側の事情で、この規模では負荷だけで 8 コア中 6.7〜7.5 コアを使ってしまいます。
@@ -356,7 +357,7 @@ Docker の 8 CPU の VM で Jazzy (Fast DDS 2.14.6) を使い、すべてのノ�
 
 ツールは statistics をすべて UDP で受け取り、Fast DDS はそれを 1 本の受信スレッドで処理します。
 Nav2 (4 participant、1195 ペア) の隣でも、このスレッドだけで 1 コアを使い切ります。損失を決めるのは
-reader からどれだけ頻繁に読み出すかで、そのための 50 ms の読み出しが上記のスレッドです。それを
+reader からどれだけ頻繁に読み出すかで、上述の 50 ms の読み出しはそのためのものです。それを
 超えると、送信側の keep-last の履歴が届く前のサンプルを上書きします。
 
 ツールは落としたサンプルを報告します。JSON 文書の `stats.samples_lost` が届かなかった statistics
@@ -434,9 +435,9 @@ participant に reader を持つすべてのペアの `HZ` が下限 (`≥`、[�
 writer の keep-last 履歴が既に捨てていたサンプルをすべて「失われた」と通知されますが、これは
 ツールが追いつけているかとは無関係です。しかもこの通知は遅れて届きます。writer は捨てた分を
 マッチ時ではなく次以降の heartbeat で知らせるためで、静穏な 5 ノード系での実測では、マッチから
-jazzy で最大 1.2 秒、lyrical で最大 3.9 秒あとに届きました。新しい statistics writer は必ずこの
+Jazzy で最大 1.2 秒、Lyrical で最大 3.9 秒あとに届きました。新しい statistics writer は必ずこの
 バーストを伴うので、「直近 5 秒以内に新規マッチがある間」の損失を late-join と数えます。1 度も
-マッチしていない間も同じ扱いです（猶予時間の起点となるマッチがまだ無いため）。途中から起動した
+マッチしていない間も同じ扱いです (猶予時間の起点となるマッチがまだ無いため)。途中から起動した
 ノードが言い訳にできるのは 5 秒分だけで、その後も続く損失は計上されます。
 
 ## 実装メモ
