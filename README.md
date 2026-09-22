@@ -22,16 +22,15 @@ All distros below use `rmw_fastrtps_cpp` (`rmw_fastrtps_dynamic_cpp` works the s
 ```
 $ ros2 transport list -v --stats --topic '^/(chatter|bounded)$'
 TOPIC     TYPE                 PUBS  SUBS  TRANSPORT         LATENCY  HZ  LOSS  REASON
-/bounded  std_msgs/msg/Int32   1     1     DATA_SHARING x1   119 µs       0     same-host-guid,datasharing-qos-enabled-both,datasharing-domain-ids-match,datasharing-confirmed-no-data-submessages
-    /bounded_pub@36d321fbf863(174) -> /bounded_sub@36d321fbf863(184)  DATA_SHARING  119 µs (max 164 µs)  10.0  0  measured=SHM (idle)  same-host-guid,datasharing-qos-enabled-both,datasharing-domain-ids-match,datasharing-confirmed-no-data-submessages
-/chatter  std_msgs/msg/String  1     2     UDPv4 x1, SHM x1  168 µs       0     same-host-guid,datasharing-disabled-writer,reader-no-shm-locator,common-udpv4-locator,measured-udpv4-traffic,both-shm-locators,measured-shm-traffic
-    /talker@36d321fbf863(175) -> /listener_udp@36d321fbf863(176)  UDPv4  164 µs (max 233 µs)  1.0   0  measured=UDPv4 10pkt 1.31 kB  same-host-guid,datasharing-disabled-writer,reader-no-shm-locator,common-udpv4-locator,measured-udpv4-traffic
-    /talker@36d321fbf863(175) -> /listener@36d321fbf863(177)      SHM    168 µs (max 250 µs)  1.0   0  measured=SHM 9pkt 1.19 kB     same-host-guid,datasharing-disabled-writer,both-shm-locators,measured-shm-traffic
+/bounded  std_msgs/msg/Int32   1     1     DATA_SHARING x1   108 µs       0     same-host-guid,datasharing-qos-enabled-both,datasharing-domain-ids-match,datasharing-confirmed-no-data-submessages
+    /bounded_pub@ba8b86aa803d(688) -> /bounded_sub@ba8b86aa803d(690)  DATA_SHARING  108 µs (max 155 µs)  10.0  0  measured=SHM (unmeasured, delivered)  same-host-guid,datasharing-qos-enabled-both,datasharing-domain-ids-match,datasharing-confirmed-no-data-submessages
+/chatter  std_msgs/msg/String  1     2     UDPv4 x1, SHM x1  217 µs       0     same-host-guid,datasharing-disabled-writer,reader-no-shm-locator,common-udpv4-locator,measured-udpv4-traffic,both-shm-locators,measured-shm-traffic
+    /talker@ba8b86aa803d(691) -> /listener_udp@ba8b86aa803d(689)  UDPv4  185 µs (max 239 µs)  1.0  0  measured=UDPv4 9pkt 1.19 kB  same-host-guid,datasharing-disabled-writer,reader-no-shm-locator,common-udpv4-locator,measured-udpv4-traffic
+    /talker@ba8b86aa803d(691) -> /listener@ba8b86aa803d(692)      SHM    217 µs (max 254 µs)  1.0  0  measured=SHM 10pkt 1.31 kB   same-host-guid,datasharing-disabled-writer,both-shm-locators,measured-shm-traffic
 
-statistics: 644 samples from 6 participant(s)
+statistics: 448 samples from 5 participant(s)
 
-shared memory: /dev/shm 371 MB used of 16.7 GB (16.3 GB free) | Fast DDS 6.36 MB in 10 segment(s) (4 stale), 16 port(s), 2 data-sharing histories (1 unmatched)
-  !shm-stale-files: 4 file(s) without a living owner, run 'fastdds shm clean'
+shared memory: /dev/shm 37.4 MB used of 16.7 GB (16.6 GB free) | Fast DDS 3.90 MB in 6 segment(s), 11 port(s), 1 data-sharing history, 1 data-sharing notification(s)
 ```
 
 The same capture on a terminal (`--color auto`, default when stdout is a terminal):
