@@ -40,7 +40,64 @@ the runtime ones (`rmw_fastrtps_cpp`, `demo_nodes_cpp` for the examples) and the
 dependencies. `source install/setup.bash` is needed in every shell that runs the tool;
 it also registers the `ros2 transport` command.
 
-### Docker (alternative)
+### Docker: prebuilt image (GHCR)
+
+Every release from 2.1.0 on is published as a ready-to-run image, for x86_64 and arm64:
+
+| Tag | Contents |
+|---|---|
+| `ghcr.io/atinfinity/fastdds_transport_viz:jazzy` (`:latest`) | the newest release on ROS 2 Jazzy |
+| `ghcr.io/atinfinity/fastdds_transport_viz:humble`, `:lyrical` | the newest release on Humble / Lyrical |
+| `ghcr.io/atinfinity/fastdds_transport_viz:<X.Y.Z>-<distro>` | one release, e.g. `2.1.0-jazzy` |
+
+The image is `ros:<distro>-ros-core` with both packages installed (and `demo_nodes_cpp`
+for the examples); it runs `ros2 transport list` unless given another command. To observe
+the nodes on the Docker host, run it on the host's network and IPC namespace, with the
+tag of the nodes' distribution:
+
+```
+docker run --rm --net host --ipc host ghcr.io/atinfinity/fastdds_transport_viz:jazzy \
+    ros2 transport list -v
+```
+
+Without `--net host` the container discovers nothing on the host. Without `--ipc host` it
+has a `/dev/shm` of its own: the pairs are still predicted, but the shared-memory line
+reports `!shm-not-visible` and describes the container instead of the host. This works on a
+Linux Docker host only: the host network of Docker Desktop (macOS, Windows) is that of its
+VM, not of the machine the nodes run on.
+
+The container starts with a clean environment, so pass on with `-e` whatever the nodes
+set for discovery and the RMW; a difference hides nodes or changes the prediction:
+
+- `ROS_DOMAIN_ID`
+- `RMW_IMPLEMENTATION` (`rmw_fastrtps_cpp` in the image; `rmw_fastrtps_dynamic_cpp` is
+  installed too)
+- `ROS_AUTOMATIC_DISCOVERY_RANGE` and `ROS_STATIC_PEERS` (Jazzy and later),
+  `ROS_LOCALHOST_ONLY` (Humble)
+- `ROS_DISCOVERY_SERVER`, `ROS2_EASY_MODE`
+- `FASTDDS_DEFAULT_PROFILES_FILE` / `FASTRTPS_DEFAULT_PROFILES_FILE`, with the file
+  mounted at the same path (`-v /path/profiles.xml:/path/profiles.xml:ro`)
+
+The web viewer of [section 5](#5-see-it-in-the-browser), on `http://127.0.0.1:8765/` of the
+host (the container is on the host's network, so the default `127.0.0.1` is the host's):
+
+```
+docker run --rm -it --net host --ipc host ghcr.io/atinfinity/fastdds_transport_viz:jazzy \
+    ros2 run fastdds_transport_viz transport_viz_web --stats --interval 1
+```
+
+The tool runs as root in the container, so the SHM files its participant creates in the
+host's `/dev/shm` belong to root. Stop it with Ctrl-C (hence `-it`): a container that is
+killed instead (`docker kill`, or a `docker stop` that times out) leaves segments that show
+as `!shm-stale-files`, and a normal user cannot delete them. Remove them with the image of
+the same distribution; `fastdds shm clean` of Humble and Jazzy (Fast DDS 2.x) handles the
+`fastrtps_*` files only, that of Lyrical (3.x) the `fastdds_*` files only:
+
+```
+docker run --rm --ipc host ghcr.io/atinfinity/fastdds_transport_viz:jazzy fastdds shm clean
+```
+
+### Docker: development image
 
 The repository ships a `compose.yaml` with a development image (`ros:jazzy`, or
 `ROS_DISTRO=humble` / `lyrical` / `rolling`), the repository mounted at `/ws`, and `ipc: host` so that

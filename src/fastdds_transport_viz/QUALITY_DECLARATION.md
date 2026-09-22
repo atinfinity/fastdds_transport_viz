@@ -14,6 +14,7 @@ Below are the rationales, notes and caveats for this claim, organized by each re
 
 `fastdds_transport_viz` uses `semver` according to the recommendation for ROS Core packages in the [ROS 2 Developer Guide](https://docs.ros.org/en/rolling/The-ROS2-Project/Contributing/Developer-Guide.html#versioning).
 The current version is the `<version>` of [`package.xml`](package.xml); every release is tagged `vX.Y.Z` in the repository and described in [`CHANGELOG.rst`](CHANGELOG.rst).
+From 2.1.0 on, every release is also published as a container image, `ghcr.io/atinfinity/fastdds_transport_viz:<X.Y.Z>-<distro>` (Humble, Jazzy, Lyrical; x86_64 and arm64), built from the tag by [`release.yml`](../../.github/workflows/release.yml) and pushed only after its smoke test passes.
 
 ### Version Stability [1.ii]
 

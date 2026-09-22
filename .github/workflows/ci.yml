@@ -16,6 +16,7 @@ jobs:
     outputs:
       code: ${{ steps.filter.outputs.code }}
       workflows: ${{ steps.filter.outputs.workflows }}
+      image: ${{ steps.filter.outputs.image }}
     steps:
       - uses: actions/checkout@v7
       - id: filter
@@ -35,6 +36,8 @@ jobs:
             # One pattern: with 'every' a file would have to match each line of a list.
             workflows:
               - '.github/{workflows,actions}/**'
+            image:
+              - '{docker/**,.dockerignore,scripts/image_smoke_test.sh,.github/workflows/release.yml}'
 
   build-and-test:
     name: colcon build & test (ROS 2 ${{ matrix.distro }}, ${{ matrix.arch }}, ${{ matrix.rmw }})
@@ -272,9 +275,31 @@ jobs:
           bash <(curl -sSfL "https://raw.githubusercontent.com/rhysd/actionlint/v${ACTIONLINT_VERSION}/scripts/download-actionlint.bash") "$ACTIONLINT_VERSION"
           ./actionlint -color
 
+  # The `release` stage that .github/workflows/release.yml publishes on GHCR (#78), built and
+  # smoke-tested without pushing, so a Dockerfile change cannot first break at a release tag.
+  # Jazzy on x86_64 only; release.yml runs every distribution on both architectures.
+  release-image:
+    name: release image (ROS 2 jazzy, x86_64)
+    needs: changes
+    if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.image == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: docker/Dockerfile
+          target: release
+          build-args: ROS_DISTRO=jazzy
+          tags: fastdds_transport_viz:smoke
+          load: true
+      - run: scripts/image_smoke_test.sh fastdds_transport_viz:smoke
+
   ci-result:
     name: CI result
-    needs: [changes, build-and-test, integration, coverage, web-unit-tests, actionlint]
+    needs: [changes, build-and-test, integration, coverage, web-unit-tests, actionlint, release-image]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -284,8 +309,10 @@ jobs:
           echo "coverage: ${{ needs.coverage.result }}"
           echo "web-unit-tests: ${{ needs.web-unit-tests.result }}"
           echo "actionlint: ${{ needs.actionlint.result }}"
+          echo "release-image: ${{ needs.release-image.result }}"
           case "${{ needs.build-and-test.result }}" in success|skipped) ;; *) exit 1 ;; esac
           case "${{ needs.integration.result }}" in success|skipped) ;; *) exit 1 ;; esac
           case "${{ needs.coverage.result }}" in success|skipped) ;; *) exit 1 ;; esac
           case "${{ needs.web-unit-tests.result }}" in success|skipped) ;; *) exit 1 ;; esac
           case "${{ needs.actionlint.result }}" in success|skipped) ;; *) exit 1 ;; esac
+          case "${{ needs.release-image.result }}" in success|skipped) ;; *) exit 1 ;; esac

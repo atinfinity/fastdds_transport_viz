@@ -86,6 +86,10 @@ ros2 transport list -v --explain
 Run the tool in the same environment (env vars, XML profile, network/IPC namespace) as
 the nodes you observe.
 
+On a Linux host, releases from 2.1.0 on also run without a build, from the image on GHCR
+(`:humble`, `:jazzy`, `:lyrical`; see [Getting started](getting-started.md#docker-prebuilt-image-ghcr)):
+`docker run --rm --net host --ipc host ghcr.io/atinfinity/fastdds_transport_viz:jazzy ros2 transport list -v`.
+
 ## Usage
 
 ```

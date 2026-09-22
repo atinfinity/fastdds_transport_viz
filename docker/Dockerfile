@@ -6,6 +6,9 @@
 # Stages: `dev` (the default, last stage) is the image every compose service uses; `nav2`
 # adds Nav2 and the TurtleBot3 simulation for the scale verification (#74,
 # scripts/scale_test.sh nav2) and is only built when asked for (compose service nav2_tb3).
+# `release` is the ready-to-run image published on GHCR by .github/workflows/release.yml
+# (#78): the packages built into /opt/fastdds_transport_viz on ros:<distro>-ros-core, no
+# build tools and no /ws mount (`docker build --target release`).
 ARG ROS_DISTRO=jazzy
 FROM ros:${ROS_DISTRO} AS base
 ARG ROS_DISTRO
@@ -68,5 +71,53 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         ros-${ROS_DISTRO}-nav2-bringup \
         ros-${ROS_DISTRO}-nav2-minimal-tb3-sim \
     && rm -rf /var/lib/apt/lists/*
+
+# Build of the release image: the tagged sources, without tests, into one merged install
+# tree. rosdep also records the apt packages of the exec dependencies for the runtime stage;
+# --reinstall lists the ones this image already has as well.
+FROM base AS release-build
+ARG ROS_DISTRO
+COPY src /src/src
+COPY web /src/web
+WORKDIR /src
+RUN apt-get update \
+    && rosdep update --rosdistro "${ROS_DISTRO}" \
+    && rosdep install --from-paths src --ignore-src --rosdistro "${ROS_DISTRO}" -y \
+        -t buildtool -t build -t build_export \
+    && rosdep install --from-paths src --ignore-src --rosdistro "${ROS_DISTRO}" \
+        -t exec -t buildtool_export --simulate --reinstall \
+        | sed -n 's/^ *\(sudo -H \)\{0,1\}apt-get install \(-y \)\{0,1\}//p' | sort -u > /exec-apt.txt \
+    && test -s /exec-apt.txt \
+    && rm -rf /var/lib/apt/lists/*
+RUN . "/opt/ros/${ROS_DISTRO}/setup.sh" \
+    && colcon --log-base /tmp/colcon-log build --merge-install \
+        --build-base /tmp/colcon-build --install-base /opt/fastdds_transport_viz \
+        --cmake-args -DBUILD_TESTING=OFF -DCMAKE_BUILD_TYPE=Release \
+        --event-handlers console_cohesion+
+
+# The published image. Upgraded before installing for the same reason as `base` (#171).
+# rmw_fastrtps_dynamic_cpp is a test dependency of the package, installed here so that
+# RMW_IMPLEMENTATION can match nodes that use it.
+FROM ros:${ROS_DISTRO}-ros-core AS release
+ARG ROS_DISTRO
+ARG VERSION=unknown
+LABEL org.opencontainers.image.title="fastdds_transport_viz" \
+      org.opencontainers.image.description="Shows which transport (SHM, data-sharing, UDP, TCP) each ROS 2 / Fast DDS publisher-subscriber pair uses: ros2 transport list" \
+      org.opencontainers.image.source="https://github.com/atinfinity/fastdds_transport_viz" \
+      org.opencontainers.image.documentation="https://atinfinity.github.io/fastdds_transport_viz/getting-started/" \
+      org.opencontainers.image.licenses="Apache-2.0" \
+      org.opencontainers.image.version="${VERSION}"
+ENV DEBIAN_FRONTEND=noninteractive
+COPY --from=release-build /exec-apt.txt /tmp/exec-apt.txt
+RUN apt-get update && apt-get upgrade -y --no-install-recommends \
+    && xargs -a /tmp/exec-apt.txt apt-get install -y --no-install-recommends \
+        "ros-${ROS_DISTRO}-rmw-fastrtps-dynamic-cpp" \
+    && rm -rf /var/lib/apt/lists/* /tmp/exec-apt.txt
+COPY --from=release-build /opt/fastdds_transport_viz /opt/fastdds_transport_viz
+ENV RMW_IMPLEMENTATION=rmw_fastrtps_cpp
+COPY docker/release_entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+ENTRYPOINT ["/entrypoint.sh"]
+CMD ["ros2", "transport", "list"]
 
 FROM base AS dev
