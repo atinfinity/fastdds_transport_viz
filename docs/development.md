@@ -60,6 +60,7 @@ in a third container on the same scope and asserts the verdict:
 | `hostnet_noipc_shm` | `pair_hostnet_noipc`: talker + listener in one container, `network_mode: host` without `ipc: host` ⇒ the tool's host id, another `/dev/shm`; the tool in `hostnet` | `SHM`, `same-host-guid`, `shm-not-visible` with every SHM port of the nodes missing |
 | `hostnet_split_shm` | `talker_hostnet_split`, `listener_hostnet_split`: `network_mode: host`, an IPC namespace each ⇒ same host id, two `/dev/shm`; the tool in `hostnet` | `NONE`, `shm-ipc-namespace-split`, `shm-port-collision` |
 | `hostnet_split_shm_visible` | `talker_hostnet_split_visible` (a node started first takes the 7000 port) and `listener_hostnet_split`; the tool in `hostnet_in_talker_ipc`, the talker's IPC namespace (Jazzy or newer, skipped on Humble) | `NONE`, `shm-ipc-namespace-split`, `shm-reader-port-not-visible`, no `shm-port-collision` |
+| `hostnet_split_shm_shared_port` | `talker_hostnet_split_shared` (a node started first takes 7000, the talker 7001) and `listener_hostnet_split_shared` (two nodes started first take 7000 and 7001, the talker's number); the tool in `hostnet_in_talker_shared_ipc`, the talker's IPC namespace (Jazzy or newer, skipped on Humble) | `NONE`, `shm-ipc-namespace-split`, `shm-reader-port-not-visible`, no `shm-port-collision`; in `participants` the talker's 7001 is `held` and announced by two participants, so the proof is a port of its own that only it announces, and the listener's participant is `not-visible` ([#118](https://github.com/atinfinity/fastdds_transport_viz/issues/118), [#125](https://github.com/atinfinity/fastdds_transport_viz/issues/125)) |
 | `hostnet_split_stats` | `talker_hostnet_split_stats`, `listener_hostnet_split_stats`: `hostnet_split_shm` with `FASTDDS_STATISTICS`; the tool in `hostnet` with `--stats` (skipped on Humble, which has no statistics module) | `participants_with_stats` exactly the two nodes, `NONE`, `shm-ipc-namespace-split`, `measured-shm-traffic`, not delivered, no `stats-not-enabled-on-writer` |
 | `hostnet_split_datasharing` | `bounded_pub_hostnet_split`, `bounded_sub_hostnet_split`: `hostnet_split_shm` with `bounded_pub` / `bounded_sub` and data-sharing (`datasharing_auto.xml`); the tool in `hostnet` | `/bounded` `NONE`, `shm-ipc-namespace-split`, `datasharing-qos-enabled-both`, `shm-port-collision` |
 | `hostnet_split_datasharing_udp` | `bounded_pub_hostnet_split_udp`, `bounded_sub_hostnet_split_udp`: the same with `FASTDDS_BUILTIN_TRANSPORTS=UDPv4`; the tool in `hostnet_in_bounded_pub_ipc`, the publisher's IPC namespace (skipped on Humble) | `/bounded` `NONE`, `shm-ipc-namespace-split`, `datasharing-reader-segment-not-visible`, no SHM reason |
@@ -67,12 +68,17 @@ in a third container on the same scope and asserts the verdict:
 | `rate_stats` | `rate_load`: one container with `FASTDDS_STATISTICS` and data-sharing, five `rate_load` processes per rate (10, 100 and 1000 Hz): an SHM pair (`/rate_shm`, two processes), a same-process pair (`/rate_intra`, `both`) and a data-sharing pair (`/rate_ds`, `--bounded`); the tool inside with `--stats --timeout 10` (skipped on Humble) | every pair's `delivered_per_s` within 3 % of the publish rate, or - when the tool reports a lower bound - between 0.9 and 1.03 times it (the load's statistics writer is keep-last 10, ~10 ms of slack at 1000 Hz, so a stall of a shared CI runner loses samples and the tool honestly says `≥`; seen four times on 2026-09-20 at 975.7-983.7/s, [#186](https://github.com/atinfinity/fastdds_transport_viz/issues/186)), `delivered_per_s_window_s` = `observation_seconds`; `/rate_shm` `SHM` measured `SHM`, `/rate_intra` `SHM` with no measured transport and the reason `intra-process`, `/rate_ds` `DATA_SHARING` |
 | `intra_process` | `rate_load`: one container with a single `rate_load both --topic /rate_intra` process (writer and reader in one process), the tool inside with `--timeout 30 --quiet 2`, once with `--stats` (skipped on Humble) and once without | the pair carries `intra-process` and no warning on both runs; with `--stats` the run stops on `settled` well before `--timeout` (5.0 s on Jazzy and Lyrical), `stats.measurable_pairs` 0, `stats.pairs_delivered` 0, no `rtps-sent-absent`, nothing on stderr ([#201](https://github.com/atinfinity/fastdds_transport_viz/issues/201)) |
 | `udpv6_multi_container` | `talker_udpv6`, `listener_udpv6`: bridged (the project network has IPv6), `DEFAULTv6` | `UDPv6`, `common-udpv6-locator` |
-| `easy_mode_shm` | two `hostnet` containers with `ROS2_EASY_MODE=127.0.0.1` (Fast DDS 3.2+: `ROS_DISTRO=kilted`, `lyrical` or `rolling`, skipped otherwise) | `SHM`, `same-host-guid`, no multicast locator (P2P) |
+| `easy_mode_shm` | two `hostnet` containers with `ROS2_EASY_MODE=127.0.0.1` (Fast DDS 3.2+: `ROS_DISTRO=lyrical` or `rolling`, skipped otherwise; Kilted has it too but is out of scope since 1.1.0) | `SHM`, `same-host-guid`, no multicast locator (P2P) |
 | `easy_mode_tcp` | `talker_easy_mode`, `listener_easy_mode`: bridged with fixed addresses, `ROS2_EASY_MODE` pointing at the talker's, statistics; the tool runs on the talker's host | `TCPv4`, `common-tcpv4-locator`, measured `TCPv4`, no multicast locator |
-| `record_flip` | `talker_stats` (`dev` on Humble, without `--stats`): `demo_nodes_cpp` talker and listener and `transport_viz_web --port 0 --record --interval 1 --topic '^/chatter$'` in one container; after 10 s the talker is restarted with `FASTDDS_BUILTIN_TRANSPORTS=UDPv4`, after 10 more with the default, then everything gets SIGTERM | every line of the recording is a document, at least 10 frames, `/chatter` goes `SHM` -> `UDPv4` -> `SHM`, some frame's `changes` is not empty, and with `--stats` something is measured; the Jazzy capture is `web/sample/recording.jsonl` ([#82](https://github.com/atinfinity/fastdds_transport_viz/issues/82)) |
+| `record_flip` | `talker_stats` (`dev` on Humble, without `--stats`): `demo_nodes_cpp` talker and listener and `transport_viz_web --port 0 --record /tmp/rec.jsonl --interval 1 --topic '^/chatter$'` in one container; after 10 s the talker is restarted with `FASTDDS_BUILTIN_TRANSPORTS=UDPv4`, after 10 more with the default, then everything gets SIGTERM | every line of the recording is a document, at least 10 frames, `/chatter` goes `SHM` -> `UDPv4` -> `SHM`, some frame's `changes` is not empty, and with `--stats` something is measured; the Jazzy capture is `web/sample/recording.jsonl` ([#82](https://github.com/atinfinity/fastdds_transport_viz/issues/82)) |
 | `all` | every scenario in sequence | |
 
-Output goes to `${TMPDIR:-/tmp}/transport_viz_<scenario>.json`. `hostnet_noipc_shm` and
+Output goes to `${TMPDIR:-/tmp}/transport_viz_<scenario>.json`, with these exceptions:
+`record_flip` writes the recording to `transport_viz_record_flip.jsonl`, `intra_process`
+writes `transport_viz_intra_process.json` and `transport_viz_intra_process_stats.json` (each
+with its stderr next to it as `.stderr`), `rate_stats` one file per rate
+(`transport_viz_rate_stats_<hz>.json`) and `stats_loss_multi_container` one per dropping node
+(`transport_viz_stats_loss_multi_container_{listener,talker}.json`). `hostnet_noipc_shm` and
 every `hostnet_split_*` scenario also assert the real `writer_node` / `reader_node`, which
 reach the tool only through its own `ros_discovery_info` reader
 ([#112](https://github.com/atinfinity/fastdds_transport_viz/issues/112)).
@@ -193,6 +199,15 @@ colcon test && colcon test-result --verbose
   `shm` objects, the `--watch` and `diff` `changes` objects, JSON Lines mode) and its
   inverse `parse_json()` (a rendered document parses back into a snapshot that renders
   identically; JSON Lines; foreign documents are rejected).
+- `test_render_csv`: gtest over the `--csv` renderer
+  ([#83](https://github.com/atinfinity/fastdds_transport_viz/issues/83)): the header, one row per pair with every cell the value of
+  the JSON document's field (empty where that field is null), RFC 4180 quoting of commas,
+  quotes and line breaks, the header alone without pairs and rows alone after the first
+  `--watch` frame.
+- `test_rmw_check`: gtest over the RMW check at startup
+  ([#72](https://github.com/atinfinity/fastdds_transport_viz/issues/72), [#73](https://github.com/atinfinity/fastdds_transport_viz/issues/73)): `rmw_fastrtps_cpp` and
+  `rmw_fastrtps_dynamic_cpp` are accepted silently, another middleware is rejected naming it
+  and the fix, an RMW that does not load is rejected with the rmw error.
 - `test_decision` also covers `diff_snapshots()`: the GUID key sees a restart as removed +
   added, the node key does not, several endpoints of one node, the GUID fallback.
 - `test_cli_args` (pytest): `--help`, `--list-codes`, unknown options, missing values,
@@ -201,6 +216,19 @@ colcon test && colcon test-result --verbose
   `transport_viz diff` on the fixture pair `web/sample/diff_before.json` /
   `diff_after.json` (node vs GUID key, `--changes-only`, the `--json` shape, filters, stdin
   and JSON Lines input, colors, every exit status).
+- `test_stats_profiles` (pytest): the installed statistics profiles CMake generated from the
+  templates (#152, #154, #159): a profile for every statistics alias, the writer QoS the
+  statistics module expects, `heartbeat_period` only on Fast DDS 3.x, and the large-SHM
+  transport of the test fixture.
+- `test_scale_measure` / `test_multicast_stamping_report` (pytest, the scripts loaded from
+  the source tree, skipped without it): the budget judgement of `scripts/scale_measure.py
+  --judge` (#167: named failures with value and limit, the frame median and p95 judged
+  separately, the host share, budgets without a value, a dead load) and the arithmetic of
+  `scripts/multicast_stamping_report.py` (#130: the counters' gain in the window, rows per
+  reporter and locator, the expected ratio of each rung, one bad run failing).
+- `test_launch_common` (pytest): the launch tests' `run_tool` helper reports how a failing
+  tool run ended - the signal, also when `ros2 run` passes it on as an exit code - and what it
+  printed (#215).
 - `test_shm_info`: gtest over the `/dev/shm` scan on a temporary directory (sizes, stale
   detection through `flock`, data-sharing file names, IPC-namespace visibility, the
   capacity warning).
@@ -237,7 +265,15 @@ colcon test && colcon test-result --verbose
   --transient-local` next to the default ones: the incompatible pairs are `NONE` with
   `qos-incompatible-*`), `test_diff.py` (`transport_viz diff` on two live captures: a
   restarted listener is no change under the node key and a removed + added pair under the
-  GUID key; a second listener is an added pair under both).
+  GUID key; a second listener is an added pair under both), `test_type_mismatch.py`
+  (`ros2 topic pub` of `Int32` next to `ros2 topic echo` of `String` on one topic: a `NONE`
+  pair with `type-name-mismatch`, #85), `test_shm_own_ports.py` (the tool alone on a private
+  domain checks no SHM port: its own participants are not nodes, #51),
+  `test_discovery_completeness.py` (the `discovery` object and the stderr warning agree on
+  whether discovery had settled, and the field survives a saved document, #133),
+  `test_service_action.py` (`add_two_ints_server` with a client and a `Fibonacci` action server
+  and client: one `SERVICE` row with 1/1 members and one `ACTION` row with 3/5 under `--all`, an
+  uncalled parameter service still a service, a plain topic keeping its kind, #84).
 - `test_json_schema` / `test_json_schema_live.py`: sample and live `--json` output against
   `schema/transport_viz.schema.json`. Every key `render_json.cpp` writes has to be declared
   there: `stats.measured_instances` was rendered and parsed back for a whole issue's worth of
@@ -250,8 +286,12 @@ colcon test && colcon test-result --verbose
   walks each shipped document against the schema and reports keys no property declares)
   rather than `additionalProperties: false`. A new field in the JSON output therefore comes
   with its declaration in the same pull request.
-- `test_web_serve` (pytest, fake `transport_viz`) / `test_web_live.py` (real one): the live
-  server's SSE stream, `/latest.json` and shutdown behaviour.
+- `test_web_serve` (pytest, fake `transport_viz`): the live server's SSE stream (documents,
+  the `id:` of each and the `retry: 1000` of #191, the closing status event), `/latest.json`,
+  `--record` (every line written as it came, an unwritable path failing before the start),
+  `/metrics` before and after the first document, without statistics and after the end
+  (#83), and SIGTERM / SIGHUP reaping the `transport_viz` child (#195).
+  `test_web_live.py` (real one): `/latest.json` and the first SSE document.
 - `ros2transport/test/test_cli.py` (pytest, fake `transport_viz`): argument translation of
   `ros2 transport list` and `diff`, parity with the binary's `--help`, `codes`, missing
   binary and missing input files.
@@ -275,7 +315,11 @@ with the `--node` semantics, edge bundling, number formatting, the shared-memory
 the comparison of two documents: `diffDocuments()` must reproduce `web/sample/diff.json`,
 what the binary printed for `diff --all --json` on the fixture pair, which `test_cli_args`
 asserts from the C++ side; `web/scene.js`: the scene of the current filters, the column
-layout, the edge curves and the label midpoints) are unit-tested under Node without a browser:
+layout, the edge curves and the label midpoints; `web/replay.js`, tested by `replay.test.js`:
+a recording split into frames with their byte offsets, the per-pair series of the strip
+charts across restarts and gaps, the next change, the SSE id tracking of live mode and the
+dropping of the oldest frames under `?history=`, and the replay of
+`web/sample/recording.jsonl`) are unit-tested under Node without a browser:
 
 ```
 node --test "web/test/*.test.js"
@@ -286,22 +330,28 @@ browser instead: `web/test/browser.test.js` and `web/test/live.test.js` drive he
 Chrome over the DevTools protocol (`web/test/cdp.js`, no dependencies and no build step -
 the same protocol `scripts/scale_viewer.js` uses) against the viewer served from `web/`,
 one tab per test. Together they cover the first render of `web/sample/sample.json`
-(arrows, nodes, host boxes, labels, `#meta`), the topic and node filters including an
-invalid regular expression, the transport checkboxes and *Show internal topics*, the edge
-and node panels, the table's topic rows, collapse and sorting, a `?diff=` load (summary,
-`.added` / `.changed` marks, ghost rows, `?key=guid`, *changes only*), drag and drop, a
-failed `?src=`, and live mode through `web/serve.py` with a fake producer
-(`web/test/fake_transport_viz.js`, frames released by a step file): the first frame, a new
-frame keeping the selection, *Pause* holding frames back and *Resume* applying them, the
-end-of-stream banner, and - through a TCP proxy the test cuts under the browser - the
-reconnect banner and the recovery after it. The expectations come from `web/model.js` and `web/scene.js`
+(arrows, nodes, host boxes, labels, `#meta`) and of the embedded `sample.js`, the topic and
+node filters including an invalid regular expression, the transport checkboxes and *Show
+internal topics*, the edge and node panels, the table's topic rows, collapse and sorting and
+a pair row's card, a `?diff=` load (summary, `.added` / `.changed` marks, ghost rows,
+`?key=guid`, *changes only*) and a document carrying its own `changes`, drag and drop, a
+failed `?src=`, replay of `web/sample/recording.jsonl` (the timeline with a tick per change,
+next / previous, the arrow keys, *change* and `?frame=`, a selected pair keeping its card and
+charts, a click on a chart, *Compare with…*, a dropped recording with foreign lines), and
+live mode through `web/serve.py` with a fake producer (`web/test/fake_transport_viz.js`,
+frames released by a step file): the first frame, a new frame keeping the selection, the
+history timeline following the newest frame, ◀ and *Pause* stopping on a past frame while
+frames keep coming and live ▶| / End going back, *Save recording*, the end-of-stream banner
+with the history kept, `?history=` dropping the oldest frames, and - through a TCP proxy the
+test cuts under the browser - the reconnect banner and the recovery after it. The expectations come from `web/model.js` and `web/scene.js`
 rather than from hard-coded numbers, so regenerating the samples does not break them.
 
 Everything runs from the same command. The browser tests need Node >= 22 (global
 `WebSocket`) and a Chrome or Chromium on the `PATH` - `$CHROME` names another one, and they
 skip with a reason when there is none. `FTV_REQUIRE_BROWSER=1` turns that skip into a
 failure, and `FTV_CHROME_NO_SANDBOX=1` adds `--no-sandbox` (needed where unprivileged user
-namespaces are forbidden, as on the Ubuntu runner image and inside a root container). CI
+namespaces are forbidden, as on the Ubuntu runner image); running as root, as in the dev
+container, adds it by itself. CI
 runs the whole file set with both set, in the `web viewer tests (node)` job.
 `test_web_serve` / `test_web_live.py` stay the tests of the server itself.
 
@@ -328,12 +378,13 @@ A second job, `integration`, runs `scripts/integration_test.sh all` on the runne
 once on x86_64 and once on arm64, for the merge commit on `main` and on
 `workflow_dispatch` (not for pull requests, to keep PR CI short); the `transport_viz` JSON
 of each scenario is uploaded as an artifact per architecture. Two more x86_64 rows run
-selected scenarios on other images: Lyrical for `easy_mode_shm`, `easy_mode_tcp`,
-`hostnet_noipc_shm`, `hostnet_split_shm`, `hostnet_split_shm_visible`,
-`hostnet_split_stats`, `hostnet_split_datasharing` and `hostnet_split_datasharing_udp`,
-Humble for `hostnet_split_shm`, `hostnet_noipc_shm` and `hostnet_split_datasharing`. The matrix itself does not
-run again on `main`: each change is built once, in its pull request. Every job has a
-30-minute `timeout-minutes` (queue time excluded). The `rosdep` / `colcon build` /
+selected scenarios on other images: Lyrical for the Easy Mode scenarios the Jazzy image skips
+and the split IPC namespace ones, Humble for the scenarios Fast DDS 2.6 can run there, and
+both for `intra_process` and `record_flip`. The `integration` matrix in `ci.yml` is the list,
+with a comment on why each scenario is in it. The matrix itself does not
+run again on `main`: each change is built once, in its pull request. The build-and-test,
+`integration` and `coverage` jobs have a 30-minute `timeout-minutes`, the `web viewer tests
+(node)` job 10 minutes (queue time excluded). The `rosdep` / `colcon build` /
 `colcon test` steps live in the composite action `.github/actions/colcon-build-test`, which
 the Rolling workflow shares.
 
@@ -353,8 +404,8 @@ but nothing gates on the percentage, and a Coveralls outage does not fail the jo
 against `ros:rolling`, which tracks the Fast DDS head and is only a non-blocking x86_64 job
 in the pull-request matrix ([#79](https://github.com/atinfinity/fastdds_transport_viz/issues/79)):
 `colcon build` and `colcon test` on x86_64 and arm64 (plus `rmw_fastrtps_dynamic_cpp` on
-x86_64) and `scripts/integration_test.sh all` on both architectures, none of them
-`continue-on-error`. Its `report` job opens the issue "Scheduled Rolling run failed" (label
+x86_64, 30 minutes each) and `scripts/integration_test.sh all` on both architectures (45
+minutes each), none of them `continue-on-error`. Its `report` job opens the issue "Scheduled Rolling run failed" (label
 `rolling-ci`) with the run URL and the failed jobs when something broke, adds a comment to it
 while it stays open, and closes it once a run passes again. A `simulate_failure` input of
 `workflow_dispatch` exercises the issue path without a real failure. `.github/dependabot.yml`
@@ -376,7 +427,7 @@ host, one scenario at a time (they share the machine with the load); not part of
 | `small` / `medium` / `large` | 10 / 20 / 40 `scale_load` processes of one node each, 100 / 500 / 1000 topics, 4 readers per topic: 400 / 2000 / 4000 `/scale` pairs, plus `/parameter_events` (every node publishes and subscribes: processes² pairs) and `/rosout` |
 | `large_multi` | `large` split across two bridged containers: processes 0–19 in `scale_load_a` (the tool's container, SHM among them), 20–39 in `scale_load_b` (UDPv4 to the others) |
 | `limit` | records only: 60, 90, 135, … processes with 25 topics each, until the load or the tool falls over or less than 10 % of the memory is left; `limit_p<N>` per step |
-| `nav2` | Nav2 + TurtleBot3 (`tb3_simulation_launch.py headless:=True`, default composition, initial pose, no goal) in the `nav2_tb3` service (image target `nav2`; Jazzy and Kilted, no Nav2 binaries for Lyrical) |
+| `nav2` | Nav2 + TurtleBot3 (`tb3_simulation_launch.py headless:=True`, default composition, initial pose, no goal) in the `nav2_tb3` service (image target `nav2`; Jazzy only: no Nav2 binaries for Lyrical, and Kilted, which has them, is out of scope since 1.1.0) |
 
 The loads run with `FASTDDS_STATISTICS` in compose services of the `scale` profile. The tool
 runs inside the load's container (`docker compose exec`, so it shares the host id and
@@ -391,7 +442,7 @@ Budgets (the `limit` steps only record):
 | Budget | Limit | Measured as |
 |---|---|---|
 | one-shot table | < 2 s | `collect` + `render` after the discovery wait, median of three |
-| `--watch` frame | median < 250 ms, p95 < 500 ms | median and p95 of the `frame` times of the three 60 s runs: `--stats`, `--stats -v` and, since [#135](https://github.com/atinfinity/fastdds_transport_viz/issues/135), without `--stats`; the worst run of the three for each. Before [#177](https://github.com/atinfinity/fastdds_transport_viz/issues/177) the p95 alone was judged at 250 ms: a 60 s run drew 16-22 frames once the settle rule of #168 delayed the first one, the p95 of that few is the worst frame, and the host is not still within a harness run (the load's statistics writers work while the tool is matched, so every run heats the host for the next one - `/proc/loadavg` climbed from 3.6 to 24 on 8 CPUs over six back-to-back runs). The median is the frame a user sees; the p95 keeps a stall from hiding. The `Host` column and the `FAIL` line say what the host was doing (whole-VM cores before the tool and during the slowest watch run, the tool's own cores). Judged up to `medium`: at `large` the load alone takes 6.7 to 7.5 of the 8 cores, so the frame time there is recorded and says more about the host than about the tool |
+| `--watch` frame | median < 250 ms, p95 < 500 ms | median and p95 of the `frame` times of the three 60 s runs: `--stats`, `--stats -v` and, since [#135](https://github.com/atinfinity/fastdds_transport_viz/issues/135), without `--stats`; the worst run of the three for each. Before [#177](https://github.com/atinfinity/fastdds_transport_viz/issues/177) the p95 alone was judged at 250 ms: a 60 s run drew 16-22 frames once the settle rule of #168 delayed the first one, the p95 of that few is the worst frame, and the host is not still within a harness run (the load's statistics writers work while the tool is matched, so every run heats the host for the next one - `/proc/loadavg` climbed from 3.6 to 24 on 8 CPUs over six back-to-back runs). The median is the frame a user sees; the p95 keeps a stall from hiding. The `Host` column and the `FAIL` line say what the host was doing (whole-VM cores before the tool and during the slowest watch run, the tool's own cores). Judged at `medium` only: at `large` the load alone takes 6.7 to 7.5 of the 8 cores, so the frame time there is recorded and says more about the host than about the tool |
 | web viewer | first render < 3 s, every action (filter, select) < 100 ms at `large` | the 30 s `--stats` document, by hand (below) |
 | tool CPU | < 1 core | CPU time / wall time of the `--watch` runs and the 30 s `--stats` run, the highest |
 | tool memory | < 300 MB | peak RSS (`wait4`) over every run |
@@ -427,10 +478,10 @@ interface; nothing in `--json` changes):
 | `ftv_profile` | When | Fields besides `ms` |
 |---|---|---|
 | `discovery` | after the discovery wait, from start | `endpoints` (every endpoint the raw participant knows), `events` (discovery callbacks), `first_event_ms` (polled every 50 ms, 0 when nothing was discovered), `last_event_ms` |
-| `drain` | `--stats`: reading the statistics readers | `samples`, `sample_lost`, `sample_lost_at_start`, `sample_rejected` (cumulative) |
+| `drain` | `--stats`: reading the statistics readers | `samples`, `sample_lost`, `sample_lost_latency`, `sample_lost_at_start`, `sample_rejected`, `writers_incompatible_qos`, `drain_errors` (cumulative) |
 | `resolve` | node names from the ROS graph (two rmw queries per topic), only on the frames that follow a discovery event or a `ros_discovery_info` sample, or come within 5 s of the last event ([#135](https://github.com/atinfinity/fastdds_transport_viz/issues/135)) | `refreshed` (1: the frame queried the graph) |
 | `summarize` | pairing writers and readers | `endpoints`, `topics`, `pairs` (before the view filters) |
-| `apply_stats` | `--stats` overlay | |
+| `apply_stats` | `--stats` overlay | `pairs_delivered`, `pairs_delivered_unmeasured`, `pairs_delivered_absent` (the `stats.*` of the same names) |
 | `collect` | the whole snapshot, the three above included | `endpoints`, `topics`, `pairs` (as shown) |
 | `update` | `--watch`: changes against the previous frame | |
 | `render` | table or JSON text | `bytes`, `lines` |
@@ -623,7 +674,6 @@ The one-shot pair counts below the total are the `--quiet 1` stops described abo
 | 2026-09-20 | the `--watch` frame gate ([#177](https://github.com/atinfinity/fastdds_transport_viz/issues/177)): the `scale_load` medium rung on Jazzy (three runs) and Lyrical (three runs) with the median and p95 budgets and the `--watch` start rule; a bounded diagnosis of the Lyrical `-v` run (three runs each of `-v` and `--stats` alone, `FTV_PROFILE` per frame); `test_scale_measure.py` (median / p95 judged apart, the host share on the `FAIL` line, results without `load_before`); the unit tests of `watch_ready` | arm64 | 2.14.6 (`ros:jazzy`), 3.6.2 (`ros:lyrical`) | frame median 186 / 190 / 196 ms (Jazzy) and 184 / 218 / 196 ms (Lyrical) with `--stats`, 209-235 ms with `-v`, p95 227-328 ms: the gate passes on both distributions in all six runs (rows before this one were judged on the p95 alone at 250 ms). 27-29 frames per 60 s run (before: 16-22). The `-v` slowdown of the previous rows (753 / 925 ms) was the host: `/proc/loadavg` climbs from 3.6 to 24 over six back-to-back runs, and `-v` alone costs 27 ms of render per frame. One Lyrical run failed `stats_coverage` (0.0: the default one-shot settled at 8.0 s with no pair measured, [#179](https://github.com/atinfinity/fastdds_transport_viz/issues/179)) | `scripts/scale_test.sh medium`, `src/fastdds_transport_viz/test/test_scale_measure.py` |
 | 2026-09-20 | the `--stats` one-shot settle rule counting reader-bound entries only ([#179](https://github.com/atinfinity/fastdds_transport_viz/issues/179)): the `scale_load` medium rung on Lyrical (three runs) and Jazzy (one run); the unit tests of `reader_ports` / `measures_a_pair` and the `stats.measured_instances` round-trip; `colcon test` on the three distributions | arm64 | 2.14.6 (`ros:jazzy`), 3.6.2 (`ros:lyrical`), 2.6 (`ros:humble`, unit suites) | `stats_coverage` 1.0 in all four runs (before: one Lyrical run 0.0, settled at 8.0 s with 47 metatraffic / own-port entries). Settled at 27.7 s and 24.3 s on Lyrical, once at the 30 s cap (`stopped_on` `timeout`, 545 entries measured, coverage 1.0), at 15.4 s on Jazzy; 525-640 `measured_instances`. Frame median 174-233 ms, p95 211-308 ms, all within budget. `colcon test`: Jazzy 545 tests, Lyrical 541, Humble 545, 0 failures | `scripts/scale_test.sh medium`, `test_decision.cpp`, `test_render_json.cpp` |
 | 2026-09-20 | `rate_stats` on GitHub-hosted runners ([#186](https://github.com/atinfinity/fastdds_transport_viz/issues/186)): the CI `integration` jobs of that day (x86_64 and arm64 Jazzy, arm64 Rolling) and the scenario on the dev host after the change | x86_64 + arm64 (runners), arm64 (host) | 2.14.6 (`ros:jazzy`), 3.x head (`ros:rolling`) | the 1000 Hz rung failed three CI jobs with every pair a lower bound at 975.7 / 983.7 / 982.0 /s (10 and 100 Hz at 100.0 /s every time, the same code passing on the runs around them and on re-run); the assertion now accepts a lower bound within `[0.9, 1.03]` × rate, the strict ±3 % stays for a rate without one. Dev host: 10 / 100 / 1000 Hz pass, no lower bound | `scripts/integration_test.sh rate_stats` |
-
 | 2026-09-20 | the web viewer in a browser ([#81](https://github.com/atinfinity/fastdds_transport_viz/issues/81)): `web/test/browser.test.js` and `web/test/live.test.js` against headless Chrome on the host, plus the existing Node unit tests | arm64 (host) | - (viewer only) | `node --test "web/test/*.test.js"` 67 tests, 0 failures in 12 s with Node 22.17.0 and Chrome 153.0.8010.48 (48 before: 14 browser tests and one live-mode test with 4 subtests added). Without a browser those 15 tests skip with a reason and the 48 unit tests still run; `FTV_REQUIRE_BROWSER=1` fails instead, and a `$CHROME` that is not an executable fails rather than skipping. A removed pair turned out to have no ghost arrow when its nodes are gone from the after document (`sceneEdges()` keeps ghosts only between known nodes), so that case is asserted in the table, where the ghost row is | `web/test/cdp.js`, `web/test/fake_transport_viz.js`, `web/serve.py` |
 | 2026-09-20 | type mismatches on the same topic ([#85](https://github.com/atinfinity/fastdds_transport_viz/issues/85)): the type-name case as a launch test (`ros2 topic pub` Int32 and `ros2 topic echo` String on one topic) on the three distributions; a type-hash probe with two builds of the same message package (`int32 data` against `string data`, so the same DDS type name with two REP-2011 hashes) published and subscribed the same way, with and without `--stats`; unit suites and `node --test` | arm64 | 2.14.6 (`ros:jazzy`), 3.6.2 (`ros:lyrical`), 2.6 (`ros:humble`) | name mismatch: one `NONE` / `certain` pair with `type-name-mismatch` and an empty `unmatched_reasons` on all three (before: no pair at all and a topic-level reason). Hash mismatch: both sides announce a hash on Jazzy and Lyrical (`RIHS01_a299ad13…` against `RIHS01_369ac5ac…`, the same values on both), the pair stays `SHM x1` / `certain` and gains `!type-hash-mismatch`, and `ros2 topic echo` printed nothing on either. With `--stats` the two behaviours the explanation names: Jazzy measured 35 delivered samples, 38 SHM packets and 0.41 ms latency (Fast DDS 2.x matches the pair and the rmw drops the samples), Lyrical 0 DATA submessages and `delivered` false (3.x never matches). Humble announces no hash at all (`type_hash` `""` on both endpoints), so no warning although the subscription receives nothing - the documented limitation. `colcon test`: Jazzy 557 tests, Lyrical 553, Humble 557, 0 failures; `node --test "web/test/*.test.js"` 68 tests | `test/launch/test_type_mismatch.py`, `test_decision.cpp`, `web/test/model.test.js` |
 | 2026-09-21 | the live reconnect banner and the recovery after it ([#191](https://github.com/atinfinity/fastdds_transport_viz/issues/191)): a TCP proxy in front of `web/serve.py` drops the browser's SSE socket, `serve.py` never hearing about it; the whole web suite run 8x on the host | arm64 (host) | - (viewer only) | the banner appeared 1-11 ms after the cut and the recovery 1002 ms later, from the latest document `serve.py` sends to every new connection - no new frame needed; the same probe on the browser's own default took 3032 ms, which is what `retry: 1000` replaces. A frame stepped after the recovery still arrived, so the stream was live and not merely reconnected. `node --test "web/test/*.test.js"` 72 tests (68 before), 13 s, 8/8 runs green with Node 22.17.0 and Chrome 153.0.8010.48. Two flakes were found and fixed on the way: a `?src=` page renders once while it is still empty, so `goto()` could return before the fetch and a filter test then asserted an empty graph (1 failure in 5 runs before `goto()` waited for `#meta`); and SIGTERM kills `serve.py` before its cleanup runs, orphaning the `transport_viz` it started - that orphan holds the test's stderr pipe and node never exits, so the test lets the producer stop itself first | `web/test/live.test.js`, `web/test/cdp.js`, `web/serve.py` |
@@ -687,7 +737,7 @@ the script (Docker host) after changing the table layout or the palette and comm
 ## Japanese documentation
 
 `README.ja.md` and `docs/*.ja.md` mirror the English user documentation (README,
-getting-started, how-it-works, statistics, data-sharing, web-viewer); English is the
+index, getting-started, how-it-works, statistics, data-sharing, web-viewer); English is the
 source of truth and tool output stays English. When one of those English files changes,
 update its `.ja.md` and the "as of" date in its header. The developer guide (this file
 and architecture.md) has no translation.
