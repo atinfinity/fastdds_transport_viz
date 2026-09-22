@@ -26,15 +26,16 @@ open web/index.html            # macOS。あるいはファイルをダブルク
 [録画と再生](#録画と再生) 参照) も開けます。
 
 ページは最初に `web/sample/sample.json` を表示します。talker/listener ノードと、statistics を
-有効にした bounded 検証ノードの実際のキャプチャです。
+有効にした bounded 検証ノードの実際のキャプチャです。別の文書を開いた後は、ヘッダの
+**Load sample** でこれに戻れます。
 
 ## グラフの読み方
 
 | 要素 | 意味 |
 |---|---|
 | 列 | ホスト (`local`、`host:<id>`、または statistics から得たホスト名) |
-| 箱 | ROS ノード (statistics があれば名前の下に `process id`)。赤い `+N unmatched` は相手のいないトピック |
-| 矢印 | 2 ノード間の同じ transport・同じ確信度の writer → reader ペアを束ねたもの。ラベルはペア数 |
+| 箱 | ROS ノード (statistics があれば名前の下に `pid <n>`)。赤い `+N unmatched` は相手のいないトピック |
+| 矢印 | 2 ノード間の同じ transport・同じ確信度の writer → reader ペアを束ねたもの。ラベルはペアが 1 つなら `<topic> · <TRANSPORT>` (確信度が `likely` なら transport の後に `?`)、N 個のペアを束ねたものなら `<N> topics · <TRANSPORT>` |
 | 丸い箱 | Discovery Server (`SERVER` / `BACKUP` の participant。アナウンスされた名前、なければ `Discovery Server`、下に最初の locator)。そのホストの列に出ます ([#86](https://github.com/atinfinity/fastdds_transport_viz/issues/86)) |
 | `CLIENT` タグ | participant が `CLIENT` / `SUPER_CLIENT` とアナウンスしたノード。文書がどのサーバーか判定できた場合はラベルのない灰色の点線がサーバーへ伸びます ([how-it-works.ja.md](how-it-works.ja.md#ノードと同じ場所で実行する) 参照)。transport の凡例の外で、束ねられません |
 | 色 | UDPv4 青 · UDPv6 水色 · TCP 紫 · SHM 緑 · DATA_SHARING 橙 · NONE 灰 (凡例はツールバー) |
@@ -51,8 +52,7 @@ partition)、`data-sharing` 行 (writer の履歴のサイズと、エンドポ�
 その先頭 8 文字を出す `type hash` 行 (マウスを乗せると全体が出ます、[#85](https://github.com/atinfinity/fastdds_transport_viz/issues/85)) です。ノードをクリックすると publisher、subscription、相手のいない
 トピックが出ます。クライアントならさらにアナウンスした discovery プロトコル、participant の
 prefix と metatraffic locator、そのサーバーが、サーバーならそれに紐づくクライアントの一覧が
-出ます。ヘッダの 2 行目の末尾には、通常の discovery でなかった場合のツール自身の参加の仕方
-(`observed as SUPER_CLIENT of UDPv4 …` や Easy Mode のアドレス) が付きます。
+出ます。
 
 ヘッダの 1 行目にはドメイン、観測時刻、件数が出て、最後に statistics の要約が付きます。文書が
 持っているサンプル数と、ツールが取り逃したぶんがあれば `N lost` です。その損失で実測まで失われた
@@ -62,14 +62,17 @@ prefix と metatraffic locator、そのサーバーが、サーバーならそ�
 
 ヘッダの 2 行目は `transport_viz` が動いた環境の共有メモリの要約です (文書の `shm`
 オブジェクト。[how-it-works.ja.md](how-it-works.ja.md#環境の共有メモリ) 参照): `/dev/shm` の容量、
-Fast DDS が置いているもの、stale なファイル、`shm-*` の警告。
+Fast DDS が置いているもの、stale なファイル、`shm-*` の警告。末尾には、通常の discovery でなかった
+場合のツール自身の参加の仕方 (`observed as SUPER_CLIENT of UDPv4 …` や Easy Mode のアドレス) が
+付きます。
 
 **Table** タブは CLI の `--verbose` と同じ形です: トピックごとの見出し行の下にペア行が並びます。
 見出し行にはドキュメントのトピック集計 (`topics[]`) が出ます: writer / reader の数、ペアが使う
 トランスポート、最も遅いペアの遅延、欠落 (RTPS_LOST はトピックごとに 1 回だけ数え、再送は合計)、
 unmatched の理由です。ペア行を足し合わせることはないので、フィルタでペアを隠しても見出しの数字は
 変わりません。`Hz` はペアごとにしかないので見出しでは空欄です。見出しをクリックするとそのトピックの
-ペアを畳んだり開いたりでき、ツールバーの **Collapse all** / **Expand all** で一括にできます。
+ペアを畳んだり開いたりできます。ツールバーのボタン (Table タブでだけ表示) で一括にでき、表示は
+開いているトピックが 1 つでもあれば **Collapse all**、すべて畳まれていれば **Expand all** です。
 列見出しをクリックするとトピックは集計値で、トピック内のペアは各自の値でソートされます
 (数値は数値として、値のないものは最後)。statistics があればペア行に観測中に運ばれたパケット数と
 バイト数、遅延、1 秒あたりに届いたサンプル数 (`Hz`、ホバーで窓の長さ)、欠落も出ます。
@@ -79,7 +82,9 @@ unmatched の理由です。ペア行を足し合わせることはないので�
 表示され、その下にメンバーのペア行が並びます
 ([#84](https://github.com/atinfinity/fastdds_transport_viz/issues/84))。writer / reader の
 セルは向きごとのメンバーペア数 (完全なサービスは `1`/`1`、完全なアクションは `3`/`5`)、型は
-メンバーの型から `_Request` / `_Response` を取り除いたものです。試すための capture として
+メンバーの型から末尾を取り除いたものです。サービスなら `_Request` / `_Response` を取り除いた
+サービスの型、アクションなら `_SendGoal_Request`、`_GetResult_Response`、`_FeedbackMessage` などを
+取り除いたアクションの型 (`example_interfaces/action/Fibonacci`) です。試すための capture として
 `sample/services.json` があります (`index.html?src=sample/services.json`)。グラフは変えて
 いません。エッジは矢印であり矢印には向きがあるので、メンバーごとのままです。
 
@@ -92,6 +97,8 @@ unmatched の理由です。ペア行を足し合わせることはないので�
 フィルタは `--node` と同じ意味論です。writer か reader が一致するノードに属するペアを残し、グラフ
 には一致したノード (強調表示。表示中のペアが無くても残る) と残ったペアの相手ノードを描き、それ以外
 は隠します。不正な正規表現は赤枠で表示され、何も絞り込みません。
+正規表現の欄への入力は、打鍵が 100 ms 止まった時点、または Enter か欄からフォーカスが外れた時点で
+適用されます。
 
 ## 2 つの文書の比較
 
@@ -168,7 +175,9 @@ viewer は受信したフレームをすべて保持します
 ページを開いた時点から始まり、閉じるか再読み込みすると消えます。それより前の時間や、ブラウザを
 開いていない間のためには、サーバーを [`--record`](#録画と再生) 付きで動かしてください。
 `?history=<MB>` で上限を決めます (既定 512。`0` で履歴を持たず、**Pause** はそれまでどおり
-**Resume** まで最新フレームの反映を止めます)。上限を超えると最も古い 1 割のフレームをまとめて
+**Resume** まで最新フレームの反映を止めます)。`/` は `index.html?live=1` にリダイレクトされ
+クエリは捨てられるので、パラメータはそのアドレスに付けてください:
+`http://127.0.0.1:8765/index.html?live=1&history=1024`。上限を超えると最も古い 1 割のフレームをまとめて
 捨て、タイムラインに `history: 512 MB, oldest dropped` と出ます。表示中の過去フレームが捨てられた
 ときは、一時停止のまま最も古い保持フレームに移り、`the frame on screen was dropped` と出ます。
 2400 ペアの `medium` 文書を `--interval 1` で流すと (ストリーム上で 1 フレーム約 5.7 MB)、既定の
@@ -201,8 +210,8 @@ viewer は受信したフレームをすべて保持します
 
 `transport_viz` が終了するとサーバーは `status` イベントを送り (「live: transport_viz exited …」と
 表示) 停止します。終了コードは `transport_viz` が失敗していれば 1、そうでなければ 0 です。
-`transport_viz_web` を止めると (Ctrl-C、またはこのプロセス自身への SIGTERM)、起動した
-`transport_viz` も一緒に止まります。Docker 環境では `docker compose run --rm --service-ports dev` が
+`transport_viz_web` を止めると (Ctrl-C、またはこのプロセス自身への SIGTERM か SIGHUP)、起動した
+`transport_viz` も一緒に止まり、サーバーは 0 で終了します。Docker 環境では `docker compose run --rm --service-ports dev` が
 ポート 8765 を公開するので、コンテナ内の `transport_viz_web --bind 0.0.0.0` にホストのブラウザから
 届きます。
 
@@ -321,17 +330,21 @@ ros2 run fastdds_transport_viz transport_viz --watch --json --stats --interval 1
 
 ## 大きな文書
 
-スケール検証の文書を Apple M3 上の Chrome で開いて測りました (詳細は [development.md](development.md#scale-results))。
+スケール検証の文書を Apple M3 上のヘッドレス Chrome で開き、
+[#136](https://github.com/atinfinity/fastdds_transport_viz/issues/136) の後に測りました (詳細は
+[development.md](development.md#scale-results))。
 
-| 文書 | 初回描画 | フィルタで絞る | フィルタの解除、クリック |
+| 文書 | 初回描画 | トピックのフィルタ / ノードのフィルタ / その解除 | 選択 / 選択解除 |
 |---|---|---|---|
-| Nav2 + TurtleBot3: 矢印 244 本、1195 ペア、2.4 MB | 25 ms | 0.1 秒未満 | 0.1 秒未満 |
-| 矢印 1467 本、5600 ペア、15 MB | 0.16 秒 | 0.1 秒未満 | 0.14 秒 |
-| 矢印 4217 本、13 800 ペア、31 MB | 0.7 秒 | 0.1 秒未満 | 0.7 秒 |
+| `medium`: 矢印 378 本、2400 ペア、9.1 MB | 33 ms | 133 / 133 / 133 ms | 33 / 34 ms |
+| `large`: 矢印 1467 本、5600 ペア、16.8 MB | 53 ms | 120 / 123 / 146 ms | 35 / 33 ms |
 
-フィルタを変えるたび、またクリックするたびに、表示中の矢印をすべて描き直します。矢印が数千本を
-超えるときは、あちこちクリックする前にトピックかノードで表示を絞ってください。フィルタの解除や
-選択には、表示中の矢印 1 本あたり約 0.16 ms かかります ([#136](https://github.com/atinfinity/fastdds_transport_viz/issues/136))。
+フィルタの時間には、最後の打鍵から正規表現のフィルタが適用されるまでの 100 ms の待ちが含まれる
+ので、処理そのものはその時間から 100 ms を引いたものです。フィルタを変えると表示中の矢印を描き
+直します。絞り込みは軽く、`large` でフィルタを解除すると待ちの後に 46 ms かかります。クリックは
+選択した矢印、ノード、行の見た目を変えて側面パネルを埋めるだけで何も描き直さないので、文書が
+大きくなってもほとんど重くなりません。選択の時間のうち 33 ms は、60 Hz での 2 フレーム分という
+測定の下限です。
 
 ## JSON スキーマ
 

@@ -29,8 +29,27 @@ types such as `/rosout`.
 ## Confidence
 
 The verdict is `likely` (`DATA_SHARING?`) when both endpoints announce data-sharing and
-their domain ids intersect (or at least one side announces none). With `--stats` it becomes
-`certain` in two ways:
+their domain ids intersect (or at least one side announces none), with two exceptions:
+
+- Writer and reader in two IPC namespaces
+  ([#110](https://github.com/atinfinity/fastdds_transport_viz/issues/110)): Fast DDS still
+  pairs them on QoS alone, but the reader cannot open the writer's history and nothing
+  arrives. When the tool can tell - the SHM evidence of
+  [Split IPC namespaces](how-it-works.md#split-ipc-namespaces) with both on SHM, or one of
+  the two data-sharing segments in the tool's `/dev/shm` and the other not
+  (`datasharing-reader-segment-not-visible` / `datasharing-writer-segment-not-visible`) -
+  the verdict is `NONE` (`certain`) with the warning `shm-ipc-namespace-split`, and
+  `--stats` does not change it (a delivery proof adds
+  `shm-ipc-namespace-split-but-delivered`).
+- Writer and reader in one process
+  ([#201](https://github.com/atinfinity/fastdds_transport_viz/issues/201)): Fast DDS hands
+  the samples over inside the process, not through the data-sharing segment, so the reason
+  is `intra-process` instead of `datasharing-unverified-by-traffic` and the verdict never
+  becomes `certain`: no packet, no `DATA_COUNT` and no delivery through the segment can
+  confirm it. Only packets measured from the writer's participant to the reader drop the
+  `intra-process` reason, and the rules below then apply.
+
+Otherwise, with `--stats` it becomes `certain` in two ways:
 
 - `HISTORY_LATENCY` proves delivery while no packet at all reached the reader's locators
   (`datasharing-confirmed-no-traffic`).

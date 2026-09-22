@@ -26,15 +26,16 @@ The same three ways open a recording, a JSON Lines file of several documents (`.
 see [Recording and replaying](#recording-and-replaying)).
 
 The page starts with `web/sample/sample.json`, a real capture of talker/listener nodes
-plus the bounded verification nodes with statistics enabled.
+plus the bounded verification nodes with statistics enabled. **Load sample** in
+the header brings it back after another document.
 
 ## Reading the graph
 
 | Element | Meaning |
 |---|---|
 | Column | a host (`local`, `host:<id>`, or the host name from statistics) |
-| Box | a ROS node (`process id` below the name when statistics are available); a red `+N unmatched` marks topics without a peer |
-| Arrow | writer → reader pairs between two nodes with the same transport and confidence, bundled; the label is the number of pairs |
+| Box | a ROS node (`pid <n>` below the name when statistics are available); a red `+N unmatched` marks topics without a peer |
+| Arrow | writer → reader pairs between two nodes with the same transport and confidence, bundled; the label is `<topic> · <TRANSPORT>` for a single pair (`?` after the transport when the confidence is `likely`) and `<N> topics · <TRANSPORT>` for a bundle of N pairs |
 | Pill | a Discovery Server (`SERVER` / `BACKUP` participant; the announced name, `Discovery Server` when it has none, its first locator below), in its host's column ([#86](https://github.com/atinfinity/fastdds_transport_viz/issues/86)) |
 | `CLIENT` tag | a node whose participant announced itself `CLIENT` / `SUPER_CLIENT`; a dotted grey line without a label leads to its server when the document could tell which one (see [how-it-works.md](how-it-works.md#run-it-where-the-nodes-run)); it is outside the transport legend and never bundled |
 | Color | UDPv4 blue · UDPv6 cyan · TCP purple · SHM green · DATA_SHARING orange · NONE grey (legend in the toolbar) |
@@ -53,9 +54,7 @@ characters of the endpoint's ROS 2 type hash when it announces one - hover it fo
 value ([#85](https://github.com/atinfinity/fastdds_transport_viz/issues/85)).
 Click a node for its publishers, subscriptions and unmatched topics, and, for a client, the
 discovery protocol it announced, its participant prefix and metatraffic locators, and its
-server; a server's card lists the clients attributed to it. The second header line ends
-with how the tool itself took part when that was not plain discovery (`observed as
-SUPER_CLIENT of UDPv4 …`, or the Easy Mode address).
+server; a server's card lists the clients attributed to it.
 
 The first header line names the domain, the observation time and the counts, and ends with
 the statistics summary: how many samples the document holds and, when the tool lost some of
@@ -68,6 +67,8 @@ is a loss that did no harm
 The second header line summarizes the shared memory of the environment `transport_viz`
 ran in (the document's `shm` object, see [how-it-works.md](how-it-works.md#shared-memory-of-the-environment)):
 capacity of `/dev/shm`, what Fast DDS keeps there, stale files and the `shm-*` warnings.
+It ends with how the tool itself took part when that was not plain discovery (`observed as
+SUPER_CLIENT of UDPv4 …`, or the Easy Mode address).
 
 The **Table** tab has the CLI's `--verbose` shape: a header row per topic with the pair rows
 beneath it. The header carries the document's topic aggregates (`topics[]`): the writer and
@@ -75,7 +76,8 @@ reader counts, the transports its pairs use, the latency of the slowest pair, th
 (RTPS_LOST counted once per topic, resends summed) and the unmatched reasons; it never
 sums the pair rows, so a filter that hides pairs leaves the header's numbers alone, and
 the `Hz` cell stays empty because the rate exists only per pair. Click a header to fold or
-unfold its pairs, or **Collapse all** / **Expand all** in the toolbar. Clicking a column
+unfold its pairs; the toolbar button, shown on the Table tab only, reads **Collapse all**
+while any visible topic is unfolded and **Expand all** once all are folded. Clicking a column
 header sorts topics by their aggregate and pairs within a topic by their own value
 (numbers numerically, missing values last). With statistics the pair rows include the
 packets and bytes carried during the observation, the latency, the delivered samples per
@@ -86,12 +88,25 @@ A service or an action taken with `--all` gets one header for the whole group, b
 topics, with every member pair beneath it
 ([#84](https://github.com/atinfinity/fastdds_transport_viz/issues/84)). Its writer and
 reader cells count the member pairs each way -- `1`/`1` for a complete service, `3`/`5` for
-a complete action -- and its type is the members' with the `_Request` / `_Response` tail
-taken off. `sample/services.json` is a capture to try it on
+a complete action -- and its type is the members' with the tail taken off: `_Request` /
+`_Response` for a service, which leaves the service type, and `_SendGoal_Request`,
+`_GetResult_Response`, `_FeedbackMessage` and the like for an action, which leaves the
+action type (`example_interfaces/action/Fibonacci`). `sample/services.json` is a capture to try it on
 (`index.html?src=sample/services.json`). The graph is unchanged: an edge is an arrow and an
 arrow has a direction, so each member keeps its own.
 
 ![table view](images/web-viewer-table.jpg)
+
+The filters
+(topic regex, node regex, transport checkboxes, "hide ROS internal topics" for
+`/parameter_events`, `/rosout` and the native-buffer companion topics whose every endpoint
+is folded into the parent topic, `buffer_parent_guid`) apply to the graph, the table and the edge panel (the
+node panel always lists every topic of the node). The node
+filter has the semantics of `--node`: pairs whose writer or reader belongs to a matching
+node stay, the graph keeps the matching nodes (highlighted, even without visible pairs)
+and the partner nodes of the remaining pairs, and hides the rest. An invalid regex is
+shown with a red border and filters nothing. Typing in a regex field applies it after a
+100 ms pause, or at once on Enter or when the field loses focus.
 
 ## Comparing two documents
 
@@ -122,16 +137,6 @@ the C++ function that is tested against the binary's output on the same fixture 
 
 In live mode every mark and ghost stays for three frames after its change and then
 clears, like the CLI's `--watch`.
-
-The filters
-(topic regex, node regex, transport checkboxes, "hide ROS internal topics" for
-`/parameter_events`, `/rosout` and the native-buffer companion topics whose every endpoint
-is folded into the parent topic, `buffer_parent_guid`) apply to the graph, the table and the edge panel (the
-node panel always lists every topic of the node). The node
-filter has the semantics of `--node`: pairs whose writer or reader belongs to a matching
-node stay, the graph keeps the matching nodes (highlighted, even without visible pairs)
-and the partner nodes of the remaining pairs, and hides the rest. An invalid regex is
-shown with a red border and filters nothing.
 
 ## Live mode
 
@@ -184,7 +189,9 @@ The history lives in the page: each frame's text is kept as a Blob and parsed ag
 it is shown. It starts when the page is opened and ends when the page is closed or
 reloaded; for the time before, or without a browser open, run the server with
 [`--record`](#recording-and-replaying). `?history=<MB>` bounds it (default 512; `0` keeps
-no history, and **Pause** then holds the newest frame back until **Resume**). Over the
+no history, and **Pause** then holds the newest frame back until **Resume**). `/` redirects
+to `index.html?live=1` and drops any query, so give the parameter on that address:
+`http://127.0.0.1:8765/index.html?live=1&history=1024`. Over the
 bound the oldest tenth of the frames is dropped at once and the timeline reads
 `history: 512 MB, oldest dropped`; a past frame on screen that is dropped gives way to the
 oldest kept frame, still paused, with `the frame on screen was dropped`.
@@ -220,8 +227,8 @@ The server takes its own options; every other argument is forwarded to `transpor
 
 If `transport_viz` exits, the server sends a `status` event (shown as "live: transport_viz
 exited …") and stops; its exit code is 1 if `transport_viz` failed, 0 otherwise. Stopping
-`transport_viz_web` - Ctrl-C, or SIGTERM to the process itself - also stops the
-`transport_viz` it started. In the Docker environment, `docker compose run
+`transport_viz_web` - Ctrl-C, or SIGTERM or SIGHUP to the process itself - also stops the
+`transport_viz` it started, and the server then exits with 0. In the Docker environment, `docker compose run
 --rm --service-ports dev` publishes port 8765, so `transport_viz_web --bind 0.0.0.0` inside
 the container is reachable from the host browser.
 
@@ -349,17 +356,21 @@ in 1.4-1.6 s and moves between frames in 33 ms, with about 45 MB of JavaScript h
 
 ## Large documents
 
-Measured in Chrome on an Apple M3 with documents of the scale verification (details: [development.md](development.md#scale-results)):
+Measured in headless Chrome on an Apple M3 with documents of the scale verification, after
+[#136](https://github.com/atinfinity/fastdds_transport_viz/issues/136) (details:
+[development.md](development.md#scale-results)):
 
-| Document | First render | Filtering down | Clearing a filter or clicking |
+| Document | First render | Topic filter / node filter / clearing it | Select / deselect |
 |---|---|---|---|
-| Nav2 + TurtleBot3: 244 arrows, 1195 pairs, 2.4 MB | 25 ms | < 0.1 s | < 0.1 s |
-| 1467 arrows, 5600 pairs, 15 MB | 0.16 s | < 0.1 s | 0.14 s |
-| 4217 arrows, 13 800 pairs, 31 MB | 0.7 s | < 0.1 s | 0.7 s |
+| `medium`: 378 arrows, 2400 pairs, 9.1 MB | 33 ms | 133 / 133 / 133 ms | 33 / 34 ms |
+| `large`: 1467 arrows, 5600 pairs, 16.8 MB | 53 ms | 120 / 123 / 146 ms | 35 / 33 ms |
 
-Every change of a filter, and every click, draws all visible arrows again. Above a few
-thousand arrows, narrow the view by topic or node before clicking around; clearing a filter
-or selecting costs about 0.16 ms per visible arrow ([#136](https://github.com/atinfinity/fastdds_transport_viz/issues/136)).
+The filter times include the 100 ms pause after the last keystroke before a regex filter
+applies, so the work itself is the time minus 100 ms. A change of a filter draws the visible
+arrows again: filtering down is cheap, and clearing a filter on `large` costs 46 ms above
+the pause. A click only restyles the selected arrow, node or row and fills the side panel,
+without drawing anything again, so its cost hardly grows with the document; 33 ms of the select
+times is the two-frame floor of the measurement at 60 Hz.
 
 ## JSON schema
 
