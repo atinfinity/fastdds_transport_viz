@@ -59,8 +59,9 @@ RUN chmod +x /entrypoint.sh
 ENTRYPOINT ["/entrypoint.sh"]
 CMD ["bash"]
 
-# Nav2 with the TurtleBot3 simulation (Gazebo, run headless), Jazzy and Kilted only: no Nav2
-# binaries for Lyrical yet.
+# Nav2 with the TurtleBot3 simulation (Gazebo, run headless), Jazzy only: no Nav2 binaries for
+# Lyrical yet, and Kilted, which has them, is out of scope since 1.1.0 (the 1.0.0 tag still
+# builds there).
 FROM base AS nav2
 ARG ROS_DISTRO
 RUN apt-get update && apt-get install -y --no-install-recommends \

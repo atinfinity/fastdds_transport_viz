@@ -79,9 +79,10 @@ x-large-data-env: &large_data_env
   FASTDDS_STATISTICS: RTPS_SENT_TOPIC;RTPS_LOST_TOPIC;HISTORY_LATENCY_TOPIC;PHYSICAL_DATA_TOPIC;DATA_COUNT_TOPIC;RESENT_DATAS_TOPIC;HEARTBEAT_COUNT_TOPIC;ACKNACK_COUNT_TOPIC;NACKFRAG_COUNT_TOPIC;GAP_COUNT_TOPIC
   FASTRTPS_DEFAULT_PROFILES_FILE: /ws/build/${ROS_DISTRO:-jazzy}/install/fastdds_transport_viz/share/fastdds_transport_viz/config/statistics.xml
 
-# Fast DDS 3.2+ Easy Mode (ROS2_EASY_MODE, Kilted / Lyrical / Rolling): every container
-# spawns its own Discovery Server and points it at the talker's fixed address; user data
-# goes over TCPv4 (P2P builtin transport, no multicast at all). Statistics enabled.
+# Fast DDS 3.2+ Easy Mode (ROS2_EASY_MODE, Lyrical / Rolling; Kilted, out of scope since
+# 1.1.0, has it too): every container spawns its own Discovery Server and points it at the
+# talker's fixed address; user data goes over TCPv4 (P2P builtin transport, no multicast at
+# all). Statistics enabled.
 x-easy-mode-env: &easy_mode_env
   ROS_DOMAIN_ID: ${ROS_DOMAIN_ID:-0}
   RMW_IMPLEMENTATION: ${RMW_IMPLEMENTATION:-rmw_fastrtps_cpp}
@@ -470,8 +471,9 @@ services:
     command: bash /ws/docker/scale_load.sh
 
   # Nav2 with the TurtleBot3 simulation, Gazebo headless, no goals: a real system for the scale
-  # verification (Jazzy and Kilted; image target `nav2` of docker/Dockerfile). The initial pose
-  # is published until AMCL takes it, so that the whole navigation stack becomes active.
+  # verification (Jazzy only, Kilted is out of scope since 1.1.0; image target `nav2` of
+  # docker/Dockerfile). The initial pose is published until AMCL takes it, so that the whole
+  # navigation stack becomes active.
   nav2_tb3:
     <<: *base
     profiles: [scale]
