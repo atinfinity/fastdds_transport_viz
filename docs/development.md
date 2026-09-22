@@ -337,6 +337,12 @@ run again on `main`: each change is built once, in its pull request. Every job h
 `colcon test` steps live in the composite action `.github/actions/colcon-build-test`, which
 the Rolling workflow shares.
 
+An `actionlint` job runs [actionlint](https://github.com/rhysd/actionlint) (with shellcheck
+on the `run:` scripts) over every workflow when a change touches `.github/workflows/**` or
+`.github/actions/**`, on any event; it counts towards `CI result`. Its version is pinned in
+the job (`ACTIONLINT_VERSION`) and Dependabot does not bump it. Locally, `actionlint` from
+the repository root checks the same files.
+
 A `coverage` job runs `scripts/coverage.sh` in `ros:jazzy` on x86_64 for pull requests
 that touch code and for the merge commit on `main`
 ([#80](https://github.com/atinfinity/fastdds_transport_viz/issues/80)): the C++ package
