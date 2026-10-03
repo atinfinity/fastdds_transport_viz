@@ -370,9 +370,9 @@ scripts/                           integration_test.sh (Docker scenarios), rende
                                    coverage), scale_test.sh + scale_measure.py + scale_viewer.js
                                    (scale verification, #74), multicast_stamping_test.sh +
                                    multicast_stamping_report.py + whitelist_profile.py (the #130
-                                   multicast stamping rig)
+                                   multicast stamping rig), build_docs.py (this site, #243)
 docker/, compose.yaml              development / verification containers
-docs/, mkdocs.yml                  this site (English source, *.ja.md translations)
+docs/, zensical.toml               this site (English source, *.ja.md translations)
 ```
 
 ## Extension points

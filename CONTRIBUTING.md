@@ -36,7 +36,7 @@ and Chrome), and the documentation site is built strictly; both run from the rep
 
 ```
 node --test "web/test/*.test.js"
-mkdocs build --strict
+python3 scripts/build_docs.py      # pip install -r docs/requirements.txt
 ```
 
 A change that alters behavior updates the documentation (`README*.md`, `docs/*.md`, `--help`
@@ -52,7 +52,7 @@ step with the English ones.
 - Two aggregate checks are required to pass before merging: `CI result` of
   `.github/workflows/ci.yml` (`colcon build` and `colcon test` against Humble, Jazzy, Lyrical
   and Rolling, a coverage build and the web viewer tests) and `Docs result` of
-  `.github/workflows/docs.yml` (`mkdocs build --strict` and an offline link check of every
+  `.github/workflows/docs.yml` (a strict Zensical build of the site and an offline link check of every
   Markdown file with lychee). Rolling runs with `continue-on-error`: a Rolling failure does
   not block a pull request, and the weekly `.github/workflows/rolling.yml` run reports it.
 
