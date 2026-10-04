@@ -7,6 +7,10 @@ Forthcoming
 * The development image sets ``PYTHONDONTWRITEBYTECODE=1``: the containers run as root on
   the mounted repository, and the ``__pycache__`` directories they wrote next to the sources
   could not be deleted by the host user. The ``release`` image is unchanged.
+* The documentation site is built with Zensical instead of MkDocs and Material for MkDocs
+  (#243): ``zensical.toml`` replaces ``mkdocs.yml``, and ``scripts/build_docs.py`` builds
+  the English and the Japanese site, since Zensical has no i18n plugin. The page URLs and the
+  language selector are unchanged.
 
 2.1.0 (2026-09-22)
 -------------------

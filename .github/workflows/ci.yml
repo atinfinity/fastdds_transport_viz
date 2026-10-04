@@ -31,7 +31,8 @@ jobs:
               - '**'
               - '!docs/**'
               - '!**.md'
-              - '!mkdocs.yml'
+              - '!zensical.toml'
+              - '!scripts/build_docs.py'
               - '!.github/workflows/docs.yml'
             # One pattern: with 'every' a file would have to match each line of a list.
             workflows:

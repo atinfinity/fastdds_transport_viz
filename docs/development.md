@@ -554,16 +554,24 @@ or the security policy.
 
 ## Documentation site
 
-`mkdocs.yml` builds this documentation with Material for MkDocs and `mkdocs-static-i18n`
-(English at `/`, Japanese at `/ja/` from the `*.ja.md` files, English fallback for
-untranslated pages). `.github/workflows/docs.yml` runs `mkdocs build --strict` on pull
-requests and deploys to GitHub Pages on pushes to `main`, in both cases only when `docs/**`,
-any `*.md` file, `mkdocs.yml` or the workflow itself changed (the aggregate `Docs result`
-check passes otherwise). Broken links and anchors fail the build: `mkdocs.yml` sets its
-`validation` checks to `warn`, and `--strict` turns warnings into errors. The same workflow
-runs [lychee](https://github.com/lycheeverse/lychee) offline over every Markdown file of
-the repository, which covers the files outside `docs/` and the links as GitHub renders them.
-The two differ on one point: on the site a Japanese page's link to `x.md` goes to `x.ja.md`,
+This documentation is built with [Zensical](https://zensical.org/) (#243): English at `/`,
+Japanese at `/ja/` from the `*.ja.md` files, English fallback for untranslated pages.
+Zensical has no i18n plugin, so `scripts/build_docs.py` runs two builds:
+
+- the English site is `zensical.toml` as it is, which leaves out the `*.ja.md` files;
+- the Japanese site is built from a staging copy of `docs/` in which each `x.ja.md` becomes
+  `x.md` (its links to the other `.ja.md` pages follow), with a config derived from
+  `zensical.toml`: language `ja`, the nav titles of its `[i18n.ja.nav]` table and `site_url`
+  + `ja/`. A new Japanese nav title goes in that table. An error of this build names the
+  staged `x.md`, which is `docs/x.ja.md` when that file exists.
+
+`.github/workflows/docs.yml` runs the script on pull requests and deploys `site/` to GitHub
+Pages on pushes to `main`, in both cases only when `docs/**`, any `*.md` file,
+`zensical.toml`, the script or the workflow itself changed (the aggregate `Docs result`
+check passes otherwise). Broken links and anchors fail both builds (`--strict`). The same
+workflow runs [lychee](https://github.com/lycheeverse/lychee) offline over every Markdown
+file of the repository, which covers the files outside `docs/` and the links as GitHub
+renders them. The two differ on one point: on the site a Japanese page's link to `x.md` goes to `x.ja.md`,
 on GitHub it does not, so a Japanese page links `x.ja.md` directly. The English-only pages
 (architecture, development) are also served under `/ja/`, where their links go to the
 Japanese pages; an anchor they use there needs an `<a id="...">` in the `.ja.md` file (see
@@ -571,7 +579,8 @@ how-it-works.ja.md). Locally:
 
 ```
 pip install -r docs/requirements.txt
-mkdocs serve          # http://127.0.0.1:8000/
+python3 scripts/build_docs.py --serve   # both languages: http://127.0.0.1:8000/fastdds_transport_viz/
+zensical serve                          # live preview of the English site only
 docker run --rm -v "$PWD":/w -w /w lycheeverse/lychee --offline --include-fragments --exclude-path build './**/*.md'
 ```
 

@@ -26,11 +26,12 @@ jobs:
             docs:
               - 'docs/**'
               - '**/*.md'
-              - 'mkdocs.yml'
+              - 'zensical.toml'
+              - 'scripts/build_docs.py'
               - '.github/workflows/docs.yml'
 
   build:
-    name: mkdocs build --strict
+    name: zensical build --strict
     needs: changes
     if: github.event_name == 'workflow_dispatch' || needs.changes.outputs.docs == 'true'
     runs-on: ubuntu-latest
@@ -41,14 +42,14 @@ jobs:
           python-version: "3.x"
           cache: pip
       - run: pip install -r docs/requirements.txt
-      - run: mkdocs build --strict
+      - run: python3 scripts/build_docs.py
       - uses: actions/upload-pages-artifact@v5
         if: github.event_name != 'pull_request'
         with:
           path: site
 
   # Relative links and #anchors in every Markdown file of the repository, as GitHub renders
-  # them (mkdocs above checks the site, where a Japanese page's link to `x.md` goes to
+  # them (the build above checks the site, where a Japanese page's link to `x.md` goes to
   # `x.ja.md`). Offline: web URLs are not fetched.
   links:
     name: link check (lychee)

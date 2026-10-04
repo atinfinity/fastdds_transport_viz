@@ -82,7 +82,7 @@ Every pull request runs [`.github/workflows/ci.yml`](../../.github/workflows/ci.
 - a coverage build (Jazzy, x86_64) reported to [Coveralls](https://coveralls.io/github/atinfinity/fastdds_transport_viz);
 - the web viewer's unit and headless-browser tests (Node).
 
-`Docs result` covers `mkdocs build --strict` of the documentation site and an offline link check of every Markdown file (lychee).
+`Docs result` covers a strict build of the documentation site (Zensical, `scripts/build_docs.py`) and an offline link check of every Markdown file (lychee).
 
 Merges to `main` also run the multi-container integration scenarios (`scripts/integration_test.sh`) on x86_64 and arm64, and [`.github/workflows/rolling.yml`](../../.github/workflows/rolling.yml) builds and tests Rolling every week on both architectures, opening an issue when it breaks; that is where a Rolling breakage is reported.
 
