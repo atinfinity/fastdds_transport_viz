@@ -2,6 +2,12 @@
 Changelog for package fastdds_transport_viz
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* The development image sets ``PYTHONDONTWRITEBYTECODE=1``: the containers run as root on
+  the mounted repository, and the ``__pycache__`` directories they wrote next to the sources
+  could not be deleted by the host user. The ``release`` image is unchanged.
+
 2.1.0 (2026-09-22)
 -------------------
 * A ready-to-run image on GHCR (#78): ``ghcr.io/atinfinity/fastdds_transport_viz`` with

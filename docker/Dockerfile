@@ -38,6 +38,10 @@ RUN apt-get update && apt-get upgrade -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 ENV RMW_IMPLEMENTATION=rmw_fastrtps_cpp
+# The container runs as root on the mounted repository: bytecode caches written next to the
+# sources (src/**/__pycache__, scripts/__pycache__) would be root-owned and undeletable by
+# the host user.
+ENV PYTHONDONTWRITEBYTECODE=1
 
 # Every distribution builds into its own tree in the mounted repository,
 # /ws/build/<distro>/{build,install,log}, so that switching ROS_DISTRO never reuses the CMake
@@ -77,6 +81,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # --reinstall lists the ones this image already has as well.
 FROM base AS release-build
 ARG ROS_DISTRO
+# No /ws mount here: let the install tree get its compiled bytecode.
+ENV PYTHONDONTWRITEBYTECODE=
 COPY src /src/src
 COPY web /src/web
 WORKDIR /src
