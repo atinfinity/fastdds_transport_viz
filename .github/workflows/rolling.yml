@@ -25,10 +25,9 @@ jobs:
       fail-fast: false
       matrix:
         arch: [x86_64, arm64]
+        # rmw_fastrtps_cpp only: Rolling no longer ships rmw_fastrtps_dynamic_cpp
+        # (ros2/rmw_fastrtps#923, #245); ci.yml covers it on Humble, Jazzy and Lyrical.
         rmw: [rmw_fastrtps_cpp]
-        include:
-          - arch: x86_64
-            rmw: rmw_fastrtps_dynamic_cpp
     defaults:
       run:
         shell: bash

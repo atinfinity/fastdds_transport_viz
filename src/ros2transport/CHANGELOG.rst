@@ -2,6 +2,11 @@
 Changelog for package ros2transport
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* No change to the package. ``rmw_fastrtps_dynamic_cpp`` stays accepted; it exists on
+  Humble, Jazzy and Lyrical only, since Rolling removed it (ros2/rmw_fastrtps#923, #245).
+
 2.1.0 (2026-09-22)
 -------------------
 * No change to the package; released with ``fastdds_transport_viz`` 2.1.0, whose image on

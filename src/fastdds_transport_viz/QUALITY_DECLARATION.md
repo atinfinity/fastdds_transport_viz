@@ -78,7 +78,7 @@ Not required at Level 3. The project has one maintainer, and pull requests are n
 Every pull request runs [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) and [`.github/workflows/docs.yml`](../../.github/workflows/docs.yml), whose aggregate checks `CI result` and `Docs result` are required before merging.
 `CI result` covers:
 
-- `colcon build` and `colcon test` on Humble, Jazzy, Lyrical and Rolling (x86_64), Jazzy and Lyrical on arm64, and the released distributions again with `rmw_fastrtps_dynamic_cpp`; Rolling runs with `continue-on-error` and does not block a pull request;
+- `colcon build` and `colcon test` on Humble, Jazzy, Lyrical and Rolling (x86_64), Jazzy and Lyrical on arm64, and Humble, Jazzy and Lyrical again with `rmw_fastrtps_dynamic_cpp` (Rolling no longer ships it, [ros2/rmw_fastrtps#923](https://github.com/ros2/rmw_fastrtps/pull/923)); Rolling runs with `continue-on-error` and does not block a pull request;
 - a coverage build (Jazzy, x86_64) reported to [Coveralls](https://coveralls.io/github/atinfinity/fastdds_transport_viz);
 - the web viewer's unit and headless-browser tests (Node).
 
@@ -124,7 +124,7 @@ No centralized list of Level 3 packages exists, and the claim has not been throu
 Level 3 has no testing requirement. The package has, all run by `colcon test` in CI:
 
 - gtest unit tests of the decision logic and the renderers, which build endpoints by hand without a DDS participant; of the shared-memory inspection, against a fake `/dev/shm` directory; and of the statistics, discovery and `ros_discovery_info` observers, with real Fast DDS participants on private domains;
-- `launch_testing` tests that start real ROS 2 nodes in one host and check the predicted and measured transports (SHM, UDPv4, UDPv6, TCPv4 for large data, data-sharing, Discovery Server, Easy Mode, type mismatches, services and actions, `--watch`, `--json` against the schema, `transport_viz_web`), under `rmw_fastrtps_cpp` and `rmw_fastrtps_dynamic_cpp`;
+- `launch_testing` tests that start real ROS 2 nodes in one host and check the predicted and measured transports (SHM, UDPv4, UDPv6, TCPv4 for large data, data-sharing, Discovery Server, Easy Mode, type mismatches, services and actions, `--watch`, `--json` against the schema, `transport_viz_web`), under `rmw_fastrtps_cpp` and `rmw_fastrtps_dynamic_cpp` (the latter on Humble, Jazzy and Lyrical);
 - pytest tests of the command line and of `transport_viz_web`;
 - the linters of `ament_lint_common` (cpplint, uncrustify, cppcheck, flake8, pep257, lint_cmake, xmllint), with `ament_copyright` disabled as explained above.
 
@@ -179,7 +179,7 @@ The tier 1 Ubuntu platforms are supported:
 | Lyrical | Ubuntu 26.04 amd64 and arm64 | CI; REP-2000 has no Lyrical section yet, so the target is the Ubuntu of the `ros:lyrical` image |
 | Rolling | Ubuntu 26.04 amd64 (arm64 weekly) | CI and the weekly Rolling workflow |
 
-Only the Fast DDS RMWs are supported (`rmw_fastrtps_cpp` and `rmw_fastrtps_dynamic_cpp`); the tool refuses to start on another RMW.
+Only the Fast DDS RMWs are supported (`rmw_fastrtps_cpp`, and `rmw_fastrtps_dynamic_cpp` on Humble, Jazzy and Lyrical, the distributions that still ship it); the tool refuses to start on another RMW.
 
 ## Security [7]
 

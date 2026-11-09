@@ -31,8 +31,10 @@ stderr). Native builds and CI keep colcon's default `build/` and `install/`
 
 Every compose service takes `RMW_IMPLEMENTATION` from the host shell (default
 `rmw_fastrtps_cpp`), so `RMW_IMPLEMENTATION=rmw_fastrtps_dynamic_cpp docker compose run
---rm dev bash` gives a shell whose `colcon test` runs the whole suite on the dynamic RMW,
-and the same prefix on `scripts/integration_test.sh` switches the observed nodes.
+--rm dev bash` gives a shell whose `colcon test` runs the whole suite on the dynamic RMW
+(Humble, Jazzy and Lyrical only: Rolling removed it in
+[ros2/rmw_fastrtps#923](https://github.com/ros2/rmw_fastrtps/pull/923), so neither `package.xml` nor the Rolling image has it,
+[#245](https://github.com/atinfinity/fastdds_transport_viz/issues/245)), and the same prefix on `scripts/integration_test.sh` switches the observed nodes.
 
 The published image ([getting-started](getting-started.md#docker-prebuilt-image-ghcr),
 [#78](https://github.com/atinfinity/fastdds_transport_viz/issues/78)) is the `release` stage
@@ -387,7 +389,8 @@ result XML files and launch logs are uploaded as a workflow artifact per distrib
 architecture and RMW. The matrix's `rmw` axis is `rmw_fastrtps_cpp` everywhere plus one
 `rmw_fastrtps_dynamic_cpp` job each for Humble, Jazzy and Lyrical on x86_64
 ([#73](https://github.com/atinfinity/fastdds_transport_viz/issues/73)); `package.xml`
-declares `rmw_fastrtps_dynamic_cpp` as a test dependency so `rosdep` installs it. These
+declares `rmw_fastrtps_dynamic_cpp` as a test dependency on those three distributions so
+`rosdep` installs it ([#245](https://github.com/atinfinity/fastdds_transport_viz/issues/245)). These
 jobs block pull requests like the default-RMW ones. `main` is protected: pull requests merge only when the `CI result` and
 `Docs result` jobs are green; they succeed when every job of their workflow passed or was
 skipped for a change that does not concern it (Rolling does not count).
@@ -427,8 +430,9 @@ but nothing gates on the percentage, and a Coveralls outage does not fail the jo
 `.github/workflows/rolling.yml` runs every Monday at 03:00 UTC (and on `workflow_dispatch`)
 against `ros:rolling`, which tracks the Fast DDS head and is only a non-blocking x86_64 job
 in the pull-request matrix ([#79](https://github.com/atinfinity/fastdds_transport_viz/issues/79)):
-`colcon build` and `colcon test` on x86_64 and arm64 (plus `rmw_fastrtps_dynamic_cpp` on
-x86_64, 30 minutes each) and `scripts/integration_test.sh all` on both architectures (45
+`colcon build` and `colcon test` on x86_64 and arm64 (30 minutes each; `rmw_fastrtps_cpp`
+only, since Rolling no longer ships `rmw_fastrtps_dynamic_cpp`,
+[#245](https://github.com/atinfinity/fastdds_transport_viz/issues/245)) and `scripts/integration_test.sh all` on both architectures (45
 minutes each), none of them `continue-on-error`. Its `report` job opens the issue "Scheduled Rolling run failed" (label
 `rolling-ci`) with the run URL and the failed jobs when something broke, adds a comment to it
 while it stays open, and closes it once a run passes again. A `simulate_failure` input of

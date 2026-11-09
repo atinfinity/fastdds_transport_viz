@@ -5,7 +5,8 @@
 **ROS 2 の各トピックが Fast DDS のどの transport で通信しているか** — UDPv4、UDPv6、TCP、
 共有メモリ (SHM)、zero-copy の data-sharing — を、**その理由とともに**表示します。
 
-いずれも `rmw_fastrtps_cpp` を使用します (`rmw_fastrtps_dynamic_cpp` でも同じです):
+いずれも `rmw_fastrtps_cpp` を使用します (Humble、Jazzy、Lyrical では `rmw_fastrtps_dynamic_cpp` でも同じです。
+Rolling には含まれなくなりました):
 
 | ROS 2 ディストリ | Fast DDS | 備考 |
 |---|---|---|
@@ -142,7 +143,8 @@ ros2 transport codes
 ## 制限事項
 
 - **Fast DDS の RMW 専用。** `rmw_fastrtps_cpp` と `rmw_fastrtps_dynamic_cpp` に対応しています
-  (launch テスト一式が両方で通ります。CI 参照)。CycloneDDS、Connext のノードは対象外で、
+  (launch テスト一式が両方で通ります。CI 参照。dynamic は Lyrical までで、Rolling では
+  [ros2/rmw_fastrtps#923](https://github.com/ros2/rmw_fastrtps/pull/923) で削除されました)。CycloneDDS、Connext のノードは対象外で、
   ROS ノードでない Fast DDS participant は `--all` でのみ表示されます (エンドポイントを持たない
   Discovery Server は `--json` の `participants`、`-v` のフッタ、web viewer にだけ出ます)。
   別の RMW ではツールは起動しません (その RMW 名を示して exit 1)。

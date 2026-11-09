@@ -10,7 +10,8 @@ Documentation site: <https://atinfinity.github.io/fastdds_transport_viz/>
 Shows **which Fast DDS transport each ROS 2 topic is communicated over** — UDPv4,
 UDPv6, TCP, shared memory (SHM) or zero-copy data-sharing — **and why**.
 
-All distros below use `rmw_fastrtps_cpp` (`rmw_fastrtps_dynamic_cpp` works the same):
+All distros below use `rmw_fastrtps_cpp` (`rmw_fastrtps_dynamic_cpp` works the same on Humble,
+Jazzy and Lyrical; Rolling no longer ships it):
 
 | ROS 2 distro | Fast DDS | Notes |
 |---|---|---|
@@ -152,7 +153,8 @@ way and highlights the result. Details in
 ## Limitations
 
 - **Fast DDS RMWs only.** `rmw_fastrtps_cpp` and `rmw_fastrtps_dynamic_cpp` are supported
-  (the launch test suite passes on both, see CI); nodes on CycloneDDS or Connext are not
+  (the launch test suite passes on both, see CI; the dynamic one exists up to Lyrical only, as
+  Rolling removed it in [ros2/rmw_fastrtps#923](https://github.com/ros2/rmw_fastrtps/pull/923)); nodes on CycloneDDS or Connext are not
   covered, and Fast DDS participants that are not ROS nodes appear only with `--all`
   (Discovery Servers, which have no endpoints, only in the `participants` section of
   `--json`, the `-v` footer and the web viewer).
