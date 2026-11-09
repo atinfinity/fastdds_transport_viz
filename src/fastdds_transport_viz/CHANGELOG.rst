@@ -4,6 +4,11 @@ Changelog for package fastdds_transport_viz
 
 Forthcoming
 -----------
+* Rolling no longer ships ``rmw_fastrtps_dynamic_cpp`` (removed upstream in
+  ros2/rmw_fastrtps#923, released in rmw_fastrtps 9.6.1), which broke ``rosdep`` and the
+  image build there (#245). The ``rmw_fastrtps_dynamic_cpp`` test dependency and the
+  image's install of it are limited to Humble, Jazzy and Lyrical, and the weekly Rolling run
+  tests ``rmw_fastrtps_cpp`` only. The tool still accepts ``rmw_fastrtps_dynamic_cpp``.
 * The development image sets ``PYTHONDONTWRITEBYTECODE=1``: the containers run as root on
   the mounted repository, and the ``__pycache__`` directories they wrote next to the sources
   could not be deleted by the host user. The ``release`` image is unchanged.

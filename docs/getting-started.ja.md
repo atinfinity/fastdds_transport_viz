@@ -4,7 +4,7 @@
 
 このページでは、素の ROS 2 環境から、最初の `ros2 transport list`、statistics、web viewer
 までを通します。動作環境は Linux です。ツールは Fast DDS を観測するので、観測対象のノードは
-`rmw_fastrtps_cpp` (Jazzy、Lyrical、Rolling の既定 RMW) か `rmw_fastrtps_dynamic_cpp` を使っている必要があります。
+`rmw_fastrtps_cpp` (Jazzy、Lyrical、Rolling の既定 RMW) か `rmw_fastrtps_dynamic_cpp` (Humble、Jazzy、Lyrical。Rolling には含まれなくなりました) を使っている必要があります。
 
 | ROS 2 ディストリビューション | Fast DDS | 備考 |
 |---|---|---|
@@ -72,7 +72,7 @@ docker run --rm --net host --ipc host ghcr.io/atinfinity/fastdds_transport_viz:j
 
 - `ROS_DOMAIN_ID`
 - `RMW_IMPLEMENTATION` (イメージでは `rmw_fastrtps_cpp`。`rmw_fastrtps_dynamic_cpp` も
-  入っています)
+  入っています。Rolling には含まれなくなったので除く)
 - `ROS_AUTOMATIC_DISCOVERY_RANGE` と `ROS_STATIC_PEERS` (Jazzy 以降)、
   `ROS_LOCALHOST_ONLY` (Humble)
 - `ROS_DISCOVERY_SERVER`、`ROS2_EASY_MODE`

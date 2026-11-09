@@ -3,7 +3,8 @@
 This page takes you from a plain ROS 2 installation to the first `ros2 transport list`,
 with statistics and the web viewer. Everything runs on Linux; the tool observes Fast DDS,
 so the nodes you look at must use `rmw_fastrtps_cpp` (the default RMW of Jazzy, Lyrical
-and Rolling) or `rmw_fastrtps_dynamic_cpp`.
+and Rolling) or `rmw_fastrtps_dynamic_cpp` (Humble, Jazzy and Lyrical; Rolling no longer
+ships it).
 
 | ROS 2 distribution | Fast DDS | Notes |
 |---|---|---|
@@ -71,7 +72,7 @@ set for discovery and the RMW; a difference hides nodes or changes the predictio
 
 - `ROS_DOMAIN_ID`
 - `RMW_IMPLEMENTATION` (`rmw_fastrtps_cpp` in the image; `rmw_fastrtps_dynamic_cpp` is
-  installed too)
+  installed too, except on Rolling, which no longer ships it)
 - `ROS_AUTOMATIC_DISCOVERY_RANGE` and `ROS_STATIC_PEERS` (Jazzy and later),
   `ROS_LOCALHOST_ONLY` (Humble)
 - `ROS_DISCOVERY_SERVER`, `ROS2_EASY_MODE`

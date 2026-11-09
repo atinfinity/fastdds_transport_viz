@@ -17,7 +17,13 @@ ENV DEBIAN_FRONTEND=noninteractive
 # Upgrade before installing: the ros:<distro> image lags the apt repo, and freshly published
 # packages (demo_nodes_cpp, example_interfaces) next to the stale preinstalled typesupport
 # (service_msgs) make the talker die with an undefined symbol (#162, #171).
-RUN apt-get update && apt-get upgrade -y --no-install-recommends \
+# rmw_fastrtps_dynamic_cpp exists up to Lyrical only: Rolling removed it
+# (ros2/rmw_fastrtps#923), and so will every later distro (#245).
+RUN case "${ROS_DISTRO}" in \
+        humble|jazzy|lyrical) dynamic_rmw="ros-${ROS_DISTRO}-rmw-fastrtps-dynamic-cpp" ;; \
+        *) dynamic_rmw="" ;; \
+    esac \
+    && apt-get update && apt-get upgrade -y --no-install-recommends \
     && apt-get install -y --no-install-recommends \
         build-essential \
         cmake \
@@ -29,7 +35,7 @@ RUN apt-get update && apt-get upgrade -y --no-install-recommends \
         python3-jsonschema \
         python3-pytest \
         ros-${ROS_DISTRO}-demo-nodes-cpp \
-        ros-${ROS_DISTRO}-rmw-fastrtps-dynamic-cpp \
+        ${dynamic_rmw} \
         ros-${ROS_DISTRO}-launch-testing \
         ros-${ROS_DISTRO}-launch-testing-ros \
         ros-${ROS_DISTRO}-ament-cmake-gtest \
@@ -103,7 +109,8 @@ RUN . "/opt/ros/${ROS_DISTRO}/setup.sh" \
 
 # The published image. Upgraded before installing for the same reason as `base` (#171).
 # rmw_fastrtps_dynamic_cpp is a test dependency of the package, installed here so that
-# RMW_IMPLEMENTATION can match nodes that use it.
+# RMW_IMPLEMENTATION can match nodes that use it, on the distros that still ship it (as in
+# `base`; ros2/rmw_fastrtps#923, #245).
 FROM ros:${ROS_DISTRO}-ros-core AS release
 ARG ROS_DISTRO
 ARG VERSION=unknown
@@ -115,9 +122,13 @@ LABEL org.opencontainers.image.title="fastdds_transport_viz" \
       org.opencontainers.image.version="${VERSION}"
 ENV DEBIAN_FRONTEND=noninteractive
 COPY --from=release-build /exec-apt.txt /tmp/exec-apt.txt
-RUN apt-get update && apt-get upgrade -y --no-install-recommends \
+RUN case "${ROS_DISTRO}" in \
+        humble|jazzy|lyrical) dynamic_rmw="ros-${ROS_DISTRO}-rmw-fastrtps-dynamic-cpp" ;; \
+        *) dynamic_rmw="" ;; \
+    esac \
+    && apt-get update && apt-get upgrade -y --no-install-recommends \
     && xargs -a /tmp/exec-apt.txt apt-get install -y --no-install-recommends \
-        "ros-${ROS_DISTRO}-rmw-fastrtps-dynamic-cpp" \
+        ${dynamic_rmw} \
     && rm -rf /var/lib/apt/lists/* /tmp/exec-apt.txt
 COPY --from=release-build /opt/fastdds_transport_viz /opt/fastdds_transport_viz
 ENV RMW_IMPLEMENTATION=rmw_fastrtps_cpp
